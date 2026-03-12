@@ -1,0 +1,23 @@
+# Production overlay — use with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Requires HTTPS in front of Epure (reverse proxy or TLS terminator).
+# Role passwords come from the environment; example `epure:epure` values are refused at boot.
+
+services:
+  epure:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set me}
+      DATABASE_URL: postgres://epure:${POSTGRES_PASSWORD}@postgres:5432/epure
+      EPURE_INGEST_DATABASE_URL: postgres://epure_ingest:${EPURE_INGEST_PASSWORD:?set me}@postgres:5432/epure
+      EPURE_APP_DATABASE_URL: postgres://epure_app:${EPURE_APP_PASSWORD:?set me}@postgres:5432/epure
+      EPURE_SESSION_SECURE: "1"
+      EPURE_PUBLIC_URL: ${EPURE_PUBLIC_URL:?set me}
+      EPURE_CORS_ORIGINS: ${EPURE_CORS_ORIGINS:?set me}
+    ports:
+      - "8080:8080"
+
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set me}
+    ports: []

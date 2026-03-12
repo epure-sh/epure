@@ -1,0 +1,63 @@
+{
+  "platform": "node",
+  "level": "error",
+  "environment": "staging",
+  "release": "api@1.8.2",
+  "transaction": "deploy/migrate",
+  "tags": {
+    "service": "deploy",
+    "seed_slug": "node-prisma-migration",
+    "seed_status": "ignored",
+    "seed_age_days": "12"
+  },
+  "user": {
+    "id": "svc_deploy",
+    "email": "deploy@acme-corp.com"
+  },
+  "contexts": {
+    "runtime": {
+      "name": "node",
+      "version": "20.11.0"
+    },
+    "os": {
+      "name": "linux"
+    }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "P3009: migrate found failed migrations",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "/app/src/deploy/migrate.ts",
+              "function": "runMigrations",
+              "lineno": 18,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "    raise Error('P3009: migrate found failed migrations')",
+              "pre_context": [
+                "// runMigrations()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "default",
+        "category": "log",
+        "level": "info",
+        "message": "deploy/migrate started"
+      }
+    ]
+  }
+}

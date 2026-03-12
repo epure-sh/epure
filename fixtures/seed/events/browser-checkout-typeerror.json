@@ -1,0 +1,157 @@
+{
+  "platform": "javascript",
+  "level": "error",
+  "environment": "production",
+  "release": "web@2.14.0",
+  "transaction": "/checkout",
+  "tags": {
+    "feature": "checkout",
+    "page": "checkout"
+  },
+  "user": {
+    "id": "usr_8f3a2b1c",
+    "email": "alice@acme-corp.com",
+    "username": "alice"
+  },
+  "contexts": {
+    "browser": {
+      "name": "Chrome",
+      "version": "128.0.0.0"
+    },
+    "os": {
+      "name": "macOS",
+      "version": "14.6"
+    },
+    "runtime": {
+      "name": "browser",
+      "version": "128.0.0.0"
+    }
+  },
+  "request": {
+    "url": "https://app.acme-corp.com/checkout",
+    "method": "GET",
+    "headers": {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+    }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "TypeError",
+        "value": "Cannot read properties of undefined (reading 'price')",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "webpack:///./node_modules/react-dom/cjs/react-dom.production.min.js",
+              "function": "Object.invokeGuardedCallbackDev",
+              "lineno": 4213,
+              "colno": 16,
+              "in_app": false
+            },
+            {
+              "filename": "webpack:///./src/hooks/useCart.ts",
+              "function": "calculateTotal",
+              "lineno": 34,
+              "colno": 58,
+              "in_app": true,
+              "context_line": "  return items.reduce((sum, item) => sum + item.price, 0);",
+              "pre_context": [
+                "export function calculateTotal(items: CartItem[] | undefined) {",
+                "  if (!items?.length) return 0;"
+              ],
+              "post_context": [
+                "}",
+                ""
+              ]
+            },
+            {
+              "filename": "webpack:///./src/components/CheckoutForm.tsx",
+              "function": "handleSubmit",
+              "lineno": 87,
+              "colno": 19,
+              "in_app": true,
+              "context_line": "    const total = calculateTotal(cart.items);",
+              "pre_context": [
+                "  const handleSubmit = async () => {",
+                "    setSubmitting(true);"
+              ],
+              "post_context": [
+                "    await submitOrder({ total });",
+                "  };"
+              ]
+            },
+            {
+              "filename": "webpack:///./src/components/CheckoutForm.tsx",
+              "function": "onClick",
+              "lineno": 142,
+              "colno": 7,
+              "in_app": true,
+              "context_line": "      handleSubmit();",
+              "pre_context": [
+                "    <Button",
+                "      onClick={() => {"
+              ],
+              "post_context": [
+                "      }}",
+                "    >"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.12,
+        "type": "navigation",
+        "category": "navigation",
+        "level": "info",
+        "message": "Navigated to /cart"
+      },
+      {
+        "timestamp": 1726214402.45,
+        "type": "default",
+        "category": "ui.click",
+        "level": "info",
+        "message": "body > div#root > main > button.checkout-cta",
+        "data": { "label": "Proceed to checkout" }
+      },
+      {
+        "timestamp": 1726214403.01,
+        "type": "navigation",
+        "category": "navigation",
+        "level": "info",
+        "message": "Navigated to /checkout"
+      },
+      {
+        "timestamp": 1726214405.88,
+        "type": "http",
+        "category": "fetch",
+        "level": "info",
+        "message": "GET /api/cart",
+        "data": {
+          "method": "GET",
+          "url": "/api/cart",
+          "status_code": 200
+        }
+      },
+      {
+        "timestamp": 1726214408.33,
+        "type": "default",
+        "category": "ui.click",
+        "level": "info",
+        "message": "Place order",
+        "data": { "label": "Place order" }
+      },
+      {
+        "timestamp": 1726214408.91,
+        "type": "default",
+        "category": "console",
+        "level": "error",
+        "message": "TypeError: Cannot read properties of undefined (reading 'price')"
+      }
+    ]
+  }
+}

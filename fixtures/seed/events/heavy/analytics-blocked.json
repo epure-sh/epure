@@ -1,0 +1,97 @@
+{
+  "platform": "javascript",
+  "level": "error",
+  "environment": "production",
+  "release": "web@2.13.0",
+  "transaction": "/",
+  "tags": {
+    "feature": "analytics",
+    "seed_slug": "analytics-blocked",
+    "seed_status": "resolved",
+    "seed_age_days": "15"
+  },
+  "user": {
+    "id": "usr_placeholder",
+    "email": "user@acme-corp.com",
+    "username": "user"
+  },
+  "contexts": {
+    "browser": {
+      "name": "Chrome",
+      "version": "128.0.0.0"
+    },
+    "os": {
+      "name": "macOS",
+      "version": "14.6"
+    },
+    "runtime": {
+      "name": "browser",
+      "version": "128.0.0.0"
+    }
+  },
+  "request": {
+    "url": "https://app.acme-corp.com/",
+    "method": "GET"
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "Analytics beacon blocked by content blocker",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "webpack:///./node_modules/react-dom/cjs/react-dom.production.min.js",
+              "function": "invokeGuardedCallback",
+              "lineno": 4213,
+              "colno": 1,
+              "in_app": false
+            },
+            {
+              "filename": "webpack:///./src/lib/analytics.ts",
+              "function": "trackPage",
+              "lineno": 21,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "  // Analytics beacon blocked by content blocker",
+              "pre_context": [
+                "// trackPage()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "navigation",
+        "category": "navigation",
+        "level": "info",
+        "message": "Navigated to /"
+      },
+      {
+        "timestamp": 1726214402.0,
+        "type": "http",
+        "category": "fetch",
+        "level": "info",
+        "message": "GET /",
+        "data": {
+          "status_code": 200
+        }
+      },
+      {
+        "timestamp": 1726214404.0,
+        "type": "default",
+        "category": "console",
+        "level": "error",
+        "message": "Error: Analytics beacon blocked by content blocker"
+      }
+    ]
+  }
+}

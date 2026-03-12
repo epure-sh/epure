@@ -1,0 +1,67 @@
+{
+  "platform": "javascript",
+  "level": "error",
+  "environment": "staging",
+  "release": "mobile@3.1.4",
+  "transaction": "App/Startup",
+  "tags": {
+    "feature": "analytics",
+    "seed_slug": "mobile-analytics-sdk",
+    "seed_age_days": "6"
+  },
+  "user": {
+    "id": "mobile_user_placeholder",
+    "email": "mobile@acme-corp.com"
+  },
+  "contexts": {
+    "device": {
+      "family": "iPhone",
+      "model": "iPhone 15 Pro"
+    },
+    "os": {
+      "name": "iOS",
+      "version": "17.5"
+    },
+    "runtime": {
+      "name": "react-native",
+      "version": "0.74.0"
+    }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "Analytics SDK init failed: missing write key",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "app:///lib/analytics.ts",
+              "function": "initAnalytics",
+              "lineno": 14,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "  // Analytics SDK init failed: missing write key",
+              "pre_context": [
+                "// initAnalytics()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "navigation",
+        "category": "navigation",
+        "level": "info",
+        "message": "Screen: App/Startup"
+      }
+    ]
+  }
+}

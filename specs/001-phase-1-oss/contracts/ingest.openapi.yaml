@@ -1,0 +1,512 @@
+openapi: 3.1.0
+info:
+  title: Epure Ingest API
+  description: |
+    Sentry-compatible exception ingest endpoints for Epure Phase 1 OSS.
+
+    **Scope**: exception events only. Transaction envelope items are accepted
+    then discarded. Not a full Sentry protocol implementation — see compatibility
+    matrix in project README.
+
+    **Auth**: DSN credentials via `X-Sentry-Auth` header or query parameters.
+    Dashboard session cookies are **not** valid on these routes.
+  version: 0.1.0
+  contact:
+    name: Epure
+    url: https://epure.sh
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://{host}
+    description: Self-hosted instance
+    variables:
+      host:
+        default: epure.example.com
+
+tags:
+  - name: ingest
+    description: Sentry wire-compatible exception ingest
+  - name: health
+    description: Operational health
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      operationId: getHealth
+      responses:
+        "200":
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/{project_id}/envelope/:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    options:
+      tags: [ingest]
+      summary: CORS preflight for envelope ingest
+      operationId: optionsEnvelope
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/AccessControlRequestMethod"
+        - $ref: "#/components/parameters/AccessControlRequestHeaders"
+      responses:
+        "200":
+          description: CORS allowed
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+                example: POST, OPTIONS
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+                example: X-Sentry-Auth, Content-Type, Content-Encoding
+            Access-Control-Max-Age:
+              schema:
+                type: integer
+        "204":
+          description: CORS allowed (no content)
+
+    post:
+      tags: [ingest]
+      summary: Sentry envelope ingest
+      description: |
+        Accepts `application/x-sentry-envelope` bodies per Sentry envelope spec.
+
+        - **`event` items**: parsed and queued for persistence.
+        - **`transaction` items**: discarded (exception-only product).
+        - **`attachment` items**: ignored in Phase 1 (metadata not stored at scale).
+
+        Returns **202 Accepted** immediately; persistence is asynchronous.
+      operationId: postEnvelope
+      security:
+        - SentryAuth: []
+        - SentryQueryAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SentryKeyQuery"
+        - $ref: "#/components/parameters/SentrySecretQuery"
+      requestBody:
+        required: true
+        content:
+          application/x-sentry-envelope:
+            schema:
+              type: string
+              format: binary
+              description: |
+                Newline-delimited envelope: `{item_headers}\n{item_payload}\n` repeated.
+            examples:
+              minimalEvent:
+                summary: Single exception event item
+                value: |
+                  {"event_id":"550e8400-e29b-41d4-a716-446655440000","sdk":{"name":"sentry.javascript.browser"}}
+                  {"type":"event","length":85}
+                  {"exception":{"values":[{"type":"TypeError","value":"Cannot read property 'x'"}]},"platform":"javascript"}
+      responses:
+        "202":
+          description: Event accepted for async processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestAccepted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+
+  /api/{project_id}/store/:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    options:
+      tags: [ingest]
+      summary: CORS preflight for legacy store ingest
+      operationId: optionsStore
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      responses:
+        "200":
+          description: CORS allowed
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+
+    post:
+      tags: [ingest]
+      summary: Sentry legacy store ingest
+      description: |
+        Accepts a single JSON event body. Supports gzip/zlib compression via
+        `Content-Encoding` header (decompressed asynchronously in worker).
+
+        Legacy SDKs and curl reporters use this path instead of envelope.
+      operationId: postStore
+      security:
+        - SentryAuth: []
+        - SentryQueryAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SentryKeyQuery"
+        - $ref: "#/components/parameters/SentrySecretQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SentryEvent"
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              description: gzip/zlib-compressed JSON event
+      responses:
+        "202":
+          description: Event accepted for async processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestAccepted"
+        "200":
+          description: Event accepted (legacy SDK compatibility)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestAccepted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+
+  /api/{project_id}/releases/{version}/files/:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - name: version
+        in: path
+        required: true
+        description: Release version label (e.g. `1.0.0`)
+        schema:
+          type: string
+          example: "1.0.0"
+    options:
+      tags: [ingest]
+      summary: CORS preflight for release artifact upload
+      operationId: optionsReleaseFiles
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      responses:
+        "204":
+          description: CORS allowed
+
+    post:
+      tags: [ingest]
+      summary: Upload release artifacts (source maps)
+      description: |
+        Accepts multipart uploads compatible with `@sentry/cli` and CI plugins.
+
+        Form fields:
+        - `name` — artifact path (e.g. `~/dist/app.min.js.map`)
+        - `file` — artifact bytes (typically a `.map` file)
+
+        Files are stored under `EPURE_ARTIFACTS_DIR` for JS/TS demangling.
+      operationId: postReleaseFiles
+      security:
+        - SentryAuth: []
+        - SentryQueryAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SentryKeyQuery"
+        - $ref: "#/components/parameters/SentrySecretQuery"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                name:
+                  type: string
+                  description: Artifact filename or sentry-cli path prefix
+                  example: ~/dist/app.min.js.map
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Artifact stored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, name]
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+
+  /api/{project_id}/user-feedback/:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    options:
+      tags: [ingest]
+      summary: CORS preflight for user crash feedback
+      operationId: optionsUserFeedback
+      parameters:
+        - $ref: "#/components/parameters/Origin"
+      responses:
+        "204":
+          description: CORS allowed
+
+    post:
+      tags: [ingest]
+      summary: Submit user crash feedback linked to an event
+      description: |
+        Accepts end-user comments, name, and email for a specific ingested event.
+        Email values are scrubbed for secrets before persistence (same rules as event ingest).
+
+        Compatible with Sentry user-feedback dialog payloads scoped to `event_id`.
+      operationId: postUserFeedback
+      security:
+        - SentryAuth: []
+        - SentryQueryAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SentryKeyQuery"
+        - $ref: "#/components/parameters/SentrySecretQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserFeedbackRequest"
+      responses:
+        "201":
+          description: Feedback stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserFeedbackAccepted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Event not found for project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: event_not_found
+                message: Event not found for project
+
+components:
+  securitySchemes:
+    SentryAuth:
+      type: apiKey
+      in: header
+      name: X-Sentry-Auth
+      description: |
+        Format: `Sentry sentry_version=7, sentry_key={public_key}, sentry_secret={secret_key}`
+
+        Secret comparison uses constant-time equality.
+    SentryQueryAuth:
+      type: apiKey
+      in: query
+      name: sentry_key
+      description: |
+        Alternative DSN auth via query: `sentry_key` + `sentry_secret` parameters.
+        Prefer header auth in production.
+
+  parameters:
+    ProjectId:
+      name: project_id
+      in: path
+      required: true
+      description: Project UUID embedded in the DSN path
+      schema:
+        type: string
+        format: uuid
+        example: 550e8400-e29b-41d4-a716-446655440000
+
+    SentryKeyQuery:
+      name: sentry_key
+      in: query
+      required: false
+      schema:
+        type: string
+
+    SentrySecretQuery:
+      name: sentry_secret
+      in: query
+      required: false
+      schema:
+        type: string
+
+    Origin:
+      name: Origin
+      in: header
+      required: false
+      schema:
+        type: string
+
+    AccessControlRequestMethod:
+      name: Access-Control-Request-Method
+      in: header
+      required: false
+      schema:
+        type: string
+
+    AccessControlRequestHeaders:
+      name: Access-Control-Request-Headers
+      in: header
+      required: false
+      schema:
+        type: string
+
+  schemas:
+    IngestAccepted:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Assigned event ID (may be provisional until persist completes)
+      required: [id]
+      example:
+        id: "660e8400-e29b-41d4-a716-446655440001"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code
+        message:
+          type: string
+          description: Human-readable detail
+      required: [error]
+
+    UserFeedbackRequest:
+      type: object
+      required: [event_id]
+      properties:
+        event_id:
+          type: string
+          format: uuid
+          description: ID returned from envelope/store ingest (`IngestAccepted.id`)
+        name:
+          type: string
+        email:
+          type: string
+          description: Scrubbed at ingest if it contains secrets
+        comments:
+          type: string
+
+    UserFeedbackAccepted:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+          format: uuid
+
+    SentryEvent:
+      type: object
+      description: Subset of Sentry event JSON for exception payloads
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        platform:
+          type: string
+          example: javascript
+        environment:
+          type: string
+          example: production
+        release:
+          type: string
+        exception:
+          type: object
+        breadcrumbs:
+          type: object
+        user:
+          type: object
+        fingerprint:
+          type: array
+          items:
+            type: string
+      additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Malformed envelope or unparseable payload
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: invalid_envelope
+            message: No event item found in envelope
+
+    Unauthorized:
+      description: Missing or invalid DSN credentials
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: invalid_dsn
+            message: DSN authentication failed
+
+    Forbidden:
+      description: DSN key revoked or project ingest cap exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            revoked:
+              value:
+                error: dsn_revoked
+                message: DSN key has been revoked
+            capExceeded:
+              value:
+                error: ingest_cap_exceeded
+                message: Project hourly ingest cap exceeded
+
+    PayloadTooLarge:
+      description: Request body exceeds 2 MB limit
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: payload_too_large
+            message: Request body must not exceed 2 MB

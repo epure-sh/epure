@@ -1,0 +1,97 @@
+{
+  "platform": "javascript",
+  "level": "error",
+  "environment": "production",
+  "release": "web@2.12.0",
+  "transaction": "/checkout",
+  "tags": {
+    "feature": "checkout",
+    "seed_slug": "legacy-banner-dismiss",
+    "seed_status": "ignored",
+    "seed_age_days": "20"
+  },
+  "user": {
+    "id": "usr_placeholder",
+    "email": "user@acme-corp.com",
+    "username": "user"
+  },
+  "contexts": {
+    "browser": {
+      "name": "Chrome",
+      "version": "128.0.0.0"
+    },
+    "os": {
+      "name": "macOS",
+      "version": "14.6"
+    },
+    "runtime": {
+      "name": "browser",
+      "version": "128.0.0.0"
+    }
+  },
+  "request": {
+    "url": "https://app.acme-corp.com/checkout",
+    "method": "GET"
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "Legacy checkout banner dismissed without consent",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "webpack:///./node_modules/react-dom/cjs/react-dom.production.min.js",
+              "function": "invokeGuardedCallback",
+              "lineno": 4213,
+              "colno": 1,
+              "in_app": false
+            },
+            {
+              "filename": "webpack:///./src/components/LegacyBanner.tsx",
+              "function": "onDismiss",
+              "lineno": 18,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "  // Legacy checkout banner dismissed without consent",
+              "pre_context": [
+                "// onDismiss()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "navigation",
+        "category": "navigation",
+        "level": "info",
+        "message": "Navigated to /checkout"
+      },
+      {
+        "timestamp": 1726214402.0,
+        "type": "http",
+        "category": "fetch",
+        "level": "info",
+        "message": "GET /checkout",
+        "data": {
+          "status_code": 200
+        }
+      },
+      {
+        "timestamp": 1726214404.0,
+        "type": "default",
+        "category": "console",
+        "level": "error",
+        "message": "Error: Legacy checkout banner dismissed without consent"
+      }
+    ]
+  }
+}
