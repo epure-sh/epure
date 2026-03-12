@@ -1,0 +1,102 @@
+{
+  "platform": "javascript",
+  "level": "error",
+  "environment": "production",
+  "release": "web@2.14.0",
+  "transaction": "/settings/account",
+  "tags": {
+    "feature": "auth",
+    "endpoint": "/api/session/refresh"
+  },
+  "user": {
+    "id": "usr_auth_01",
+    "email": "dave@acme-corp.com",
+    "username": "dave"
+  },
+  "contexts": {
+    "browser": { "name": "Chrome", "version": "128.0.0.0" },
+    "os": { "name": "Windows", "version": "11" },
+    "runtime": { "name": "browser", "version": "128.0.0.0" }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "Session refresh failed: token expired",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "webpack:///./node_modules/axios/lib/core/Axios.js",
+              "function": "Axios.request",
+              "lineno": 45,
+              "colno": 21,
+              "in_app": false
+            },
+            {
+              "filename": "webpack:///./src/lib/session.ts",
+              "function": "refreshSession",
+              "lineno": 41,
+              "colno": 11,
+              "in_app": true,
+              "context_line": "  const res = await post<RefreshResponse>('/api/session/refresh');",
+              "pre_context": [
+                "export async function refreshSession() {",
+                "  const token = getStoredToken();"
+              ],
+              "post_context": [
+                "  if (res.status === 401) throw new Error('token expired');",
+                "  return res.data;"
+              ]
+            },
+            {
+              "filename": "webpack:///./src/hooks/useAuth.ts",
+              "function": "ensureSession",
+              "lineno": 67,
+              "colno": 5,
+              "in_app": true,
+              "context_line": "    await refreshSession();",
+              "pre_context": [
+                "  const ensureSession = async () => {",
+                "    if (isExpired(token)) {"
+              ],
+              "post_context": [
+                "    }",
+                "  };"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214300.0,
+        "type": "navigation",
+        "category": "navigation",
+        "level": "info",
+        "message": "Navigated to /settings/account"
+      },
+      {
+        "timestamp": 1726214302.1,
+        "type": "http",
+        "category": "fetch",
+        "level": "info",
+        "message": "POST /api/session/refresh",
+        "data": {
+          "method": "POST",
+          "url": "/api/session/refresh",
+          "status_code": 401
+        }
+      },
+      {
+        "timestamp": 1726214302.2,
+        "type": "default",
+        "category": "console",
+        "level": "error",
+        "message": "Error: Session refresh failed: token expired"
+      }
+    ]
+  }
+}

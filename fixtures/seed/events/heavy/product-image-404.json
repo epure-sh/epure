@@ -1,0 +1,97 @@
+{
+  "platform": "javascript",
+  "level": "error",
+  "environment": "production",
+  "release": "web@2.13.2",
+  "transaction": "/products/WID-4421",
+  "tags": {
+    "feature": "catalog",
+    "seed_slug": "product-image-404",
+    "seed_status": "resolved",
+    "seed_age_days": "12"
+  },
+  "user": {
+    "id": "usr_placeholder",
+    "email": "user@acme-corp.com",
+    "username": "user"
+  },
+  "contexts": {
+    "browser": {
+      "name": "Chrome",
+      "version": "128.0.0.0"
+    },
+    "os": {
+      "name": "macOS",
+      "version": "14.6"
+    },
+    "runtime": {
+      "name": "browser",
+      "version": "128.0.0.0"
+    }
+  },
+  "request": {
+    "url": "https://app.acme-corp.com/products/WID-4421",
+    "method": "GET"
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "Product image CDN returned 404 for sku_WID-4421",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "webpack:///./node_modules/react-dom/cjs/react-dom.production.min.js",
+              "function": "invokeGuardedCallback",
+              "lineno": 4213,
+              "colno": 1,
+              "in_app": false
+            },
+            {
+              "filename": "webpack:///./src/components/ProductGallery.tsx",
+              "function": "loadImage",
+              "lineno": 36,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "  // Product image CDN returned 404 for sku_WID-4421",
+              "pre_context": [
+                "// loadImage()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "navigation",
+        "category": "navigation",
+        "level": "info",
+        "message": "Navigated to /products/WID-4421"
+      },
+      {
+        "timestamp": 1726214402.0,
+        "type": "http",
+        "category": "fetch",
+        "level": "info",
+        "message": "GET /products/WID-4421",
+        "data": {
+          "status_code": 200
+        }
+      },
+      {
+        "timestamp": 1726214404.0,
+        "type": "default",
+        "category": "console",
+        "level": "error",
+        "message": "Error: Product image CDN returned 404 for sku_WID-4421"
+      }
+    ]
+  }
+}

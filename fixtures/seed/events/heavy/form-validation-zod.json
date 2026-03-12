@@ -1,0 +1,96 @@
+{
+  "platform": "javascript",
+  "level": "error",
+  "environment": "production",
+  "release": "web@2.14.0",
+  "transaction": "/signup",
+  "tags": {
+    "feature": "auth",
+    "seed_slug": "form-validation-zod",
+    "seed_age_days": "9"
+  },
+  "user": {
+    "id": "usr_placeholder",
+    "email": "user@acme-corp.com",
+    "username": "user"
+  },
+  "contexts": {
+    "browser": {
+      "name": "Chrome",
+      "version": "128.0.0.0"
+    },
+    "os": {
+      "name": "macOS",
+      "version": "14.6"
+    },
+    "runtime": {
+      "name": "browser",
+      "version": "128.0.0.0"
+    }
+  },
+  "request": {
+    "url": "https://app.acme-corp.com/signup",
+    "method": "GET"
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "ZodError",
+        "value": "Invalid email at path: user.email",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "webpack:///./node_modules/react-dom/cjs/react-dom.production.min.js",
+              "function": "invokeGuardedCallback",
+              "lineno": 4213,
+              "colno": 1,
+              "in_app": false
+            },
+            {
+              "filename": "webpack:///./src/schemas/signup.ts",
+              "function": "parseSignup",
+              "lineno": 12,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "  // Invalid email at path: user.email",
+              "pre_context": [
+                "// parseSignup()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "navigation",
+        "category": "navigation",
+        "level": "info",
+        "message": "Navigated to /signup"
+      },
+      {
+        "timestamp": 1726214402.0,
+        "type": "http",
+        "category": "fetch",
+        "level": "info",
+        "message": "GET /signup",
+        "data": {
+          "status_code": 200
+        }
+      },
+      {
+        "timestamp": 1726214404.0,
+        "type": "default",
+        "category": "console",
+        "level": "error",
+        "message": "ZodError: Invalid email at path: user.email"
+      }
+    ]
+  }
+}

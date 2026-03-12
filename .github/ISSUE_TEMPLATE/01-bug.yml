@@ -1,0 +1,66 @@
+name: Bug report
+description: Something broken in epure server, dashboard, or ingest pipeline
+title: "[bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Search [existing issues](https://github.com/epure-sh/epure/issues) first.
+        Setup help: [README](https://github.com/epure-sh/epure/blob/main/README.md) · [Docs](https://epure.sh/docs)
+        Security issues: use a [private advisory](https://github.com/epure-sh/epure/security/advisories/new), not this form.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Ingest / envelope / store
+        - Processing (grouping, sourcemaps, PII)
+        - Dashboard / web UI
+        - Auth / sessions / RBAC
+        - Storage / Postgres / RLS
+        - Docker / compose / deploy
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: epure version or commit
+      placeholder: "v0.1.0-phase1 or git sha"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. docker compose up
+        2. ./scripts/seed-dev.sh
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include HTTP status codes, logs (`RUST_LOG=debug`), or screenshots.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      value: |
+        - OS:
+        - Docker version:
+        - Browser (if UI):
+        - DATABASE_URL host port (5433?):
+    validations:
+      required: false

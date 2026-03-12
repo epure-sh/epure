@@ -1,0 +1,3 @@
+{"event_id":"550e8400-e29b-41d4-a716-446655440000","sdk":{"name":"sentry.javascript.browser","version":"7.120.0"}}
+{"type":"event","length":162}
+{"exception":{"values":[{"type":"TypeError","value":"Cannot read property 'x' of undefined"}]},"platform":"javascript","level":"error","environment":"production"}

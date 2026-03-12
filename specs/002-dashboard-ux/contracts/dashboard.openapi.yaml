@@ -1,0 +1,232 @@
+openapi: 3.1.0
+info:
+  title: Epure Dashboard UX API
+  description: |
+    Read-only dashboard endpoints added for the 002-dashboard-ux slice.
+
+    **Scope**: headline stats and setup progress only. Issue ingest, lifecycle,
+    and triage mutation endpoints are unchanged — see 001 contracts.
+
+    **Auth**: Dashboard session cookie (`__Host-`); RLS scoped by org from session.
+  version: 0.1.0
+  contact:
+    name: Epure
+    url: https://epure.sh
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: dashboard
+    description: Dashboard UX read models (002)
+  - name: setup
+    description: Onboarding progress (002)
+
+paths:
+  /api/v1/stats:
+    get:
+      tags: [dashboard]
+      summary: Headline stats for Issues home
+      description: |
+        Returns unresolved issue count, 7-day event count, and regression count
+        for the active project and optional environment filter (FR-UX-024).
+      operationId: getHeadlineStats
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: environment
+          in: query
+          required: false
+          description: When omitted, aggregates across all environments for the project.
+          schema:
+            type: string
+            example: production
+      responses:
+        "200":
+          description: Headline stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HeadlineStats"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          description: Project not found or not in session org
+
+  /api/v1/setup:
+    get:
+      tags: [setup]
+      summary: Read setup progress
+      description: |
+        Returns onboarding progress for the current user, org, and project (FR-UX-025).
+        If no row exists, returns default incomplete state.
+      operationId: getSetupProgress
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Setup progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetupProgress"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+
+    patch:
+      tags: [setup]
+      summary: Advance setup progress
+      description: |
+        Updates one or more setup step fields. Server sets `completed_at` when
+        `first_issue_seen_at` is recorded. Idempotent — re-PATCHing same step is a no-op.
+      operationId: patchSetupProgress
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchSetupProgress"
+      responses:
+        "200":
+          description: Updated setup progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetupProgress"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          description: Project not found or not in session org
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-epure_session
+      description: HttpOnly session cookie from dashboard login
+
+  responses:
+    Unauthenticated:
+      description: Missing or invalid session
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    HeadlineStats:
+      type: object
+      required:
+        - project_id
+        - unresolved
+        - events_7d
+        - regressions
+        - snoozed
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        environment:
+          type: string
+          nullable: true
+          description: Echo of query param when provided
+        unresolved:
+          type: integer
+          minimum: 0
+          description: Issues with status `unresolved`
+          example: 12
+        events_7d:
+          type: integer
+          minimum: 0
+          description: Event rows in the last 7 days
+          example: 340
+        regressions:
+          type: integer
+          minimum: 0
+          description: Issues with status `regression`
+          example: 2
+        snoozed:
+          type: integer
+          minimum: 0
+          description: Issues with an active snooze hold
+          example: 1
+
+    SetupProgress:
+      type: object
+      required:
+        - user_id
+        - org_id
+        - project_id
+        - project_named
+        - complete
+        - seeded
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        project_named:
+          type: boolean
+        dsn_copied_at:
+          type: string
+          format: date-time
+          nullable: true
+        first_issue_seen_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        complete:
+          type: boolean
+          description: True when `completed_at` is set
+        seeded:
+          type: boolean
+          description: True for well-known local seed projects (dev seed)
+
+    PatchSetupProgress:
+      type: object
+      required:
+        - project_id
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        project_named:
+          type: boolean
+        dsn_copied:
+          type: boolean
+          description: When true, server sets `dsn_copied_at` to now()
+        first_issue_seen:
+          type: boolean
+          description: When true, server sets `first_issue_seen_at` and `completed_at` to now()
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string

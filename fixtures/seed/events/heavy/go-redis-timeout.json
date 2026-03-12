@@ -1,0 +1,62 @@
+{
+  "platform": "go",
+  "level": "error",
+  "environment": "production",
+  "release": "api@1.9.0",
+  "transaction": "GET /v1/catalog/{id}",
+  "tags": {
+    "service": "catalog-api",
+    "seed_slug": "go-redis-timeout",
+    "seed_age_days": "2"
+  },
+  "user": {
+    "id": "svc_catalog-api",
+    "email": "catalog-api@acme-corp.com"
+  },
+  "contexts": {
+    "runtime": {
+      "name": "go",
+      "version": "go1.22.0"
+    },
+    "os": {
+      "name": "linux"
+    }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "redis: connection pool timeout",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "/app/internal/cache/redis.go",
+              "function": "Get",
+              "lineno": 38,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "    raise Error('redis: connection pool timeout')",
+              "pre_context": [
+                "// Get()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "default",
+        "category": "log",
+        "level": "info",
+        "message": "GET /v1/catalog/{id} started"
+      }
+    ]
+  }
+}

@@ -1,0 +1,18 @@
+# Thin runtime for a prebuilt `epure` binary (Image workflow).
+# Contributor source builds still use ./Dockerfile (web + cargo inside Docker).
+FROM debian:bookworm-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system --gid 65532 epure \
+    && useradd --system --uid 65532 --gid epure --home /nonexistent --shell /usr/sbin/nologin epure \
+    && mkdir -p /data/artifacts \
+    && chown epure:epure /data/artifacts
+
+COPY --chmod=755 --chown=65532:65532 epure /usr/local/bin/epure
+
+USER 65532:65532
+EXPOSE 8080
+ENTRYPOINT ["epure"]
+CMD ["--mode=all"]

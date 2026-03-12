@@ -1,0 +1,62 @@
+{
+  "platform": "python",
+  "level": "error",
+  "environment": "production",
+  "release": "api@1.9.0",
+  "transaction": "POST /v1/orders",
+  "tags": {
+    "service": "orders-api",
+    "seed_slug": "python-pydantic-validation",
+    "seed_age_days": "1"
+  },
+  "user": {
+    "id": "svc_orders-api",
+    "email": "orders-api@acme-corp.com"
+  },
+  "contexts": {
+    "runtime": {
+      "name": "CPython",
+      "version": "3.12.2"
+    },
+    "os": {
+      "name": "linux"
+    }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "ValidationError",
+        "value": "1 validation error for OrderCreate\nquantity\n  Input should be greater than 0",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "/app/schemas/order.py",
+              "function": "validate_create",
+              "lineno": 27,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "    raise ValidationError('1 validation error for OrderCreate\nquant')",
+              "pre_context": [
+                "// validate_create()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "default",
+        "category": "log",
+        "level": "info",
+        "message": "POST /v1/orders started"
+      }
+    ]
+  }
+}

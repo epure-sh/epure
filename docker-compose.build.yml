@@ -1,0 +1,8 @@
+# Source-build overlay. Not the documented install path.
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up --build
+
+services:
+  epure:
+    build: .
+    image: epure:local
+    pull_policy: build

@@ -1,0 +1,62 @@
+{
+  "platform": "go",
+  "level": "error",
+  "environment": "production",
+  "release": "api@1.9.0",
+  "transaction": "POST /v1/payments/charge",
+  "tags": {
+    "service": "payments-api",
+    "seed_slug": "go-rate-limit",
+    "seed_age_days": "1"
+  },
+  "user": {
+    "id": "svc_payments-api",
+    "email": "payments-api@acme-corp.com"
+  },
+  "contexts": {
+    "runtime": {
+      "name": "go",
+      "version": "go1.22.0"
+    },
+    "os": {
+      "name": "linux"
+    }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "rate limit exceeded for client 10.2.4.8",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "/app/internal/middleware/ratelimit.go",
+              "function": "Allow",
+              "lineno": 52,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "    raise Error('rate limit exceeded for client 10.2.4.8')",
+              "pre_context": [
+                "// Allow()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "default",
+        "category": "log",
+        "level": "info",
+        "message": "POST /v1/payments/charge started"
+      }
+    ]
+  }
+}

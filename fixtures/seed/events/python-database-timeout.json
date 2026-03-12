@@ -1,0 +1,105 @@
+{
+  "platform": "python",
+  "level": "error",
+  "environment": "production",
+  "release": "worker@3.2.1",
+  "transaction": "tasks.sync_inventory",
+  "tags": {
+    "celery_task": "sync_inventory",
+    "queue": "default"
+  },
+  "user": {
+    "id": "celery_worker_3",
+    "email": "worker@acme-corp.com"
+  },
+  "contexts": {
+    "runtime": { "name": "CPython", "version": "3.12.1" },
+    "os": { "name": "Linux", "version": "6.1.0" }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "OperationalError",
+        "value": "connection to server at \"db.internal\" (10.0.2.15), port 5432 failed: timeout expired",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "/app/.venv/lib/python3.12/site-packages/psycopg2/__init__.py",
+              "function": "connect",
+              "lineno": 122,
+              "in_app": false
+            },
+            {
+              "filename": "/app/src/db/connection.py",
+              "function": "get_connection",
+              "lineno": 31,
+              "colno": 12,
+              "in_app": true,
+              "context_line": "    return psycopg2.connect(dsn, connect_timeout=5)",
+              "pre_context": [
+                "def get_connection():",
+                "    dsn = settings.DATABASE_URL"
+              ],
+              "post_context": [
+                "",
+                "def release_connection(conn):"
+              ]
+            },
+            {
+              "filename": "/app/src/tasks/inventory.py",
+              "function": "sync_inventory",
+              "lineno": 54,
+              "in_app": true,
+              "context_line": "    conn = get_connection()",
+              "pre_context": [
+                "@celery.task",
+                "def sync_inventory(sku_batch: list[str]):"
+              ],
+              "post_context": [
+                "    cursor = conn.cursor()",
+                "    cursor.execute('SELECT sku, qty FROM inventory WHERE sku = ANY(%s)', (sku_batch,))"
+              ]
+            },
+            {
+              "filename": "/app/.venv/lib/python3.12/site-packages/celery/app/trace.py",
+              "function": "TraceInfo.build",
+              "lineno": 477,
+              "in_app": false
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726216200.0,
+        "category": "celery",
+        "level": "info",
+        "message": "Task tasks.sync_inventory received",
+        "data": { "task_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890" }
+      },
+      {
+        "timestamp": 1726216200.5,
+        "category": "query",
+        "level": "info",
+        "message": "SELECT 1",
+        "data": { "db": "inventory", "duration_ms": 4 }
+      },
+      {
+        "timestamp": 1726216205.1,
+        "category": "query",
+        "level": "warning",
+        "message": "connection attempt 1 failed, retrying",
+        "data": { "host": "db.internal", "port": 5432 }
+      },
+      {
+        "timestamp": 1726216210.2,
+        "category": "query",
+        "level": "error",
+        "message": "connection to server at db.internal failed: timeout expired"
+      }
+    ]
+  }
+}

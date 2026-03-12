@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & troubleshooting
+    url: https://github.com/epure-sh/epure/discussions/categories/q-a
+    about: Ask setup/SDK questions here; not for bug reports
+  - name: Documentation
+    url: https://epure.sh/docs
+    about: Quickstart, self-host, and platform guides on epure.sh
+  - name: Security vulnerabilities
+    url: https://github.com/epure-sh/epure/security/advisories/new
+    about: Private advisory preferred; or email security@news.epure.sh
+  - name: Email support
+    url: mailto:support@news.epure.sh
+    about: Commercial / Cloud questions (support@news.epure.sh)

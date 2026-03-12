@@ -1,0 +1,77 @@
+{
+  "platform": "go",
+  "level": "fatal",
+  "environment": "production",
+  "release": "gateway@0.9.4",
+  "transaction": "GET /v1/invoices/{id}",
+  "tags": {
+    "service": "gateway",
+    "handler": "GetInvoice"
+  },
+  "user": {
+    "id": "api_key_7xk2",
+    "email": "integrations@acme-corp.com"
+  },
+  "contexts": {
+    "runtime": { "name": "go", "version": "go1.22.0" },
+    "os": { "name": "linux" }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "runtime.errorString",
+        "value": "runtime error: invalid memory address or nil pointer dereference",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "/go/pkg/mod/github.com/gin-gonic/gin@v1.9.1/context.go",
+              "function": "(*Context).Next",
+              "lineno": 174,
+              "in_app": false
+            },
+            {
+              "filename": "/app/internal/handlers/invoices.go",
+              "function": "GetInvoice",
+              "lineno": 67,
+              "in_app": true,
+              "context_line": "\tlineItems := invoice.LineItems",
+              "pre_context": [
+                "func GetInvoice(c *gin.Context) {",
+                "\tinvoice, err := store.FindInvoice(c.Param(\"id\"))"
+              ],
+              "post_context": [
+                "\tfor _, item := range lineItems {",
+                "\t\ttotal += item.Amount"
+              ]
+            },
+            {
+              "filename": "/app/internal/router/router.go",
+              "function": "SetupRoutes.GetInvoice.func3",
+              "lineno": 41,
+              "in_app": true,
+              "context_line": "\t\tGetInvoice(c)"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726217400.0,
+        "category": "http",
+        "level": "info",
+        "message": "GET /v1/invoices/inv_9f2a",
+        "data": { "method": "GET", "url": "/v1/invoices/inv_9f2a", "status_code": 0 }
+      },
+      {
+        "timestamp": 1726217400.1,
+        "category": "query",
+        "level": "info",
+        "message": "SELECT * FROM invoices WHERE id = $1",
+        "data": { "duration_ms": 3, "rows": 0 }
+      }
+    ]
+  }
+}

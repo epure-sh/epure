@@ -1,0 +1,50 @@
+[package]
+name = "epure-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "epure_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "epure"
+path = "src/main.rs"
+
+[dependencies]
+axum.workspace = true
+chrono.workspace = true
+dashmap.workspace = true
+clap.workspace = true
+epure-auth.workspace = true
+epure-demangle.workspace = true
+epure-envelope.workspace = true
+epure-storage.workspace = true
+hex.workspace = true
+hmac.workspace = true
+reqwest.workspace = true
+sha2.workspace = true
+http.workspace = true
+mime_guess.workspace = true
+rand.workspace = true
+rust-embed.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+time.workspace = true
+tokio.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+tower-sessions.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+epure-auth.workspace = true
+epure-envelope.workspace = true
+epure-storage.workspace = true
+reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls", "cookies"] }
+serde_json.workspace = true
+sqlx.workspace = true
+urlencoding = "2"

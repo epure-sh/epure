@@ -1,0 +1,60 @@
+@import "tailwindcss";
+@config "../tailwind.config.ts";
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--body-size);
+  line-height: var(--body-leading);
+  letter-spacing: var(--tracking-ui);
+  font-weight: var(--font-weight-regular);
+  -webkit-font-smoothing: antialiased;
+}
+
+.epure-section-header-title {
+  font-family: var(--section-header-font);
+  font-size: var(--section-header-size);
+  line-height: var(--section-header-leading);
+  font-weight: var(--section-header-weight);
+  letter-spacing: var(--section-header-tracking);
+  text-transform: var(--section-header-transform);
+}
+
+.epure-page-title {
+  font-size: var(--page-title-size);
+  line-height: var(--page-title-leading);
+}
+
+.epure-stat-value {
+  font-family: var(--stat-value-font);
+  font-size: var(--stat-value-size);
+  line-height: var(--stat-value-leading);
+  font-variant-numeric: slashed-zero tabular-nums;
+}
+
+.epure-stat-value-compact {
+  font-family: var(--stat-value-font);
+  font-size: var(--stat-value-size-compact);
+  line-height: var(--stat-value-leading-compact);
+  font-variant-numeric: slashed-zero tabular-nums;
+}
+
+.epure-inset-well {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-inset);
+}
+
+/* Detail card stacks — section dividers bleed full width and clip against the list rail */
+.epure-overview .epure-overview-section,
+.epure-more-panel .epure-overview-section {
+  border-bottom: none;
+}

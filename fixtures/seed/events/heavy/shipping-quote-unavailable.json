@@ -1,0 +1,96 @@
+{
+  "platform": "javascript",
+  "level": "error",
+  "environment": "production",
+  "release": "web@2.15.0",
+  "transaction": "/checkout/shipping",
+  "tags": {
+    "feature": "checkout",
+    "seed_slug": "shipping-quote-unavailable",
+    "seed_age_days": "2"
+  },
+  "user": {
+    "id": "usr_placeholder",
+    "email": "user@acme-corp.com",
+    "username": "user"
+  },
+  "contexts": {
+    "browser": {
+      "name": "Chrome",
+      "version": "128.0.0.0"
+    },
+    "os": {
+      "name": "macOS",
+      "version": "14.6"
+    },
+    "runtime": {
+      "name": "browser",
+      "version": "128.0.0.0"
+    }
+  },
+  "request": {
+    "url": "https://app.acme-corp.com/checkout/shipping",
+    "method": "GET"
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "Shipping quote unavailable for postal code 75001",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "webpack:///./node_modules/react-dom/cjs/react-dom.production.min.js",
+              "function": "invokeGuardedCallback",
+              "lineno": 4213,
+              "colno": 1,
+              "in_app": false
+            },
+            {
+              "filename": "webpack:///./src/services/shipping.ts",
+              "function": "fetchQuote",
+              "lineno": 42,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "  // Shipping quote unavailable for postal code 75001",
+              "pre_context": [
+                "// fetchQuote()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "navigation",
+        "category": "navigation",
+        "level": "info",
+        "message": "Navigated to /checkout/shipping"
+      },
+      {
+        "timestamp": 1726214402.0,
+        "type": "http",
+        "category": "fetch",
+        "level": "info",
+        "message": "GET /checkout/shipping",
+        "data": {
+          "status_code": 200
+        }
+      },
+      {
+        "timestamp": 1726214404.0,
+        "type": "default",
+        "category": "console",
+        "level": "error",
+        "message": "Error: Shipping quote unavailable for postal code 75001"
+      }
+    ]
+  }
+}

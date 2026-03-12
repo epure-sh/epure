@@ -1,0 +1,107 @@
+{
+  "platform": "node",
+  "level": "error",
+  "environment": "production",
+  "release": "api@1.8.2",
+  "transaction": "POST /api/orders",
+  "tags": {
+    "service": "orders-api",
+    "region": "eu-west-1"
+  },
+  "user": {
+    "id": "svc_orders",
+    "email": "orders@acme-corp.com"
+  },
+  "contexts": {
+    "runtime": { "name": "node", "version": "20.11.0" },
+    "os": { "name": "Linux", "version": "6.1.0" }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "connect ECONNREFUSED 10.0.4.12:5432",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "node:net",
+              "function": "TCPConnectWrap.afterConnect",
+              "lineno": 1595,
+              "colno": 16,
+              "in_app": false
+            },
+            {
+              "filename": "node:internal/process/task_queues",
+              "function": "process.processTicksAndRejections",
+              "lineno": 95,
+              "colno": 5,
+              "in_app": false
+            },
+            {
+              "filename": "/app/node_modules/pg-pool/index.js",
+              "function": "Pool.connect",
+              "lineno": 45,
+              "colno": 11,
+              "in_app": false
+            },
+            {
+              "filename": "/app/src/db/pool.ts",
+              "function": "getClient",
+              "lineno": 22,
+              "colno": 10,
+              "in_app": true,
+              "context_line": "  return pool.connect();"
+            },
+            {
+              "filename": "/app/src/routes/orders.ts",
+              "function": "createOrder",
+              "lineno": 48,
+              "colno": 20,
+              "in_app": true,
+              "context_line": "  const client = await getClient();",
+              "pre_context": [
+                "export async function createOrder(req: Request) {",
+                "  const payload = req.body;"
+              ],
+              "post_context": [
+                "  await client.query('BEGIN');",
+                "  try {"
+              ]
+            },
+            {
+              "filename": "/app/src/routes/orders.ts",
+              "function": "handler",
+              "lineno": 12,
+              "colno": 5,
+              "in_app": true,
+              "context_line": "    await createOrder(req);"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726215600.0,
+        "category": "console",
+        "level": "info",
+        "message": "orders-api listening on :3000"
+      },
+      {
+        "timestamp": 1726215605.2,
+        "category": "http",
+        "level": "info",
+        "message": "POST /api/orders",
+        "data": { "method": "POST", "url": "/api/orders", "status_code": 0 }
+      },
+      {
+        "timestamp": 1726215605.3,
+        "category": "console",
+        "level": "warning",
+        "message": "password=SuperSecretDbPass123 connecting to replica"
+      }
+    ]
+  }
+}

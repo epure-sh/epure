@@ -1,0 +1,63 @@
+{
+  "platform": "node",
+  "level": "error",
+  "environment": "production",
+  "release": "api@1.9.0",
+  "transaction": "POST /webhooks/stripe",
+  "tags": {
+    "service": "payments-api",
+    "seed_slug": "node-stripe-webhook-sig",
+    "seed_age_days": "1",
+    "seed_regression": "true"
+  },
+  "user": {
+    "id": "svc_payments-api",
+    "email": "payments-api@acme-corp.com"
+  },
+  "contexts": {
+    "runtime": {
+      "name": "node",
+      "version": "20.11.0"
+    },
+    "os": {
+      "name": "linux"
+    }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "Stripe webhook signature verification failed",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "/app/src/webhooks/stripe.ts",
+              "function": "verifySignature",
+              "lineno": 23,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "    raise Error('Stripe webhook signature verification fa')",
+              "pre_context": [
+                "// verifySignature()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "default",
+        "category": "log",
+        "level": "info",
+        "message": "POST /webhooks/stripe started"
+      }
+    ]
+  }
+}

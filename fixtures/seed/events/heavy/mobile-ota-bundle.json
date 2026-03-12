@@ -1,0 +1,68 @@
+{
+  "platform": "javascript",
+  "level": "error",
+  "environment": "production",
+  "release": "mobile@3.1.0",
+  "transaction": "App/Startup",
+  "tags": {
+    "feature": "ota",
+    "seed_slug": "mobile-ota-bundle",
+    "seed_status": "ignored",
+    "seed_age_days": "20"
+  },
+  "user": {
+    "id": "mobile_user_placeholder",
+    "email": "mobile@acme-corp.com"
+  },
+  "contexts": {
+    "device": {
+      "family": "iPhone",
+      "model": "iPhone 15 Pro"
+    },
+    "os": {
+      "name": "iOS",
+      "version": "17.5"
+    },
+    "runtime": {
+      "name": "react-native",
+      "version": "0.74.0"
+    }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "OTA bundle signature verification failed",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "app:///ota/loader.ts",
+              "function": "verifyBundle",
+              "lineno": 52,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "  // OTA bundle signature verification failed",
+              "pre_context": [
+                "// verifyBundle()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "navigation",
+        "category": "navigation",
+        "level": "info",
+        "message": "Screen: App/Startup"
+      }
+    ]
+  }
+}

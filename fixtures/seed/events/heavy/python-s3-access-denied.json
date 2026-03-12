@@ -1,0 +1,62 @@
+{
+  "platform": "python",
+  "level": "error",
+  "environment": "staging",
+  "release": "api@1.8.2",
+  "transaction": "workers/artifact_sync",
+  "tags": {
+    "service": "release-worker",
+    "seed_slug": "python-s3-access-denied",
+    "seed_age_days": "4"
+  },
+  "user": {
+    "id": "svc_release-worker",
+    "email": "release-worker@acme-corp.com"
+  },
+  "contexts": {
+    "runtime": {
+      "name": "CPython",
+      "version": "3.12.2"
+    },
+    "os": {
+      "name": "linux"
+    }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "ClientError",
+        "value": "An error occurred (AccessDenied) when calling GetObject",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "/app/workers/artifact_sync.py",
+              "function": "sync_release",
+              "lineno": 84,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "    raise ClientError('An error occurred (AccessDenied) when ca')",
+              "pre_context": [
+                "// sync_release()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "default",
+        "category": "log",
+        "level": "info",
+        "message": "workers/artifact_sync started"
+      }
+    ]
+  }
+}

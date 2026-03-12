@@ -1,0 +1,115 @@
+{
+  "platform": "javascript",
+  "level": "error",
+  "environment": "production",
+  "release": "web@2.14.0",
+  "transaction": "/checkout/payment",
+  "tags": {
+    "feature": "payments",
+    "provider": "stripe"
+  },
+  "user": {
+    "id": "usr_2d9e4f7a",
+    "email": "bob@acme-corp.com",
+    "username": "bob"
+  },
+  "contexts": {
+    "browser": { "name": "Firefox", "version": "129.0" },
+    "os": { "name": "Windows", "version": "11" },
+    "runtime": { "name": "browser", "version": "129.0" }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "Payment failed: card declined (500)",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "webpack:///./node_modules/axios/lib/core/Axios.js",
+              "function": "Axios.request",
+              "lineno": 45,
+              "colno": 21,
+              "in_app": false
+            },
+            {
+              "filename": "webpack:///./src/lib/api.ts",
+              "function": "post",
+              "lineno": 28,
+              "colno": 10,
+              "in_app": true,
+              "context_line": "  return axios.post<T>(path, body, config);"
+            },
+            {
+              "filename": "webpack:///./src/services/payments.ts",
+              "function": "chargeCard",
+              "lineno": 61,
+              "colno": 18,
+              "in_app": true,
+              "context_line": "  const res = await post<ChargeResponse>('/api/payments/charge', payload);",
+              "pre_context": [
+                "export async function chargeCard(payload: ChargePayload) {",
+                "  const token = getAuthToken();"
+              ],
+              "post_context": [
+                "  return res.data;",
+                "}"
+              ]
+            },
+            {
+              "filename": "webpack:///./src/components/PaymentForm.tsx",
+              "function": "submitPayment",
+              "lineno": 103,
+              "colno": 11,
+              "in_app": true,
+              "context_line": "    await chargeCard({ amount, currency, cardToken });"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726215000.0,
+        "category": "navigation",
+        "level": "info",
+        "message": "Navigated to /checkout/payment"
+      },
+      {
+        "timestamp": 1726215002.1,
+        "category": "console",
+        "level": "info",
+        "message": "Initializing Stripe Elements"
+      },
+      {
+        "timestamp": 1726215005.4,
+        "category": "ui.input",
+        "level": "info",
+        "message": "card number entered",
+        "data": { "field": "cardNumber" }
+      },
+      {
+        "timestamp": 1726215008.7,
+        "category": "fetch",
+        "level": "info",
+        "message": "POST /api/payments/charge",
+        "data": {
+          "method": "POST",
+          "url": "/api/payments/charge",
+          "status_code": 500,
+          "request_headers": {
+            "Authorization": "Bearer sk_live_fixture_scrub_example_key"
+          }
+        }
+      },
+      {
+        "timestamp": 1726215008.9,
+        "category": "console",
+        "level": "error",
+        "message": "Payment failed: card declined (500)"
+      }
+    ]
+  }
+}

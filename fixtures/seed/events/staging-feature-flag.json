@@ -1,0 +1,69 @@
+{
+  "platform": "javascript",
+  "level": "warning",
+  "environment": "staging",
+  "release": "web@2.15.0-rc.1",
+  "transaction": "/settings/billing",
+  "tags": {
+    "feature_flag": "new_billing_ui",
+    "experiment": "billing_v2"
+  },
+  "user": {
+    "id": "usr_staging_01",
+    "email": "qa@acme-corp.com"
+  },
+  "contexts": {
+    "browser": { "name": "Chrome", "version": "128.0.0.0" },
+    "os": { "name": "macOS", "version": "14.6" }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "ReferenceError",
+        "value": "billingV2 is not defined",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "webpack:///./src/pages/settings/BillingPage.tsx",
+              "function": "BillingPage",
+              "lineno": 29,
+              "colno": 7,
+              "in_app": true,
+              "context_line": "  if (billingV2) {",
+              "pre_context": [
+                "export function BillingPage() {",
+                "  const { plan } = useSubscription();"
+              ],
+              "post_context": [
+                "    return <BillingV2 plan={plan} />;",
+                "  }"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726216800.0,
+        "category": "navigation",
+        "level": "info",
+        "message": "Navigated to /settings"
+      },
+      {
+        "timestamp": 1726216801.2,
+        "category": "navigation",
+        "level": "info",
+        "message": "Navigated to /settings/billing"
+      },
+      {
+        "timestamp": 1726216801.5,
+        "category": "console",
+        "level": "info",
+        "message": "feature flag new_billing_ui=true"
+      }
+    ]
+  }
+}
