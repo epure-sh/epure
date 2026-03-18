@@ -1,6 +1,4 @@
-# Native cargo on each arch, then pack a thin runtime image.
-# QEMU multi-arch cargo is too slow. A laptop only builds one arch;
-# this matrix is the release path (linux/amd64 + linux/arm64 in parallel).
+# Release image workflow: native amd64 + arm64 → ghcr.io/epure-sh/epure.
 name: Image
 
 on:

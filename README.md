@@ -8,6 +8,8 @@
   <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 16" /></a>
   <a href="docker-compose.yml"><img src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white" alt="Docker Compose" /></a>
   <a href="https://github.com/epure-sh/epure/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/epure-sh/epure/ci.yml?branch=main&label=CI" alt="CI" /></a>
+  <a href="https://github.com/epure-sh/epure/actions/workflows/image.yml"><img src="https://img.shields.io/github/actions/workflow/status/epure-sh/epure/image.yml?branch=main&label=Image" alt="Image" /></a>
+  <a href="https://github.com/epure-sh/epure/pkgs/container/epure"><img src="https://img.shields.io/badge/GHCR-epure--sh%2Fepure-blue?logo=github" alt="GHCR" /></a>
 </p>
 
 # Epure
@@ -28,6 +30,8 @@
 **2 containers** · **~82 MiB** idle · **~9 s** to first issue · measured 2026-09-12 on Docker Desktop (re-verify on your hardware).
 
 Watch "releases" of this repo to get notified of major updates.
+
+CI and multi-arch image builds run on GitHub Actions (`ci.yml`, `image.yml`). Published images: `ghcr.io/epure-sh/epure`.
 
 ## Documentation
 
