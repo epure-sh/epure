@@ -498,6 +498,7 @@ fn extract_auth(
     )
 }
 
+#[allow(clippy::result_large_err)]
 async fn check_ingest_cap(state: &AppState, project_id: Uuid) -> Result<(), Response> {
     match state
         .ingest_cap
@@ -548,6 +549,7 @@ async fn check_ingest_cap(state: &AppState, project_id: Uuid) -> Result<(), Resp
     }
 }
 
+#[allow(clippy::result_large_err)]
 async fn validate_dsn(
     state: &AppState,
     auth: &epure_envelope::AuthCredentials,
