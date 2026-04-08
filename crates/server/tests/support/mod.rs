@@ -29,7 +29,29 @@ pub async fn spawn_test_server() -> (String, PgPool, JoinHandle<()>) {
     std::env::set_var("EPURE_SESSION_SECURE", "0");
     std::env::set_var("EPURE_WEBHOOK_ALLOW_PRIVATE", "1");
     std::env::set_var("EPURE_BIND", "127.0.0.1:0");
-    let runtime = init_runtime(&database_url).await.expect("init runtime");
+    let runtime = {
+        let mut last_err = None;
+        let mut runtime = None;
+        for attempt in 0..8 {
+            match init_runtime(&database_url).await {
+                Ok(rt) => {
+                    runtime = Some(rt);
+                    break;
+                }
+                Err(err) => {
+                    let msg = err.to_string();
+                    if msg.contains("tuple concurrently updated") && attempt < 7 {
+                        tokio::time::sleep(std::time::Duration::from_millis(50 * (attempt + 1)))
+                            .await;
+                        last_err = Some(err);
+                        continue;
+                    }
+                    panic!("init runtime: {err}");
+                }
+            }
+        }
+        runtime.unwrap_or_else(|| panic!("init runtime: {:?}", last_err))
+    };
     let admin = epure_storage::connect(&database_url)
         .await
         .expect("connect admin pool");
