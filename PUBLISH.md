@@ -20,7 +20,8 @@ Required at public repo root:
 - `DATA.md`, `CHANGELOG.md`, `ROADMAP.md`
 - `docs/` (from `launch-docs/out/docs/`)
 - `.github/` (templates, `workflows/ci.yml`, `workflows/image.yml`, dependabot, `issues-list.webp`, `social-preview.png`)
-- `docker-compose.yml` + `docker-compose.build.yml` + `Dockerfile` + `Dockerfile.runtime` + `fixtures/sentry/`
+- `docker-compose.yml` + `docker-compose.build.yml` + `docker-compose.prod.yml` + `Dockerfile` + `Dockerfile.runtime` + `fixtures/sentry/`
+- `configure` + `scripts/configure.sh` + `Makefile` + `.env.example` + `.env.dev.example` + `.env.production.example` + `.env.test.example`
 - `web/design/` (product design system — not the marketing `design/`)
 
 Do **not** ship company-workspace agent hydration (`AGENTS.md` / `CONTEXT.md`) in the public tree — keep those files internal only.

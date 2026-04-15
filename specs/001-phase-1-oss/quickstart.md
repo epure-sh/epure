@@ -17,24 +17,30 @@ Runnable validation guide for local development and ROADMAP slice proofs. See [d
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` in `apps/epure/`:
+**Compose users:** no `.env` required. `docker compose up` → `http://localhost:8080`.
 
-| Variable | Required | Default | Description |
+| Path | When |
+|---|---|
+| `docker compose up` | Default — `8080` + `5433` |
+| `cp .env.example .env` | Port conflict, demo seed, CORS, OAuth |
+| `./configure --quick` | Same as above; auto-picks free ports |
+| `./configure --prod` | Production VPS secrets |
+| `.env.dev.example` → `.env.dev` | `cargo test` / host binaries against Compose Postgres |
+
+Compose injects all three `DATABASE_URL*` values inside the container. Host-side cargo uses `.env.dev.example` (port **5433** by default).
+
+| Variable | Compose `.env` | Default | Description |
 |---|---|---|---|
-| `DATABASE_URL` | Yes | — | `postgres://epure:epure@localhost:5433/epure` (host port **5433** → container 5432) |
-| `EPURE_BIND` | No | `0.0.0.0:8080` | HTTP listen address |
-| `EPURE_MODE` | No | `all` | Phase 1: only `all` supported |
-| `EPURE_DEV_SEED` | No | off | Set `1` to apply `scripts/seed-dev.sql` on app startup (dev only) |
-| `EPURE_CORS_ORIGINS` | No | `*` | Comma-separated allowed origins for ingest CORS |
-| `EPURE_ARTIFACTS_DIR` | No | `/data/artifacts` | Source map storage path |
-| `EPURE_SESSION_SECURE` | No | `0` (dev) / `1` (HTTPS) | Session cookie `Secure` flag; use `0` on HTTP localhost |
-| `EPURE_PUBLIC_URL` | No | `http://localhost:8080` | Base URL for OAuth redirects |
-| `GOOGLE_CLIENT_ID` | No | — | Google OAuth client ID; leave empty to disable Google sign-in |
-| `GOOGLE_CLIENT_SECRET` | No | — | Google OAuth client secret |
-| `GOOGLE_REDIRECT_URI` | No | `{EPURE_PUBLIC_URL}/api/v1/auth/google/callback` | OAuth callback URL |
-| `RUST_LOG` | No | `info` | Log filter |
-
-Compose sets `DATABASE_URL` for the app service automatically.
+| `EPURE_PORT` | Optional | `8080` | Host port for UI + ingest |
+| `POSTGRES_HOST_PORT` | Optional | `5433` | Host port for Postgres (`psql`, `cargo test`) |
+| `EPURE_PUBLIC_URL` | Optional | auto | Derived from `EPURE_PORT` on localhost; set for ngrok or production |
+| `EPURE_DEV_SEED` | Optional | off | `1` = `scripts/seed-dev.sql` on startup (localhost only) |
+| `EPURE_CORS_ORIGINS` | Optional | `*` | Comma-separated ingest CORS origins |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Optional | empty | Google OAuth; leave empty for email/password |
+| `DATABASE_URL` | `.env.dev` only | — | Host tools: `postgres://epure:epure@localhost:5433/epure` |
+| `EPURE_BIND` | `.env.dev` only | `0.0.0.0:8080` | Listen address when running the binary on the host |
+| `EPURE_MODE` | `.env.dev` only | `all` | Phase 1: only `all` supported |
+| `RUST_LOG` | either | `info` | Log filter |
 
 ---
 

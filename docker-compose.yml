@@ -1,5 +1,6 @@
-# Operator knobs live in `.env` (copy from `.env.example`). Defaults below
-# apply when that file is missing.
+# No `.env` required — `docker compose up` works on localhost:8080.
+# Optional: cp .env.example .env and set EPURE_PORT (URL follows on localhost).
+# Production: .env.production.example or ./configure --prod
 #
 # `docker compose up` pulls ghcr.io/epure-sh/epure. Pin a release with
 # EPURE_IMAGE. Source build (contributors): docker-compose.build.yml.
@@ -21,7 +22,8 @@ services:
       EPURE_ALLOW_EXAMPLE_PASSWORDS: "1"
       EPURE_ARTIFACTS_DIR: /data/artifacts
       EPURE_SESSION_SECURE: ${EPURE_SESSION_SECURE:-0}
-      EPURE_PUBLIC_URL: ${EPURE_PUBLIC_URL:-http://localhost:8080}
+      EPURE_HOST_PORT: ${EPURE_PORT:-8080}
+      EPURE_PUBLIC_URL: ${EPURE_PUBLIC_URL:-}
       EPURE_CORS_ORIGINS: ${EPURE_CORS_ORIGINS:-*}
       EPURE_DEV_SEED: ${EPURE_DEV_SEED:-}
       EPURE_WEBHOOK_ALLOW_PRIVATE: ${EPURE_WEBHOOK_ALLOW_PRIVATE:-}

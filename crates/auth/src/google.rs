@@ -58,11 +58,15 @@ impl GoogleAuth {
             return None;
         }
 
-        let redirect_uri = std::env::var("GOOGLE_REDIRECT_URI").unwrap_or_else(|_| {
-            let public_url = std::env::var("EPURE_PUBLIC_URL")
-                .unwrap_or_else(|_| "http://localhost:8080".to_string());
-            format!("{public_url}/api/v1/auth/google/callback")
-        });
+        let redirect_uri = std::env::var("GOOGLE_REDIRECT_URI")
+            .ok()
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| {
+                format!(
+                    "{}/api/v1/auth/google/callback",
+                    epure_storage::epure_public_url()
+                )
+            });
 
         Some(Self {
             client_id,

@@ -3,3 +3,4 @@ web/dist/
 web/dist-playground/
 web/node_modules/
 .env
+.env.dev

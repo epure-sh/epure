@@ -4,6 +4,9 @@
 .env
 .env.*
 !.env.example
+!.env.production.example
+!.env.dev.example
+!.env.test.example
 target
 web/node_modules
 web/dist
