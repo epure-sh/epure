@@ -25,7 +25,8 @@ Setup: `docker compose up` (no `.env`). Ports: `cp .env.example .env`. Cargo dev
 ```bash
 docker compose up
 curl -sS http://localhost:8080/health   # expect {"status":"ok"}
-./scripts/seed-dev.sh                   # optional smoke data — ⚠️ DEV ONLY
+# Preview: register at /login (Acme Web + Acme API)
+# Heavy UX: ./scripts/seed.sh --email you@example.com --password '…'
 ```
 
 Source build (Rust / Dockerfile changes):

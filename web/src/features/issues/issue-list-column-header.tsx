@@ -63,7 +63,7 @@ export function IssueListColumnHeader({
             <span className={HEADER_LABEL}>Age</span>
           </div>
           <div className={cn(FEED_HEADER_CELL, FEED_CELL_TREND, "hidden lg:flex")}>
-            <span className={HEADER_LABEL}>Trend</span>
+            <span className={HEADER_LABEL}>30d</span>
           </div>
           <div className={cn(FEED_HEADER_CELL, FEED_CELL_NUMERIC, "justify-end")}>
             <span className={HEADER_LABEL}>Events</span>

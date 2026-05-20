@@ -1,6 +1,6 @@
 /** Shared grid templates for issues feed header + rows — keep in sync. */
 export const FEED_GRID_FULL =
-  "grid-cols-[2.5rem_minmax(0,1fr)_4.5rem_3rem_6rem_3.25rem_3.25rem_2.75rem_2.5rem]";
+  "grid-cols-[2.5rem_minmax(0,1fr)_4.5rem_3rem_7.5rem_3.25rem_3.25rem_2.75rem_2.5rem]";
 
 export const FEED_GRID_COMPACT = "grid-cols-[2.5rem_minmax(0,1fr)_4.5rem_3.25rem]";
 

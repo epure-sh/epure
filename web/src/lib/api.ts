@@ -527,6 +527,7 @@ export interface ProjectRow {
   slug: string | null;
   retention_days: number;
   ingest_cap_per_hour: number;
+  is_demo?: boolean;
   created_at: string;
   /** Viewer org role on this project (`owner` / `admin` / `member`). */
   role?: string;
@@ -780,6 +781,15 @@ export async function fetchHeadlineStats(
     params.set("window", window);
   }
   return apiFetch<HeadlineStats>(`/api/v1/stats?${params.toString()}`);
+}
+
+export async function fetchProjectActivity(
+  projectId: string,
+): Promise<TimelineBucket[]> {
+  const body = await apiFetch<{ project_id: string; buckets: TimelineBucket[] }>(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/activity`,
+  );
+  return body.buckets;
 }
 
 export function formatDsn(publicKey: string, projectId: string): string {

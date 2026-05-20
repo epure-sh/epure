@@ -4,15 +4,36 @@ use uuid::Uuid;
 
 use crate::dsn_keys;
 
-/// Well-known project ids from `scripts/seed-dev.sql` / `seed-heavy.sql`.
+/// Well-known project ids from `scripts/seed-dev.sql` / `seed-heavy.sql` / `./scripts/seed.sh`.
 const DEV_SEED_PROJECTS: [Uuid; 3] = [
     Uuid::from_u128(0x550e8400_e29b_41d4_a716_446655440000),
     Uuid::from_u128(0x660e8400_e29b_41d4_a716_446655440001),
     Uuid::from_u128(0x770e8400_e29b_41d4_a716_446655440002),
 ];
 
+/// Legacy hard-coded EPURE_DEV_SEED ids (also marked `is_demo` after migration).
 pub fn is_dev_seed_project(project_id: Uuid) -> bool {
     DEV_SEED_PROJECTS.contains(&project_id)
+}
+
+pub async fn project_is_demo(
+    pool: &PgPool,
+    org_id: Uuid,
+    project_id: Uuid,
+) -> Result<bool, sqlx::Error> {
+    if is_dev_seed_project(project_id) {
+        return Ok(true);
+    }
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let is_demo = sqlx::query_scalar::<_, bool>(
+        "SELECT COALESCE(is_demo, false) FROM projects WHERE id = $1",
+    )
+    .bind(project_id)
+    .fetch_optional(&mut *tx)
+    .await?
+    .unwrap_or(false);
+    tx.commit().await?;
+    Ok(is_demo)
 }
 
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
@@ -134,7 +155,7 @@ async fn reconcile_setup_progress(
     }
 
     let has_issue = project_has_any_issue(pool, org_id, project_id).await?;
-    let seeded = is_dev_seed_project(project_id);
+    let seeded = project_is_demo(pool, org_id, project_id).await?;
     let should_complete = seeded || has_issue || row.completed_at.is_some();
 
     let project_named = row.project_named || should_complete;

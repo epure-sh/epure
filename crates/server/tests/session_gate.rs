@@ -125,12 +125,23 @@ async fn seed_dev_password(pool: &PgPool) -> Result<(), sqlx::Error> {
     let hash = epure_auth::dev_seed_password_hash();
     sqlx::query(
         r#"
-        UPDATE users
-        SET password_hash = $1
-        WHERE id = $2
+        INSERT INTO users (id, email, password_hash)
+        VALUES ($1, 'dev@epure.local', $2)
+        ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash
         "#,
     )
+    .bind(dev_user())
     .bind(hash)
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        r#"
+        INSERT INTO org_members (org_id, user_id, role)
+        VALUES ($1, $2, 'owner')
+        ON CONFLICT (org_id, user_id) DO NOTHING
+        "#,
+    )
+    .bind(dev_org())
     .bind(dev_user())
     .execute(pool)
     .await?;

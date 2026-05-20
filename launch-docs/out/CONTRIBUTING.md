@@ -8,7 +8,7 @@ Help ship Phase 1 OSS exception monitoring. Product overview and install: [READM
 
 | Tool | Version | Notes |
 |------|---------|-------|
-| Docker Compose | v2 | `docker compose up` pulls `ghcr.io/epure-sh/epure` |
+| Docker Compose | v2 | `docker compose up` pulls `ghcr.io/epure-sh/epure` (amd64 + arm64) |
 | Rust | stable | `cargo` workspace in `crates/` |
 | Node (optional) | 22+ | SPA hot reload in `web/` |
 | Postgres (tests) | 16 | Host port **5433** locally; CI uses **5432** |
@@ -25,7 +25,8 @@ Setup: `docker compose up` (no `.env`). Ports: `cp .env.example .env`. Cargo dev
 ```bash
 docker compose up
 curl -sS http://localhost:8080/health   # expect {"status":"ok"}
-./scripts/seed-dev.sh                   # optional smoke data — ⚠️ DEV ONLY
+# Preview: register at /login (Acme Web + Acme API)
+# Heavy UX: ./scripts/seed.sh --email you@example.com --password '…'
 ```
 
 Source build (Rust / Dockerfile changes):

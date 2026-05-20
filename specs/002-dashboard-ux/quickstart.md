@@ -40,14 +40,14 @@ After stats and setup endpoints ship, validate with an authenticated session coo
 
 ### Login and capture session
 
-Use dev registration or seed account. Example with email/password (adjust credentials):
+Use dev registration or an account from `./scripts/seed.sh --email …`. Example with email/password (adjust credentials):
 
 ```bash
 # Register (first run) or login
 curl -sS -c /tmp/epure-cookies.txt \
   -X POST http://localhost:8080/api/v1/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"dev@example.com","password":"devpassword"}' | jq .
+  -d '{"email":"you@example.com","password":"your-password"}' | jq .
 ```
 
 ### Headline stats

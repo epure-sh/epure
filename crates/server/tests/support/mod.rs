@@ -90,6 +90,32 @@ pub async fn seed_dev_pool(pool: &PgPool) -> Result<(), sqlx::Error> {
     {
         sqlx::query(statement).execute(pool).await?;
     }
+    // Test-only account — never written into seed SQL shipped for operators.
+    let hash = epure_auth::dev_seed_password_hash();
+    let user_id = Uuid::parse_str("33333333-3333-3333-3333-333333333333").expect("dev user");
+    let org_id = Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("dev org");
+    sqlx::query(
+        r#"
+        INSERT INTO users (id, email, password_hash)
+        VALUES ($1, 'dev@epure.local', $2)
+        ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash
+        "#,
+    )
+    .bind(user_id)
+    .bind(hash)
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        r#"
+        INSERT INTO org_members (org_id, user_id, role)
+        VALUES ($1, $2, 'owner')
+        ON CONFLICT (org_id, user_id) DO NOTHING
+        "#,
+    )
+    .bind(org_id)
+    .bind(user_id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 

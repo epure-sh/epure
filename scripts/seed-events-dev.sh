@@ -79,4 +79,4 @@ event_count=$(docker compose exec -T postgres psql -U epure -d epure -tAc \
   || psql "${DATABASE_URL:-}" -tAc "SELECT COUNT(*) FROM events WHERE project_id = '${PROJECT_ID}';")
 
 echo "seed events applied — ${issue_count} issues, ${event_count} events"
-echo "open ${EPURE_URL}/ and log in with dev@epure.local / devpassword"
+echo "open ${EPURE_URL}/ — register, or ./scripts/seed.sh --email … --password …"

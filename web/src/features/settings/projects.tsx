@@ -1,7 +1,9 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   createProject,
   deleteProject,
+  patchSetupProgress,
   updateProject,
   type ProjectRow,
 } from "../../lib/api";
@@ -41,6 +43,7 @@ function validateForm(name: string, ingestCap: number): { name?: string; ingestC
 }
 
 export function ProjectsSettings() {
+  const navigate = useNavigate();
   const { projects, refreshProjects, user, projectId, setProjectId } = useAppContext();
   const [selectedId, setSelectedId] = useState(projectId);
   const [name, setName] = useState("");
@@ -124,7 +127,16 @@ export function ProjectsSettings() {
       setNewProjectName("");
       await refreshProjects();
       setProjectId(created.id);
-      toast(`Created ${created.name}`);
+      try {
+        await patchSetupProgress({
+          project_id: created.id,
+          project_named: true,
+        });
+      } catch {
+        /* open wizard anyway */
+      }
+      navigate(`/?setup=${encodeURIComponent(created.id)}`);
+      toast(`Created ${created.name} — finish setup`);
     } catch {
       toast("Failed to create project");
     } finally {

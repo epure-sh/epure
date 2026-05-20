@@ -6,11 +6,43 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 ## Unreleased
 
+Nothing yet.
+
+## [v1.1.0] — 2026-09-23
+
+Onboarding and dashboard polish after `v1.0.0`. GHCR: `ghcr.io/epure-sh/epure:v1.1.0` (also `:latest`).
+
+### Added
+
+- Register bootstrap creates **Acme Web** + **Acme API** preview projects with sample issues (stack frames + breadcrumbs), marked `is_demo`
+- `GET /api/projects/{id}/activity` — 30-day daily event histogram for org home / project list
+- Setup wizard dialog + platform snippets with framework icons (`web/public/frameworks/`)
+- `./scripts/seed.sh` — heavy UX seed with `--email` / `--password` / `--link-user` (no passwords in SQL)
+- README demo GIF (`.github/readme-shot.gif`)
+
 ### Changed
 
-- `docker compose up` needs no `.env`. Optional `.env.example` for host ports (`EPURE_PORT`, `POSTGRES_HOST_PORT`); `EPURE_PUBLIC_URL` follows `EPURE_PORT` on localhost. `./configure --quick` / `--prod` helpers; cargo dev vars in `.env.dev.example`. The binary still binds `8080` inside the container.
-- Production overlay: `.env.production.example`, HTTPS required, example DB passwords refused unless `EPURE_PUBLIC_URL` is localhost. Boot sets ingest/app role passwords from `.env` after migrate.
-- `docker compose up` pulls `ghcr.io/epure-sh/epure` (`pull_policy: always`). Pin with `EPURE_IMAGE`. Source build: `docker-compose.build.yml`.
+- Issue-list sparklines use **30 daily buckets** (was 72h / 2h)
+- Org home and project list show activity charts; demo projects skip the connect wizard
+- Seed path: register for preview; `./scripts/seed.sh` for high-volume fixtures (replaces `seed-dev.sh` as the documented path)
+- Example DB role passwords rotated at migrate; binary applies real passwords from env after migrate
+- Measured idle footprint on a 2 vCPU / 769 MiB VPS (2026-09-23): Epure ~**5 MiB** + Postgres ~**48 MiB** combined ~**53 MiB**
+
+### Fixed
+
+- Setup progress treats any `is_demo` project as preview (not only hard-coded seed UUIDs)
+- Clipboard / copy helpers for DSN and setup snippets
+
+### Docs
+
+- README, CONTRIBUTING, issue templates, and PUBLISH checklist updated for the register + `seed.sh` flow
+- [SUPPORT.md](SUPPORT.md) — where to ask questions vs report bugs
+
+## [v1.0.0] — 2026-09-19
+
+First tagged `v1` image on GHCR. Same Phase 1 surface as `v0.1.0-phase1`, with publish polish (Compose pulls public image, multi-arch Image workflow, community files).
+
+See the [v1.0.0 GitHub Release](https://github.com/epure-sh/epure/releases/tag/v1.0.0) for the full feature list.
 
 ## [v0.1.0-phase1] — 2026-09-15
 

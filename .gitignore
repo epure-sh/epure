@@ -4,3 +4,6 @@ web/dist-playground/
 web/node_modules/
 .env
 .env.dev
+.env.production
+.env.test
+.cursor/

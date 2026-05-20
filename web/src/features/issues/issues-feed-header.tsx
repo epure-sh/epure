@@ -229,11 +229,11 @@ export function IssuesFeedHeader({
           <Popover open={searchOpen} onOpenChange={setSearchOpen}>
             <PopoverAnchor asChild>
               <div
-                className="epure-filter-panel epure-issues-feed-search flex min-h-9 min-w-0 items-center gap-2.5 rounded-lg border border-border bg-surface px-3 py-2"
+                className="epure-filter-panel epure-issues-feed-search flex h-9 min-w-0 items-center gap-2 rounded-lg border border-border px-3"
                 onClick={() => setSearchOpen(true)}
               >
                 <Search size={14} className="shrink-0 text-ink-muted" aria-hidden />
-                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                <div className="flex min-h-0 min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
                   {chips.map((chip) => (
                     <FilterChip
                       key={chip.token}
@@ -270,7 +270,7 @@ export function IssuesFeedHeader({
                     aria-label="Search issues"
                     aria-expanded={searchOpen}
                     aria-haspopup="listbox"
-                    className="h-7 min-w-[8rem] flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus-ring"
+                    className="h-full min-h-0 min-w-[8rem] flex-1 border-0 bg-transparent px-0 py-0 leading-none shadow-none focus-ring"
                   />
                 </div>
               </div>

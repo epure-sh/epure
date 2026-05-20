@@ -1,6 +1,7 @@
 import { Check, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { cn } from "../lib/cn";
+import { copyText } from "../lib/copy-text";
 import { Button } from "./button";
 
 export interface ApplyWithAiButtonProps {
@@ -8,6 +9,7 @@ export interface ApplyWithAiButtonProps {
   className?: string;
   size?: "sm" | "toolbar" | "default";
   onCopied?: () => void;
+  onCopyFailed?: () => void;
 }
 
 export function ApplyWithAiButton({
@@ -15,6 +17,7 @@ export function ApplyWithAiButton({
   className,
   size = "sm",
   onCopied,
+  onCopyFailed,
 }: ApplyWithAiButtonProps) {
   const [copied, setCopied] = useState(false);
 
@@ -27,14 +30,15 @@ export function ApplyWithAiButton({
   }, [copied]);
 
   const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(prompt);
+    const ok = await copyText(prompt);
+    if (ok) {
       setCopied(true);
       onCopied?.();
-    } catch {
-      // ignore clipboard errors
+      return;
     }
-  }, [onCopied, prompt]);
+    onCopyFailed?.();
+    onCopied?.();
+  }, [onCopied, onCopyFailed, prompt]);
 
   return (
     <Button

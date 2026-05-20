@@ -6,9 +6,9 @@ Epure is self-hosted error tracking: a Rust binary and PostgreSQL 16. You run bo
 
 | Version | Supported |
 |---|---|
-| Latest release (`v0.1.0-phase1` and newer tags) | Yes |
+| Latest release (`v1.1.0` and newer tags) | Yes |
 | `main` branch | Yes (fixes land here first) |
-| Older tags / forks | No |
+| Older tags / forks | Best-effort only |
 
 Upgrade: `git pull && docker compose up -d` (pulls GHCR; pin `EPURE_IMAGE` in production). Guide: [epure.sh/docs/self-hosting/upgrades](https://epure.sh/docs/self-hosting/upgrades).
 

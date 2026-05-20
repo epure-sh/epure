@@ -90,7 +90,9 @@ async fn to_response(
         first_issue_seen_at: row.first_issue_seen_at,
         completed_at: row.completed_at,
         complete: row.completed_at.is_some(),
-        seeded: setup::is_dev_seed_project(row.project_id),
+        seeded: setup::project_is_demo(&state.pools.app, org_id, row.project_id)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
     })
 }
 

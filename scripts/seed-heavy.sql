@@ -1,39 +1,43 @@
--- Heavy dev seed: org, 3 projects, DSN keys, users, releases, webhooks, invitations.
--- Idempotent — safe to re-run. Issues/events are reset by seed-heavy.sh before ingest.
+-- Heavy seed scaffold: org, 3 projects, DSN keys, releases, webhooks, invitations.
+-- No users / passwords. Idempotent — safe to re-run. Issues/events reset by seed.sh.
 
-\echo 'Applying heavy dev seed (org, projects, DSN, users, releases)...'
+\echo 'Applying heavy seed (org, projects, DSN, releases)...'
 
 INSERT INTO organizations (id, name)
 VALUES ('11111111-1111-1111-1111-111111111111', 'Acme Corp')
 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
 
-INSERT INTO projects (id, org_id, name, slug, ingest_cap_per_hour)
+INSERT INTO projects (id, org_id, name, slug, ingest_cap_per_hour, is_demo)
 VALUES
     (
         '550e8400-e29b-41d4-a716-446655440000',
         '11111111-1111-1111-1111-111111111111',
         'Acme Web',
         'acme-web',
-        50000
+        50000,
+        true
     ),
     (
         '660e8400-e29b-41d4-a716-446655440001',
         '11111111-1111-1111-1111-111111111111',
         'Acme API',
         'acme-api',
-        50000
+        50000,
+        true
     ),
     (
         '770e8400-e29b-41d4-a716-446655440002',
         '11111111-1111-1111-1111-111111111111',
         'Acme Mobile',
         'acme-mobile',
-        50000
+        50000,
+        true
     )
 ON CONFLICT (id) DO UPDATE
 SET name = EXCLUDED.name,
     slug = EXCLUDED.slug,
-    ingest_cap_per_hour = EXCLUDED.ingest_cap_per_hour;
+    ingest_cap_per_hour = EXCLUDED.ingest_cap_per_hour,
+    is_demo = true;
 
 INSERT INTO dsn_keys (id, project_id, public_key, secret_key, label)
 VALUES
@@ -60,35 +64,9 @@ VALUES
     )
 ON CONFLICT (id) DO UPDATE SET label = EXCLUDED.label;
 
-INSERT INTO users (id, email, password_hash, display_name)
-VALUES
-    (
-        '33333333-3333-3333-3333-333333333333',
-        'dev@epure.local',
-        decode(
-            '65707572652d6465762d73616c7421215068a4eddcc0dc4bc8ff20f17ef8b7565ca5bdcc36675b1fe8c9f74fc7c466ac',
-            'hex'
-        ),
-        'Dev User'
-    ),
-    (
-        '44444444-4444-4444-4444-444444444444',
-        'member@epure.local',
-        decode(
-            '65707572652d6465762d73616c7421215068a4eddcc0dc4bc8ff20f17ef8b7565ca5bdcc36675b1fe8c9f74fc7c466ac',
-            'hex'
-        ),
-        NULL
-    )
-ON CONFLICT (id) DO UPDATE
-SET password_hash = EXCLUDED.password_hash,
-    display_name = COALESCE(EXCLUDED.display_name, users.display_name);
-
-INSERT INTO org_members (org_id, user_id, role)
-VALUES
-    ('11111111-1111-1111-1111-111111111111', '33333333-3333-3333-3333-333333333333', 'owner'),
-    ('11111111-1111-1111-1111-111111111111', '44444444-4444-4444-4444-444444444444', 'member')
-ON CONFLICT (org_id, user_id) DO NOTHING;
+-- Accounts are never seeded with passwords. Attach a user after ingest:
+--   ./scripts/seed.sh --email you@example.com --password '…'
+--   ./scripts/seed.sh --link-user you@example.com
 
 -- Releases (artifacts optional — versions drive release health UI)
 INSERT INTO releases (project_id, version)

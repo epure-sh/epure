@@ -206,7 +206,7 @@ components:
           description: True when `completed_at` is set
         seeded:
           type: boolean
-          description: True for well-known local seed projects (dev seed)
+          description: True for demo/preview projects (`is_demo` or well-known seed UUIDs)
 
     PatchSetupProgress:
       type: object

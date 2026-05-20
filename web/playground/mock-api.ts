@@ -6,6 +6,7 @@ import type {
   CreatedDsnKey,
   EventDetail,
   EventsPage,
+  DsnKeyRow,
   InvitationRow,
   IssueSummary,
   MemberRow,
@@ -26,6 +27,7 @@ import {
   projects,
   releases,
   setupProgress,
+  setupProgressPending,
   webhooks,
 } from "./fixtures/seed";
 
@@ -99,6 +101,43 @@ let store: MockStore = createStore();
 let teamMembers: MemberRow[] = clone(members);
 let teamInvitations: InvitationRow[] = clone(invitations);
 let mockProjects: ProjectRow[] = clone(projects);
+let mockDsnKeys: DsnKeyRow[] = clone(dsnKeys);
+let setupByProject = new Map<string, SetupProgress>();
+
+function blankSetup(projectId: string): SetupProgress {
+  return {
+    user_id: me.user_id,
+    org_id: me.org_id,
+    project_id: projectId,
+    project_named: false,
+    has_active_key: false,
+    dsn_copied_at: null,
+    first_issue_seen_at: null,
+    completed_at: null,
+    complete: false,
+    seeded: false,
+  };
+}
+
+function getSetup(projectId: string): SetupProgress {
+  const existing = setupByProject.get(projectId);
+  if (existing) {
+    return existing;
+  }
+  if (projectId === setupProgress.project_id) {
+    const seeded = clone(setupProgress);
+    setupByProject.set(projectId, seeded);
+    return seeded;
+  }
+  if (projectId === setupProgressPending.project_id) {
+    const pending = clone(setupProgressPending);
+    setupByProject.set(projectId, pending);
+    return pending;
+  }
+  const created = blankSetup(projectId);
+  setupByProject.set(projectId, created);
+  return created;
+}
 
 function createStore(): MockStore {
   return {
@@ -117,6 +156,10 @@ function resetStore(): void {
   teamMembers = clone(members);
   teamInvitations = clone(invitations);
   mockProjects = clone(projects);
+  mockDsnKeys = clone(dsnKeys);
+  setupByProject = new Map();
+  setupByProject.set(setupProgress.project_id, clone(setupProgress));
+  setupByProject.set(setupProgressPending.project_id, clone(setupProgressPending));
 }
 
 function issueById(id: string): MockIssue | undefined {
@@ -242,6 +285,70 @@ function handleGet(path: string, url: URL): Response {
     });
   }
 
+  const projectActivity = path.match(/^\/api\/v1\/projects\/([^/]+)\/activity$/);
+  if (projectActivity) {
+    const projectId = projectActivity[1];
+    if (!mockProjects.some((project) => project.id === projectId)) {
+      return jsonResponse({ error: "not_found" }, 404);
+    }
+    const bucketCount = 30;
+    const bucketMs = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const dayStarts = Array.from({ length: bucketCount }, (_, index) => {
+      const start = new Date(now - (bucketCount - 1 - index) * bucketMs);
+      start.setUTCHours(0, 0, 0, 0);
+      return start;
+    });
+    const projectEvents = store.events.filter((event) => {
+      const issue = issueById(event.issue_id);
+      return issue?.project_id === projectId;
+    });
+    const projectIssues = store.issues.filter((issue) => issue.project_id === projectId);
+    const realCounts = dayStarts.map((start) => {
+      const end = start.getTime() + bucketMs;
+      return projectEvents.filter((event) => {
+        const at = new Date(event.occurred_at).getTime();
+        return at >= start.getTime() && at < end;
+      }).length;
+    });
+    const realTotal = realCounts.reduce((sum, count) => sum + count, 0);
+    const eventTarget = projectIssues.reduce((sum, issue) => sum + issue.event_count, 0);
+    let counts = realCounts;
+    if (eventTarget > realTotal) {
+      const first = Math.min(
+        ...projectIssues.map((issue) => new Date(issue.first_seen_at ?? dayStarts[0]).getTime()),
+      );
+      const last = Math.max(
+        ...projectIssues.map((issue) => new Date(issue.last_seen_at ?? dayStarts[bucketCount - 1]).getTime()),
+      );
+      const span = Math.max(last - first, bucketMs);
+      const seed = projectId.split("").reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+      const weights = dayStarts.map((start, index) => {
+        const mid = start.getTime() + bucketMs / 2;
+        if (mid < first || mid > last + bucketMs) {
+          return 0;
+        }
+        const recency = (mid - first) / span;
+        const wave = 0.7 + 0.2 * Math.sin(index * 0.55 + seed * 0.11);
+        return wave * (0.55 + 0.55 * recency * recency);
+      });
+      const weightSum = weights.reduce((sum, weight) => sum + weight, 0);
+      if (weightSum > 0) {
+        const target = Math.min(eventTarget, 10_000);
+        counts = weights.map((weight, index) =>
+          Math.max(realCounts[index], Math.round((weight / weightSum) * target)),
+        );
+      }
+    }
+    return jsonResponse({
+      project_id: projectId,
+      buckets: dayStarts.map((start, index) => ({
+        start: start.toISOString(),
+        count: counts[index],
+      })),
+    });
+  }
+
   if (path === "/api/v1/issues") {
     const query = url.searchParams.get("q") ?? "";
     const projectId = url.searchParams.get("project_id");
@@ -294,26 +401,13 @@ function handleGet(path: string, url: URL): Response {
   }
 
   if (path === "/api/v1/setup") {
-    const projectId = url.searchParams.get("project_id");
-    if (projectId && projectId !== store.setup.project_id) {
-      return jsonResponse({
-        ...store.setup,
-        project_id: projectId,
-        project_named: false,
-        has_active_key: false,
-        dsn_copied_at: null,
-        first_issue_seen_at: null,
-        completed_at: null,
-        complete: false,
-        seeded: false,
-      });
-    }
-    return jsonResponse(store.setup);
+    const projectId = url.searchParams.get("project_id") ?? setupProgress.project_id;
+    return jsonResponse(getSetup(projectId));
   }
 
   if (path === "/api/v1/setup/dsn") {
-    const projectId = url.searchParams.get("project_id") ?? store.setup.project_id;
-    const keys = dsnKeys.filter((row) => row.project_id === projectId && !row.revoked_at);
+    const projectId = url.searchParams.get("project_id") ?? setupProgress.project_id;
+    const keys = mockDsnKeys.filter((row) => row.project_id === projectId && !row.revoked_at);
     const active = keys[0];
     return jsonResponse({
       project_id: projectId,
@@ -433,7 +527,7 @@ function handleGet(path: string, url: URL): Response {
   if (dsnKeysRoute) {
     const projectId = dsnKeysRoute[1];
     return jsonResponse({
-      keys: dsnKeys.filter((key) => key.project_id === projectId),
+      keys: mockDsnKeys.filter((key) => key.project_id === projectId),
     });
   }
 
@@ -504,19 +598,32 @@ async function handlePatch(path: string, init: RequestInit): Promise<Response> {
   }
 
   if (path === "/api/v1/setup") {
+    const projectId =
+      typeof body.project_id === "string" && body.project_id
+        ? body.project_id
+        : setupProgress.project_id;
+    const progress = getSetup(projectId);
     if (body.project_named) {
-      store.setup.project_named = true;
+      progress.project_named = true;
     }
     if (body.dsn_copied) {
-      const hasKey = dsnKeys.some(
-        (row) => row.project_id === store.setup.project_id && !row.revoked_at,
+      const hasKey = mockDsnKeys.some(
+        (row) => row.project_id === projectId && !row.revoked_at,
       );
       if (hasKey) {
-        store.setup.has_active_key = true;
-        store.setup.dsn_copied_at = new Date().toISOString();
+        progress.has_active_key = true;
+        progress.dsn_copied_at = new Date().toISOString();
+      } else {
+        return jsonResponse({ error: "no active dsn key" }, 404);
       }
     }
-    return jsonResponse(store.setup);
+    if (body.first_issue_seen) {
+      progress.first_issue_seen_at = new Date().toISOString();
+      progress.completed_at = new Date().toISOString();
+      progress.complete = true;
+    }
+    store.setup = progress;
+    return jsonResponse(progress);
   }
 
   const bulkMatch = path.match(/^\/api\/v1\/issues\/bulk$/);
@@ -597,7 +704,7 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
 
   if (path === "/api/v1/setup/test-event") {
     const projectId = url.searchParams.get("project_id") ?? store.setup.project_id;
-    const hasKey = dsnKeys.some((row) => row.project_id === projectId && !row.revoked_at);
+    const hasKey = mockDsnKeys.some((row) => row.project_id === projectId && !row.revoked_at);
     if (!hasKey) {
       return jsonResponse({ error: "dsn key required" }, 400);
     }
@@ -623,21 +730,65 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
 
   if (path === "/api/v1/issues/trends") {
     const issueIds = (body.issue_ids ?? []) as string[];
-    const bucketCount = 36;
-    const bucketMs = 2 * 60 * 60 * 1000;
+    const bucketCount = 30;
+    const bucketMs = 24 * 60 * 60 * 1000;
     const now = Date.now();
+    const dayStarts = Array.from({ length: bucketCount }, (_, index) => {
+      const start = new Date(now - (bucketCount - 1 - index) * bucketMs);
+      start.setUTCHours(0, 0, 0, 0);
+      return start;
+    });
+
     const trends = issueIds.map((issueId) => {
+      const issue = issueById(issueId);
       const issueEvents = store.events.filter((event) => event.issue_id === issueId);
-      const buckets = Array.from({ length: bucketCount }, (_, index) => {
-        const start = new Date(now - (bucketCount - 1 - index) * bucketMs);
+      const realCounts = dayStarts.map((start) => {
         const end = start.getTime() + bucketMs;
-        const count = issueEvents.filter((event) => {
+        return issueEvents.filter((event) => {
           const at = new Date(event.occurred_at).getTime();
           return at >= start.getTime() && at < end;
         }).length;
-        return { start: start.toISOString(), count };
       });
-      return { issue_id: issueId, buckets };
+      const realTotal = realCounts.reduce((sum, count) => sum + count, 0);
+
+      // Playground stores few event rows; synthesize a mild 30d series with
+      // day-to-day wobble (avoid a hard rising lean that hides variation).
+      let counts = realCounts;
+      if (issue && issue.event_count > realTotal) {
+        const first = new Date(issue.first_seen_at ?? dayStarts[0].toISOString()).getTime();
+        const last = new Date(
+          issue.last_seen_at ?? dayStarts[bucketCount - 1].toISOString(),
+        ).getTime();
+        const span = Math.max(last - first, bucketMs);
+        const seed = issueId.split("").reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+        const weights = dayStarts.map((start, index) => {
+          const mid = start.getTime() + bucketMs / 2;
+          if (mid < first || mid > last + bucketMs) {
+            return 0;
+          }
+          const recency = (mid - first) / span;
+          const wave = 0.55 + 0.35 * Math.sin(index * 0.85 + seed * 0.17);
+          const pulse = 0.75 + 0.45 * Math.sin(index * 1.7 + seed * 0.31);
+          // Mild recency tilt only — keep most of the amplitude for variation.
+          return wave * pulse * (0.88 + 0.22 * recency);
+        });
+        const weightSum = weights.reduce((sum, weight) => sum + weight, 0);
+        if (weightSum > 0) {
+          const target = Math.min(issue.event_count, 10_000);
+          counts = weights.map((weight, index) => {
+            const share = Math.round((weight / weightSum) * target);
+            return Math.max(realCounts[index], share);
+          });
+        }
+      }
+
+      return {
+        issue_id: issueId,
+        buckets: dayStarts.map((start, index) => ({
+          start: start.toISOString(),
+          count: counts[index],
+        })),
+      };
     });
     return jsonResponse({ trends });
   }
@@ -735,6 +886,9 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
       created_at: new Date().toISOString(),
       secret_key: "playground-secret-key",
     };
+    mockDsnKeys = [...mockDsnKeys, created];
+    const progress = getSetup(created.project_id);
+    progress.has_active_key = true;
     return jsonResponse(created, 201);
   }
 
@@ -749,6 +903,12 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
       created_at: new Date().toISOString(),
       secret_key: "playground-secret-key",
     };
+    mockDsnKeys = mockDsnKeys.map((row) =>
+      row.project_id === created.project_id && !row.revoked_at
+        ? { ...row, revoked_at: new Date().toISOString() }
+        : row,
+    );
+    mockDsnKeys = [...mockDsnKeys, created];
     return jsonResponse(created, 201);
   }
 
@@ -771,10 +931,12 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
       slug: slug || "project",
       retention_days: 30,
       ingest_cap_per_hour: 5000,
+      is_demo: false,
       created_at: new Date().toISOString(),
       role: me.role,
     };
     mockProjects = [...mockProjects, created];
+    setupByProject.set(created.id, blankSetup(created.id));
     return jsonResponse(created, 201);
   }
 
@@ -876,8 +1038,22 @@ const nativeFetch = window.fetch.bind(window);
 
 export function installMockApi(): void {
   window.fetch = mockFetch as typeof fetch;
-  (window as Window & { __EPURE_PLAYGROUND__?: { reset: () => void } }).__EPURE_PLAYGROUND__ =
-    { reset: resetStore };
+  setupByProject.set(setupProgress.project_id, clone(setupProgress));
+  setupByProject.set(setupProgressPending.project_id, clone(setupProgressPending));
+  (window as Window & {
+    __EPURE_PLAYGROUND__?: {
+      reset: () => void;
+      openSetup: () => string;
+    };
+  }).__EPURE_PLAYGROUND__ = {
+    reset: resetStore,
+    openSetup: () => {
+      const path = `/?setup=${setupProgressPending.project_id}`;
+      window.history.pushState({}, "", path);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      return path;
+    },
+  };
 }
 
 export function isPlayground(): boolean {

@@ -10,6 +10,7 @@ export interface CopyDsnBlockProps {
   compact?: boolean;
   className?: string;
   onCopied?: () => void;
+  onCopyFailed?: () => void;
 }
 
 export function CopyDsnBlock({
@@ -19,6 +20,7 @@ export function CopyDsnBlock({
   compact = false,
   className,
   onCopied,
+  onCopyFailed,
 }: CopyDsnBlockProps) {
   const [revealed, setRevealed] = useState(true);
 
@@ -30,6 +32,7 @@ export function CopyDsnBlock({
           value={revealed ? dsn : "••••••••••••••••••••••••••••••••"}
           className="h-8 min-w-0 flex-1 font-mono text-xs"
           aria-label={label}
+          onFocus={(event) => event.currentTarget.select()}
         />
         <button
           type="button"
@@ -38,7 +41,12 @@ export function CopyDsnBlock({
         >
           {revealed ? "Hide" : "Show"}
         </button>
-        <CopyButton value={dsn} label="Copy DSN" onCopied={onCopied} />
+        <CopyButton
+          value={dsn}
+          label="Copy DSN"
+          onCopied={onCopied}
+          onCopyFailed={onCopyFailed}
+        />
       </div>
     );
   }
@@ -62,11 +70,13 @@ export function CopyDsnBlock({
           value={revealed ? dsn : "••••••••••••••••••••••••••••••••"}
           className="border-0 bg-transparent font-mono text-xs shadow-none focus:bg-transparent"
           aria-label={label}
+          onFocus={(event) => event.currentTarget.select()}
         />
         <CopyButton
           value={dsn}
           label="Copy"
           onCopied={onCopied}
+          onCopyFailed={onCopyFailed}
         />
       </div>
     </div>
