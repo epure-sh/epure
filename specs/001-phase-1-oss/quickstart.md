@@ -25,9 +25,9 @@ Runnable validation guide for local development and ROADMAP slice proofs. See [d
 | `cp .env.example .env` | Port conflict, demo seed, CORS, OAuth |
 | `./configure --quick` | Same as above; auto-picks free ports |
 | `./configure --prod` | Production VPS secrets |
-| `.env.dev.example` → `.env.dev` | `cargo test` / host binaries against Compose Postgres |
+| `deploy/env.dev.example` → `.env.dev` | `cargo test` / host binaries against Compose Postgres |
 
-Compose injects all three `DATABASE_URL*` values inside the container. Host-side cargo uses `.env.dev.example` (port **5433** by default).
+Compose injects all three `DATABASE_URL*` values inside the container. Host-side cargo uses `deploy/env.dev.example` (port **5433** by default).
 
 | Variable | Compose `.env` | Default | Description |
 |---|---|---|---|
@@ -107,7 +107,7 @@ export DATABASE_URL=postgres://epure:epure@localhost:5433/epure
 cargo test
 ```
 
-See `.env.test.example` for a copy-paste `DATABASE_URL`.
+See `deploy/env.test.example` for a copy-paste `DATABASE_URL`.
 
 Run server locally (requires Postgres on host port 5433):
 

@@ -13,7 +13,7 @@ Help ship Phase 1 OSS exception monitoring. Product overview and install: [READM
 | Node (optional) | 22+ | SPA hot reload in `web/` |
 | Postgres (tests) | 16 | Host port **5433** locally; CI uses **5432** |
 
-Setup: `docker compose up` (no `.env`). Ports: `cp .env.example .env`. Cargo dev: `.env.dev.example` → `.env.dev`.
+Setup: `docker compose up` (no `.env`). Ports: `cp .env.example .env`. Cargo dev: `deploy/env.dev.example` → `.env.dev`.
 
 ## Run tests
 
@@ -32,7 +32,7 @@ curl -sS http://localhost:8080/health   # expect {"status":"ok"}
 Source build (Rust / Dockerfile changes):
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.build.yml up --build
+docker compose -f docker-compose.yml -f deploy/docker-compose.build.yml up --build
 ```
 
 Golden path: [epure.sh/docs/get-started/quickstart](https://epure.sh/docs/get-started/quickstart).
@@ -65,7 +65,7 @@ cargo sqlx migrate run --source crates/storage/migrations
 4. Fill [.github/pull_request_template.md](.github/pull_request_template.md).
 5. Link issues with `Fixes #123` when applicable. Keep PRs focused.
 
-Questions that are not bugs: [Discussions](https://github.com/epure-sh/epure/discussions). Security: [SECURITY.md](SECURITY.md) · `security@news.epure.sh`. Support: `support@news.epure.sh`.
+Questions that are not bugs: [Discussions](https://github.com/epure-sh/epure/discussions). Security: [.github/SECURITY.md](.github/SECURITY.md) · `security@news.epure.sh`. Support: `support@news.epure.sh`.
 
 ## Scope guard
 
@@ -77,4 +77,4 @@ Maintainers merge on `main`. Large or speculative work should start as an issue.
 
 ## Code of Conduct
 
-[CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) (Contributor Covenant 2.1). Conduct reports: `conduct@news.epure.sh`.
+[.github/CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md) (Contributor Covenant 2.1). Conduct reports: `conduct@news.epure.sh`.

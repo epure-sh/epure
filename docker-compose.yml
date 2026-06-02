@@ -1,9 +1,9 @@
 # No `.env` required — `docker compose up` works on localhost:8080.
 # Optional: cp .env.example .env and set EPURE_PORT (URL follows on localhost).
-# Production: .env.production.example or ./configure --prod
+# Production: deploy/env.production.example or ./configure --prod
 #
 # `docker compose up` pulls ghcr.io/epure-sh/epure. Pin a release with
-# EPURE_IMAGE. Source build (contributors): docker-compose.build.yml.
+# EPURE_IMAGE. Source build: deploy/docker-compose.build.yml.
 
 services:
   epure:

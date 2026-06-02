@@ -6,7 +6,9 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 ## Unreleased
 
-Nothing yet.
+### Changed
+
+- Repo root trimmed for GitHub browsing: community health files under `.github/`; Compose overlays and extra env templates under [`deploy/`](deploy/README.md). Maintainer staging (`launch-docs/`, `.specify/`, `PUBLISH.md`) is no longer published.
 
 ## [v1.1.0] — 2026-09-23
 
@@ -35,8 +37,8 @@ Onboarding and dashboard polish after `v1.0.0`. GHCR: `ghcr.io/epure-sh/epure:v1
 
 ### Docs
 
-- README, CONTRIBUTING, issue templates, and PUBLISH checklist updated for the register + `seed.sh` flow
-- [SUPPORT.md](SUPPORT.md) — where to ask questions vs report bugs
+- README, CONTRIBUTING, issue templates updated for the register + `seed.sh` flow
+- [.github/SUPPORT.md](.github/SUPPORT.md) — where to ask questions vs report bugs
 
 ## [v1.0.0] — 2026-09-19
 

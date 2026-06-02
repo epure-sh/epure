@@ -7,3 +7,9 @@ web/node_modules/
 .env.production
 .env.test
 .cursor/
+
+# Maintainer-only (not part of the public OSS tree)
+launch-docs/
+.specify/
+PUBLISH.md
+PROMPT_GITHUB_LAUNCH.md

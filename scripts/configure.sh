@@ -231,7 +231,7 @@ mode_prod() {
 Wrote production .env (passwords generated — back this file up).
 
 Start:
-  docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+  docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d
 
 Put TLS (Caddy, nginx, Traefik) in front of http://localhost:${epure_port}
 Public URL: ${public_url}
