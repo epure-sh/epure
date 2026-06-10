@@ -329,7 +329,7 @@ The core self-hosted workflow is available:
 - Inspect stack traces.
 - Configure alerts and releases.
 
-Expect protocol gaps, incomplete SDK coverage, and occasional breaking changes between minor releases. Pin an image tag in production (`EPURE_IMAGE=ghcr.io/epure-sh/epure:v1.1.0`).
+Expect protocol gaps, incomplete SDK coverage, and occasional breaking changes between minor releases. Pin an image tag in production (`EPURE_IMAGE=ghcr.io/epure-sh/epure:v1.1.1`).
 
 If you find a compatibility problem, please include:
 
