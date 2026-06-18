@@ -1,0 +1,73 @@
+name: SDK compatibility
+description: Sentry SDK ingest, CORS, or wire-format mismatch
+title: "[compat]: "
+labels: ["compat", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        epure is **not 100% Sentry compatible**. See the [SDK matrix](https://github.com/epure-sh/epure/blob/main/docs/COMPATIBILITY.md)
+        and [SUPPORT.md](https://github.com/epure-sh/epure/blob/main/SUPPORT.md).
+  - type: dropdown
+    id: sdk
+    attributes:
+      label: SDK
+      options:
+        - "@sentry/browser"
+        - "@sentry/node"
+        - sentry-python (store)
+        - sentry-go
+        - sentry-ruby
+        - sentry-php
+        - sentry-java
+        - Sentry .NET
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: sdk-version
+    attributes:
+      label: SDK version
+      placeholder: "e.g. @sentry/browser 7.120.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: wire-path
+    attributes:
+      label: Wire path
+      options:
+        - envelope
+        - store (legacy)
+        - user-feedback
+        - release artifacts / sourcemaps
+        - CORS preflight
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: Minimal repro (DSN redacted)
+      description: Paste `Sentry.init({...})` or curl command. Attach fixture from `fixtures/sentry/` if possible.
+      placeholder: |
+        Sentry.init({ dsn: "http://{key}@localhost:8080/{project_id}" });
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected (per Sentry or docs)
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual (HTTP code, missing issue, wrong frames)
+    validations:
+      required: true
+  - type: checkboxes
+    id: tested-fixtures
+    attributes:
+      label: Fixture coverage
+      options:
+        - label: I checked whether a fixture exists under `fixtures/sentry/{lang}/`
+        - label: I can contribute an anonymized envelope dump

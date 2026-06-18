@@ -1,0 +1,62 @@
+{
+  "platform": "node",
+  "level": "error",
+  "environment": "production",
+  "release": "api@1.8.3",
+  "transaction": "consumers/order-events",
+  "tags": {
+    "service": "events-consumer",
+    "seed_slug": "node-kafka-lag",
+    "seed_age_days": "9"
+  },
+  "user": {
+    "id": "svc_events-consumer",
+    "email": "events-consumer@acme-corp.com"
+  },
+  "contexts": {
+    "runtime": {
+      "name": "node",
+      "version": "20.11.0"
+    },
+    "os": {
+      "name": "linux"
+    }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "Consumer lag exceeded threshold: 120000 messages",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "/app/src/consumers/orderEvents.ts",
+              "function": "checkLag",
+              "lineno": 62,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "    raise Error('Consumer lag exceeded threshold: 120000 ')",
+              "pre_context": [
+                "// checkLag()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "default",
+        "category": "log",
+        "level": "info",
+        "message": "consumers/order-events started"
+      }
+    ]
+  }
+}

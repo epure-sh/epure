@@ -1,0 +1,63 @@
+{
+  "platform": "go",
+  "level": "error",
+  "environment": "production",
+  "release": "api@1.8.3",
+  "transaction": "GET /v1/invoices/{id}/pdf",
+  "tags": {
+    "service": "billing-api",
+    "seed_slug": "go-invoice-pdf-nil",
+    "seed_age_days": "7",
+    "seed_merge_into": "go-nil-pointer"
+  },
+  "user": {
+    "id": "svc_billing-api",
+    "email": "billing-api@acme-corp.com"
+  },
+  "contexts": {
+    "runtime": {
+      "name": "go",
+      "version": "go1.22.0"
+    },
+    "os": {
+      "name": "linux"
+    }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "invoice PDF template not found for locale fr-FR",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "/app/internal/handlers/invoice_pdf.go",
+              "function": "RenderPdf",
+              "lineno": 29,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "    raise Error('invoice PDF template not found for local')",
+              "pre_context": [
+                "// RenderPdf()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "default",
+        "category": "log",
+        "level": "info",
+        "message": "GET /v1/invoices/{id}/pdf started"
+      }
+    ]
+  }
+}

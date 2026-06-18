@@ -1,0 +1,3 @@
+{"event_id":"bb0e8400-e29b-41d4-a716-446655440006","sdk":{"name":"sentry.java","version":"7.8.0"}}
+{"type":"event","length":131}
+{"exception":{"values":[{"type":"NullPointerException","value":"Cannot invoke method on null"}]},"platform":"java","level":"error"}

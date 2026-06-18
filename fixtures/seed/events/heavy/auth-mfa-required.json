@@ -1,0 +1,96 @@
+{
+  "platform": "javascript",
+  "level": "error",
+  "environment": "production",
+  "release": "web@2.15.0",
+  "transaction": "/login",
+  "tags": {
+    "feature": "auth",
+    "seed_slug": "auth-mfa-required",
+    "seed_age_days": "4"
+  },
+  "user": {
+    "id": "usr_placeholder",
+    "email": "user@acme-corp.com",
+    "username": "user"
+  },
+  "contexts": {
+    "browser": {
+      "name": "Chrome",
+      "version": "128.0.0.0"
+    },
+    "os": {
+      "name": "macOS",
+      "version": "14.6"
+    },
+    "runtime": {
+      "name": "browser",
+      "version": "128.0.0.0"
+    }
+  },
+  "request": {
+    "url": "https://app.acme-corp.com/login",
+    "method": "GET"
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "MFA challenge required but device not enrolled",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "webpack:///./node_modules/react-dom/cjs/react-dom.production.min.js",
+              "function": "invokeGuardedCallback",
+              "lineno": 4213,
+              "colno": 1,
+              "in_app": false
+            },
+            {
+              "filename": "webpack:///./src/hooks/useAuth.ts",
+              "function": "completeLogin",
+              "lineno": 93,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "  // MFA challenge required but device not enrolled",
+              "pre_context": [
+                "// completeLogin()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "navigation",
+        "category": "navigation",
+        "level": "info",
+        "message": "Navigated to /login"
+      },
+      {
+        "timestamp": 1726214402.0,
+        "type": "http",
+        "category": "fetch",
+        "level": "info",
+        "message": "GET /login",
+        "data": {
+          "status_code": 200
+        }
+      },
+      {
+        "timestamp": 1726214404.0,
+        "type": "default",
+        "category": "console",
+        "level": "error",
+        "message": "Error: MFA challenge required but device not enrolled"
+      }
+    ]
+  }
+}

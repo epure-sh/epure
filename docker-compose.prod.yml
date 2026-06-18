@@ -1,0 +1,15 @@
+# Production overlay — use with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Requires HTTPS in front of Epure (reverse proxy or TLS terminator).
+
+services:
+  epure:
+    environment:
+      EPURE_SESSION_SECURE: "1"
+      EPURE_PUBLIC_URL: https://your-domain.example
+    ports:
+      - "8080:8080"
+
+  postgres:
+    ports: []

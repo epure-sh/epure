@@ -1,0 +1,62 @@
+{
+  "platform": "go",
+  "level": "error",
+  "environment": "production",
+  "release": "api@1.8.2",
+  "transaction": "GET /v1/search",
+  "tags": {
+    "service": "search-api",
+    "seed_slug": "go-context-canceled",
+    "seed_age_days": "8"
+  },
+  "user": {
+    "id": "svc_search-api",
+    "email": "search-api@acme-corp.com"
+  },
+  "contexts": {
+    "runtime": {
+      "name": "go",
+      "version": "go1.22.0"
+    },
+    "os": {
+      "name": "linux"
+    }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "context.Canceled",
+        "value": "context canceled",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "/app/internal/handlers/search.go",
+              "function": "Search",
+              "lineno": 41,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "    raise context.Canceled('context canceled')",
+              "pre_context": [
+                "// Search()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "default",
+        "category": "log",
+        "level": "info",
+        "message": "GET /v1/search started"
+      }
+    ]
+  }
+}

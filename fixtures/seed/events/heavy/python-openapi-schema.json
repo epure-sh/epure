@@ -1,0 +1,62 @@
+{
+  "platform": "python",
+  "level": "error",
+  "environment": "staging",
+  "release": "api@1.9.0",
+  "transaction": "ci/openapi-check",
+  "tags": {
+    "service": "ci",
+    "seed_slug": "python-openapi-schema",
+    "seed_age_days": "1"
+  },
+  "user": {
+    "id": "svc_ci",
+    "email": "ci@acme-corp.com"
+  },
+  "contexts": {
+    "runtime": {
+      "name": "CPython",
+      "version": "3.12.2"
+    },
+    "os": {
+      "name": "linux"
+    }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "OpenAPI schema drift: missing field shipping_method",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "/app/ci/openapi_check.py",
+              "function": "assert_schema",
+              "lineno": 33,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "    raise Error('OpenAPI schema drift: missing field ship')",
+              "pre_context": [
+                "// assert_schema()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "default",
+        "category": "log",
+        "level": "info",
+        "message": "ci/openapi-check started"
+      }
+    ]
+  }
+}

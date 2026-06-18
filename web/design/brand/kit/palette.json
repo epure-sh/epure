@@ -1,0 +1,31 @@
+{
+  "theme": "calm-ledger",
+  "source": "../themes/calm-ledger.css",
+  "colors": {
+    "bg": "#f9fafc",
+    "bgSubtle": "#f1f3f7",
+    "surface": "#ffffff",
+    "surfaceElevated": "#f5f6fa",
+    "ink": "#111827",
+    "inkMuted": "#4b5563",
+    "inkSubtle": "#6b7280",
+    "accent": "#5a52e8",
+    "accentMuted": "#eeedfc",
+    "accentContrast": "#ffffff",
+    "accentHover": "#4a42d4"
+  },
+  "typography": {
+    "wordmark": {
+      "family": "IBM Plex Sans, ui-sans-serif, system-ui, sans-serif",
+      "weight": 500,
+      "trackingEm": -0.007,
+      "case": "title"
+    }
+  },
+  "geometry": {
+    "markViewBox": [54, 32],
+    "iconRadiusRatio": 0.25,
+    "lockupGapRatio": 0.35714285714285715,
+    "wordmarkSizeRatio": 0.5357142857142857
+  }
+}

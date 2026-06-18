@@ -1,0 +1,62 @@
+{
+  "platform": "node",
+  "level": "error",
+  "environment": "production",
+  "release": "api@1.8.3",
+  "transaction": "GET /api/session",
+  "tags": {
+    "service": "auth-api",
+    "seed_slug": "node-jwt-expired",
+    "seed_age_days": "2"
+  },
+  "user": {
+    "id": "svc_auth-api",
+    "email": "auth-api@acme-corp.com"
+  },
+  "contexts": {
+    "runtime": {
+      "name": "node",
+      "version": "20.11.0"
+    },
+    "os": {
+      "name": "linux"
+    }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "TokenExpiredError",
+        "value": "jwt expired",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "/app/src/middleware/auth.ts",
+              "function": "requireSession",
+              "lineno": 31,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "    raise TokenExpiredError('jwt expired')",
+              "pre_context": [
+                "// requireSession()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "default",
+        "category": "log",
+        "level": "info",
+        "message": "GET /api/session started"
+      }
+    ]
+  }
+}
