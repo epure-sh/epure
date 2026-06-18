@@ -29,11 +29,21 @@ Operator and product guides live on the site so they stay versioned with the mar
 ## Images
 
 ```bash
-# latest multi-arch release
+# latest multi-arch build
 docker pull ghcr.io/epure-sh/epure:latest
 
-# pin a release
-docker pull ghcr.io/epure-sh/epure:v1.1.1
+# pin a numbered release (only when you intentionally cut one)
+docker pull ghcr.io/epure-sh/epure:v1.1.0
 ```
 
 Pin with `EPURE_IMAGE` in `.env` for production. Source build: `docker compose -f docker-compose.yml -f deploy/docker-compose.build.yml up --build`.
+
+### Refresh `:latest` without a new release
+
+Day-to-day package updates (UI fixes, small patches) do **not** need a git tag or GitHub Release. Push to `main`, then:
+
+```bash
+gh workflow run Image --ref main
+```
+
+That rebuilds amd64 + arm64 and retags `ghcr.io/epure-sh/epure:latest` (plus `sha-<short>`). Use a `v*` tag + `gh release create` only when you want a versioned, documented release.

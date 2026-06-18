@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose a Phase 1 OSS improvement
+description: Propose an Epure product improvement
 title: "[feature]: "
 labels: ["enhancement", "needs-triage"]
 body:
@@ -7,8 +7,7 @@ body:
     attributes:
       value: |
         Read [CONTRIBUTING.md](https://github.com/epure-sh/epure/blob/main/CONTRIBUTING.md) scope guard first.
-        Phase 1 OSS does **not** include Redis, Kafka, ClickHouse, tracing, replay, profiling, generic logs, iOS/Android, or Cloud billing.
-        If your idea is Phase 2 Cloud, say so — maintainers may close it.
+        This repo does **not** include Redis, Kafka, ClickHouse, tracing, replay, profiling, generic logs, or iOS/Android.
   - type: textarea
     id: problem
     attributes:
@@ -21,7 +20,7 @@ body:
     id: proposal
     attributes:
       label: Proposed direction (optional)
-      description: A sketch is fine — maintainers will scope against Phase 1 CONTRIBUTING.md.
+      description: A sketch is fine — maintainers will scope against CONTRIBUTING.md.
     validations:
       required: false
   - type: dropdown
@@ -44,5 +43,5 @@ body:
     attributes:
       label: Scope acknowledgment
       options:
-        - label: I read CONTRIBUTING.md and this is not explicitly out of scope for Phase 1
+        - label: I read CONTRIBUTING.md and this is not explicitly out of scope
         - label: I am willing to open a PR if maintainers accept the direction

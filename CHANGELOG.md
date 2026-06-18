@@ -10,19 +10,19 @@ Nothing yet.
 
 ## [v1.1.1] — 2026-09-23
 
-Dashboard patch. GHCR: `ghcr.io/epure-sh/epure:v1.1.1` (also `:latest`).
-
 ### Fixed
 
 - Issue detail tab strip (Overview / Stack / Breadcrumbs / More) no longer shows a spurious scrollbar
 
 ### Changed
 
-- Repo root trimmed for GitHub browsing: community health files under `.github/`; Compose overlays and extra env templates under [`deploy/`](deploy/README.md). Maintainer staging (`launch-docs/`, `.specify/`, `PUBLISH.md`) is no longer published.
+- Repository layout: community health files under `.github/`; Compose overlays and extra env examples under [`deploy/`](deploy/README.md)
+
+Container: `ghcr.io/epure-sh/epure:v1.1.1` (also `:latest`).
 
 ## [v1.1.0] — 2026-09-23
 
-Onboarding and dashboard polish after `v1.0.0`. GHCR: `ghcr.io/epure-sh/epure:v1.1.0` (also `:latest`).
+Preview onboarding, project activity charts, and seed tooling after `v1.0.0`. Container: `ghcr.io/epure-sh/epure:v1.1.0`.
 
 ### Added
 

@@ -12,8 +12,6 @@ Epure is Apache 2.0 open source. Use the channels below so questions and bugs st
 | Conduct / harassment | `conduct@news.epure.sh` — see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
 | Non-security operator mail | `support@news.epure.sh` |
 
-There is no Discord or waitlist for the OSS project.
-
 ## Before you open an issue
 
 1. Confirm `curl -sS http://localhost:8080/health` returns `{"status":"ok"}`.
@@ -29,6 +27,8 @@ There is no Discord or waitlist for the OSS project.
 - Ingest OpenAPI in this repo: [docs/ingest.openapi.yaml](docs/ingest.openapi.yaml)
 - Local develop / test: [CONTRIBUTING.md](CONTRIBUTING.md)
 
-## Managed hosting
+## Notes
 
-If you do not want to operate the Compose stack yourself: [epure.sh](https://epure.sh) (Cloud). Support for Cloud billing and accounts is separate from this repository.
+Support for this repository is through GitHub and the addresses above. There is no Discord for the project.
+
+Optional managed hosting is separate from this repository: [epure.sh](https://epure.sh).
