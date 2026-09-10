@@ -327,7 +327,7 @@ Epure is in an early release. The self-hosted workflow covers:
 - Inspect stack traces.
 - Configure alerts and releases.
 
-Expect protocol gaps, incomplete SDK coverage, and occasional breaking changes between minor releases. Prefer pinning an image tag in production (`EPURE_IMAGE=ghcr.io/epure-sh/epure:v1.1.1`), or track `:latest` if you accept rolling updates.
+Expect protocol gaps, incomplete SDK coverage, and occasional breaking changes between minor releases. Prefer pinning an image tag in production (`EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.1.0`), or track `:latest` if you accept rolling updates.
 
 If you find a compatibility problem, please include:
 

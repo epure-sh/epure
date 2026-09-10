@@ -8,57 +8,11 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 Nothing yet.
 
-## [v1.1.1] — 2026-09-23
+## [v0.1.0] — 2026-09-23
 
-### Fixed
+First public tag. Exception-only error monitoring. Keep `@sentry/*`. Change the DSN.
 
-- Issue detail tab strip (Overview / Stack / Breadcrumbs / More) no longer shows a spurious scrollbar
-
-### Changed
-
-- Repository layout: community health files under `.github/`; Compose overlays and extra env examples under [`deploy/`](deploy/README.md)
-
-Container: `ghcr.io/epure-sh/epure:v1.1.1` (also `:latest`).
-
-## [v1.1.0] — 2026-09-23
-
-Preview onboarding, project activity charts, and seed tooling after `v1.0.0`. Container: `ghcr.io/epure-sh/epure:v1.1.0`.
-
-### Added
-
-- Register bootstrap creates **Acme Web** + **Acme API** preview projects with sample issues (stack frames + breadcrumbs), marked `is_demo`
-- `GET /api/projects/{id}/activity` — 30-day daily event histogram for org home / project list
-- Setup wizard dialog + platform snippets with framework icons (`web/public/frameworks/`)
-- `./scripts/seed.sh` — heavy UX seed with `--email` / `--password` / `--link-user` (no passwords in SQL)
-- README demo GIF (`.github/readme-shot.gif`)
-
-### Changed
-
-- Issue-list sparklines use **30 daily buckets** (was 72h / 2h)
-- Org home and project list show activity charts; demo projects skip the connect wizard
-- Seed path: register for preview; `./scripts/seed.sh` for high-volume fixtures (replaces `seed-dev.sh` as the documented path)
-- Example DB role passwords rotated at migrate; binary applies real passwords from env after migrate
-- Measured idle footprint on a 2 vCPU / 769 MiB VPS (2026-09-23): Epure ~**5 MiB** + Postgres ~**48 MiB** combined ~**53 MiB**
-
-### Fixed
-
-- Setup progress treats any `is_demo` project as preview (not only hard-coded seed UUIDs)
-- Clipboard / copy helpers for DSN and setup snippets
-
-### Docs
-
-- README, CONTRIBUTING, issue templates updated for the register + `seed.sh` flow
-- [.github/SUPPORT.md](.github/SUPPORT.md) — where to ask questions vs report bugs
-
-## [v1.0.0] — 2026-09-19
-
-First tagged `v1` image on GHCR. Same Phase 1 surface as `v0.1.0-phase1`, with publish polish (Compose pulls public image, multi-arch Image workflow, community files).
-
-See the [v1.0.0 GitHub Release](https://github.com/epure-sh/epure/releases/tag/v1.0.0) for the full feature list.
-
-## [v0.1.0-phase1] — 2026-09-15
-
-Phase 1 OSS launch. Exception-only monitoring. Keep `@sentry/*`. Change the DSN.
+Container: `ghcr.io/epure-sh/epure:v0.1.0` (also `:latest`).
 
 ### Added
 
@@ -67,10 +21,16 @@ Phase 1 OSS launch. Exception-only monitoring. Keep `@sentry/*`. Change the DSN.
 - PostgreSQL 16 + RLS · monthly partitions + TTL
 - Dashboard triage · Google OAuth + password · keyboard `j` `k` `e` `i`
 - Regressions · snooze · velocity · webhooks · multi-project · RBAC
+- Register preview projects (`is_demo`) with sample stacks
+- Project activity charts · `./scripts/seed.sh` heavy fixtures
+- Zero-config `docker compose up` · optional `./configure`
+- Community health files under `.github/` · deploy overlays under `deploy/`
 
-### Numbers (2026-09-12)
+### Numbers
 
-Idle **~82 MiB** · binary **18.1 MiB** · **2** containers · ~**9 s** to first issue (cached).
+- Idle footprint (2026-09-23, 2 vCPU / 769 MiB VPS): Epure ~**5 MiB** + Postgres ~**48 MiB**
+- Earlier Docker Desktop idle (2026-09-20): application container ~**50 MiB**
+- Time to first issue (warm compose): ~**10 s**
 
 ### Not included
 
