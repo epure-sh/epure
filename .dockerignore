@@ -1,0 +1,11 @@
+.git
+.github
+.cursor
+.env
+.env.*
+!.env.example
+target
+web/node_modules
+web/dist
+launch-docs
+**/.DS_Store

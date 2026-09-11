@@ -1,0 +1,97 @@
+{
+  "platform": "javascript",
+  "level": "error",
+  "environment": "production",
+  "release": "web@2.15.0",
+  "transaction": "/dashboard",
+  "tags": {
+    "feature": "dashboard",
+    "framework": "react"
+  },
+  "user": {
+    "id": "usr_hydration_01",
+    "email": "carol@acme-corp.com",
+    "username": "carol"
+  },
+  "contexts": {
+    "browser": { "name": "Safari", "version": "17.5" },
+    "os": { "name": "macOS", "version": "14.6" },
+    "runtime": { "name": "browser", "version": "17.5" }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "Hydration failed: text content did not match server HTML",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "webpack:///./node_modules/react-dom/cjs/react-dom.production.min.js",
+              "function": "throwOnHydrationMismatch",
+              "lineno": 12501,
+              "colno": 9,
+              "in_app": false
+            },
+            {
+              "filename": "webpack:///./src/components/StatCard.tsx",
+              "function": "StatCard",
+              "lineno": 22,
+              "colno": 11,
+              "in_app": true,
+              "context_line": "      <span>{formatCount(count)}</span>",
+              "pre_context": [
+                "export function StatCard({ count }: { count: number }) {",
+                "  return ("
+              ],
+              "post_context": [
+                "    </div>",
+                "  );"
+              ]
+            },
+            {
+              "filename": "webpack:///./src/pages/DashboardPage.tsx",
+              "function": "DashboardPage",
+              "lineno": 48,
+              "colno": 7,
+              "in_app": true,
+              "context_line": "      <StatCard count={stats.unresolved} />",
+              "pre_context": [
+                "  return (",
+                "    <section>"
+              ],
+              "post_context": [
+                "    </section>",
+                "  );"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "navigation",
+        "category": "navigation",
+        "level": "info",
+        "message": "Navigated to /dashboard"
+      },
+      {
+        "timestamp": 1726214401.2,
+        "type": "default",
+        "category": "console",
+        "level": "warning",
+        "message": "Warning: Text content did not match. Server: \"12\" Client: \"847\""
+      },
+      {
+        "timestamp": 1726214401.5,
+        "type": "default",
+        "category": "console",
+        "level": "error",
+        "message": "Error: Hydration failed: text content did not match server HTML"
+      }
+    ]
+  }
+}

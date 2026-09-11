@@ -1,0 +1,67 @@
+{
+  "platform": "javascript",
+  "level": "error",
+  "environment": "production",
+  "release": "mobile@3.2.0",
+  "transaction": "StoreLocator",
+  "tags": {
+    "feature": "stores",
+    "seed_slug": "mobile-location-denied",
+    "seed_age_days": "4"
+  },
+  "user": {
+    "id": "mobile_user_placeholder",
+    "email": "mobile@acme-corp.com"
+  },
+  "contexts": {
+    "device": {
+      "family": "iPhone",
+      "model": "iPhone 15 Pro"
+    },
+    "os": {
+      "name": "iOS",
+      "version": "17.5"
+    },
+    "runtime": {
+      "name": "react-native",
+      "version": "0.74.0"
+    }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "Error",
+        "value": "Location permission denied",
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "app:///hooks/useLocation.ts",
+              "function": "requestPermission",
+              "lineno": 19,
+              "colno": 1,
+              "in_app": true,
+              "context_line": "  // Location permission denied",
+              "pre_context": [
+                "// requestPermission()"
+              ],
+              "post_context": [
+                "}"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "breadcrumbs": {
+    "values": [
+      {
+        "timestamp": 1726214400.0,
+        "type": "navigation",
+        "category": "navigation",
+        "level": "info",
+        "message": "Screen: StoreLocator"
+      }
+    ]
+  }
+}
