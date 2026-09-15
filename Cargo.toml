@@ -25,7 +25,7 @@ epure-auth = { path = "crates/auth" }
 epure-envelope = { path = "crates/envelope" }
 epure-storage = { path = "crates/storage" }
 hex = "0.4"
-hmac = "0.12"
+hmac = "0.13"
 http = "1"
 memchr = "2"
 regex = "1"
