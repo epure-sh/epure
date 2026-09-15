@@ -40,7 +40,7 @@ subtle = "2"
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
 tower = "0.5"
-tower-http = { version = "0.6", features = ["limit"] }
+tower-http = { version = "0.7", features = ["limit"] }
 tower-sessions = { version = "0.14", features = ["signed"] }
 tower-sessions-sqlx-store = { version = "0.15", features = ["postgres"] }
 time = "0.3"
