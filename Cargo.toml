@@ -1,0 +1,50 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/server",
+    "crates/envelope",
+    "crates/storage",
+    "crates/auth",
+    "crates/demangle",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+axum = { version = "0.8", features = ["multipart"] }
+epure-demangle = { path = "crates/demangle" }
+flate2 = "1"
+bytes = "1"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive", "env"] }
+dashmap = "6"
+epure-auth = { path = "crates/auth" }
+epure-envelope = { path = "crates/envelope" }
+epure-storage = { path = "crates/storage" }
+hex = "0.4"
+hmac = "0.12"
+http = "1"
+memchr = "2"
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rust-embed = "8"
+mime_guess = "2"
+serde = { version = "1", features = ["derive"] }
+sha2 = "0.10"
+serde_json = "1"
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "chrono", "json", "migrate"] }
+subtle = "2"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["limit"] }
+tower-sessions = { version = "0.14", features = ["signed"] }
+tower-sessions-sqlx-store = { version = "0.15", features = ["postgres"] }
+time = "0.3"
+rand = "0.9"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["v4", "serde"] }

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & troubleshooting
+    url: https://github.com/epure-sh/epure/discussions/categories/q-a
+    about: Ask setup/SDK questions here — not for bug reports
+  - name: Security issues
+    url: mailto:security@epure.sh
+    about: Please do not file public issues for vulnerabilities

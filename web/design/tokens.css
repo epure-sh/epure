@@ -1,0 +1,107 @@
+/* web/design/tokens.css — epure shared foundation + theme imports */
+
+@import "./themes/index.css";
+
+:root {
+  /* Type — IBM Plex (canonical per tokens.json) */
+  --font-display: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-docs: "IBM Plex Serif", ui-serif, Georgia, serif;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --tracking-ui: -0.007em;
+
+  /* Type scale — role-based (sm bumped to 14px per foundations) */
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 0.9375rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 2rem;
+  --text-4xl: 2.75rem;
+  --text-5xl: 3.5rem;
+
+  --leading-2xs: 0.875rem;
+  --leading-xs: 1.125rem;
+  --leading-sm: 1.375rem;
+  --leading-md: 1.5rem;
+  --leading-lg: 1.625rem;
+  --leading-xl: 1.75rem;
+  --leading-2xl: 2rem;
+  --leading-3xl: 2.375rem;
+  --leading-4xl: 3rem;
+  --leading-5xl: 3.75rem;
+
+  /* Space */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 2rem;
+  --space-8: 3rem;
+  --space-9: 4rem;
+  --space-10: 5.5rem;
+
+  /* Geometry — radius + control sizes live in theme files only */
+  --radius: var(--radius-md);
+  --border-width: 1px;
+  --control-height-sm: calc(var(--control-height) - 0.25rem);
+  --control-height-lg: calc(var(--control-height) + 0.25rem);
+
+  /* Chrome layout */
+  --chrome-rail-width: 12rem;
+  --chrome-rail-width-collapsed: 3rem;
+  --chrome-top-height: 3rem;
+  --chrome-top-padding-y: 0.5rem;
+  --chrome-page-header-height: 3rem;
+  --chrome-filter-height: 2.5rem;
+  --chrome-list-width: 30rem;
+  --chrome-detail-min-width: 40rem;
+
+  /* Content widths — route body max-width */
+  --content-width-narrow: 36rem;
+  --content-width-default: 42rem;
+  --content-width-wide: 48rem;
+  --content-width-org: 56rem;
+
+  /* Elevation — hairlines only; shadows reserved for legacy refs */
+  --shadow-sm: none;
+  --shadow-md: none;
+
+  /* Motion */
+  --ease-mechanical: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-soft: cubic-bezier(0, 0, 0.2, 1);
+  --duration-fast: 80ms;
+  --duration-base: 120ms;
+  --duration-panel: 160ms;
+}
+
+@media (max-width: 1023px) {
+  :root {
+    --chrome-rail-width: var(--chrome-rail-width-collapsed);
+  }
+}
+
+.font-mono-slash {
+  font-family: var(--font-mono);
+  font-variant-numeric: slashed-zero tabular-nums;
+}
+
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-panel: 0ms;
+  }
+}

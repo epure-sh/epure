@@ -1,0 +1,49 @@
+name: Feature request
+description: Propose a Phase 1 OSS improvement
+title: "[feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check [ROADMAP.md](https://github.com/epure-sh/epure/blob/main/ROADMAP.md) first.
+        Phase 1 OSS does **not** include Redis, ClickHouse, tracing, replay, or Cloud billing.
+        If your idea is Phase 2 Cloud, say so — we may close with a pointer to the roadmap.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What pain are you solving? Who is affected?
+      placeholder: "When triaging mobile crashes, I can't filter by..."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed direction (optional)
+      description: A sketch is fine — maintainers will scope against ROADMAP.
+    validations:
+      required: false
+  - type: dropdown
+    id: roadmap-slice
+    attributes:
+      label: Closest ROADMAP slice
+      options:
+        - S1 Gateway + persist
+        - S2 Processing
+        - S3 Storage
+        - S3b UI kit / shell
+        - S4 Triage
+        - S5 Lifecycle
+        - S6 Admin
+        - S7 Dashboard UX polish
+        - Not listed / unsure
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope acknowledgment
+      options:
+        - label: I read ROADMAP.md and this is not explicitly out of scope for Phase 1
+        - label: I am willing to open a PR if maintainers accept the direction
