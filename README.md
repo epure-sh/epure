@@ -25,11 +25,9 @@
 
 # Epure
 
-**Exception-only error tracking.** Keep your official Sentry SDK and point the DSN at Epure. Self-host with Docker Compose (two containers: app + PostgreSQL 16).
+**Lightweight Rust exception-only error tracker.** Keep your official Sentry SDK and point the DSN at Epure. Self-host with Docker Compose (two containers: app + PostgreSQL 16).
 
 When production throws, you get a grouped issue, readable stack, breadcrumbs, and release context — without Kafka, Redis, or ClickHouse.
-
-Optional managed hosting: [epure.sh](https://epure.sh).
 
 > Epure is focused error tracking, not a complete observability platform. It deliberately does not provide distributed tracing, session replay, continuous profiling, or generic log ingestion.
 
