@@ -12,7 +12,9 @@ export type SetupPlatformId =
   | "python"
   | "go"
   | "php"
-  | "ruby";
+  | "ruby"
+  | "java"
+  | "dotnet";
 
 /** Filename stem under `/frameworks/*.svg` (Simple Icons, same set as landing). */
 export type SetupPlatformLogoId =
@@ -24,7 +26,9 @@ export type SetupPlatformLogoId =
   | "python"
   | "go"
   | "php"
-  | "ruby";
+  | "ruby"
+  | "java"
+  | "dotnet";
 
 export interface SetupPlatformSnippet {
   id: SetupPlatformId;
@@ -34,7 +38,93 @@ export interface SetupPlatformSnippet {
   files: SetupSnippetFile[];
 }
 
-export function setupPlatformSnippets(dsn: string): SetupPlatformSnippet[] {
+export interface SetupSnippetOptions {
+  environment?: string;
+  release?: string;
+}
+
+function jsInitOptions(dsn: string, options?: SetupSnippetOptions): string {
+  const lines = [`  dsn: "${dsn}",`];
+  if (options?.environment) {
+    lines.push(`  environment: "${options.environment}",`);
+  }
+  if (options?.release) {
+    lines.push(`  release: "${options.release}",`);
+  }
+  return lines.join("\n");
+}
+
+function jsSentryInit(
+  packageName: string,
+  dsn: string,
+  options?: SetupSnippetOptions,
+): string {
+  return `import * as Sentry from "${packageName}";
+
+Sentry.init({
+${jsInitOptions(dsn, options)}
+});`;
+}
+
+export function setupPlatformSnippets(
+  dsn: string,
+  options?: SetupSnippetOptions,
+): SetupPlatformSnippet[] {
+  const env = options?.environment;
+  const release = options?.release;
+
+  const pythonKwargs = [
+    `    dsn="${dsn}",`,
+    env ? `    environment="${env}",` : null,
+    release ? `    release="${release}",` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const goFields = [
+    `  Dsn: "${dsn}",`,
+    env ? `  Environment: "${env}",` : null,
+    release ? `  Release: "${release}",` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const phpPairs = [
+    `'dsn' => '${dsn}'`,
+    env ? `'environment' => '${env}'` : null,
+    release ? `'release' => '${release}'` : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const rubyLines = [
+    `  config.dsn = "${dsn}"`,
+    env ? `  config.environment = "${env}"` : null,
+    release ? `  config.release = "${release}"` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const javaLines = [
+    `    options.setDsn("${dsn}");`,
+    env ? `    options.setEnvironment("${env}");` : null,
+    release ? `    options.setRelease("${release}");` : null,
+    `    options.setTracesSampleRate(0.0);`,
+    `    options.setProfilesSampleRate(0.0);`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const dotnetLines = [
+    `    options.Dsn = "${dsn}";`,
+    env ? `    options.Environment = "${env}";` : null,
+    release ? `    options.Release = "${release}";` : null,
+    `    options.TracesSampleRate = 0.0;`,
+    `    options.ProfilesSampleRate = 0.0;`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   return [
     {
       id: "javascript",
@@ -51,11 +141,7 @@ export function setupPlatformSnippets(dsn: string): SetupPlatformSnippet[] {
         },
         {
           filename: "instrument.js",
-          code: `import * as Sentry from "@sentry/browser";
-
-Sentry.init({
-  dsn: "${dsn}",
-});`,
+          code: jsSentryInit("@sentry/browser", dsn, options),
         },
       ],
     },
@@ -74,11 +160,7 @@ Sentry.init({
         },
         {
           filename: "instrument.ts",
-          code: `import * as Sentry from "@sentry/browser";
-
-Sentry.init({
-  dsn: "${dsn}",
-});`,
+          code: jsSentryInit("@sentry/browser", dsn, options),
         },
       ],
     },
@@ -97,11 +179,7 @@ Sentry.init({
         },
         {
           filename: "instrument.js",
-          code: `import * as Sentry from "@sentry/node";
-
-Sentry.init({
-  dsn: "${dsn}",
-});`,
+          code: jsSentryInit("@sentry/node", dsn, options),
         },
       ],
     },
@@ -120,11 +198,7 @@ Sentry.init({
         },
         {
           filename: "main.tsx",
-          code: `import * as Sentry from "@sentry/react";
-
-Sentry.init({
-  dsn: "${dsn}",
-});`,
+          code: jsSentryInit("@sentry/react", dsn, options),
         },
       ],
     },
@@ -143,19 +217,11 @@ Sentry.init({
         },
         {
           filename: "sentry.client.config.ts",
-          code: `import * as Sentry from "@sentry/nextjs";
-
-Sentry.init({
-  dsn: "${dsn}",
-});`,
+          code: jsSentryInit("@sentry/nextjs", dsn, options),
         },
         {
           filename: "sentry.server.config.ts",
-          code: `import * as Sentry from "@sentry/nextjs";
-
-Sentry.init({
-  dsn: "${dsn}",
-});`,
+          code: jsSentryInit("@sentry/nextjs", dsn, options),
         },
       ],
     },
@@ -173,7 +239,7 @@ Sentry.init({
           code: `import sentry_sdk
 
 sentry_sdk.init(
-    dsn="${dsn}",
+${pythonKwargs}
 )`,
         },
       ],
@@ -192,7 +258,7 @@ sentry_sdk.init(
           code: `import "github.com/getsentry/sentry-go"
 
 err := sentry.Init(sentry.ClientOptions{
-  Dsn: "${dsn}",
+${goFields}
 })`,
         },
       ],
@@ -212,7 +278,7 @@ err := sentry.Init(sentry.ClientOptions{
         },
         {
           filename: "index.php",
-          code: `\\Sentry\\init(['dsn' => '${dsn}']);`,
+          code: `\\Sentry\\init([${phpPairs}]);`,
         },
       ],
     },
@@ -228,8 +294,43 @@ err := sentry.Init(sentry.ClientOptions{
         {
           filename: "config/initializers/sentry.rb",
           code: `Sentry.init do |config|
-  config.dsn = "${dsn}"
+${rubyLines}
 end`,
+        },
+      ],
+    },
+    {
+      id: "java",
+      label: "Java",
+      logo: "java",
+      files: [
+        {
+          filename: "install",
+          code: `# add io.sentry:sentry via Maven or Gradle`,
+        },
+        {
+          filename: "Application.java",
+          code: `Sentry.init(options -> {
+${javaLines}
+});`,
+        },
+      ],
+    },
+    {
+      id: "dotnet",
+      label: ".NET",
+      logo: "dotnet",
+      files: [
+        {
+          filename: "install",
+          code: `dotnet add package Sentry`,
+        },
+        {
+          filename: "Program.cs",
+          code: `SentrySdk.Init(options =>
+{
+${dotnetLines}
+});`,
         },
       ],
     },
@@ -239,6 +340,7 @@ end`,
 export function setupPlatformById(
   dsn: string,
   id: SetupPlatformId,
+  options?: SetupSnippetOptions,
 ): SetupPlatformSnippet | undefined {
-  return setupPlatformSnippets(dsn).find((platform) => platform.id === id);
+  return setupPlatformSnippets(dsn, options).find((platform) => platform.id === id);
 }

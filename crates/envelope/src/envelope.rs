@@ -146,10 +146,22 @@ mod tests {
     }
 
     #[test]
-    fn parses_node_fixture_event() {
-        let body = fs::read(fixture_path("node", "envelope.txt")).expect("node fixture");
-        let parsed = parse_envelope(&body).expect("parse node envelope");
-        assert!(parsed.event_payload.starts_with(b"{"));
+    fn parses_all_language_envelope_fixtures() {
+        for language in ["browser", "node", "go", "ruby", "php", "java", "dotnet"] {
+            let body = fs::read(fixture_path(language, "envelope.txt"))
+                .unwrap_or_else(|err| panic!("read {language} fixture: {err}"));
+            let parsed = parse_envelope(&body)
+                .unwrap_or_else(|err| panic!("parse {language} envelope: {err:?}"));
+            assert!(
+                parsed.event_payload.starts_with(b"{"),
+                "{language} event payload should be JSON object"
+            );
+            assert_eq!(
+                preview_fingerprint(&parsed.event_payload).len(),
+                64,
+                "{language} fingerprint should be sha-256 hex"
+            );
+        }
     }
 
     #[test]

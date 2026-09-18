@@ -295,7 +295,7 @@ export function DsnKeysSettings() {
             <CardDescription>Quick start with the official Sentry SDK.</CardDescription>
           </CardHeader>
           <CardContent>
-            <SdkSnippetBlock dsn={activeDsn} />
+            <SdkSnippetBlock dsn={activeDsn} environment="production" />
           </CardContent>
         </Card>
       ) : null}
