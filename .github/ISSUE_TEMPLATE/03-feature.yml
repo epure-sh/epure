@@ -6,9 +6,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Check [ROADMAP.md](https://github.com/epure-sh/epure/blob/main/ROADMAP.md) and [GOVERNANCE.md](https://github.com/epure-sh/epure/blob/main/GOVERNANCE.md) first.
+        Read [CONTRIBUTING.md](https://github.com/epure-sh/epure/blob/main/CONTRIBUTING.md) scope guard first.
         Phase 1 OSS does **not** include Redis, Kafka, ClickHouse, tracing, replay, profiling, generic logs, iOS/Android, or Cloud billing.
-        If your idea is Phase 2 Cloud, say so — maintainers may close with a roadmap pointer.
+        If your idea is Phase 2 Cloud, say so — maintainers may close it.
   - type: textarea
     id: problem
     attributes:
@@ -21,22 +21,21 @@ body:
     id: proposal
     attributes:
       label: Proposed direction (optional)
-      description: A sketch is fine — maintainers will scope against ROADMAP.
+      description: A sketch is fine — maintainers will scope against Phase 1 CONTRIBUTING.md.
     validations:
       required: false
   - type: dropdown
     id: roadmap-slice
     attributes:
-      label: Closest ROADMAP slice
+      label: Closest area
       options:
-        - S1 Gateway + persist
-        - S2 Processing
-        - S3 Storage
-        - S3b UI kit / shell
-        - S4 Triage
-        - S5 Lifecycle
-        - S6 Admin
-        - S7 Dashboard UX polish
+        - Ingest / spike valve
+        - Processing / sourcemaps
+        - Storage / RLS
+        - Dashboard / triage
+        - Lifecycle / alerts
+        - Admin / RBAC
+        - Docs / DX
         - Not listed / unsure
     validations:
       required: true
@@ -45,5 +44,5 @@ body:
     attributes:
       label: Scope acknowledgment
       options:
-        - label: I read ROADMAP.md and this is not explicitly out of scope for Phase 1
+        - label: I read CONTRIBUTING.md and this is not explicitly out of scope for Phase 1
         - label: I am willing to open a PR if maintainers accept the direction

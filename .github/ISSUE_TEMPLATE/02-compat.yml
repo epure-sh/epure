@@ -6,8 +6,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        epure is **not 100% Sentry compatible**. See the [SDK matrix](https://github.com/epure-sh/epure/blob/main/docs/COMPATIBILITY.md)
-        and [SUPPORT.md](https://github.com/epure-sh/epure/blob/main/SUPPORT.md).
+        Epure is **not 100% Sentry compatible**. See the [SDK platforms](https://epure.sh/docs/platforms)
+        and [README](https://github.com/epure-sh/epure/blob/main/README.md).
   - type: dropdown
     id: sdk
     attributes:

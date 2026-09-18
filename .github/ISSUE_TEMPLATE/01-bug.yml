@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Thanks for reporting. Search [existing issues](https://github.com/epure-sh/epure/issues) first.
-        Setup help: [README](https://github.com/epure-sh/epure/blob/main/README.md) · [SUPPORT](https://github.com/epure-sh/epure/blob/main/SUPPORT.md)
+        Setup help: [README](https://github.com/epure-sh/epure/blob/main/README.md) · [Docs](https://epure.sh/docs)
         Security issues: use a [private advisory](https://github.com/epure-sh/epure/security/advisories/new), not this form.
   - type: dropdown
     id: area

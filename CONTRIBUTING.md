@@ -1,6 +1,6 @@
-# Contributing to epure
+# Contributing to Epure
 
-Help ship Phase 1 OSS exception monitoring. Read [README.md](./README.md) for install and scope. Feature slices live in [ROADMAP.md](./ROADMAP.md).
+Help ship Phase 1 OSS exception monitoring. Product overview and install: [README.md](./README.md). Operator docs: [epure.sh/docs](https://epure.sh/docs).
 
 **Stack lock:** Rust + PostgreSQL 16 + RLS, 2-container compose. No Redis, ClickHouse, Kafka, or SQLite-as-primary.
 
@@ -22,15 +22,13 @@ Copy env files: `.env.example`, `.env.test.example`.
 # equivalent: DATABASE_URL=postgres://epure:epure@localhost:5433/epure cargo test
 ```
 
-Manual stack:
-
 ```bash
 docker compose up --build
 curl -sS http://localhost:8080/health   # expect {"status":"ok"}
-./scripts/seed-dev.sh                   # optional smoke data
+./scripts/seed-dev.sh                   # optional smoke data — ⚠️ DEV ONLY
 ```
 
-Golden path: [docs/QUICKSTART.md](docs/QUICKSTART.md).
+Golden path: [epure.sh/docs/get-started/quickstart](https://epure.sh/docs/get-started/quickstart).
 
 ## Web / dashboard
 
@@ -60,13 +58,15 @@ cargo sqlx migrate run --source crates/storage/migrations
 4. Fill [.github/pull_request_template.md](.github/pull_request_template.md).
 5. Link issues with `Fixes #123` when applicable. Keep PRs focused.
 
-Questions that are not bugs: [Discussions](https://github.com/epure-sh/epure/discussions). Security: [SECURITY.md](SECURITY.md) · `security@news.epure.sh`. How we help users: [SUPPORT.md](SUPPORT.md) · `support@news.epure.sh`. Decision process: [GOVERNANCE.md](GOVERNANCE.md).
+Questions that are not bugs: [Discussions](https://github.com/epure-sh/epure/discussions). Security: [SECURITY.md](SECURITY.md) · `security@news.epure.sh`. Support: `support@news.epure.sh`.
 
 ## Scope guard
 
-- **In scope:** [ROADMAP.md](./ROADMAP.md) S0–S6 (+ dashboard UX polish).
-- **Out of scope (Phase 1):** Redis, ClickHouse, tracing, replay, profiling, generic logs, iOS/Android, Cloud billing/Stripe, "100% Sentry parity."
-- **Phase 2 (Cloud):** tracked separately. Do not open OSS PRs that assume multi-service infra or an `ee/` tree.
+Phase 1 (shipped): ingest, grouping, sourcemaps, spike valve, triage UI, alerts/webhooks, multi-project, RBAC.
+
+**Out of scope:** Redis, ClickHouse, Kafka, tracing, replay, profiling, generic logs, iOS/Android symbolication, Cloud billing/Stripe, “100% Sentry parity,” `ee/` tree.
+
+Maintainers merge on `main`. Large or speculative work should start as an issue.
 
 ## Code of Conduct
 

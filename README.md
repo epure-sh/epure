@@ -2,17 +2,25 @@
   <img src=".github/readme-hero.webp" alt="Epure" />
 </p>
 
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0" /></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-stable-orange?logo=rust&logoColor=white" alt="Rust" /></a>
+  <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 16" /></a>
+  <a href="docker-compose.yml"><img src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white" alt="Docker Compose" /></a>
+  <a href="https://github.com/epure-sh/epure/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/epure-sh/epure/ci.yml?branch=main&label=CI" alt="CI" /></a>
+</p>
+
 # Epure
 
 [Epure](https://epure.sh) is exception-only error monitoring for self-hosters. Keep your official Sentry SDKs. Change the DSN. When production throws, you get a grouped issue and a stack you can read.
 
-- [x] Official Sentry SDK ingest (envelope + store). [Docs](docs/COMPATIBILITY.md)
-- [x] Grouped issues, breadcrumbs, JS/TS sourcemaps. [Docs](docs/QUICKSTART.md)
-- [x] Spike valve for infinite loops. [Architecture](docs/ARCHITECTURE.md)
+- [x] Official Sentry SDK ingest (envelope + store). [Docs](https://epure.sh/docs/platforms)
+- [x] Grouped issues, breadcrumbs, JS/TS sourcemaps. [Quickstart](https://epure.sh/docs/get-started/quickstart)
+- [x] Spike valve for infinite loops. [Concepts](https://epure.sh/docs/get-started/concepts)
 - [x] Keyboard triage (`j` / `k` / `e` / `i`) + Markdown export for LLMs
 - [x] Alerts, webhooks, releases, regressions
 - [x] Multi-project orgs, DSN rotate/revoke, RBAC
-- [x] Two containers: Rust binary + PostgreSQL 16 with RLS. [Self-host](docs/SELF_HOST.md)
+- [x] Two containers: Rust binary + PostgreSQL 16 with RLS. [Self-host](https://epure.sh/docs/self-hosting/installation)
 - [x] Dashboard
 
 ![Epure Issues dashboard](.github/readme-shot.webp)
@@ -23,25 +31,25 @@ Watch "releases" of this repo to get notified of major updates.
 
 ## Documentation
 
-Full docs: [epure.sh/docs](https://epure.sh/docs) · in-repo index: [docs/README.md](docs/README.md)
+Full documentation: **[epure.sh/docs](https://epure.sh/docs)**
 
-| Doc | Use it when |
-|---|---|
-| [QUICKSTART.md](docs/QUICKSTART.md) | First issue on a laptop |
-| [SELF_HOST.md](docs/SELF_HOST.md) | Production box, TLS, backups |
-| [MIGRATION.md](docs/MIGRATION.md) | Cutting over from Sentry |
-| [COMPATIBILITY.md](docs/COMPATIBILITY.md) | SDK matrix and honest gaps |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Ingest, spike valve, RLS |
-| [DATA.md](DATA.md) | PII scrub, RBAC, retention |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Patch / test / PR |
+- [Quickstart](https://epure.sh/docs/get-started/quickstart) — first issue on a laptop
+- [Self-hosting](https://epure.sh/docs/self-hosting/installation) — production install, TLS, backups
+- [Configuration](https://epure.sh/docs/self-hosting/configuration) — env vars and overlays
+- [Platforms](https://epure.sh/docs/platforms) — SDK matrix and honest gaps
+- [Concepts](https://epure.sh/docs/get-started/concepts) — DSN, issue, spike valve
+- [Ingest API](https://epure.sh/docs/api) — envelope / store reference
+- [Contributing](CONTRIBUTING.md) — build, test, PR
+
+Website: [epure.sh](https://epure.sh) · Self-host landing: [epure.sh/selfhost](https://epure.sh/selfhost)
 
 ## Community & Support
 
-- [GitHub Discussions](https://github.com/epure-sh/epure/discussions). Best for: setup questions and “did I wire the DSN wrong?”
+- [GitHub Discussions](https://github.com/epure-sh/epure/discussions). Best for: setup questions and DSN wiring.
 - [GitHub Issues](https://github.com/epure-sh/epure/issues). Best for: bugs and SDK / protocol gaps (use a template).
 - [SECURITY.md](SECURITY.md). Best for: vulnerabilities · `security@news.epure.sh`
-- [SUPPORT.md](SUPPORT.md). Best for: where to ask · `support@news.epure.sh`
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Conduct reports · `conduct@news.epure.sh`
+- Email support · `support@news.epure.sh`. Best for: Cloud / commercial questions.
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Conduct · `conduct@news.epure.sh`
 
 ## Get started
 
@@ -67,7 +75,7 @@ Sentry.init({
 });
 ```
 
-No `@epure/*` package. Zero the extra product lines so transactions, replay, and profiles are discarded without surprise. Timed walkthrough: [docs/QUICKSTART.md](docs/QUICKSTART.md). Production overlay: [docs/SELF_HOST.md](docs/SELF_HOST.md).
+No `@epure/*` package. Zero the extra product lines so transactions, replay, and profiles are discarded without surprise. Walkthrough: [epure.sh/docs/get-started/quickstart](https://epure.sh/docs/get-started/quickstart). Production: [epure.sh/docs/self-hosting/installation](https://epure.sh/docs/self-hosting/installation).
 
 <details>
 <summary>Dev seed (skip register) — ⚠️ DEV ONLY</summary>
@@ -83,19 +91,32 @@ No `@epure/*` package. Zero the extra product lines so transactions, replay, and
 
 Epure is a small stack for one job: production exceptions → grouped issues → calm triage. It is not a 1-to-1 mapping of Sentry. If the SDK sends transactions, replay, or profiles, the HTTP request is accepted and those items are dropped.
 
-**Architecture**
+### Architecture
 
-Self-host with [Docker Compose](docker-compose.yml) (two containers). You can also use [managed hosting](https://epure.sh) (footer pricing).
+Self-host with [Docker Compose](docker-compose.yml) (two containers). You can also use [managed hosting](https://epure.sh).
 
-| Piece | Role |
-|---|---|
-| **Ingest** | Envelope + legacy store. DSN auth. **202** before persist. |
-| **Spike valve** | Fingerprint rate limit. Counter holds; duplicate bodies drop. |
-| **Worker** | Demangle JS/TS, scrub PII, group by fingerprint, micro-batch write. |
-| **PostgreSQL 16** | Issues, events (monthly partitions + TTL), sessions. RLS on dashboard APIs. |
-| **Dashboard** | React SPA embedded in the Rust binary (`rust-embed`). Keyboard-first Issues UI. |
+```mermaid
+graph TD
+  SDK[Sentry SDKs] -->|POST envelope or store| EPURE[epure :8080]
+  Browser[Browser dashboard] -->|session API| EPURE
+  EPURE -->|SQLx async worker| PG[(PostgreSQL 16)]
+  EPURE -->|rust-embed SPA| Browser
+```
 
-Details and diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+**Plain text:** SDKs and the dashboard hit the same Rust process on port 8080. Persistence is PostgreSQL 16 only. No Redis. No Kafka. No separate worker container.
+
+| Service | Port | Role |
+|---|---|---|
+| `epure` | `8080` | Ingest + APIs + embedded SPA (`--mode=all`) |
+| `postgres` | host `5433` → `5432` | RLS, monthly event partitions, sessions |
+
+- **[Ingest gateway](https://epure.sh/docs/api/envelope)** — DSN auth, 2 MB body cap, spike valve, Tokio `mpsc`, returns **202** before persist.
+- **Spike valve** — per-fingerprint token bucket (~100/min). Over limit: counter bumps, duplicate bodies drop. Separate project cap: **5000 events/hour**.
+- **Worker** — demangle JS/TS sourcemaps, scrub PII, group by fingerprint, micro-batch INSERT.
+- **[PostgreSQL 16](https://www.postgresql.org/)** — issues, events, releases, sessions. Dashboard queries use RLS (`app.current_org_id`).
+- **Dashboard** — React SPA embedded via `rust-embed`. Keyboard-first Issues UI.
+
+Ingest path (plain text): SDK → DSN check → spike valve → enqueue → **202** → worker demangle/scrub/group → Postgres.
 
 ### SDK clients
 
@@ -108,7 +129,7 @@ Keep the official Sentry clients. Epure is the destination.
 | Node (`@sentry/node` 7.x) | Parse + fixture | Sourcemaps demangle |
 | Go, Ruby, PHP, Java, .NET | Fixture captured | Raw frames |
 
-Full matrix: [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md). Migration: [docs/MIGRATION.md](docs/MIGRATION.md).
+Full matrix and init snippets: [epure.sh/docs/platforms](https://epure.sh/docs/platforms). Wire contract in-repo: [docs/ingest.openapi.yaml](docs/ingest.openapi.yaml).
 
 ### Out of scope (Phase 1)
 
@@ -130,15 +151,8 @@ If GlitchTip is already quiet for you, stay there.
 
 </details>
 
-## Status badges
-
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
-[![Rust](https://img.shields.io/badge/Rust-stable-orange?logo=rust&logoColor=white)](crates/)
-[![CI](https://img.shields.io/github/actions/workflow/status/epure-sh/epure/ci.yml?branch=main&label=CI)](https://github.com/epure-sh/epure/actions/workflows/ci.yml)
-
 ---
 
-**Apache 2.0** · no `ee/` split · [CHANGELOG](CHANGELOG.md) · [GOVERNANCE](GOVERNANCE.md) · [ROADMAP](ROADMAP.md)
+**Apache 2.0** · no `ee/` split · [CHANGELOG](CHANGELOG.md) · [CONTRIBUTING](CONTRIBUTING.md)
 
 **Managed hosting:** Epure Cloud — Pro $24/mo · Plus $79/mo. Flat pricing, no per-event overage. [epure.sh](https://epure.sh)
