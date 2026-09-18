@@ -1,99 +1,41 @@
 # Changelog
 
-All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Notable changes. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [v0.1.0-phase1] — 2026-09-15
 
-**Phase 1 OSS launch.** Exception-only error monitoring for small teams. Keep your `@sentry/*` SDKs. Change the DSN.
-
-### What it is
-
-epure is self-hosted error tracking without the noise. When production throws, you get a grouped issue with a stack you can read. Two containers (Rust + PostgreSQL 16). No APM, replay, profiling, or session replay.
-
-### Try it
-
-```bash
-git clone https://github.com/epure-sh/epure.git && cd epure
-docker compose up --build
-curl -sS http://localhost:8080/health   # → {"status":"ok"}
-```
-
-Open http://localhost:8080, register, create a DSN, point your SDK. Golden path: [docs/QUICKSTART.md](docs/QUICKSTART.md).
+Phase 1 OSS launch. Exception-only monitoring. Keep `@sentry/*`. Change the DSN.
 
 ### Added
 
-**Ingest & processing (S1–S2)**
+- Envelope + store ingest · spike valve · async **202** worker
+- JS/TS sourcemap demangle · fingerprint grouping · breadcrumb extract · PII scrub
+- PostgreSQL 16 + RLS · monthly partitions + TTL · unique users
+- Dashboard: Issues / Releases / Alerts / Settings · Google OAuth + password
+- Keyboard triage `j` `k` `e` `i` · query syntax · merge/split · Markdown export
+- Regressions · snooze · velocity alerts · webhooks · user feedback
+- Multi-project · DSN rotate/revoke · RBAC · ingest cap (5000/hour)
 
-- Sentry envelope and legacy store ingest (`POST /api/{project_id}/envelope/`, `POST /api/{project_id}/store/`)
-- Spike valve — runaway fingerprints increment counters instead of storing duplicate bodies
-- Async mpsc worker pipeline with **202** ingest response
-- JS/TS sourcemap demangling; release artifact upload
-- SHA-256 fingerprint grouping; breadcrumb extraction; PII regex scrub at ingest
-- CORS for browser SDKs; per-project ingest cap (default 5000 events/hour)
-
-**Storage (S3)**
-
-- PostgreSQL 16 with RLS (`app.current_org_id`) for multi-tenant isolation
-- Monthly event partitions with TTL drop
-- Unique user tracking; micro-batch COPY/INSERT
-
-**Dashboard (S3b–S4)**
-
-- Plausible-shaped UI kit and AppShell (Issues, Releases, Alerts, Settings)
-- Session auth: Google OAuth + email/password (argon2id)
-- Keyboard triage: `j` / `k` move, `e` resolve, `i` ignore, `x` expand, `/` search
-- Query syntax (`is:unresolved`, `env:`, `release:`), breadcrumb filters, merge/split, bulk actions
-- Cmd+Shift+C sanitized markdown export for LLM workflows
-
-**Lifecycle (S5)**
-
-- Regression detection when a resolved issue resurfaces in a new release
-- Smart snooze (time / count / users); velocity alerts (>300% in 15 min)
-- Outbound webhooks (Slack, Discord, generic); user crash feedback ingest
-
-**Admin (S6)**
-
-- Multi-project orgs; DSN create / rotate / revoke
-- RBAC: Owner / Admin / Member
-- Environment isolation in header (`production` / `staging` / `local`)
-
-### Numbers (measured 2026-09-12, Docker Desktop)
+### Numbers (2026-09-12, Docker Desktop)
 
 | Metric | Value |
 |---|---|
-| Idle stack RAM | **~82 MiB** (epure 22.7 MiB + postgres 59.3 MiB) |
-| Release binary | **18.1 MiB** |
-| Containers | **2** (app + Postgres) |
-| Fresh volume → first issue | **9 s** (cached images) |
-| Warm stack → first issue | **~2 s** |
-| Ingest → visible in dashboard | **0.18 s** |
+| Idle RAM | **~82 MiB** |
+| Binary | **18.1 MiB** |
+| Containers | **2** |
+| Fresh → first issue | **~9 s** (cached) |
+| Warm ingest → visible | **~0.18 s** |
 
 ### Compatibility
 
-- **E2E CI:** `@sentry/browser` 7.120.0 (envelope), Python store
-- **Parse tested:** `@sentry/node` 7.120.0 (fixture captured for HTTP ingest)
-- **Fixture captured:** Node ingest plus Go, Ruby, PHP, Java, .NET (envelope dumps on disk; HTTP ingest not automated in CI)
-- **Not 100% Sentry protocol parity.** Transactions discarded. No replay, profiling, sessions, or iOS/Android symbolication.
-- Full matrix: [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md). Migration guide: [docs/MIGRATION.md](docs/MIGRATION.md).
+E2E: browser envelope + Python store. Node: parse + fixture. Other langs: fixtures. Not full Sentry parity — [COMPATIBILITY.md](docs/COMPATIBILITY.md).
 
-### Not included (Phase 1)
+### Not included
 
-Tracing, replay, profiling, generic logs, iOS/Android, Redis, ClickHouse, Kafka, SQLite-as-primary, Cloud billing.
-
-### Docs
-
-- [docs/QUICKSTART.md](docs/QUICKSTART.md) — zero to first issue
-- [docs/SELF_HOST.md](docs/SELF_HOST.md) — production overlay, env vars, backups
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — ingest pipeline, spike valve, RLS
-- [CONTRIBUTING.md](CONTRIBUTING.md) — build, test, PR workflow
-- [SUPPORT.md](SUPPORT.md) — where to ask vs file bugs · `support@news.epure.sh`
-- [GOVERNANCE.md](GOVERNANCE.md) — maintainer decision process
-- [SECURITY.md](SECURITY.md) — vulnerability reports · `security@news.epure.sh`
-
-### License
-
-[Apache 2.0](LICENSE)
+Tracing · replay · profiling · generic logs · iOS/Android · Redis / Kafka / ClickHouse · Cloud billing.
 
 ---
 
-**Managed hosting:** [epure Cloud](https://epure.sh) — Pro $24/mo · Plus $79/mo · `support@news.epure.sh`
+[Apache 2.0](LICENSE) · Docs: [QUICKSTART](docs/QUICKSTART.md) · [SELF_HOST](docs/SELF_HOST.md) · [CONTRIBUTING](CONTRIBUTING.md)
+
+**Managed hosting:** [epure.sh](https://epure.sh) — Pro $24/mo · Plus $79/mo · `support@news.epure.sh`
