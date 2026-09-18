@@ -5,148 +5,79 @@
 <br />
 
 <div align="center">
-  <strong>Error tracking without the bloat.</strong>
-  <br />
-  Keep your official Sentry SDKs. Change the DSN.
-  <br /><br />
-  When production throws, you get a grouped issue and a stack you can read.
-  <br /><br />
-  <a href="https://epure.sh">Website</a>
-  &nbsp;·&nbsp;
-  <a href="https://epure.sh/docs">Docs</a>
-  &nbsp;·&nbsp;
-  <a href="docs/QUICKSTART.md">Quickstart</a>
-  &nbsp;·&nbsp;
-  <a href="docs/SELF_HOST.md">Self-host</a>
-  &nbsp;·&nbsp;
-  <a href="https://github.com/epure-sh/epure/issues">Issues</a>
-  <br /><br />
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0" /></a>
-  &nbsp;
-  <a href="docker-compose.yml"><img src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&amp;logoColor=white" alt="Docker Compose" /></a>
-  &nbsp;
-  <a href="crates/"><img src="https://img.shields.io/badge/Rust-stable-orange?logo=rust&amp;logoColor=white" alt="Rust" /></a>
-  &nbsp;
-  <a href="https://github.com/epure-sh/epure/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/epure-sh/epure/ci.yml?branch=main&amp;label=CI" alt="CI" /></a>
+
+**Error tracking without the noise.**
+
+Exception-only monitoring. Keep your official `@sentry/*` SDKs. Change the DSN.
+
+When production throws, you get a grouped issue and a stack you can read.
+
+<br />
+
+[Website](https://epure.sh)
+&nbsp;·&nbsp;
+[Docs](https://epure.sh/docs)
+&nbsp;·&nbsp;
+[Quickstart](docs/QUICKSTART.md)
+&nbsp;·&nbsp;
+[Self-host](docs/SELF_HOST.md)
+&nbsp;·&nbsp;
+[Issues](https://github.com/epure-sh/epure/issues)
+
+<br />
+
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
+[![Rust](https://img.shields.io/badge/Rust-stable-orange?logo=rust&logoColor=white)](crates/)
+[![CI](https://img.shields.io/github/actions/workflow/status/epure-sh/epure/ci.yml?branch=main&label=CI)](https://github.com/epure-sh/epure/actions/workflows/ci.yml)
+
 </div>
 
 <br />
 
 <div align="center">
-  <img src=".github/readme-shot.webp" alt="Epure Issues dashboard" />
+  <img src=".github/readme-shot.webp" alt="Epure Issues dashboard" width="920" />
 </div>
 
 <br />
 
-<div align="center">
-  <strong>2 containers</strong>
-  &nbsp;·&nbsp;
-  <strong>~82&nbsp;MiB</strong> idle
-  &nbsp;·&nbsp;
-  <strong>9&nbsp;s</strong> to first issue
-  &nbsp;·&nbsp;
-  <strong>j / k / e / i</strong>
-  <br />
-  <sub>Idle stack and 9 s path measured 2026-09-12 on Docker Desktop. Re-verify on your hardware.</sub>
-</div>
+| | | | |
+|:---:|:---:|:---:|:---:|
+| **2 containers** | **~82 MiB** idle | **~9 s** to first issue | **`j` `k` `e` `i`** |
 
-<br />
+<sub>Idle stack and 9 s path measured 2026-09-12 on Docker Desktop. Re-verify on your hardware.</sub>
 
-<h2 align="center">Why this exists</h2>
+## Quick start
 
-<p align="center">I needed grouped production exceptions on a small VPS, and I wanted to keep the official Sentry SDKs. Self-hosted Sentry compose is a fleet. I wanted a stack I could read.</p>
-
-<p align="center">If GlitchTip is already quiet for you, stay there. I built this for fewer moving parts: one Rust binary, PostgreSQL 16, two containers. No Redis. No Kafka.</p>
-
-<br />
-
-<h2 align="center">How it works</h2>
-
-<p align="center">Three steps. You already know the SDK.</p>
-
-| | | |
-|:---:|:---|:---|
-| **1** | **Connect** | Keep `@sentry/*`. Create a DSN in Settings. Paste it. |
-| **2** | **Capture** | Envelope + store ingest. Exceptions group by fingerprint. Breadcrumbs travel with the event. |
-| **3** | **Triage** | `j` / `k` move. `e` resolve. `i` ignore. Copy Markdown for an LLM with `Cmd+Shift+C`. |
-
-<br />
-
-<h2 align="center">Get a first issue on screen</h2>
-
-<p align="center">Docker Compose v2. Leave this running in one terminal.</p>
-
-**1. Clone**
+Docker Compose v2. From a clone:
 
 ```bash
 git clone https://github.com/epure-sh/epure.git && cd epure
-```
-
-**2. Start**
-
-```bash
 docker compose up --build
-```
-
-Cached images: about **9 s** to a healthy stack. First no-cache build is slower (about **160 s**, one time).
-
-**3. Check health**
-
-```bash
 curl -sS http://localhost:8080/health   # → {"status":"ok"}
 ```
 
-**4. Open the app**
+Open [http://localhost:8080](http://localhost:8080) → register → **Settings → DSN keys** → create a key → point your SDK.
 
-[http://localhost:8080](http://localhost:8080) → register → **Settings → DSN keys** → create a key.
+Cached images: about **9 s** to a healthy stack. First no-cache build is slower (~160 s, once). Warm ingest → visible issue: about **2 s**.
 
-**5. Throw something**
-
-Paste your project id and keys from Settings → DSN keys:
-
-```bash
-PROJECT_ID="{project_id}"
-PUBLIC="{public_key}"
-SECRET="{secret_key}"
-
-ENVELOPE=$'{"event_id":"'$(uuidgen | tr '[:upper:]' '[:lower:]')'","sdk":{"name":"sentry.test"}}\n{"type":"event","length":120}\n{"exception":{"values":[{"type":"Error","value":"test crash"}]},"platform":"javascript","environment":"local"}\n'
-
-curl -sS -w "\nHTTP %{http_code}\n" \
-  -X POST "http://localhost:8080/api/${PROJECT_ID}/envelope/" \
-  -H "Content-Type: application/x-sentry-envelope" \
-  -H "X-Sentry-Auth: Sentry sentry_version=7, sentry_key=${PUBLIC}, sentry_secret=${SECRET}" \
-  --data-binary "$ENVELOPE"
-```
-
-Expect **HTTP 202**. The Issues list should show a grouped row in about **2 s** on a warm stack. Or skip curl and point a real SDK (next section).
+Production overlay, TLS, backups: [docs/SELF_HOST.md](docs/SELF_HOST.md). Timed walkthrough: [docs/QUICKSTART.md](docs/QUICKSTART.md).
 
 <details>
-<summary>Skip the register step (dev seed only)</summary>
-
-<br />
+<summary>Dev seed (skip register)</summary>
 
 ```bash
 ./scripts/seed-dev.sh
 # login: dev@epure.local / devpassword   ⚠️ DEV ONLY
 ```
 
-That script needs compose already up. It creates an org, project, DSN, and a dashboard user.
+Needs compose already up. Creates org, project, DSN, and a dashboard user.
 
 </details>
 
-Production overlay, TLS, backups, upgrades: [docs/SELF_HOST.md](docs/SELF_HOST.md). Full timed path: [docs/QUICKSTART.md](docs/QUICKSTART.md).
+## Point the DSN
 
-<br />
-
-<h2 align="center">Point the DSN</h2>
-
-<p align="center">No <code>@epure/*</code> package. Same client you already ship.</p>
-
-<div align="center">
-  <img src=".github/readme-dsn.webp" alt="Keep the SDKs. Change the DSN." />
-</div>
-
-<br />
+No `@epure/*` package. Same client you already ship.
 
 ```javascript
 import * as Sentry from "@sentry/browser";
@@ -160,84 +91,52 @@ Sentry.init({
 });
 ```
 
-Zero the extra product lines so you are not surprised when transactions, replay, and profiles are discarded. JS/TS sourcemaps demangle. Other languages keep raw frames.
+Zero the extra product lines so transactions, replay, and profiles are discarded without surprise. JS/TS sourcemaps demangle. Other languages keep raw frames.
 
-Revoked keys return **403**. Default ingest cap is **5000 events/hour** per project. HTTP on localhost: `EPURE_SESSION_SECURE=0`.
+Revoked keys → **403**. Default ingest cap: **5000 events/hour** per project. Localhost HTTP: `EPURE_SESSION_SECURE=0` (compose default).
 
-Coming from Sentry SaaS? Change the DSN string, trim sample rates, re-upload maps. History does not import. Rollback is the old DSN. Walkthrough: [docs/MIGRATION.md](docs/MIGRATION.md).
+Coming from Sentry SaaS? Change the DSN, trim sample rates, re-upload maps. History does not import. Rollback is the old DSN. [docs/MIGRATION.md](docs/MIGRATION.md) · [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md)
 
-SDK matrix and honest gaps: [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) · [Platforms](https://epure.sh/docs/platforms).
+## What you get
 
-<br />
+- [x] **Envelope + store ingest** — official Sentry SDKs via DSN
+- [x] **Grouped issues** — fingerprint, resolve once
+- [x] **Breadcrumbs** — clicks, HTTP, console with the event
+- [x] **Spike valve** — loop bumps the counter; duplicate bodies drop
+- [x] **Keyboard triage** — `j` / `k` move, `e` resolve, `i` ignore · `Cmd+Shift+C` copies Markdown for an LLM
+- [x] **Alerts + webhooks** — regression, velocity, snooze · Slack / Discord / POST
+- [x] **Releases** — deploy-aware issues · JS/TS maps per release
+- [x] **Your Postgres** — RLS on dashboard APIs · volume stays on your box
 
-<h2 align="center">What you get</h2>
+Two containers: Rust binary + PostgreSQL 16. No Redis. No Kafka.
 
-<p align="center">Stacks and breadcrumbs first. The rest is noise control.</p>
-
-| | |
-|---|---|
-| **Full stacks** | Frames, in-app lines, the one that threw. |
-| **Breadcrumbs** | Clicks, HTTP, console. The path to the crash. |
-| **Grouping** | Same fingerprint, one issue. Resolve once. |
-| **Spike valve** | A retry loop bumps the counter. Duplicate bodies drop. |
-| **Keyboard** | `j` `k` `e` `i`. Built for a tired on-call, not a mouse tour. |
-| **Alerts + webhooks** | Regression, velocity, snooze. Slack / Discord / generic POST. |
-| **Releases** | Tie the issue to the deploy. JS/TS maps per release. |
-| **Your Postgres** | RLS on dashboard APIs. Volume stays on your machine. |
+<details>
+<summary>Spike valve (why loops do not fill the disk)</summary>
 
 <br />
 
 <div align="center">
-  <img src=".github/readme-keys.webp" alt="Triage with four keys" />
+  <img src=".github/readme-spike.webp" alt="Spike valve: count holds, duplicate bodies drop" width="720" />
 </div>
 
 <br />
 
-<h2 align="center">When a loop hits</h2>
+Past the token bucket, Epure keeps incrementing the issue and stops storing identical payloads. You see **12,847 events**. You do not store 12,847 copies of the same stack.
 
-<p align="center">A bad deploy should not fill the disk. You still need the count.</p>
+Ingest / worker / RLS: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-<div align="center">
-  <img src=".github/readme-spike.webp" alt="Spike valve: count holds, duplicate bodies drop" />
-</div>
+</details>
 
-<br />
+## What this is not
 
-The valve watches fingerprint rate. Past the token bucket, Epure keeps incrementing the issue and stops storing identical payloads. You see **12,847 events**. You do not store 12,847 copies of the same stack.
-
-Architecture (ingest, worker, RLS): [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-<br />
-
-<h2 align="center">If something is off</h2>
-
-<p align="center">Most first-hour failures are the same five. I wrote these down so you are not grepping logs at 11pm.</p>
-
-| You see | Try this |
-|---|---|
-| `Connection refused` on `:8080` | `docker compose ps` and `docker compose logs epure`. Wait until the container is healthy. |
-| Health is not `{"status":"ok"}` | Migrations may still be running. Wait ~10 s. Check logs for SQL errors. |
-| Ingest **202** but no issue | Worker batches ~500 ms. Refresh once. Then `docker compose logs epure`. |
-| Login bounces you back | HTTP localhost needs `EPURE_SESSION_SECURE=0` (compose default). |
-| Browser SDK blocked by CORS | Add the frontend origin to `EPURE_CORS_ORIGINS`. |
-| Ingest **403** | Key missing or revoked. Settings → DSN keys, or re-run the dev seed. |
-
-Ten-row table plus curl blocks: [docs/QUICKSTART.md](docs/QUICKSTART.md#troubleshooting).
-
-Still stuck? Open a [Discussion](https://github.com/epure-sh/epure/discussions) with the `curl` output and `docker compose ps`. I read setup questions. Bugs and SDK gaps: [Issues](https://github.com/epure-sh/epure/issues) (there are templates). Security: [SECURITY.md](SECURITY.md) · `security@news.epure.sh`.
-
-<br />
-
-<h2 align="center">What this is not</h2>
-
-<p align="center">Exception monitoring. That is the product.</p>
+Exception monitoring. That is the product.
 
 Out of scope on purpose: distributed tracing, session replay, continuous profiling, generic log ingest, iOS/Android symbolication. If the SDK sends those, the HTTP request is accepted and those items are dropped.
 
-If replay and APM are how you debug, keep Sentry. Comparison with citations: [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
+If replay and APM are how you debug, keep Sentry. Matrix with citations: [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
 
 <details>
-<summary><strong>How Epure compares</strong></summary>
+<summary>How Epure compares</summary>
 
 <br />
 
@@ -250,11 +149,11 @@ Measured Epure figures from this repo (2026-09-12). Competitor figures from thei
 | **SDK migration** | Change DSN | Change DSN | Change DSN |
 | **License** | Apache 2.0 | BSL / SaaS | MIT |
 
+If GlitchTip is already quiet for you, stay there. Epure is for fewer moving parts on a small VPS.
+
 </details>
 
-<br />
-
-<h2 align="center">Docs I actually use</h2>
+## Docs
 
 | When | Open |
 |---|---|
@@ -266,10 +165,26 @@ Measured Epure figures from this repo (2026-09-12). Competitor figures from thei
 | PII, retention, RBAC | [DATA.md](DATA.md) |
 | Patch / test / PR | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
+<details>
+<summary>First-hour troubleshooting</summary>
+
 <br />
 
+| You see | Try this |
+|---|---|
+| `Connection refused` on `:8080` | `docker compose ps` and `docker compose logs epure`. Wait until healthy. |
+| Health is not `{"status":"ok"}` | Migrations may still be running. Wait ~10 s. Check logs for SQL errors. |
+| Ingest **202** but no issue | Worker batches ~500 ms. Refresh once. Then `docker compose logs epure`. |
+| Login bounces you back | HTTP localhost needs `EPURE_SESSION_SECURE=0` (compose default). |
+| Browser SDK blocked by CORS | Add the frontend origin to `EPURE_CORS_ORIGINS`. |
+| Ingest **403** | Key missing or revoked. Settings → DSN keys, or re-run the dev seed. |
+
+Ten-row table plus curl blocks: [docs/QUICKSTART.md](docs/QUICKSTART.md#troubleshooting).
+
+</details>
+
 <details>
-<summary><strong>FAQ</strong></summary>
+<summary>FAQ</summary>
 
 <br />
 
@@ -290,16 +205,18 @@ Not for this tree. Scope is in [ROADMAP.md](ROADMAP.md) and [CONTRIBUTING.md](CO
 
 </details>
 
-<br />
+## Community
 
-<div align="center">
-  <sub>
-    <a href="LICENSE">Apache 2.0</a>
-    · no <code>ee/</code> split
-    · <a href="SUPPORT.md">SUPPORT.md</a>
-    · <a href="CODE_OF_CONDUCT.md">Conduct</a>
-    · <code>support@news.epure.sh</code>
-  </sub>
-  <br /><br />
-  If this got you to a grouped issue, a star is how the next person finds the same path on a Friday night.
-</div>
+| Best for | Where |
+|---|---|
+| Bugs & SDK gaps | [GitHub Issues](https://github.com/epure-sh/epure/issues) |
+| Setup questions | [Discussions](https://github.com/epure-sh/epure/discussions) |
+| Security | [SECURITY.md](SECURITY.md) · `security@news.epure.sh` |
+| Support | [SUPPORT.md](SUPPORT.md) · `support@news.epure.sh` |
+| Conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+
+---
+
+**Apache 2.0** · no `ee/` split · Copyright 2026 Epure contributors
+
+**Managed hosting:** Epure Cloud — Pro $24/mo · Plus $79/mo. Flat pricing, no per-event overage. [epure.sh](https://epure.sh)
