@@ -8,8 +8,6 @@
   <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 16" /></a>
   <a href="docker-compose.yml"><img src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white" alt="Docker Compose" /></a>
   <a href="https://github.com/epure-sh/epure/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/epure-sh/epure/ci.yml?branch=main&label=CI" alt="CI" /></a>
-  <a href="https://github.com/epure-sh/epure/actions/workflows/image.yml"><img src="https://img.shields.io/github/actions/workflow/status/epure-sh/epure/image.yml?branch=main&label=Image" alt="Image" /></a>
-  <a href="https://github.com/epure-sh/epure/pkgs/container/epure"><img src="https://img.shields.io/badge/GHCR-epure--sh%2Fepure-blue?logo=github" alt="GHCR" /></a>
 </p>
 
 # Epure
@@ -27,11 +25,9 @@
 
 ![Epure Issues dashboard](.github/readme-shot.webp)
 
-**2 containers** · **~50 MiB** idle · **~10 s** to first issue · measured 2026-09-20 on Docker Desktop (re-verify on your hardware).
+**2 containers** · **~82 MiB** idle · **~9 s** to first issue · measured 2026-09-12 on Docker Desktop (re-verify on your hardware).
 
 Watch "releases" of this repo to get notified of major updates.
-
-CI and multi-arch image builds run on GitHub Actions (`ci.yml`, `image.yml`). Published images: `ghcr.io/epure-sh/epure`.
 
 ## Documentation
 
@@ -160,12 +156,12 @@ Distributed tracing · session replay · continuous profiling · generic log ing
 <details>
 <summary>How Epure compares</summary>
 
-Measured Epure figures from this repo (2026-09-20). Competitor figures from their documentation as of 2026-09. Re-verify before you rely on them.
+Measured Epure figures from this repo (2026-09-12). Competitor figures from their documentation as of 2026-09. Re-verify before you rely on them.
 
 | | **Epure** | **Sentry self-host** | **GlitchTip** |
 |---|---|---|---|
 | **Containers** | 2 | 20+ ([docs](https://develop.sentry.dev/self-hosted/)) | 4+ ([install](https://glitchtip.com/documentation/install)) |
-| **RAM** | **~50 MiB** idle (measured) | 16 GB + swap ([guide](https://develop.sentry.dev/self-hosted/)) | 512 MB rec / 256 MB min |
+| **RAM** | **~82 MiB** idle (measured) | 16 GB + swap ([guide](https://develop.sentry.dev/self-hosted/)) | 512 MB rec / 256 MB min |
 | **SDK path** | Change DSN | Change DSN | Change DSN |
 | **License** | Apache 2.0 | BSL / SaaS | MIT |
 
