@@ -11,7 +11,6 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 - `docker compose up` needs no `.env`. Optional `.env.example` for host ports (`EPURE_PORT`, `POSTGRES_HOST_PORT`); `EPURE_PUBLIC_URL` follows `EPURE_PORT` on localhost. `./configure --quick` / `--prod` helpers; cargo dev vars in `.env.dev.example`. The binary still binds `8080` inside the container.
 - Production overlay: `.env.production.example`, HTTPS required, example DB passwords refused unless `EPURE_PUBLIC_URL` is localhost. Boot sets ingest/app role passwords from `.env` after migrate.
 - `docker compose up` pulls `ghcr.io/epure-sh/epure` (`pull_policy: always`). Pin with `EPURE_IMAGE`. Source build: `docker-compose.build.yml`.
-- GHCR image is `linux/amd64` + `linux/arm64`. Release tags compile the binary on native GitHub runners, then push a thin runtime image.
 
 ## [v0.1.0-phase1] — 2026-09-15
 

@@ -8,7 +8,7 @@ Help ship Phase 1 OSS exception monitoring. Product overview and install: [READM
 
 | Tool | Version | Notes |
 |------|---------|-------|
-| Docker Compose | v2 | `docker compose up` pulls `ghcr.io/epure-sh/epure` (amd64 + arm64) |
+| Docker Compose | v2 | `docker compose up` pulls `ghcr.io/epure-sh/epure` |
 | Rust | stable | `cargo` workspace in `crates/` |
 | Node (optional) | 22+ | SPA hot reload in `web/` |
 | Postgres (tests) | 16 | Host port **5433** locally; CI uses **5432** |

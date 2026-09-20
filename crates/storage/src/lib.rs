@@ -53,16 +53,95 @@ fn connect_max_attempts() -> u32 {
 }
 
 pub fn allow_dev_db_fallback() -> bool {
+    dev_credential_flags_on() && public_url_host_is_loopback(&public_url_from_env())
+}
+
+fn dev_credential_flags_on() -> bool {
     if cfg!(debug_assertions) {
         return true;
     }
-    // Local compose is a release binary with --mode=all and bind 0.0.0.0.
-    // Explicit flag only — prod overlay must not set this.
+    // Release compose may set this for laptop HTTP. Prod overlay forces 0.
     env_flag("EPURE_ALLOW_EXAMPLE_PASSWORDS")
         || env_flag("EPURE_DEV_SEED")
         || std::env::var("EPURE_MODE")
             .map(|mode| mode.eq_ignore_ascii_case("dev"))
             .unwrap_or(false)
+}
+
+/// Base URL browsers and SDKs use (DSN host, OAuth redirects).
+/// Production must set `EPURE_PUBLIC_URL`. Local Compose can set only `EPURE_PORT`
+/// (passed in as `EPURE_HOST_PORT`) and this derives `http://localhost:{port}`.
+pub fn epure_public_url() -> String {
+    if let Ok(url) = std::env::var("EPURE_PUBLIC_URL") {
+        let trimmed = url.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    let port = std::env::var("EPURE_HOST_PORT")
+        .ok()
+        .filter(|value| !value.is_empty())
+        .or_else(bind_port_from_env)
+        .unwrap_or_else(|| "8080".to_string());
+    format!("http://localhost:{port}")
+}
+
+fn bind_port_from_env() -> Option<String> {
+    std::env::var("EPURE_BIND").ok().and_then(|bind| {
+        bind
+            .rsplit(':')
+            .next()
+            .filter(|port| !port.is_empty())
+            .map(str::to_string)
+    })
+}
+
+fn public_url_from_env() -> String {
+    epure_public_url()
+}
+
+fn public_url_host_is_loopback(public_url: &str) -> bool {
+    let trimmed = public_url.trim();
+    if trimmed.is_empty() {
+        return true;
+    }
+    let without_scheme = trimmed
+        .strip_prefix("https://")
+        .or_else(|| trimmed.strip_prefix("http://"))
+        .unwrap_or(trimmed);
+    let hostport = without_scheme
+        .split(['/', '?', '#'])
+        .next()
+        .unwrap_or(without_scheme);
+    let host = if let Some(inner) = hostport
+        .strip_prefix('[')
+        .and_then(|value| value.split(']').next())
+    {
+        inner
+    } else {
+        hostport.split(':').next().unwrap_or(hostport)
+    };
+    matches!(host, "localhost" | "127.0.0.1" | "::1" | "")
+}
+
+/// Production (release + non-loopback public URL) needs HTTPS and explicit CORS.
+pub fn reject_insecure_prod_config(cors_origins: &[String]) -> Result<(), StorageError> {
+    if allow_dev_db_fallback() {
+        return Ok(());
+    }
+    let public_url = public_url_from_env();
+    if !public_url.starts_with("https://") {
+        return Err(StorageError::Config(
+            "EPURE_PUBLIC_URL must be https:// when example database passwords are not allowed"
+                .into(),
+        ));
+    }
+    if cors_origins.is_empty() || cors_origins.iter().any(|origin| origin == "*") {
+        return Err(StorageError::Config(
+            "EPURE_CORS_ORIGINS must list real frontend origins in production, not *".into(),
+        ));
+    }
+    Ok(())
 }
 
 fn env_flag(name: &str) -> bool {
@@ -76,14 +155,125 @@ fn url_uses_example_password(url: &str) -> bool {
     lowered.contains("epure:epure@")
         || lowered.contains("epure_ingest:epure_ingest@")
         || lowered.contains("epure_app:epure_app@")
+        || lowered.contains(":change_me@")
+        || lowered.contains(":changeme@")
 }
 
 fn reject_example_passwords(url: &str) -> Result<(), StorageError> {
     if url_uses_example_password(url) && !allow_dev_db_fallback() {
         return Err(StorageError::Config(
-            "example database passwords are not allowed outside dev".into(),
+            "example database passwords are not allowed unless EPURE_PUBLIC_URL is localhost (use docker-compose.prod.yml and set POSTGRES_PASSWORD, EPURE_INGEST_PASSWORD, EPURE_APP_PASSWORD)".into(),
         ));
     }
+    Ok(())
+}
+
+fn credentials_from_postgres_url(url: &str) -> Result<(String, String), StorageError> {
+    let rest = url
+        .strip_prefix("postgres://")
+        .or_else(|| url.strip_prefix("postgresql://"))
+        .ok_or_else(|| StorageError::Config("database URL must be postgres://".into()))?;
+    let at = rest
+        .find('@')
+        .ok_or_else(|| StorageError::Config("database URL is missing credentials".into()))?;
+    let userinfo = &rest[..at];
+    let (user, password) = userinfo
+        .split_once(':')
+        .ok_or_else(|| StorageError::Config("database URL must include user:password".into()))?;
+    if user.is_empty() || password.is_empty() {
+        return Err(StorageError::Config(
+            "database URL user and password must not be empty".into(),
+        ));
+    }
+    Ok((percent_decode(user)?, percent_decode(password)?))
+}
+
+fn percent_decode(input: &str) -> Result<String, StorageError> {
+    let bytes = input.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            if i + 2 >= bytes.len() {
+                return Err(StorageError::Config(
+                    "database URL has a truncated percent-escape".into(),
+                ));
+            }
+            let hex = std::str::from_utf8(&bytes[i + 1..i + 3]).map_err(|_| {
+                StorageError::Config("database URL has a non-utf8 percent-escape".into())
+            })?;
+            let value = u8::from_str_radix(hex, 16).map_err(|_| {
+                StorageError::Config("database URL has an invalid percent-escape".into())
+            })?;
+            out.push(value);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out)
+        .map_err(|_| StorageError::Config("database URL credentials are not valid UTF-8".into()))
+}
+
+fn resolved_ingest_app_urls(database_url: &str) -> Result<(String, String), StorageError> {
+    let ingest_url = match std::env::var("EPURE_INGEST_DATABASE_URL") {
+        Ok(url) if !url.is_empty() => url,
+        _ if allow_dev_db_fallback() => {
+            rewrite_database_role(database_url, "epure_ingest", "epure_ingest")?
+        }
+        _ => {
+            return Err(StorageError::Config(
+                "EPURE_INGEST_DATABASE_URL must be set".into(),
+            ))
+        }
+    };
+    let app_url = match std::env::var("EPURE_APP_DATABASE_URL") {
+        Ok(url) if !url.is_empty() => url,
+        _ if allow_dev_db_fallback() => {
+            rewrite_database_role(database_url, "epure_app", "epure_app")?
+        }
+        _ => {
+            return Err(StorageError::Config(
+                "EPURE_APP_DATABASE_URL must be set".into(),
+            ))
+        }
+    };
+    Ok((ingest_url, app_url))
+}
+
+async fn set_role_password(
+    pool: &PgPool,
+    expected_role: &str,
+    url: &str,
+) -> Result<(), StorageError> {
+    let (user, password) = credentials_from_postgres_url(url)?;
+    if user != expected_role {
+        return Err(StorageError::Config(format!(
+            "database URL user must be {expected_role}"
+        )));
+    }
+    reject_example_passwords(url)?;
+    let sql: String =
+        sqlx::query_scalar("SELECT format('ALTER ROLE %I PASSWORD %L', $1::text, $2::text)")
+            .bind(expected_role)
+            .bind(&password)
+            .fetch_one(pool)
+            .await?;
+    sqlx::query(&sql).execute(pool).await?;
+    Ok(())
+}
+
+/// Set `epure` / `epure_ingest` / `epure_app` passwords from the env URLs.
+/// Called after migrate so SQL never leaves the documented example passwords in place.
+pub async fn apply_role_passwords(pool: &PgPool, database_url: &str) -> Result<(), StorageError> {
+    reject_example_passwords(database_url)?;
+    let (ingest_url, app_url) = resolved_ingest_app_urls(database_url)?;
+    reject_example_passwords(&ingest_url)?;
+    reject_example_passwords(&app_url)?;
+    set_role_password(pool, "epure", database_url).await?;
+    set_role_password(pool, "epure_ingest", &ingest_url).await?;
+    set_role_password(pool, "epure_app", &app_url).await?;
     Ok(())
 }
 
@@ -136,28 +326,7 @@ pub async fn connect(database_url: &str) -> Result<PgPool, StorageError> {
 pub async fn connect_pools(database_url: &str) -> Result<StoragePools, StorageError> {
     reject_example_passwords(database_url)?;
 
-    let ingest_url = match std::env::var("EPURE_INGEST_DATABASE_URL") {
-        Ok(url) => url,
-        Err(_) if allow_dev_db_fallback() => {
-            rewrite_database_role(database_url, "epure_ingest", "epure_ingest")?
-        }
-        Err(_) => {
-            return Err(StorageError::Config(
-                "EPURE_INGEST_DATABASE_URL must be set".into(),
-            ))
-        }
-    };
-    let app_url = match std::env::var("EPURE_APP_DATABASE_URL") {
-        Ok(url) => url,
-        Err(_) if allow_dev_db_fallback() => {
-            rewrite_database_role(database_url, "epure_app", "epure_app")?
-        }
-        Err(_) => {
-            return Err(StorageError::Config(
-                "EPURE_APP_DATABASE_URL must be set".into(),
-            ))
-        }
-    };
+    let (ingest_url, app_url) = resolved_ingest_app_urls(database_url)?;
 
     reject_example_passwords(&ingest_url)?;
     reject_example_passwords(&app_url)?;
@@ -169,6 +338,10 @@ pub async fn connect_pools(database_url: &str) -> Result<StoragePools, StorageEr
 
 pub async fn run_migrations(pool: &PgPool) -> Result<(), StorageError> {
     sqlx::migrate!("./migrations").run(pool).await?;
+    let database_url = std::env::var("DATABASE_URL").map_err(|_| {
+        StorageError::Config("DATABASE_URL must be set to apply role passwords".into())
+    })?;
+    apply_role_passwords(pool, &database_url).await?;
     Ok(())
 }
 
@@ -192,4 +365,47 @@ fn rewrite_database_role(
     Err(StorageError::Config(
         "DATABASE_URL is not a postgres:// URL; set EPURE_INGEST_DATABASE_URL and EPURE_APP_DATABASE_URL".into(),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn loopback_public_urls() {
+        assert!(public_url_host_is_loopback(""));
+        assert!(public_url_host_is_loopback("http://localhost:8080"));
+        assert!(public_url_host_is_loopback("http://127.0.0.1:9090"));
+        assert!(public_url_host_is_loopback("http://[::1]:8080"));
+        assert!(!public_url_host_is_loopback("https://errors.example.com"));
+        assert!(!public_url_host_is_loopback("http://192.168.1.9:8080"));
+    }
+
+    #[test]
+    fn example_password_urls() {
+        assert!(url_uses_example_password(
+            "postgres://epure:epure@postgres:5432/epure"
+        ));
+        assert!(url_uses_example_password(
+            "postgres://epure_ingest:epure_ingest@postgres:5432/epure"
+        ));
+        assert!(!url_uses_example_password(
+            "postgres://epure:correct-horse@postgres:5432/epure"
+        ));
+        assert!(url_uses_example_password(
+            "postgres://epure:CHANGE_ME@postgres:5432/epure"
+        ));
+    }
+
+    #[test]
+    fn parses_postgres_credentials() {
+        let (user, password) =
+            credentials_from_postgres_url("postgres://epure:s3cret@postgres:5432/epure").unwrap();
+        assert_eq!(user, "epure");
+        assert_eq!(password, "s3cret");
+        let (user, password) =
+            credentials_from_postgres_url("postgres://epure:p%40ss@postgres:5432/epure").unwrap();
+        assert_eq!(password, "p@ss");
+        assert_eq!(user, "epure");
+    }
 }
