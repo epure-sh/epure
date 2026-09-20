@@ -88,8 +88,7 @@ pub fn epure_public_url() -> String {
 
 fn bind_port_from_env() -> Option<String> {
     std::env::var("EPURE_BIND").ok().and_then(|bind| {
-        bind
-            .rsplit(':')
+        bind.rsplit(':')
             .next()
             .filter(|port| !port.is_empty())
             .map(str::to_string)
