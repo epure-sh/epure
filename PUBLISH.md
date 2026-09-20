@@ -28,8 +28,8 @@ Do **not** ship company-workspace agent hydration (`AGENTS.md` / `CONTEXT.md`) i
 ## Pre-push checklist
 
 - [x] `cargo test` green with `DATABASE_URL=postgres://epure:epure@localhost:5433/epure` (or `./scripts/test.sh`)
-- [ ] `docker compose up` pulls `ghcr.io/epure-sh/epure` → `/health` OK; `./scripts/seed-dev.sh` → dev login works
-- [ ] GHCR package **public** on `epure-sh/epure` (first `Image` workflow push, then Settings → Packages)
+- [x] `docker compose up` pulls `ghcr.io/epure-sh/epure` → `/health` OK; `./scripts/seed-dev.sh` → dev login works
+- [x] GHCR package **public** on `epure-sh/epure` (first `Image` workflow push, then Settings → Packages)
 - [x] Production deploy uses `docker-compose.prod.yml` overlay (`EPURE_SESSION_SECURE=1`, Postgres not exposed on host); see `docs/SELF_HOST.md`
 - [x] `LICENSE` (Apache 2.0) at repo root
 - [x] README onboarding + community health files present
@@ -37,7 +37,7 @@ Do **not** ship company-workspace agent hydration (`AGENTS.md` / `CONTEXT.md`) i
 - [x] No secrets in git (`.env`, DSN secrets, Google OAuth keys)
 - [x] Measured claims dated; no SQLite-primary drift
 - [x] Tag release `v0.1.0-phase1` after first public push
-- [ ] Re-measure ~82 MiB idle + 9 s path on publish hardware before citing in marketing
+- [x] Re-measure idle RAM + first-issue path on publish hardware (2026-09-20: ~50 MiB / ~10 s)
 - [ ] Demo GIF (optional) at `.github/issues-demo.gif` (still uses `issues-list.webp`)
 - [x] Contact mail: `{role}@news.epure.sh` (`security@`, `support@`, `conduct@`) — no Discord / waitlist URL in README
 

@@ -1,0 +1,7 @@
+# cargo-audit config — https://docs.rs/cargo-audit
+[advisories]
+ignore = [
+  # Marvin Attack (timing). Pulled transitively via sqlx-mysql from sqlx macros;
+  # Epure uses Postgres only. No fixed rsa upgrade exists yet.
+  "RUSTSEC-2023-0071",
+]
