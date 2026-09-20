@@ -1,3 +1,4 @@
+# PR and main checks: cargo test against Postgres 16.
 name: CI
 
 on:
