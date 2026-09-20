@@ -27,7 +27,7 @@
 
 ![Epure Issues dashboard](.github/readme-shot.webp)
 
-**2 containers** · **~82 MiB** idle · **~9 s** to first issue · measured 2026-09-12 on Docker Desktop (re-verify on your hardware).
+**2 containers** · **~50 MiB** idle · **~10 s** to first issue · measured 2026-09-20 on Docker Desktop (re-verify on your hardware).
 
 Watch "releases" of this repo to get notified of major updates.
 
@@ -142,12 +142,12 @@ Distributed tracing · session replay · continuous profiling · generic log ing
 <details>
 <summary>How Epure compares</summary>
 
-Measured Epure figures from this repo (2026-09-12). Competitor figures from their documentation as of 2026-09. Re-verify before you rely on them.
+Measured Epure figures from this repo (2026-09-20). Competitor figures from their documentation as of 2026-09. Re-verify before you rely on them.
 
 | | **Epure** | **Sentry self-host** | **GlitchTip** |
 |---|---|---|---|
 | **Containers** | 2 | 20+ ([docs](https://develop.sentry.dev/self-hosted/)) | 4+ ([install](https://glitchtip.com/documentation/install)) |
-| **RAM** | **~82 MiB** idle (measured) | 16 GB + swap ([guide](https://develop.sentry.dev/self-hosted/)) | 512 MB rec / 256 MB min |
+| **RAM** | **~50 MiB** idle (measured) | 16 GB + swap ([guide](https://develop.sentry.dev/self-hosted/)) | 512 MB rec / 256 MB min |
 | **SDK path** | Change DSN | Change DSN | Change DSN |
 | **License** | Apache 2.0 | BSL / SaaS | MIT |
 
