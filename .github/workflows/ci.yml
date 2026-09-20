@@ -68,4 +68,5 @@ jobs:
         run: cargo audit
 
       - name: Run tests
-        run: cargo test
+        # Serial: parallel init_runtime migrations race on shared Postgres (XX000 tuple concurrently updated).
+        run: cargo test -- --test-threads=1
