@@ -23,7 +23,7 @@ Required at public repo root:
 - `docker-compose.yml` + `docker-compose.build.yml` + `Dockerfile` + `Dockerfile.runtime` + `fixtures/sentry/`
 - `web/design/` (product design system — not the marketing `design/`)
 
-Do **not** ship company-workspace agent hydration as the hero README (`AGENTS.md` / `CONTEXT.md` stay internal or CONTRIBUTING-linked only).
+Do **not** ship company-workspace agent hydration (`AGENTS.md` / `CONTEXT.md`) in the public tree — keep those files internal only.
 
 ## Pre-push checklist
 
