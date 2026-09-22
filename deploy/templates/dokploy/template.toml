@@ -1,0 +1,20 @@
+# Dokploy marketplace blueprint metadata.
+# Upstream: https://github.com/Dokploy/templates — PR under blueprints/epure/
+
+[variables]
+main_domain = "${domain}"
+
+[config]
+mounts = []
+
+[[config.domains]]
+serviceName = "epure"
+port = 8080
+host = "${main_domain}"
+
+[config.env]
+POSTGRES_PASSWORD = "${hex:64}"
+EPURE_INGEST_PASSWORD = "${hex:64}"
+EPURE_APP_PASSWORD = "${hex:64}"
+EPURE_PUBLIC_URL = "https://${domain}"
+EPURE_CORS_ORIGINS = "https://${domain}"

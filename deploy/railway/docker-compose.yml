@@ -1,0 +1,46 @@
+# Epure — Railway (drag-and-drop or template composer)
+#
+# Import: drag this file onto a Railway project canvas, or transcribe into a
+# published template. See deploy/railway/README.md and TEMPLATE.md.
+#
+# Not for local `docker compose` — uses Railway reference variables.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: epure
+      POSTGRES_PASSWORD: ${{shared.POSTGRES_PASSWORD}}
+      POSTGRES_DB: epure
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U epure -d epure"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  epure:
+    image: ghcr.io/epure-sh/epure:latest
+    restart: always
+    environment:
+      EPURE_BIND: 0.0.0.0:8080
+      EPURE_MODE: all
+      EPURE_ALLOW_EXAMPLE_PASSWORDS: "0"
+      EPURE_SESSION_SECURE: "1"
+      EPURE_ARTIFACTS_DIR: /data/artifacts
+      EPURE_PUBLIC_URL: ${{epure.RAILWAY_STATIC_URL}}
+      EPURE_CORS_ORIGINS: ${{epure.RAILWAY_STATIC_URL}}
+      POSTGRES_PASSWORD: ${{shared.POSTGRES_PASSWORD}}
+      EPURE_INGEST_PASSWORD: ${{shared.EPURE_INGEST_PASSWORD}}
+      EPURE_APP_PASSWORD: ${{shared.EPURE_APP_PASSWORD}}
+      DATABASE_URL: postgres://epure:${{shared.POSTGRES_PASSWORD}}@${{postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/epure
+      EPURE_INGEST_DATABASE_URL: postgres://epure_ingest:${{shared.EPURE_INGEST_PASSWORD}}@${{postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/epure
+      EPURE_APP_DATABASE_URL: postgres://epure_app:${{shared.EPURE_APP_PASSWORD}}@${{postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/epure
+    volumes:
+      - artifacts_data:/data/artifacts
+
+volumes:
+  postgres_data:
+  artifacts_data:

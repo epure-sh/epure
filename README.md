@@ -85,6 +85,17 @@ After the event is sent, open the Epure dashboard. You should see a grouped issu
 
 For production setup, environment variables, reverse proxies, backups, and upgrades, see the [self-hosting documentation](https://epure.sh/docs/self-hosting/installation).
 
+### Deploy on a PaaS or panel
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/epure-sh/epure)
+
+| Platform | Start here |
+| --- | --- |
+| Render | [`render.yaml`](render.yaml) (button above) |
+| Railway | Drag [`deploy/railway/docker-compose.yml`](deploy/railway/docker-compose.yml) onto a project — [guide](deploy/railway/README.md) |
+| Coolify | Compose in [`deploy/templates/coolify/`](deploy/templates/coolify/) — [guide](deploy/templates/README.md#coolify) |
+| Dokploy | Compose + [`template.toml`](deploy/templates/dokploy/template.toml) — [guide](deploy/templates/README.md#dokploy) |
+
 ## Why Epure exists
 
 Sentry is a good fit when you need a broad observability platform. Epure is for a smaller and more specific use case:

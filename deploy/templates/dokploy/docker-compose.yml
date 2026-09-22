@@ -1,0 +1,58 @@
+# Epure — Dokploy Compose (Git or marketplace blueprint)
+#
+# Git import: Compose path → deploy/templates/dokploy/docker-compose.yml
+# Set env from template.toml (or generate passwords yourself).
+#
+# Postgres stays on the default Compose network; only `epure` joins dokploy-network.
+
+services:
+  epure:
+    image: ${EPURE_IMAGE:-ghcr.io/epure-sh/epure:latest}
+    restart: unless-stopped
+    environment:
+      EPURE_BIND: 0.0.0.0:8080
+      EPURE_MODE: all
+      EPURE_ALLOW_EXAMPLE_PASSWORDS: "0"
+      EPURE_SESSION_SECURE: "1"
+      EPURE_ARTIFACTS_DIR: /data/artifacts
+      EPURE_PUBLIC_URL: ${EPURE_PUBLIC_URL:?set me}
+      EPURE_CORS_ORIGINS: ${EPURE_CORS_ORIGINS:?set me}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set me}
+      DATABASE_URL: postgres://epure:${POSTGRES_PASSWORD}@postgres:5432/epure
+      EPURE_INGEST_DATABASE_URL: postgres://epure_ingest:${EPURE_INGEST_PASSWORD}@postgres:5432/epure
+      EPURE_APP_DATABASE_URL: postgres://epure_app:${EPURE_APP_PASSWORD}@postgres:5432/epure
+    volumes:
+      - artifacts_data:/data/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - dokploy-network
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: epure
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set me}
+      POSTGRES_DB: epure
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U epure -d epure && psql -U epure -d epure -qtAc 'SELECT 1' | grep -q 1",
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+networks:
+  dokploy-network:
+    external: true
+
+volumes:
+  postgres_data:
+  artifacts_data:

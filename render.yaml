@@ -1,0 +1,73 @@
+# Epure on Render — Blueprint (Deploy to Render button)
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: pserv
+    name: epure-postgres
+    runtime: image
+    plan: starter
+    image:
+      url: docker.io/library/postgres:16-alpine
+    envVars:
+      - key: POSTGRES_USER
+        value: epure
+      - key: POSTGRES_DB
+        value: epure
+      - key: POSTGRES_PASSWORD
+        generateValue: true
+    disk:
+      name: epure-postgres-data
+      mountPath: /var/lib/postgresql/data
+      sizeGB: 10
+
+  - type: web
+    name: epure
+    runtime: image
+    plan: starter
+    image:
+      url: ghcr.io/epure-sh/epure:latest
+    healthCheckPath: /health
+    dockerCommand: >-
+      /bin/sh -c 'export DATABASE_URL=postgres://epure:$$POSTGRES_PASSWORD@$$EPURE_POSTGRES_HOST:5432/epure
+      && export EPURE_INGEST_DATABASE_URL=postgres://epure_ingest:$$EPURE_INGEST_PASSWORD@$$EPURE_POSTGRES_HOST:5432/epure
+      && export EPURE_APP_DATABASE_URL=postgres://epure_app:$$EPURE_APP_PASSWORD@$$EPURE_POSTGRES_HOST:5432/epure
+      && exec epure --mode=all'
+    envVars:
+      - key: EPURE_BIND
+        value: 0.0.0.0:8080
+      - key: EPURE_MODE
+        value: all
+      - key: EPURE_ALLOW_EXAMPLE_PASSWORDS
+        value: "0"
+      - key: EPURE_SESSION_SECURE
+        value: "1"
+      - key: EPURE_ARTIFACTS_DIR
+        value: /data/artifacts
+      - key: EPURE_PUBLIC_URL
+        fromService:
+          name: epure
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: EPURE_CORS_ORIGINS
+        fromService:
+          name: epure
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: POSTGRES_PASSWORD
+        fromService:
+          name: epure-postgres
+          type: pserv
+          envVarKey: POSTGRES_PASSWORD
+      - key: EPURE_POSTGRES_HOST
+        fromService:
+          name: epure-postgres
+          type: pserv
+          property: host
+      - key: EPURE_INGEST_PASSWORD
+        generateValue: true
+      - key: EPURE_APP_PASSWORD
+        generateValue: true
+    disk:
+      name: epure-artifacts
+      mountPath: /data/artifacts
+      sizeGB: 1
