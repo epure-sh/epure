@@ -16,67 +16,56 @@
 
 [Epure](https://epure.sh) is exception-only error monitoring for self-hosters. Keep your official Sentry SDKs. Change the DSN. When production throws, you get a grouped issue and a stack you can read.
 
-- [x] Official Sentry SDK ingest (envelope + store). [Docs](https://epure.sh/docs/platforms)
-- [x] Grouped issues, breadcrumbs, JS/TS sourcemaps. [Quickstart](https://epure.sh/docs/get-started/quickstart)
-- [x] Spike valve for infinite loops. [Concepts](https://epure.sh/docs/get-started/concepts)
+- [x] Official Sentry SDK ingest (envelope + store).
+- [x] Grouped issues, breadcrumbs, JS/TS sourcemaps.
+- [x] Spike valve for infinite loops.
 - [x] Keyboard triage (`j` / `k` / `e` / `i`) + Markdown export for LLMs
 - [x] Alerts, webhooks, releases, regressions
 - [x] Multi-project orgs, DSN rotate/revoke, RBAC
-- [x] Two containers: Rust binary + PostgreSQL 16 with RLS. [Self-host](https://epure.sh/docs/self-hosting/installation)
+- [x] Two containers: Rust binary + PostgreSQL 16 with RLS.
 - [x] Dashboard
 
 ![Epure Issues dashboard](.github/readme-shot.webp)
 
-**2 containers** · **~50 MiB** idle · **~10 s** to first issue · measured 2026-09-20 on Docker Desktop (re-verify on your hardware).
+**2 containers** · **~50 MiB** idle · **~10 s** to first issue · measured 2026-09-20 on Docker Desktop.
 
-Watch "releases" of this repo to get notified of major updates.
+⭐ **Star the repository** if you want to follow progress or run it on your homelab later.
 
-CI and multi-arch image builds run on GitHub Actions (`ci.yml`, `image.yml`). Published images: `ghcr.io/epure-sh/epure`.
+---
 
-## Documentation
+## ⚡ Why Epure?
 
-Full documentation: **[epure.sh/docs](https://epure.sh/docs)**
+Official Sentry is incredibly powerful, but self-hosting it requires 15+ containers (Kafka, ClickHouse, Redis, Celery). Epure is designed for homelabs and small teams who just want stack traces without the operational bloat.
 
-- [Quickstart](https://epure.sh/docs/get-started/quickstart) — first issue on a laptop
-- [Self-hosting](https://epure.sh/docs/self-hosting/installation) — production install, TLS, backups
-- [Configuration](https://epure.sh/docs/self-hosting/configuration) — env vars and overlays
-- [Platforms](https://epure.sh/docs/platforms) — SDK matrix and honest gaps
-- [Concepts](https://epure.sh/docs/get-started/concepts) — DSN, issue, spike valve
-- [Ingest API](https://epure.sh/docs/api) — envelope / store reference
-- [Contributing](CONTRIBUTING.md) — build, test, PR
+| | **Epure** | **Sentry self-host** | **GlitchTip** |
+|---|---|---|---|
+| **Containers** | 2 | 20+ ([docs](https://develop.sentry.dev/self-hosted/)) | 4+ ([install](https://glitchtip.com/documentation/install)) |
+| **RAM** | **~50 MiB** idle | 16 GB + swap ([guide](https://develop.sentry.dev/self-hosted/)) | 512 MB rec / 256 MB min |
+| **SDK path** | Change DSN | Change DSN | Change DSN |
+| **License** | Apache 2.0 | BSL / SaaS | MIT |
 
-Website: [epure.sh](https://epure.sh) · Self-host landing: [epure.sh/selfhost](https://epure.sh/selfhost)
+*Note: If GlitchTip is already quiet for you, stay there.*
 
-## Community & Support
-
-- [GitHub Discussions](https://github.com/epure-sh/epure/discussions). Best for: setup questions and DSN wiring.
-- [GitHub Issues](https://github.com/epure-sh/epure/issues). Best for: bugs and SDK / protocol gaps (use a template).
-- [SECURITY.md](SECURITY.md). Best for: vulnerabilities · `security@news.epure.sh`
-- Email support · `support@news.epure.sh`. Best for: Cloud / commercial questions.
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Conduct · `conduct@news.epure.sh`
-
-## Get started
+## 🚀 1-Minute Quickstart
 
 Docker Compose v2. No `.env` file. No configure step.
 
 ```bash
 git clone https://github.com/epure-sh/epure.git && cd epure
-docker compose up
+docker compose up -d
 curl -sS http://localhost:8080/health   # → {"status":"ok"}
 ```
 
 Open [http://localhost:8080](http://localhost:8080) → register → name a project → copy the DSN → point your SDK.
 
 <details>
-<summary>Port 8080 taken, demo data, or production VPS</summary>
+<summary>Port 8080 taken, demo data, or production VPS (Click to expand)</summary>
 
 **Another port** — copy `.env.example`, set `EPURE_PORT` (public URL follows on localhost), recreate `epure`:
-
 ```bash
 cp .env.example .env   # edit EPURE_PORT=3000
-docker compose up
+docker compose up -d
 ```
-
 Or `./configure --quick` to auto-pick a free port.
 
 **Demo seed + Vite CORS** — uncomment `EPURE_DEV_SEED=1` and `EPURE_CORS_ORIGINS` in `.env`, or `./configure --dev`.
@@ -84,6 +73,12 @@ Or `./configure --quick` to auto-pick a free port.
 **Production** — `./configure --prod` or `.env.production.example` + [installation guide](https://epure.sh/docs/self-hosting/installation). Full env reference: [Configuration](https://epure.sh/docs/self-hosting/configuration).
 
 </details>
+
+### Drop-in Sentry Replacement
+
+You do not need a custom SDK. Use the official Sentry client for your language and point it to your Epure instance. 
+
+Zero the extra product lines so transactions, replay, and profiles are discarded locally without surprise.
 
 ```javascript
 import * as Sentry from "@sentry/browser";
@@ -96,18 +91,6 @@ Sentry.init({
   profilesSampleRate: 0,
 });
 ```
-
-No `@epure/*` package. Zero the extra product lines so transactions, replay, and profiles are discarded without surprise. Walkthrough: [epure.sh/docs/get-started/quickstart](https://epure.sh/docs/get-started/quickstart). Production: [epure.sh/docs/self-hosting/installation](https://epure.sh/docs/self-hosting/installation).
-
-<details>
-<summary>Dev seed (skip register) — ⚠️ DEV ONLY</summary>
-
-```bash
-./scripts/seed-dev.sh
-# login: dev@epure.local / devpassword
-```
-
-</details>
 
 ## How it works
 
@@ -138,8 +121,6 @@ graph TD
 - **[PostgreSQL 16](https://www.postgresql.org/)** — issues, events, releases, sessions. Dashboard queries use RLS (`app.current_org_id`).
 - **Dashboard** — React SPA embedded via `rust-embed`. Keyboard-first Issues UI.
 
-Ingest path (plain text): SDK → DSN check → spike valve → enqueue → **202** → worker demangle/scrub/group → Postgres.
-
 ### SDK clients
 
 Keep the official Sentry clients. Epure is the destination.
@@ -157,21 +138,19 @@ Full matrix and init snippets: [epure.sh/docs/platforms](https://epure.sh/docs/p
 
 Distributed tracing · session replay · continuous profiling · generic log ingest · iOS/Android symbolication · Redis / Kafka / ClickHouse on the path.
 
-<details>
-<summary>How Epure compares</summary>
+---
 
-Measured Epure figures from this repo (2026-09-20). Competitor figures from their documentation as of 2026-09. Re-verify before you rely on them.
+## Documentation & Support
 
-| | **Epure** | **Sentry self-host** | **GlitchTip** |
-|---|---|---|---|
-| **Containers** | 2 | 20+ ([docs](https://develop.sentry.dev/self-hosted/)) | 4+ ([install](https://glitchtip.com/documentation/install)) |
-| **RAM** | **~50 MiB** idle (measured) | 16 GB + swap ([guide](https://develop.sentry.dev/self-hosted/)) | 512 MB rec / 256 MB min |
-| **SDK path** | Change DSN | Change DSN | Change DSN |
-| **License** | Apache 2.0 | BSL / SaaS | MIT |
+Full documentation is available at: **[epure.sh/docs](https://epure.sh/docs)**
 
-If GlitchTip is already quiet for you, stay there.
+- [Quickstart](https://epure.sh/docs/get-started/quickstart) | [Self-hosting](https://epure.sh/docs/self-hosting/installation) | [Configuration](https://epure.sh/docs/self-hosting/configuration) | [Platforms](https://epure.sh/docs/platforms) | [Concepts](https://epure.sh/docs/get-started/concepts) | [Ingest API](https://epure.sh/docs/api)
 
-</details>
+**Community & Help:**
+- [GitHub Discussions](https://github.com/epure-sh/epure/discussions) — Best for setup questions and DSN wiring.
+- [GitHub Issues](https://github.com/epure-sh/epure/issues) — Best for bugs and SDK/protocol gaps.
+- **Security:** [SECURITY.md](SECURITY.md) · `security@news.epure.sh`
+- **Commercial/Cloud:** `support@news.epure.sh`
 
 ---
 
