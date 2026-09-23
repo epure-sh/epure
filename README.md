@@ -25,11 +25,11 @@
 
 # Epure
 
-**Lightweight, exception-only error tracking for solo founders and small teams.**
+**Exception-only error tracking.** Keep your official Sentry SDK and point the DSN at Epure. Self-host with Docker Compose (two containers: app + PostgreSQL 16).
 
-Keep your official Sentry SDK. Change the DSN. When production breaks, Epure gives you a grouped issue, readable stack trace, breadcrumbs, and release context without requiring Kafka, Redis, or ClickHouse.
+When production throws, you get a grouped issue, readable stack, breadcrumbs, and release context — without Kafka, Redis, or ClickHouse.
 
-Self-host it with Docker Compose, or use Epure Cloud when you no longer want to operate it yourself.
+Optional managed hosting: [epure.sh](https://epure.sh).
 
 > Epure is focused error tracking, not a complete observability platform. It deliberately does not provide distributed tracing, session replay, continuous profiling, or generic log ingestion.
 
@@ -247,7 +247,7 @@ If GlitchTip already works well for you, you should keep using it. Epure is aime
 
 ## Out of scope
 
-The current Phase 1 release does not provide:
+Epure does not provide:
 
 - Distributed tracing.
 - Session replay.
@@ -317,9 +317,7 @@ Epure is an early project. It is suitable for experiments, homelabs, side projec
 
 ## Project status
 
-Epure is in an early release.
-
-The core self-hosted workflow is available:
+Epure is in an early release. The self-hosted workflow covers:
 
 - Start the stack.
 - Create a project.
@@ -329,7 +327,7 @@ The core self-hosted workflow is available:
 - Inspect stack traces.
 - Configure alerts and releases.
 
-Expect protocol gaps, incomplete SDK coverage, and occasional breaking changes between minor releases. Pin an image tag in production (`EPURE_IMAGE=ghcr.io/epure-sh/epure:v1.1.1`).
+Expect protocol gaps, incomplete SDK coverage, and occasional breaking changes between minor releases. Prefer pinning an image tag in production (`EPURE_IMAGE=ghcr.io/epure-sh/epure:v1.1.1`), or track `:latest` if you accept rolling updates.
 
 If you find a compatibility problem, please include:
 

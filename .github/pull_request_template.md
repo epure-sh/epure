@@ -7,7 +7,7 @@ Fixes #
 ## Type of change
 
 - [ ] Bug fix
-- [ ] Feature (Phase 1 scope)
+- [ ] Feature
 - [ ] Dashboard / UX
 - [ ] Docs / community
 - [ ] Refactor (no behavior change)
@@ -34,6 +34,6 @@ Fixes #
 
 - [ ] No secrets committed (`.env`, DSN keys, OAuth creds)
 - [ ] No hex colors added in JSX (use design tokens)
-- [ ] Scope matches [CONTRIBUTING.md](../CONTRIBUTING.md); no Redis/ClickHouse/Kafka/Phase 2 infra / `ee/`
+- [ ] Scope matches [CONTRIBUTING.md](../CONTRIBUTING.md); no Redis/ClickHouse/Kafka / `ee/`
 - [ ] README or [epure.sh/docs](https://epure.sh/docs) updated if setup steps changed
 - [ ] Not claiming 100% Sentry parity or shipping tracing/replay/profiling/logs

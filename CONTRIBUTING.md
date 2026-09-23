@@ -1,6 +1,6 @@
 # Contributing to Epure
 
-Help ship Phase 1 OSS exception monitoring. Product overview and install: [README.md](./README.md). Operator docs: [epure.sh/docs](https://epure.sh/docs).
+Help ship exception-only error monitoring. Product overview and install: [README.md](./README.md). Operator docs: [epure.sh/docs](https://epure.sh/docs).
 
 **Stack lock:** Rust + PostgreSQL 16 + RLS, 2-container compose. No Redis, ClickHouse, Kafka, or SQLite-as-primary.
 
@@ -69,9 +69,9 @@ Questions that are not bugs: [Discussions](https://github.com/epure-sh/epure/dis
 
 ## Scope guard
 
-Phase 1 (shipped): ingest, grouping, sourcemaps, spike valve, triage UI, alerts/webhooks, multi-project, RBAC.
+In scope: ingest, grouping, sourcemaps, spike valve, triage UI, alerts/webhooks, multi-project, RBAC.
 
-**Out of scope:** Redis, ClickHouse, Kafka, tracing, replay, profiling, generic logs, iOS/Android symbolication, Cloud billing/Stripe, “100% Sentry parity,” `ee/` tree.
+**Out of scope for this repo:** Redis, ClickHouse, Kafka, tracing, replay, profiling, generic logs, iOS/Android symbolication, “100% Sentry parity,” `ee/` tree.
 
 Maintainers merge on `main`. Large or speculative work should start as an issue.
 
