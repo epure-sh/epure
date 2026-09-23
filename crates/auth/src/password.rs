@@ -20,7 +20,7 @@ pub fn hash_password(password: &str) -> Result<Vec<u8>, PasswordError> {
     hash_password_with_salt(password, &salt)
 }
 
-/// Deterministic dev seed hash (`devpassword`) for `scripts/seed-dev.sql`.
+/// Deterministic test hash (`devpassword`) for integration tests only — never shipped in seed SQL.
 pub fn dev_seed_password_hash() -> Vec<u8> {
     const DEV_SALT: [u8; SALT_LEN] = *b"epure-dev-salt!!";
     hash_password_with_salt("devpassword", &DEV_SALT).expect("dev seed password hash")

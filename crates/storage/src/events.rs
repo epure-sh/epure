@@ -506,8 +506,9 @@ pub async fn issue_timeline(
     }))
 }
 
-pub const LIST_TREND_WINDOW_HOURS: i64 = 72;
-pub const LIST_TREND_BUCKET_HOURS: i64 = 2;
+/// Issue-list sparkline: last 30 days in daily buckets.
+pub const LIST_TREND_WINDOW_HOURS: i64 = 30 * 24;
+pub const LIST_TREND_BUCKET_HOURS: i64 = 24;
 pub const LIST_TREND_BUCKET_COUNT: usize =
     (LIST_TREND_WINDOW_HOURS / LIST_TREND_BUCKET_HOURS) as usize;
 
@@ -615,4 +616,49 @@ pub async fn list_issue_trends(
             ),
         })
         .collect())
+}
+
+/// Daily event histogram for a project over [`LIST_TREND_WINDOW_HOURS`].
+pub async fn project_activity_timeline(
+    pool: &PgPool,
+    org_id: Uuid,
+    project_id: Uuid,
+) -> Result<Vec<TimelineBucket>, sqlx::Error> {
+    let bucket_seconds = LIST_TREND_BUCKET_HOURS * 3600;
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+
+    let rows = sqlx::query_as::<_, TimelineBucketRow>(
+        r#"
+        SELECT
+            to_timestamp((floor(extract(epoch FROM e.occurred_at) / $2) * $2))::timestamptz AS bucket_start,
+            COUNT(*)::bigint AS count
+        FROM events e
+        WHERE e.project_id = $1
+          AND e.occurred_at >= now() - make_interval(hours => $3)
+        GROUP BY 1
+        ORDER BY 1
+        "#,
+    )
+    .bind(project_id)
+    .bind(bucket_seconds as f64)
+    .bind(LIST_TREND_WINDOW_HOURS as i32)
+    .fetch_all(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    let as_trend_rows: Vec<IssueListTrendRow> = rows
+        .into_iter()
+        .map(|row| IssueListTrendRow {
+            issue_id: project_id,
+            bucket_start: row.bucket_start,
+            count: row.count,
+        })
+        .collect();
+
+    Ok(fill_fixed_hour_buckets(
+        LIST_TREND_BUCKET_HOURS,
+        LIST_TREND_BUCKET_COUNT,
+        as_trend_rows,
+    ))
 }

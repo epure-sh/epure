@@ -57,4 +57,18 @@ describe("occurrence-line-chart-path", () => {
     assert.match(path, / C /);
     assert.equal(path.includes(" L "), false);
   });
+
+  it("expands mid-range swings when a floor is supplied", () => {
+    const buckets = [
+      bucket(80, "2026-09-16T10:00:00Z"),
+      bucket(90, "2026-09-16T11:00:00Z"),
+      bucket(85, "2026-09-16T12:00:00Z"),
+      bucket(95, "2026-09-16T13:00:00Z"),
+    ];
+    const fromZero = buildChartPoints(buckets, 240, height, padding, 95, 0);
+    const fromFloor = buildChartPoints(buckets, 240, height, padding, 95, 70);
+    const zeroSpread = Math.abs(fromZero[1].y - fromZero[0].y);
+    const floorSpread = Math.abs(fromFloor[1].y - fromFloor[0].y);
+    assert.ok(floorSpread > zeroSpread);
+  });
 });

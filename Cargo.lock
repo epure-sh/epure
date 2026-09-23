@@ -630,7 +630,7 @@ dependencies = [
 
 [[package]]
 name = "epure-auth"
-version = "0.1.0"
+version = "1.1.0"
 dependencies = [
  "argon2",
  "chrono",
@@ -655,7 +655,7 @@ dependencies = [
 
 [[package]]
 name = "epure-demangle"
-version = "0.1.0"
+version = "1.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -665,7 +665,7 @@ dependencies = [
 
 [[package]]
 name = "epure-envelope"
-version = "0.1.0"
+version = "1.1.0"
 dependencies = [
  "flate2",
  "hex",
@@ -680,7 +680,7 @@ dependencies = [
 
 [[package]]
 name = "epure-server"
-version = "0.1.0"
+version = "1.1.0"
 dependencies = [
  "axum",
  "chrono",
@@ -714,7 +714,7 @@ dependencies = [
 
 [[package]]
 name = "epure-storage"
-version = "0.1.0"
+version = "1.1.0"
 dependencies = [
  "chrono",
  "epure-envelope",

@@ -316,20 +316,10 @@ impl GoogleAuth {
             .execute(&self.pool)
             .await?;
 
-        sqlx::query("SELECT auth_bootstrap_workspace($1, $2, $3, $4, $5)")
+        sqlx::query("SELECT auth_bootstrap_workspace($1, $2, $3)")
             .bind(user_id)
             .bind(org_id)
             .bind(&org_name)
-            .bind(format!("{org_name} Project"))
-            .bind(format!(
-                "{}-{}",
-                org_name
-                    .chars()
-                    .filter(|c| c.is_ascii_alphanumeric())
-                    .collect::<String>()
-                    .to_lowercase(),
-                &Uuid::new_v4().simple().to_string()[..8]
-            ))
             .execute(&self.pool)
             .await?;
 

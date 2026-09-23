@@ -18,6 +18,7 @@ export interface SetupConnectGuideProps {
   projectName?: string;
   className?: string;
   onAiCopied?: () => void;
+  onAiCopyFailed?: () => void;
   listening?: boolean;
   listenError?: boolean;
 }
@@ -62,6 +63,7 @@ export function SetupConnectGuide({
   projectName,
   className,
   onAiCopied,
+  onAiCopyFailed,
   listening = false,
   listenError = false,
 }: SetupConnectGuideProps) {
@@ -86,7 +88,12 @@ export function SetupConnectGuide({
         </p>
 
         <div className="flex flex-wrap items-center gap-2">
-          <ApplyWithAiButton prompt={aiPrompt} size="toolbar" onCopied={onAiCopied} />
+          <ApplyWithAiButton
+            prompt={aiPrompt}
+            size="toolbar"
+            onCopied={onAiCopied}
+            onCopyFailed={onAiCopyFailed}
+          />
         </div>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
@@ -127,7 +134,12 @@ export function SetupConnectGuide({
 
       <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
         <DocsLink href={EPURE_DOCS_URL}>Full docs</DocsLink>
-        <ApplyWithAiButton prompt={aiPrompt} size="toolbar" onCopied={onAiCopied} />
+        <ApplyWithAiButton
+          prompt={aiPrompt}
+          size="toolbar"
+          onCopied={onAiCopied}
+          onCopyFailed={onAiCopyFailed}
+        />
       </div>
     </div>
   );

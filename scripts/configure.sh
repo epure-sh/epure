@@ -15,7 +15,7 @@ Epure setup helper (optional — default is plain `docker compose up`).
 Usage: ./configure [options]
 
   --quick            Write .env only if 8080/5433 are busy (recommended)
-  --dev              Demo seed + Vite CORS → .env
+  --dev              Vite CORS for web/ → .env
   --prod             Production .env (HTTPS URL + generated passwords)
   --port N           Set Epure host port → .env
   --postgres-port N  Set Postgres host port → .env
@@ -123,7 +123,7 @@ show_config() {
   echo "  Public URL:    ${public_url}"
   echo "  Open:          http://localhost:${epure_port}"
   if [[ -f .env ]] && grep -q '^EPURE_DEV_SEED=1' .env; then
-    echo "  Profile:       dev (demo seed on)"
+    echo "  Profile:       fixed-UUID scaffold on startup (EPURE_DEV_SEED)"
   fi
 }
 
@@ -200,21 +200,19 @@ mode_quick() {
 
 mode_dev() {
   pick_ports
-  write_local_env "$EPURE_PORT" "$POSTGRES_PORT" "1" "http://localhost:5173"
-  echo "Wrote .env — developer profile (demo seed + Vite CORS)."
+  write_local_env "$EPURE_PORT" "$POSTGRES_PORT" "" "http://localhost:5173"
+  echo "Wrote .env — developer profile (Vite CORS)."
+  echo "Preview data: register at /login. Heavy UX: ./scripts/seed.sh --email … --password …"
   print_next_steps "$EPURE_PORT"
 }
 
 mode_custom() {
-  local epure_port pg_port seed cors
+  local epure_port pg_port cors
   pick_ports
   epure_port="$(prompt "Epure host port" "$EPURE_PORT")"
   pg_port="$(prompt "Postgres host port" "$POSTGRES_PORT")"
-  read -r -p "Load demo data on startup? [y/N]: " seed
   read -r -p "Extra CORS origin (blank = default *): " cors
-  write_local_env "$epure_port" "$pg_port" \
-    "$( [[ "$seed" =~ ^[yY] ]] && echo 1 )" \
-    "$cors"
+  write_local_env "$epure_port" "$pg_port" "" "$cors"
   echo "Wrote .env"
   print_next_steps "$epure_port"
 }

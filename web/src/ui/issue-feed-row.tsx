@@ -204,9 +204,10 @@ export function IssueFeedRow({
         <div className={cn("hidden lg:block", FEED_CELL_TREND)}>
           <OccurrenceLineChart
             buckets={trendBuckets}
-            label="Last 3 days"
+            label="Errors · 30 days"
             height={24}
             interactive={false}
+            emphasizeVariation
           />
           <span
             className={cn(

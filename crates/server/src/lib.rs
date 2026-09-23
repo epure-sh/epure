@@ -60,8 +60,11 @@ pub async fn init_runtime(
         .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
         .unwrap_or(false)
     {
-        if !bind_is_loopback() {
-            return Err("EPURE_DEV_SEED is refused when EPURE_BIND is not loopback".into());
+        if !epure_storage::allow_dev_db_fallback() || !bind_is_loopback() {
+            return Err(
+                "EPURE_DEV_SEED is refused unless EPURE_PUBLIC_URL is localhost and EPURE_BIND is loopback"
+                    .into(),
+            );
         }
         epure_storage::bootstrap::run_dev_seed(&migrate_pool)
             .await
@@ -80,6 +83,7 @@ pub async fn init_runtime(
         .filter(|value| !value.is_empty())
         .map(str::to_string)
         .collect::<Vec<_>>();
+    epure_storage::reject_insecure_prod_config(&cors_origins)?;
 
     let (ingest_tx, ingest_rx) = mpsc::channel(10_000);
     let spike_valve = SpikeValve::new();

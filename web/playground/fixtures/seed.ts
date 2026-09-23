@@ -26,6 +26,8 @@ export const ORG_ID = "11111111-1111-1111-1111-111111111111";
 export const USER_ID = "33333333-3333-3333-3333-333333333333";
 export const PROJECT_WEB = "550e8400-e29b-41d4-a716-446655440000";
 export const PROJECT_API = "660e8400-e29b-41d4-a716-446655440001";
+/** Incomplete setup project for playground `/setup` UX iteration. */
+export const PROJECT_SETUP = "880e8400-e29b-41d4-a716-446655440099";
 export const DSN_PUBLIC_KEY = "a1b2c3d4e5f6g7h8i9j0";
 
 type StorePayload = Record<string, unknown>;
@@ -363,6 +365,7 @@ export const projects: ProjectRow[] = [
     slug: "acme-web",
     retention_days: 30,
     ingest_cap_per_hour: 5000,
+    is_demo: true,
     created_at: isoDaysAgo(90),
   },
   {
@@ -372,7 +375,18 @@ export const projects: ProjectRow[] = [
     slug: "acme-api",
     retention_days: 30,
     ingest_cap_per_hour: 5000,
+    is_demo: true,
     created_at: isoDaysAgo(60),
+  },
+  {
+    id: PROJECT_SETUP,
+    org_id: ORG_ID,
+    name: "Checkout Web",
+    slug: "checkout-web",
+    retention_days: 30,
+    ingest_cap_per_hour: 5000,
+    is_demo: false,
+    created_at: isoDaysAgo(1),
   },
 ];
 
@@ -387,6 +401,20 @@ export const setupProgress: SetupProgress = {
   completed_at: isoDaysAgo(29),
   complete: true,
   seeded: true,
+};
+
+/** Incomplete setup progress for PROJECT_SETUP (wizard playground). */
+export const setupProgressPending: SetupProgress = {
+  user_id: USER_ID,
+  org_id: ORG_ID,
+  project_id: PROJECT_SETUP,
+  project_named: true,
+  has_active_key: false,
+  dsn_copied_at: null,
+  first_issue_seen_at: null,
+  completed_at: null,
+  complete: false,
+  seeded: false,
 };
 
 export function buildStats(projectId: string, environment?: string): HeadlineStats {

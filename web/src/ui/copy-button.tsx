@@ -1,6 +1,7 @@
-import { Check, Copy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { Check, Copy } from "lucide-react";
 import { cn } from "../lib/cn";
+import { copyText } from "../lib/copy-text";
 import { Button } from "./button";
 
 export interface CopyButtonProps {
@@ -8,9 +9,16 @@ export interface CopyButtonProps {
   label?: string;
   className?: string;
   onCopied?: () => void;
+  onCopyFailed?: () => void;
 }
 
-export function CopyButton({ value, label = "Copy", className, onCopied }: CopyButtonProps) {
+export function CopyButton({
+  value,
+  label = "Copy",
+  className,
+  onCopied,
+  onCopyFailed,
+}: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -22,14 +30,17 @@ export function CopyButton({ value, label = "Copy", className, onCopied }: CopyB
   }, [copied]);
 
   const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(value);
+    const ok = await copyText(value);
+    if (ok) {
       setCopied(true);
       onCopied?.();
-    } catch {
-      // ignore clipboard errors
+      return;
     }
-  }, [onCopied, value]);
+    // Still acknowledge the click so gated flows (setup) are not stuck
+    // when Clipboard API / execCommand are blocked.
+    onCopyFailed?.();
+    onCopied?.();
+  }, [onCopied, onCopyFailed, value]);
 
   return (
     <Button

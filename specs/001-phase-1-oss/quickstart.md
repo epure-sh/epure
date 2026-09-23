@@ -34,7 +34,7 @@ Compose injects all three `DATABASE_URL*` values inside the container. Host-side
 | `EPURE_PORT` | Optional | `8080` | Host port for UI + ingest |
 | `POSTGRES_HOST_PORT` | Optional | `5433` | Host port for Postgres (`psql`, `cargo test`) |
 | `EPURE_PUBLIC_URL` | Optional | auto | Derived from `EPURE_PORT` on localhost; set for ngrok or production |
-| `EPURE_DEV_SEED` | Optional | off | `1` = `scripts/seed-dev.sql` on startup (localhost only) |
+| `EPURE_DEV_SEED` | Optional | off | `1` = fixed-UUID scaffold (`scripts/seed-dev.sql`) on startup — no accounts/passwords; localhost only |
 | `EPURE_CORS_ORIGINS` | Optional | `*` | Comma-separated ingest CORS origins |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Optional | empty | Google OAuth; leave empty for email/password |
 | `DATABASE_URL` | `.env.dev` only | — | Host tools: `postgres://epure:epure@localhost:5433/epure` |
@@ -120,33 +120,20 @@ cargo run -p epure-server -- --mode=all
 
 ---
 
-## Seed Dev Data (org, project, DSN, dashboard user)
+## Seed data
 
-Optional — for quick local smoke tests. Migrations always run on startup; seed does not.
+**Preview (default):** register at `/login`. New workspaces get Acme Web + Acme API with sample errors (test banner). No seed script required.
 
-```bash
-cd apps/epure
-./scripts/seed-dev.sh
-```
-
-When Epure is already running, `seed-dev.sh` also ingests realistic sample issues (stack traces, breadcrumbs, multiple users/releases). To seed events only:
-
-```bash
-./scripts/seed-events-dev.sh
-```
-
-Fixtures live in `fixtures/seed/events/` — browser checkout crash, payment API 500, Node DB timeout, Python worker error, Go nil pointer, staging feature-flag warning.
-
-### Heavy seed (dashboard UX testing)
-
-For realistic volume across **Acme Web**, **Acme API**, and **Acme Mobile** (50+ issues, ~1k events, alerts, regressions, merges, user feedback):
+**Heavy UX fixtures** (fixed DSN UUIDs, 50+ issues, ~1k events, alerts, merges) — one command:
 
 ```bash
 cd apps/epure
-./scripts/seed-heavy.sh
+./scripts/seed.sh --email you@example.com --password 'choose-a-password'
+# or attach an existing account:
+./scripts/seed.sh --link-user you@example.com
 ```
 
-Login: `dev@epure.local` / `devpassword`
+Passwords are never written into seed SQL. Account creation uses the register API; `--link-user` only adds org membership.
 
 | Step | Script |
 |---|---|
@@ -155,7 +142,7 @@ Login: `dev@epure.local` / `devpassword`
 | Ingest via `/api/{project}/store/` | `scripts/seed-heavy-ingest.py` |
 | Backdate, statuses, merges, alerts | `scripts/seed-heavy-post.sql` |
 
-Re-run `./scripts/seed-heavy.sh` to reset and re-seed. Event-only re-ingest after a light seed:
+Re-run `./scripts/seed.sh` to reset and re-seed. Event-only re-ingest:
 
 ```bash
 ./scripts/seed-heavy-ingest.py   # requires running Epure
@@ -164,23 +151,13 @@ docker compose exec -T postgres psql -U epure -d epure < scripts/seed-heavy-post
 
 Generated fixtures: `fixtures/seed/events/heavy/` (also writable via `python3 scripts/seed-heavy-ingest.py --write-fixtures`).
 
-Or enable startup seed (dev only): set `EPURE_DEV_SEED=1` in `.env` and restart the `epure` service.
-
-Manual re-apply:
+Optional fixed-UUID scaffold without accounts (curl tests): set `EPURE_DEV_SEED=1` in `.env` and restart `epure`, or:
 
 ```bash
 docker compose exec -T postgres psql -U epure -d epure < scripts/seed-dev.sql
 ```
 
-Seeded dashboard login (password auth):
-
-| Field | Dev value |
-|---|---|
-| Email | `dev@epure.local` |
-| Password | `devpassword` |
-| Member (RBAC tests) | `member@epure.local` / `devpassword` |
-
-Seeded ingest DSN:
+Seeded ingest DSN (after `./scripts/seed.sh` or `EPURE_DEV_SEED`):
 
 | Field | Dev value |
 |---|---|
@@ -192,18 +169,18 @@ Seeded ingest DSN:
 
 ## Dashboard Login (S3c+)
 
-Open `http://localhost:8080/login` after seeding.
+Open `http://localhost:8080/login` after register (or after `./scripts/seed.sh --email …`).
 
-- **Password**: use `dev@epure.local` / `devpassword`, or register a new account.
+- **Password**: register a new account, or use the email/password you passed to `seed.sh`.
 - **Google OAuth**: set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in compose/env; the login page shows the Google button only when configured.
 
-Verify session:
+Verify session (replace credentials):
 
 ```bash
 curl -sS -c /tmp/epure.cookies -b /tmp/epure.cookies \
   -X POST http://localhost:8080/api/v1/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"dev@epure.local","password":"devpassword"}'
+  -d '{"email":"you@example.com","password":"choose-a-password"}'
 
 curl -sS -b /tmp/epure.cookies http://localhost:8080/api/v1/auth/me
 curl -sS -o /dev/null -w "issues=%{http_code}\n" -b /tmp/epure.cookies http://localhost:8080/api/v1/issues
@@ -215,7 +192,7 @@ Expected: login `204`, `/auth/me` `200`, `/issues` `200` with session cookie.
 
 ## Curl: Envelope Ingest Test (S1 proof)
 
-Replace `{project_id}`, `{public_key}`, `{secret_key}` with seeded values from [Seed Dev Data](#seed-dev-data-org-project-dsn-dashboard-user).
+Replace `{project_id}`, `{public_key}`, `{secret_key}` with seeded values from [Seed data](#seed-data).
 
 ### Minimal envelope payload
 
@@ -368,11 +345,11 @@ Expected: org B sees zero rows from org A.
 
 ### S6 proof steps
 
-1. **Login** — `dev@epure.local` / `devpassword` at `/login`.
+1. **Login** — register or `./scripts/seed.sh --email … --password …` at `/login`.
 2. **Two projects** — Settings → Projects → create a second project; Settings → DSN keys → create a key per project (distinct public keys).
 3. **Environment isolation** — ingest events with `environment: production` vs `staging`; top-strip env filter shows only matching issues per project.
 4. **Revoke DSN** — Settings → DSN keys → Revoke; curl ingest with revoked key → **403** `dsn_revoked`.
-5. **RBAC** — log in as Member (`member@epure.local` / `devpassword` after seed); delete project, patch settings, create DSN, create webhook → **403**.
+5. **RBAC** — invite a Member; delete project, patch settings, create DSN, create webhook → **403**.
 6. **Ingest cap** — set project ingest cap to `1` in Settings; second envelope in the same hour → **403** `ingest_cap_exceeded`.
 7. **Team invite** — Settings → Team → invite email; invitee registers with that email → assigned role (Member/Admin/Owner).
 8. **SDK onboarding** — follow [README](../../README.md) SDK → first issue path (measured ~8s locally; claim <60s after your own measurement).
