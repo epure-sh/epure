@@ -18,7 +18,7 @@ export type IssueDetailTab = (typeof DETAIL_TABS)[number];
 export const DETAIL_TOOLBAR_BUTTON_CLASS = "h-control-sm gap-1 px-2 text-xs";
 
 const DETAIL_TAB_TRIGGER =
-  "h-control min-h-control px-4 py-0 text-sm data-[state=active]:mb-[-1px]";
+  "h-control min-h-control max-h-control px-4 py-0 text-sm";
 
 export interface IssueDetailTabsProps {
   overview: ReactNode;
@@ -108,9 +108,9 @@ export function IssueDetailTabs({
       ) : null}
 
       <Tabs {...tabsProps} className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex min-h-control shrink-0 items-stretch overflow-hidden bg-surface">
-          <div className="min-w-0 flex-1 overflow-x-auto border-b border-border">
-            <TabsList className="h-control min-h-control inline-flex w-max min-w-full items-stretch gap-0 border-b-0 bg-transparent px-4 md:px-6">
+        <div className="flex h-control min-h-control shrink-0 items-stretch overflow-hidden bg-surface">
+          <div className="min-w-0 flex-1 overflow-hidden border-b border-border">
+            <TabsList className="h-control min-h-control flex w-full items-stretch gap-0 overflow-hidden border-b-0 bg-transparent px-4 md:px-6">
               <TabsTrigger value="overview" className={cn(DETAIL_TAB_TRIGGER, "shrink-0 first:pl-0")}>
                 Overview
               </TabsTrigger>

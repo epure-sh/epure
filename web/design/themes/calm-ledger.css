@@ -336,9 +336,11 @@
 }
 
 [data-style="calm-ledger"] .epure-issue-detail-tabs .epure-tabs-list {
-  height: auto;
+  height: var(--control-height);
   min-height: var(--control-height);
-  border-bottom-width: 1px;
+  max-height: var(--control-height);
+  border-bottom-width: 0;
+  overflow: hidden;
 }
 
 [data-style="calm-ledger"] .epure-tabs-trigger[data-state="active"] {

@@ -33,7 +33,7 @@ Operator and product guides live on the site so they stay versioned with the mar
 docker pull ghcr.io/epure-sh/epure:latest
 
 # pin a release
-docker pull ghcr.io/epure-sh/epure:v1.1.0
+docker pull ghcr.io/epure-sh/epure:v1.1.1
 ```
 
 Pin with `EPURE_IMAGE` in `.env` for production. Source build: `docker compose -f docker-compose.yml -f deploy/docker-compose.build.yml up --build`.
