@@ -59,7 +59,7 @@ cargo sqlx migrate run --source crates/storage/migrations
 
 ## Issues and PRs
 
-1. Search [existing issues](https://github.com/epure-sh/epure/issues). Use Bug / SDK compatibility / Feature templates.
+1. Search [existing issues](https://github.com/epure-sh/epure/issues). Use Bug / SDK compatibility / Feature templates. Looking for a first PR? Filter by [`good first issue`](https://github.com/epure-sh/epure/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
 2. Fork → feature branch (not `main`).
 3. Run `./scripts/test.sh`. Note manual QA for UI changes.
 4. Fill [.github/pull_request_template.md](.github/pull_request_template.md).
