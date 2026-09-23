@@ -6,7 +6,7 @@ Epure is self-hosted error tracking: a Rust binary and PostgreSQL 16. You run bo
 
 | Version | Supported |
 |---|---|
-| Latest release (`v1.1.1` and newer tags) | Yes |
+| Latest release (`v0.1.0` and newer tags) | Yes |
 | `main` branch | Yes (fixes land here first) |
 | Older tags / forks | Best-effort only |
 

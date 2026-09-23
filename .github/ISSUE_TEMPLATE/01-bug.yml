@@ -27,7 +27,7 @@ body:
     id: version
     attributes:
       label: epure version or commit
-      placeholder: "v1.1.1 or git sha"
+      placeholder: "v0.1.0 or git sha"
     validations:
       required: true
   - type: textarea
