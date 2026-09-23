@@ -21,10 +21,10 @@ Operator and product guides live on the site so they stay versioned with the mar
 | [ingest.openapi.yaml](./ingest.openapi.yaml) | Machine-readable ingest contract (envelope + store) |
 | [../CHANGELOG.md](../CHANGELOG.md) | Tagged release history for the binary / image |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | Build, test, PR workflow |
-| [../SUPPORT.md](../SUPPORT.md) | Where to ask questions |
-| [../SECURITY.md](../SECURITY.md) | Vulnerability reporting |
+| [../.github/SUPPORT.md](../.github/SUPPORT.md) | Where to ask questions |
+| [../.github/SECURITY.md](../.github/SECURITY.md) | Vulnerability reporting |
 | [../docker-compose.yml](../docker-compose.yml) | Default 2-container stack (`ghcr.io/epure-sh/epure`) |
-| [../docker-compose.prod.yml](../docker-compose.prod.yml) | Production overlay |
+| [../deploy/](../deploy/README.md) | Production / source-build overlays and env templates |
 
 ## Images
 
@@ -36,4 +36,4 @@ docker pull ghcr.io/epure-sh/epure:latest
 docker pull ghcr.io/epure-sh/epure:v1.1.0
 ```
 
-Pin with `EPURE_IMAGE` in `.env` for production. Source build: `docker compose -f docker-compose.yml -f docker-compose.build.yml up --build`.
+Pin with `EPURE_IMAGE` in `.env` for production. Source build: `docker compose -f docker-compose.yml -f deploy/docker-compose.build.yml up --build`.

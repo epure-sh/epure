@@ -295,7 +295,7 @@ For a production-oriented configuration:
 ./configure --prod
 ```
 
-Read the complete [configuration reference](https://epure.sh/docs/self-hosting/configuration).
+Read the complete [configuration reference](https://epure.sh/docs/self-hosting/configuration). Overlays and env templates live under [`deploy/`](deploy/README.md).
 
 ## Production considerations
 
@@ -353,10 +353,10 @@ If you find a compatibility problem, please include:
 
 ## Community and support
 
-- [SUPPORT.md](SUPPORT.md) — which channel to use.
+- [.github/SUPPORT.md](.github/SUPPORT.md) — which channel to use.
 - [GitHub Discussions](https://github.com/epure-sh/epure/discussions) — setup questions and usage discussions.
 - [GitHub Issues](https://github.com/epure-sh/epure/issues) — bugs and SDK compatibility problems.
-- [Security policy](SECURITY.md) — private vulnerability reports.
+- [Security policy](.github/SECURITY.md) — private vulnerability reports.
 - [Contributing guide](CONTRIBUTING.md) — development setup and pull requests.
 - [Changelog](CHANGELOG.md) — release history.
 - [docs/](docs/README.md) — OpenAPI + links to the full site docs.

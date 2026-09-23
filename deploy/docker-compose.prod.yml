@@ -1,7 +1,7 @@
 # Production overlay — use with:
-#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d
 #
-# Run `./configure --prod` or copy `.env.production.example` → `.env` first.
+# Run `./configure --prod` or copy `deploy/env.production.example` → `.env` first.
 # Requires HTTPS in front of Epure.
 # Example `epure:epure` passwords are refused. After migrate, the process sets
 # ingest/app role passwords from the URLs below.
