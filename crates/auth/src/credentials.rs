@@ -106,12 +106,10 @@ impl CredentialAuth {
             .execute(&self.pool)
             .await?;
 
-        sqlx::query("SELECT auth_bootstrap_workspace($1, $2, $3, $4, $5)")
+        sqlx::query("SELECT auth_bootstrap_workspace($1, $2, $3)")
             .bind(user_id)
             .bind(org_id)
             .bind(&org_name)
-            .bind(format!("{org_name} Project"))
-            .bind(slug_from_email(&normalized))
             .execute(&self.pool)
             .await?;
 
@@ -414,19 +412,6 @@ fn org_name_from_email(email: &str) -> String {
         .chars()
         .take(48)
         .collect()
-}
-
-fn slug_from_email(email: &str) -> String {
-    let base = email
-        .split('@')
-        .next()
-        .unwrap_or("workspace")
-        .chars()
-        .filter(|ch| ch.is_ascii_alphanumeric())
-        .take(32)
-        .collect::<String>()
-        .to_lowercase();
-    format!("{base}-{}", &Uuid::new_v4().simple().to_string()[..8])
 }
 
 #[derive(sqlx::FromRow)]

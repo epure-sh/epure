@@ -37,8 +37,8 @@ PROJECTS = {
     },
 }
 
-DEV_EMAIL = "dev@epure.local"
-DEV_PASSWORD = "devpassword"
+DEV_EMAIL = os.environ.get("SEED_EMAIL", "")
+DEV_PASSWORD = os.environ.get("SEED_PASSWORD", "")
 
 
 def frame(
@@ -1265,7 +1265,9 @@ def post_event(client: HttpClient, project_id: str, auth_header: str, payload: d
         raise RuntimeError(f"ingest failed HTTP {status}: {body[:200]}")
 
 
-def login(client: HttpClient) -> None:
+def login(client: HttpClient) -> bool:
+    if not DEV_EMAIL or not DEV_PASSWORD:
+        return False
     status, _ = client.request(
         "POST",
         "/api/v1/auth/login",
@@ -1273,6 +1275,53 @@ def login(client: HttpClient) -> None:
     )
     if status != 204:
         raise RuntimeError(f"login failed HTTP {status}")
+    return True
+
+
+def resolve_issue_sql(issue_id: str, resolved_in_release: str) -> None:
+    import subprocess
+
+    sql = (
+        "UPDATE issues SET status = 'resolved', "
+        f"resolved_in_release = '{resolved_in_release}' "
+        f"WHERE id = '{issue_id}';"
+    )
+
+    database_url = os.environ.get("DATABASE_URL")
+    if database_url:
+        result = subprocess.run(
+            ["psql", database_url, "-v", "ON_ERROR_STOP=1", "-c", sql],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    else:
+        result = subprocess.run(
+            [
+                "docker",
+                "compose",
+                "exec",
+                "-T",
+                "postgres",
+                "psql",
+                "-U",
+                "epure",
+                "-d",
+                "epure",
+                "-v",
+                "ON_ERROR_STOP=1",
+                "-c",
+                sql,
+            ],
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            check=False,
+        )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"resolve via SQL failed: {result.stderr.strip() or result.stdout.strip()}"
+        )
 
 
 def resolve_issue(client: HttpClient, issue_id: str, resolved_in_release: str) -> None:
@@ -1374,7 +1423,7 @@ def ingest_catalog(base_url: str, write_only: bool = False) -> dict[str, int]:
 
     # Allow worker flush before resolving regressions.
     time.sleep(1.5)
-    login(client)
+    logged_in = login(client)
 
     for project_key, slug, regression, recur_count in regression_slugs:
         project = PROJECTS[project_key]
@@ -1387,7 +1436,10 @@ def ingest_catalog(base_url: str, write_only: bool = False) -> dict[str, int]:
 
         issue_id = issue_id_for_slug(project["id"], slug)
         if issue_id:
-            resolve_issue(client, issue_id, regression["resolve_release"])
+            if logged_in:
+                resolve_issue(client, issue_id, regression["resolve_release"])
+            else:
+                resolve_issue_sql(issue_id, regression["resolve_release"])
             time.sleep(0.2)
 
         for i in range(recur_count):

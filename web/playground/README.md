@@ -37,6 +37,13 @@ To reset interactive state (resolve, merge, etc.) after clicking around:
 window.__EPURE_PLAYGROUND__.reset()
 ```
 
+To open the setup wizard (Checkout Web — incomplete):
+
+```js
+window.__EPURE_PLAYGROUND__.openSetup()
+```
+
+Or open `/?setup=880e8400-e29b-41d4-a716-446655440099` — dialog overlays the projects dashboard.
 ### Theme
 
 Production style is **Calm Ledger (Indigo)** only (`data-style="calm-ledger"`). On `/__design`, check 8px buttons (not pills), paper/indigo tokens, unread = weight+dot/edge (no row wash), underline tabs, indigo-wash secondary, and quiet empty states (no dashed frame).
@@ -64,5 +71,6 @@ For backend-backed dev with hot reload:
 ```bash
 docker compose up          # terminal 1
 cd web && npm run dev      # terminal 2, proxies /api → :8080
-./scripts/seed-dev.sh      # seed Postgres
+# register at /login for preview data, or:
+./scripts/seed.sh --email you@example.com --password '…'
 ```

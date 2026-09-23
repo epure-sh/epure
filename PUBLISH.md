@@ -29,7 +29,7 @@ Do **not** ship company-workspace agent hydration (`AGENTS.md` / `CONTEXT.md`) i
 ## Pre-push checklist
 
 - [x] `cargo test` green with `DATABASE_URL=postgres://epure:epure@localhost:5433/epure` (or `./scripts/test.sh`)
-- [x] `docker compose up` pulls `ghcr.io/epure-sh/epure` → `/health` OK; `./scripts/seed-dev.sh` → dev login works
+- [x] `docker compose up` pulls `ghcr.io/epure-sh/epure` → `/health` OK; register → Acme preview; `./scripts/seed.sh --email … --password …` → heavy login works
 - [x] GHCR package **public** on `epure-sh/epure` (first `Image` workflow push, then Settings → Packages)
 - [x] Production deploy uses `docker-compose.prod.yml` overlay (`EPURE_SESSION_SECURE=1`, Postgres not exposed on host); see `docs/SELF_HOST.md`
 - [x] `LICENSE` (Apache 2.0) at repo root
@@ -47,10 +47,10 @@ Do **not** ship company-workspace agent hydration (`AGENTS.md` / `CONTEXT.md`) i
 | Item | Value |
 |------|-------|
 | Repo | https://github.com/epure-sh/epure |
-| Release | [v0.1.0-phase1](https://github.com/epure-sh/epure/releases/tag/v0.1.0-phase1) |
+| Release | [v1.1.0](https://github.com/epure-sh/epure/releases/tag/v1.1.0) (prior: [v1.0.0](https://github.com/epure-sh/epure/releases/tag/v1.0.0), [v0.1.0-phase1](https://github.com/epure-sh/epure/releases/tag/v0.1.0-phase1)) |
 | CI workflow | `.github/workflows/ci.yml` (badge label: **CI**) |
 | Image workflow | `.github/workflows/image.yml` (`v*` tags + dispatch; native `linux/amd64` + `linux/arm64`) |
-| GHCR | `ghcr.io/epure-sh/epure:latest` — public multi-arch |
+| GHCR | `ghcr.io/epure-sh/epure:latest` / `:v1.1.0` — public multi-arch |
 
 ## GHCR visibility (one-time, UI only)
 

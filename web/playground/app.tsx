@@ -4,9 +4,10 @@ import { AppShell } from "../src/shell/app-shell";
 function PlaygroundBanner() {
   return (
     <div className="border-b border-border bg-accent/10 px-4 py-1.5 text-center font-mono text-xs text-ink-muted">
-      Playground mode — mock API, no backend. Seed data in{" "}
-      <code className="text-ink">playground/fixtures/</code>. Reset:{" "}
-      <code className="text-ink">window.__EPURE_PLAYGROUND__.reset()</code>
+      Playground mode — mock API. Setup:{" "}
+      <code className="text-ink">window.__EPURE_PLAYGROUND__.openSetup()</code>
+      {" · "}
+      Reset: <code className="text-ink">window.__EPURE_PLAYGROUND__.reset()</code>
     </div>
   );
 }

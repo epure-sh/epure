@@ -1,36 +1,57 @@
 import { Plus } from "lucide-react";
-import { type FormEvent, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   createProject,
   fetchHeadlineStats,
   patchSetupProgress,
   type HeadlineStats,
+  type TimelineBucket,
 } from "../../lib/api";
-import { projectPath } from "../../lib/paths";
 import { useAppContext } from "../../shell/app-context";
 import { Button } from "../../ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Input } from "../../ui/input";
 import { PageChrome } from "../../ui/page-chrome";
 import { useToast } from "../../ui/toast-provider";
+import { SetupWizardDialog } from "../setup/setup-wizard-dialog";
+import { emptyListTrendBuckets } from "../issues/issue-feed-utils";
+import { fetchProjectActivityBuckets } from "./project-activity";
 import { ProjectList } from "./project-list";
 
 export function OrgHomePage() {
-  const navigate = useNavigate();
-  const { projects, refreshProjects, user } = useAppContext();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { projects, refreshProjects, user, setProjectId } = useAppContext();
   const [newProjectName, setNewProjectName] = useState("");
-  const [newProjectError, setNewProjectError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [statsByProject, setStatsByProject] = useState<Map<string, HeadlineStats>>(new Map());
+  const [activityByProject, setActivityByProject] = useState<Map<string, TimelineBucket[]>>(
+    new Map(),
+  );
   const [statsLoading, setStatsLoading] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardName, setWizardName] = useState("");
+  const [wizardProjectId, setWizardProjectId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const canManage = user?.role === "owner" || user?.role === "admin";
+  const setupParam = searchParams.get("setup");
+
+  useEffect(() => {
+    if (!setupParam) {
+      return;
+    }
+    if (!projects.some((project) => project.id === setupParam)) {
+      return;
+    }
+    setWizardProjectId(setupParam);
+    setWizardName(projects.find((project) => project.id === setupParam)?.name ?? "");
+    setWizardOpen(true);
+  }, [projects, setupParam]);
 
   useEffect(() => {
     if (projects.length === 0) {
       setStatsByProject(new Map());
+      setActivityByProject(new Map());
       setStatsLoading(false);
       return;
     }
@@ -41,23 +62,29 @@ export function OrgHomePage() {
     void Promise.all(
       projects.map(async (project) => {
         try {
-          const stats = await fetchHeadlineStats(project.id);
-          return [project.id, stats] as const;
+          const [stats, activity] = await Promise.all([
+            fetchHeadlineStats(project.id),
+            fetchProjectActivityBuckets(project.id),
+          ]);
+          return [project.id, stats, activity] as const;
         } catch {
-          return [project.id, null] as const;
+          return [project.id, null, emptyListTrendBuckets()] as const;
         }
       }),
     ).then((entries) => {
       if (cancelled) {
         return;
       }
-      const next = new Map<string, HeadlineStats>();
-      for (const [id, stats] of entries) {
+      const nextStats = new Map<string, HeadlineStats>();
+      const nextActivity = new Map<string, TimelineBucket[]>();
+      for (const [id, stats, activity] of entries) {
         if (stats) {
-          next.set(id, stats);
+          nextStats.set(id, stats);
         }
+        nextActivity.set(id, activity);
       }
-      setStatsByProject(next);
+      setStatsByProject(nextStats);
+      setActivityByProject(nextActivity);
       setStatsLoading(false);
     });
 
@@ -66,32 +93,47 @@ export function OrgHomePage() {
     };
   }, [projects]);
 
-  async function handleCreate(event: FormEvent) {
-    event.preventDefault();
-    if (!canManage) {
+  function openWizard(opts: { name?: string; projectId?: string | null }) {
+    setWizardName(opts.name?.trim() ?? "");
+    setWizardProjectId(opts.projectId ?? null);
+    setWizardOpen(true);
+  }
+
+  async function handleCreateClick() {
+    if (!canManage || busy) {
       return;
     }
     const trimmed = newProjectName.trim();
     if (!trimmed) {
-      setNewProjectError("Project name is required.");
+      openWizard({ name: "" });
       return;
     }
-    setNewProjectError(null);
+
     setBusy(true);
     try {
       const created = await createProject(trimmed);
       setNewProjectName("");
+      setProjectId(created.id);
       await refreshProjects();
-      await patchSetupProgress({
+      void patchSetupProgress({
         project_id: created.id,
         project_named: true,
-      });
-      navigate(projectPath(created.id, "setup"));
-      toast(`Created ${created.name} — finish setup`);
+      }).catch(() => undefined);
+      openWizard({ name: created.name, projectId: created.id });
+      toast(`Created ${created.name}`);
     } catch {
       toast("Failed to create project");
     } finally {
       setBusy(false);
+    }
+  }
+
+  function handleWizardOpenChange(open: boolean) {
+    setWizardOpen(open);
+    if (!open && setupParam) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("setup");
+      setSearchParams(next, { replace: true });
     }
   }
 
@@ -101,59 +143,63 @@ export function OrgHomePage() {
         title="Projects"
         description={
           projects.length === 0
-            ? "Create your first project — setup takes about two minutes."
-            : "Choose a project to monitor exceptions, or create a new one."
+            ? "Create a project to connect a DSN — or explore Acme preview data."
+            : projects.some((project) => project.is_demo)
+              ? "Explore the Acme preview projects, or create your own to connect a DSN."
+              : "Choose a project to monitor exceptions, or create a new one."
+        }
+        actions={
+          canManage ? (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Input
+                aria-label="New project name"
+                placeholder="Project name"
+                value={newProjectName}
+                onChange={(event) => setNewProjectName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void handleCreateClick();
+                  }
+                }}
+                className="h-8 w-40 sm:w-52"
+              />
+              <Button
+                type="button"
+                disabled={busy}
+                className="gap-1.5"
+                onClick={() => void handleCreateClick()}
+              >
+                <Plus size={14} />
+                Create project
+              </Button>
+            </div>
+          ) : undefined
         }
       />
 
-      <div className="flex-1 overflow-auto bg-bg p-4">
-        <div className="mx-auto max-w-org space-y-4">
+      <div className="flex-1 overflow-auto bg-bg px-4 py-4">
+        <div className="space-y-4">
           <ProjectList
             projects={projects}
             statsByProject={statsByProject}
+            activityByProject={activityByProject}
             loading={statsLoading}
             viewerRole={user?.role}
           />
 
           {!canManage && projects.length === 0 ? (
-            <p className="text-sm text-ink-muted">
-              Ask an admin to create a project.
-            </p>
-          ) : null}
-
-          {canManage ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>New project</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form className="flex flex-wrap gap-2" onSubmit={(event) => void handleCreate(event)}>
-                  <Input
-                    aria-label="New project name"
-                    aria-invalid={newProjectError ? true : undefined}
-                    placeholder="Acme Web"
-                    value={newProjectName}
-                    onChange={(event) => {
-                      setNewProjectName(event.target.value);
-                      if (newProjectError) {
-                        setNewProjectError(null);
-                      }
-                    }}
-                    className="max-w-xs"
-                  />
-                  <Button type="submit" disabled={busy} className="gap-1.5">
-                    <Plus size={14} />
-                    Create project
-                  </Button>
-                </form>
-                {newProjectError ? (
-                  <p className="mt-2 text-sm text-semantic-danger">{newProjectError}</p>
-                ) : null}
-              </CardContent>
-            </Card>
+            <p className="text-sm text-ink-muted">Ask an admin to create a project.</p>
           ) : null}
         </div>
       </div>
+
+      <SetupWizardDialog
+        open={wizardOpen}
+        onOpenChange={handleWizardOpenChange}
+        initialName={wizardName}
+        projectId={wizardProjectId}
+      />
     </div>
   );
 }

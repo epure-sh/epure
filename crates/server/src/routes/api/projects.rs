@@ -8,6 +8,7 @@ use axum::{
     Extension, Json, Router,
 };
 use epure_auth::DashboardSession;
+use epure_storage::events;
 use epure_storage::projects::{self, CreateProjectParams, ProjectRow, UpdateProjectParams};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -22,6 +23,7 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/projects/{id}",
             patch(update_project).delete(delete_project),
         )
+        .route("/projects/{id}/activity", get(project_activity))
         .with_state(state)
 }
 
@@ -174,4 +176,34 @@ async fn delete_project(
     }
 
     Ok(Json(serde_json::json!({ "deleted": true })))
+}
+
+#[derive(Serialize)]
+struct ProjectActivityResponse {
+    project_id: Uuid,
+    buckets: Vec<events::TimelineBucket>,
+}
+
+async fn project_activity(
+    State(state): State<Arc<AppState>>,
+    Extension(dashboard): Extension<DashboardSession>,
+    Path(id): Path<Uuid>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let project = projects::get_project(&state.pools.app, dashboard.org_id, id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    let buckets = events::project_activity_timeline(
+        &state.pools.app,
+        dashboard.org_id,
+        project.id,
+    )
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(ProjectActivityResponse {
+        project_id: project.id,
+        buckets,
+    }))
 }

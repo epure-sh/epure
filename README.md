@@ -33,7 +33,7 @@ Self-host it with Docker Compose, or use Epure Cloud when you no longer want to 
 
 > Epure is focused error tracking, not a complete observability platform. It deliberately does not provide distributed tracing, session replay, continuous profiling, or generic log ingestion.
 
-![Epure Issues dashboard](.github/readme-shot.webp)
+![Epure Issues dashboard](.github/readme-shot.gif)
 
 ## Try it in one minute
 
@@ -220,12 +220,13 @@ These limits are implementation defaults and may change before the first stable 
 
 ### Resource usage
 
-Measured on Docker Desktop on 2026-09-20:
+Measured with `docker stats` on a 2 vCPU / 769 MiB Linux VPS (Alibaba Cloud) on 2026-09-23, classic Compose (`epure` + `postgres`):
 
-- Epure application container: approximately `50 MiB` RSS at idle.
-- Time from a running instance to the first test issue: approximately `10 seconds`.
+- Idle: Epure approximately `5 MiB` RSS, PostgreSQL approximately `48 MiB` RSS (~`53 MiB` combined).
+- Under a short store-ingest burst (~280–330 req/s on that host): Epure stayed under approximately `12 MiB` RSS; PostgreSQL was the heavier of the two (~`70 MiB`).
+- Time from a running instance to the first test issue: approximately `10 seconds` (Docker Desktop, 2026-09-20).
 
-The approximately `50 MiB` figure refers to the Epure application container only. PostgreSQL memory is separate and depends on database size, event volume, retention, queries, and deployment configuration.
+An earlier Docker Desktop idle measurement (2026-09-20) showed approximately `50 MiB` RSS for the Epure application container alone. Host OS, Docker runtime, and database state all move these numbers — re-verify on your hardware.
 
 ## Comparison
 
@@ -328,7 +329,7 @@ The core self-hosted workflow is available:
 - Inspect stack traces.
 - Configure alerts and releases.
 
-Expect protocol gaps, incomplete SDK coverage, breaking changes, and rough edges before the first stable `1.0` release.
+Expect protocol gaps, incomplete SDK coverage, and occasional breaking changes between minor releases. Pin an image tag in production (`EPURE_IMAGE=ghcr.io/epure-sh/epure:v1.1.0`).
 
 If you find a compatibility problem, please include:
 
@@ -352,11 +353,13 @@ If you find a compatibility problem, please include:
 
 ## Community and support
 
+- [SUPPORT.md](SUPPORT.md) — which channel to use.
 - [GitHub Discussions](https://github.com/epure-sh/epure/discussions) — setup questions and usage discussions.
 - [GitHub Issues](https://github.com/epure-sh/epure/issues) — bugs and SDK compatibility problems.
 - [Security policy](SECURITY.md) — private vulnerability reports.
 - [Contributing guide](CONTRIBUTING.md) — development setup and pull requests.
 - [Changelog](CHANGELOG.md) — release history.
+- [docs/](docs/README.md) — OpenAPI + links to the full site docs.
 
 ## Contributing
 

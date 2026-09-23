@@ -6,6 +6,7 @@ import {
   areaPath,
   buildChartPoints,
   smoothLinePath,
+  sparklineScaleFloor,
 } from "./occurrence-line-chart-path";
 
 export interface OccurrenceLineChartProps {
@@ -13,6 +14,8 @@ export interface OccurrenceLineChartProps {
   label?: string;
   height?: number;
   interactive?: boolean;
+  /** Lift the Y floor when values cluster high so small swings stay visible. */
+  emphasizeVariation?: boolean;
   className?: string;
 }
 
@@ -48,6 +51,7 @@ export function OccurrenceLineChart({
   label = "Occurrence count",
   height = 56,
   interactive = true,
+  emphasizeVariation = false,
   className,
 }: OccurrenceLineChartProps) {
   const chartId = useId();
@@ -57,14 +61,24 @@ export function OccurrenceLineChart({
   const orderedBuckets = chronologicalBuckets(buckets);
 
   const padding = {
-    top: interactive ? 6 : 4,
+    top: interactive ? 6 : emphasizeVariation ? 3 : 4,
     right: 2,
-    bottom: interactive ? 6 : 4,
+    bottom: interactive ? 6 : emphasizeVariation ? 3 : 4,
     left: 2,
   };
   const viewWidth = Math.max(orderedBuckets.length * (interactive ? 6 : 4), 80);
-  const maxCount = Math.max(...orderedBuckets.map((bucket) => bucket.count), 1);
-  const points = buildChartPoints(orderedBuckets, viewWidth, height, padding, maxCount);
+  const counts = orderedBuckets.map((bucket) => bucket.count);
+  const { minCount, maxCount } = emphasizeVariation
+    ? sparklineScaleFloor(counts)
+    : { minCount: 0, maxCount: Math.max(...counts, 1) };
+  const points = buildChartPoints(
+    orderedBuckets,
+    viewWidth,
+    height,
+    padding,
+    maxCount,
+    minCount,
+  );
   const chartBounds = { minY: padding.top, maxY: height - padding.bottom };
   const linePath = smoothLinePath(points, chartBounds);
   const fillPath = areaPath(points, height - padding.bottom, chartBounds);

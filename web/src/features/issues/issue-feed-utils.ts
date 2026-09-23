@@ -1,8 +1,9 @@
 import type { IssueSummary, TimelineBucket } from "../../lib/api";
 import type { TrendStatus } from "../../ui/sparkline";
 
-export const LIST_TREND_BUCKET_COUNT = 36;
-const LIST_TREND_BUCKET_MS = 2 * 60 * 60 * 1000;
+// Keep in sync with crates/storage/src/events.rs LIST_TREND_* (30d × daily).
+export const LIST_TREND_BUCKET_COUNT = 30;
+const LIST_TREND_BUCKET_MS = 24 * 60 * 60 * 1000;
 
 export interface ParsedIssueTitle {
   shortTitle: string;
@@ -61,12 +62,16 @@ export function platformLabel(platform: string | null | undefined): string {
 
 export function emptyListTrendBuckets(): TimelineBucket[] {
   const now = Date.now();
-  return Array.from({ length: LIST_TREND_BUCKET_COUNT }, (_, index) => ({
-    start: new Date(
+  return Array.from({ length: LIST_TREND_BUCKET_COUNT }, (_, index) => {
+    const start = new Date(
       now - (LIST_TREND_BUCKET_COUNT - 1 - index) * LIST_TREND_BUCKET_MS,
-    ).toISOString(),
-    count: 0,
-  }));
+    );
+    start.setUTCHours(0, 0, 0, 0);
+    return {
+      start: start.toISOString(),
+      count: 0,
+    };
+  });
 }
 
 export function inferTrendStatus(
@@ -80,8 +85,9 @@ export function inferTrendStatus(
     return "ongoing";
   }
   const values = buckets.map((bucket) => bucket.count);
-  const recent = values.slice(-6).reduce((sum, value) => sum + value, 0);
-  const earlier = values.slice(-12, -6).reduce((sum, value) => sum + value, 0);
+  // Compare last ~1 week vs prior week (daily buckets).
+  const recent = values.slice(-7).reduce((sum, value) => sum + value, 0);
+  const earlier = values.slice(-14, -7).reduce((sum, value) => sum + value, 0);
   if (recent > earlier * 1.35) {
     return "escalating";
   }

@@ -64,10 +64,20 @@ export interface TestDataBannerProps {
 
 export function TestDataBanner({ projectId, className }: TestDataBannerProps) {
   const storageKey = `${TEST_DATA_STORAGE_PREFIX}.${projectId}`;
-  const [dismissed, setDismissed] = useState(true);
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(storageKey) === "1";
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
-    setDismissed(localStorage.getItem(storageKey) === "1");
+    try {
+      setDismissed(localStorage.getItem(storageKey) === "1");
+    } catch {
+      setDismissed(false);
+    }
   }, [storageKey]);
 
   if (dismissed) {
@@ -81,7 +91,9 @@ export function TestDataBanner({ projectId, className }: TestDataBannerProps) {
         className,
       )}
     >
-      <p className="text-xs tracking-ui text-ink-muted">Test data only</p>
+      <p className="text-xs tracking-ui text-ink-muted">
+        Preview · test data only — sample errors, not from your apps
+      </p>
       <Button
         variant="ghost"
         size="sm"

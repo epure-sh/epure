@@ -13,17 +13,37 @@ export function buildChartPoints(
   viewHeight: number,
   padding: { top: number; right: number; bottom: number; left: number },
   maxCount: number,
+  minCount = 0,
 ): ChartPoint[] {
   const innerWidth = viewWidth - padding.left - padding.right;
   const innerHeight = viewHeight - padding.top - padding.bottom;
   const step = buckets.length > 1 ? innerWidth / (buckets.length - 1) : 0;
+  const range = Math.max(maxCount - minCount, 1);
 
   return buckets.map((bucket, index) => {
     const x = padding.left + step * index;
-    const ratio = maxCount > 0 ? bucket.count / maxCount : 0;
-    const y = padding.top + innerHeight * (1 - ratio);
+    const ratio = (bucket.count - minCount) / range;
+    const y = padding.top + innerHeight * (1 - Math.min(1, Math.max(0, ratio)));
     return { x, y, bucket, index };
   });
+}
+
+/** Expand small mid-range swings so list sparklines show day-to-day shape. */
+export function sparklineScaleFloor(counts: number[]): { minCount: number; maxCount: number } {
+  const maxCount = Math.max(...counts, 1);
+  const rawMin = counts.length > 0 ? Math.min(...counts) : 0;
+  const spread = maxCount - rawMin;
+  if (spread <= 0 || rawMin <= 0) {
+    return { minCount: 0, maxCount };
+  }
+  // If the series sits high with a mild lean, lift the floor so wiggles read.
+  if (spread / maxCount < 0.55) {
+    return {
+      minCount: Math.max(0, rawMin - spread * 0.45),
+      maxCount,
+    };
+  }
+  return { minCount: 0, maxCount };
 }
 
 function clampY(y: number, minY: number, maxY: number): number {
