@@ -1,84 +1,131 @@
 <p align="center">
-  <img src=".github/readme-hero.webp" alt="Epure" />
+  <img src=".github/readme-hero.webp" alt="Epure — lightweight error tracking for small SaaS teams" />
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0" /></a>
-  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-stable-orange?logo=rust&logoColor=white" alt="Rust" /></a>
-  <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 16" /></a>
-  <a href="docker-compose.yml"><img src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white" alt="Docker Compose" /></a>
-  <a href="https://github.com/epure-sh/epure/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/epure-sh/epure/ci.yml?branch=main&label=CI" alt="CI" /></a>
-  <a href="https://github.com/epure-sh/epure/actions/workflows/image.yml"><img src="https://img.shields.io/github/actions/workflow/status/epure-sh/epure/image.yml?branch=main&label=Image" alt="Image" /></a>
-  <a href="https://github.com/epure-sh/epure/pkgs/container/epure"><img src="https://img.shields.io/badge/GHCR-epure--sh%2Fepure-blue?logo=github" alt="GHCR" /></a>
+  <a href="https://github.com/epure-sh/epure/actions/workflows/ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/epure-sh/epure/ci.yml?branch=main&label=CI" alt="CI status" />
+  </a>
+  <a href="https://github.com/epure-sh/epure/actions/workflows/image.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/epure-sh/epure/image.yml?branch=main&label=Container" alt="Container build status" />
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="Apache 2.0 license" />
+  </a>
+  <a href="https://www.rust-lang.org/">
+    <img src="https://img.shields.io/badge/Rust-stable-orange?logo=rust&logoColor=white" alt="Rust" />
+  </a>
+  <a href="https://www.postgresql.org/">
+    <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 16" />
+  </a>
+  <a href="https://github.com/epure-sh/epure/pkgs/container/epure">
+    <img src="https://img.shields.io/badge/GHCR-epure--sh%2Fepure-blue?logo=github" alt="GitHub Container Registry" />
+  </a>
 </p>
 
 # Epure
 
-[Epure](https://epure.sh) is exception-only error monitoring for self-hosters. Keep your official Sentry SDKs. Change the DSN. When production throws, you get a grouped issue and a stack you can read.
+**Lightweight, exception-only error tracking for solo founders and small teams.**
 
-- [x] Official Sentry SDK ingest (envelope + store).
-- [x] Grouped issues, breadcrumbs, JS/TS sourcemaps.
-- [x] Spike valve for infinite loops.
-- [x] Keyboard triage (`j` / `k` / `e` / `i`) + Markdown export for LLMs
-- [x] Alerts, webhooks, releases, regressions
-- [x] Multi-project orgs, DSN rotate/revoke, RBAC
-- [x] Two containers: Rust binary + PostgreSQL 16 with RLS.
-- [x] Dashboard
+Keep your official Sentry SDK. Change the DSN. When production breaks, Epure gives you a grouped issue, readable stack trace, breadcrumbs, and release context—without requiring Kafka, Redis, or ClickHouse.
+
+Self-host it with Docker Compose, or use Epure Cloud when you no longer want to operate it yourself.
+
+> Epure is focused error tracking, not a complete observability platform. It deliberately does not provide distributed tracing, session replay, continuous profiling, or generic log ingestion.
 
 ![Epure Issues dashboard](.github/readme-shot.webp)
 
-**2 containers** · **~50 MiB** idle · **~10 s** to first issue · measured 2026-09-20 on Docker Desktop.
+## Try it in one minute
 
-⭐ **Star the repository** if you want to follow progress or run it on your homelab later.
+### Requirements
 
----
+- Docker Engine
+- Docker Compose v2
+- Ports `8080` and `5433` available by default
 
-## ⚡ Why Epure?
-
-Official Sentry is incredibly powerful, but self-hosting it requires 15+ containers (Kafka, ClickHouse, Redis, Celery). Epure is designed for homelabs and small teams who just want stack traces without the operational bloat.
-
-| | **Epure** | **Sentry self-host** | **GlitchTip** |
-|---|---|---|---|
-| **Containers** | 2 | 20+ ([docs](https://develop.sentry.dev/self-hosted/)) | 4+ ([install](https://glitchtip.com/documentation/install)) |
-| **RAM** | **~50 MiB** idle | 16 GB + swap ([guide](https://develop.sentry.dev/self-hosted/)) | 512 MB rec / 256 MB min |
-| **SDK path** | Change DSN | Change DSN | Change DSN |
-| **License** | Apache 2.0 | BSL / SaaS | MIT |
-
-*Note: If GlitchTip is already quiet for you, stay there.*
-
-## 🚀 1-Minute Quickstart
-
-Docker Compose v2. No `.env` file. No configure step.
+Clone the repository and start Epure:
 
 ```bash
-git clone https://github.com/epure-sh/epure.git && cd epure
+git clone --depth 1 [https://github.com/epure-sh/epure.git](https://github.com/epure-sh/epure.git)
+cd epure
 docker compose up -d
-curl -sS http://localhost:8080/health   # → {"status":"ok"}
 ```
 
-Open [http://localhost:8080](http://localhost:8080) → register → name a project → copy the DSN → point your SDK.
+Check that the application is healthy:
 
-<details>
-<summary>Port 8080 taken, demo data, or production VPS (Click to expand)</summary>
-
-**Another port** — copy `.env.example`, set `EPURE_PORT` (public URL follows on localhost), recreate `epure`:
 ```bash
-cp .env.example .env   # edit EPURE_PORT=3000
-docker compose up -d
+curl -sS http://localhost:8080/health
 ```
-Or `./configure --quick` to auto-pick a free port.
 
-**Demo seed + Vite CORS** — uncomment `EPURE_DEV_SEED=1` and `EPURE_CORS_ORIGINS` in `.env`, or `./configure --dev`.
+Expected response:
 
-**Production** — `./configure --prod` or `.env.production.example` + [installation guide](https://epure.sh/docs/self-hosting/installation). Full env reference: [Configuration](https://epure.sh/docs/self-hosting/configuration).
+```json
+{"status":"ok"}
+```
 
-</details>
+Open [http://localhost:8080](http://localhost:8080), create an account, create a project, and copy the generated DSN.
 
-### Drop-in Sentry Replacement
+### Send a test exception
 
-You do not need a custom SDK. Use the official Sentry client for your language and point it to your Epure instance. 
+Use the official Sentry SDK for your language and point it at your Epure DSN.
 
-Zero the extra product lines so transactions, replay, and profiles are discarded locally without surprise.
+Example with Node.js:
+
+```javascript
+import * as Sentry from "@sentry/node";
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  tracesSampleRate: 0,
+  profilesSampleRate: 0,
+});
+
+Sentry.captureException(new Error("Epure test event"));
+```
+
+After the event is sent, open the Epure dashboard. You should see a grouped issue with its stack trace.
+
+For production setup, environment variables, reverse proxies, backups, and upgrades, see the [self-hosting documentation](https://epure.sh/docs/self-hosting/installation).
+
+## Why Epure exists
+
+Sentry is a good fit when you need a broad observability platform. Epure is for a smaller and more specific use case:
+
+- You run a SaaS, side project, internal tool, or small startup.
+- You want to know when production throws an exception.
+- You want readable stack traces and grouped issues.
+- You run on a VPS or small cloud instance.
+- You do not want to operate a large observability stack.
+- You do not want an unexpected bill when one bug enters an infinite loop.
+
+Epure is intentionally narrow:
+
+> **Production exceptions → grouped issues → calm triage.**
+
+If you need tracing, replay, profiling, logs, or advanced infrastructure metrics, Epure may not be the right tool.
+
+## Features
+
+- Official Sentry SDK ingestion through envelope and store endpoints.
+- Grouped issues with breadcrumbs and readable stack traces.
+- JavaScript and TypeScript sourcemap support.
+- Releases and regression detection.
+- Alerts and webhooks.
+- Multi-project organizations.
+- DSN rotation and revocation.
+- Role-based access control.
+- PostgreSQL row-level security.
+- Keyboard-first issue triage.
+- Markdown export for debugging and AI-assisted analysis.
+- Spike protection for duplicate-event floods.
+- Two-container Docker Compose deployment.
+- No Redis, Kafka, ClickHouse, or separate worker container.
+
+## Use the official Sentry SDKs
+
+Epure does not require a custom client SDK.
+
+Configure the official Sentry SDK for your language and point its DSN to your Epure project:
 
 ```javascript
 import * as Sentry from "@sentry/browser";
@@ -92,68 +139,267 @@ Sentry.init({
 });
 ```
 
+The example disables telemetry features that Epure does not currently use. Epure focuses on exception events, stack traces, breadcrumbs, releases, and issue triage.
+
+Epure implements the parts of the Sentry ingestion path required for exception tracking. Compatibility varies by language, SDK version, and feature. Check the support matrix before migrating a production application.
+
+## SDK support
+
+| Platform | Status | Notes |
+|---|---|---|
+| Browser (`@sentry/browser` 7.x) | E2E in CI | JavaScript and TypeScript sourcemaps |
+| Python | E2E in CI | Store endpoint and raw frames |
+| Node.js (`@sentry/node` 7.x) | Parse and fixture coverage | JavaScript and TypeScript sourcemaps |
+| Go | Fixture captured | Raw frames |
+| Ruby | Fixture captured | Raw frames |
+| PHP | Fixture captured | Raw frames |
+| Java | Fixture captured | Raw frames |
+| .NET | Fixture captured | Raw frames |
+
+See the full [platform support matrix](https://epure.sh/docs/platforms).
+
+The ingest contract is available in the repository:
+
+- [Ingest API documentation](https://epure.sh/docs/api)
+- [Envelope endpoint](https://epure.sh/docs/api/envelope)
+- [OpenAPI specification](docs/ingest.openapi.yaml)
+
 ## How it works
 
-Epure is a small stack for one job: production exceptions → grouped issues → calm triage. It is not a 1-to-1 mapping of Sentry. If the SDK sends transactions, replay, or profiles, the HTTP request is accepted and those items are dropped.
-
-### Architecture
-
-Self-host with [Docker Compose](docker-compose.yml) (two containers). You can also use [managed hosting](https://epure.sh).
+Epure uses one Rust application container and one PostgreSQL container.
 
 ```mermaid
 graph TD
-  SDK[Sentry SDKs] -->|POST envelope or store| EPURE[epure :8080]
-  Browser[Browser dashboard] -->|session API| EPURE
-  EPURE -->|SQLx async worker| PG[(PostgreSQL 16)]
-  EPURE -->|rust-embed SPA| Browser
+  SDK[Sentry SDKs] -->|Envelope or store request| EPURE[Epure :8080]
+  Browser[Browser dashboard] -->|Session API| EPURE
+  EPURE -->|Async SQLx worker| PG[(PostgreSQL 16)]
+  EPURE -->|Embedded SPA| Browser
 ```
 
-**Plain text:** SDKs and the dashboard hit the same Rust process. Host port is `EPURE_PORT` (default **8080**); the process still binds `8080` inside the container. Persistence is PostgreSQL 16 only. No Redis. No Kafka. No separate worker container.
+### Services
 
 | Service | Port | Role |
 |---|---|---|
-| `epure` | host `EPURE_PORT` (default `8080`) → `8080` | Ingest + APIs + embedded SPA (`--mode=all`) |
-| `postgres` | host `POSTGRES_HOST_PORT` (default `5433`) → `5432` | RLS, monthly event partitions, sessions |
+| `epure` | Host `EPURE_PORT` → `8080` | Ingest, API, and embedded dashboard |
+| `postgres` | Host `POSTGRES_HOST_PORT` → `5432` | Issues, events, releases, sessions, and RLS |
 
-- **[Ingest gateway](https://epure.sh/docs/api/envelope)** — DSN auth, 2 MB body cap, spike valve, Tokio `mpsc`, returns **202** before persist.
-- **Spike valve** — per-fingerprint token bucket (~100/min). Over limit: counter bumps, duplicate bodies drop. Separate project cap: **5000 events/hour**.
-- **Worker** — demangle JS/TS sourcemaps, scrub PII, group by fingerprint, micro-batch INSERT.
-- **[PostgreSQL 16](https://www.postgresql.org/)** — issues, events, releases, sessions. Dashboard queries use RLS (`app.current_org_id`).
-- **Dashboard** — React SPA embedded via `rust-embed`. Keyboard-first Issues UI.
+### Ingestion path
 
-### SDK clients
+1. The SDK sends an envelope or store request to Epure.
+2. Epure authenticates the project through its DSN.
+3. The request passes the body-size and spike-protection limits.
+4. Epure returns an acknowledgement before durable persistence.
+5. The background worker processes sourcemaps, scrubs configured PII, groups events, and writes them to PostgreSQL.
+6. The dashboard displays the resulting issue and event data.
 
-Keep the official Sentry clients. Epure is the destination.
+### Spike protection
 
-| Language | Status | Notes |
-|---|---|---|
-| Browser (`@sentry/browser` 7.x) | E2E in CI | Sourcemaps demangle |
-| Python (store) | E2E in CI | Raw frames |
-| Node (`@sentry/node` 7.x) | Parse + fixture | Sourcemaps demangle |
-| Go, Ruby, PHP, Java, .NET | Fixture captured | Raw frames |
+Epure includes a per-fingerprint token bucket to reduce the damage caused by duplicate-event floods.
 
-Full matrix and init snippets: [epure.sh/docs/platforms](https://epure.sh/docs/platforms). Wire contract in-repo: [docs/ingest.openapi.yaml](docs/ingest.openapi.yaml).
+The current defaults are:
 
-### Out of scope (Phase 1)
+- Approximately `100` events per fingerprint per minute.
+- A project-level cap of approximately `5,000` events per hour.
+- A `2 MB` request body limit.
+- Duplicate bodies may be discarded after the configured threshold while occurrence counts remain visible.
 
-Distributed tracing · session replay · continuous profiling · generic log ingest · iOS/Android symbolication · Redis / Kafka / ClickHouse on the path.
+These limits are implementation defaults and may change before the first stable release. See the [configuration documentation](https://epure.sh/docs/self-hosting/configuration).
 
----
+## Architecture
 
-## Documentation & Support
+- Rust application binary.
+- PostgreSQL 16.
+- SQLx asynchronous database access.
+- PostgreSQL row-level security for organization isolation.
+- Monthly event partitions.
+- Embedded React dashboard using `rust-embed`.
+- No Redis.
+- No Kafka.
+- No ClickHouse.
+- No separate worker container.
 
-Full documentation is available at: **[epure.sh/docs](https://epure.sh/docs)**
+### Resource usage
 
-- [Quickstart](https://epure.sh/docs/get-started/quickstart) | [Self-hosting](https://epure.sh/docs/self-hosting/installation) | [Configuration](https://epure.sh/docs/self-hosting/configuration) | [Platforms](https://epure.sh/docs/platforms) | [Concepts](https://epure.sh/docs/get-started/concepts) | [Ingest API](https://epure.sh/docs/api)
+Measured on Docker Desktop on 2026-09-20:
 
-**Community & Help:**
-- [GitHub Discussions](https://github.com/epure-sh/epure/discussions) — Best for setup questions and DSN wiring.
-- [GitHub Issues](https://github.com/epure-sh/epure/issues) — Best for bugs and SDK/protocol gaps.
-- **Security:** [SECURITY.md](SECURITY.md) · `security@news.epure.sh`
-- **Commercial/Cloud:** `support@news.epure.sh`
+- Epure application container: approximately `50 MiB` RSS at idle.
+- Time from a running instance to the first test issue: approximately `10 seconds`.
 
----
+The approximately `50 MiB` figure refers to the Epure application container only. PostgreSQL memory is separate and depends on database size, event volume, retention, queries, and deployment configuration.
 
-**Apache 2.0** · no `ee/` split · [CHANGELOG](CHANGELOG.md) · [CONTRIBUTING](CONTRIBUTING.md)
+## Comparison
 
-**Managed hosting:** Epure Cloud — Pro $24/mo · Plus $79/mo. Flat pricing, no per-event overage. [epure.sh](https://epure.sh)
+Epure is not intended to replace every error-tracking or observability product.
+
+| | Epure | Sentry self-hosted | GlitchTip |
+|---|---|---|---|
+| Primary focus | Exception tracking | Broad observability | Error tracking and performance monitoring |
+| Deployment | Two-container Compose stack | Large multi-service deployment | Multiple deployment options |
+| SDK path | Change the DSN | Change the DSN | Change the DSN |
+| Database | PostgreSQL | Several services depending on configuration | PostgreSQL |
+| License | Apache 2.0 | Check the current Sentry license | MIT |
+| Best fit | Indie SaaS, small teams, homelabs | Teams needing a broad platform | Teams wanting a Sentry-compatible alternative |
+
+Resource requirements and deployment layouts vary by version and configuration. Check each project’s current documentation before comparing installations.
+
+If GlitchTip already works well for you, you should keep using it. Epure is aimed at people who want a smaller, more focused stack.
+
+## Out of scope
+
+The current Phase 1 release does not provide:
+
+- Distributed tracing.
+- Session replay.
+- Continuous profiling.
+- Generic log ingestion.
+- Infrastructure metrics.
+- iOS or Android symbolication.
+- Redis, Kafka, or ClickHouse integrations.
+- Full 1:1 Sentry protocol compatibility.
+- High-volume analytics for large observability deployments.
+
+Epure is designed for focused application exception tracking. Its scope may expand over time, but it will not try to become every observability product at once.
+
+## Configuration
+
+The default setup requires no `.env` file.
+
+To change the application port:
+
+```bash
+cp .env.example .env
+```
+
+Edit:
+
+```env
+EPURE_PORT=3000
+```
+
+Then recreate the application container:
+
+```bash
+docker compose up -d
+```
+
+For development data and local frontend work:
+
+```bash
+./configure --dev
+```
+
+For a production-oriented configuration:
+
+```bash
+./configure --prod
+```
+
+Read the complete [configuration reference](https://epure.sh/docs/self-hosting/configuration).
+
+## Production considerations
+
+Before using Epure for important production workloads:
+
+- Put Epure behind HTTPS.
+- Restrict PostgreSQL access to the internal Docker network.
+- Configure persistent volumes.
+- Back up PostgreSQL regularly.
+- Test restoring a backup.
+- Pin a known Epure release rather than deploying an untested development commit.
+- Monitor disk usage and database growth.
+- Review retention and event-limit settings.
+- Test your SDK and application error paths.
+- Read the upgrade notes before updating.
+- Do not expose the PostgreSQL port publicly unless you have a specific reason.
+
+Epure is an early project. It is suitable for experiments, homelabs, side projects, and small deployments where you have tested your own backup and upgrade process.
+
+## Project status
+
+Epure is in an early release.
+
+The core self-hosted workflow is available:
+
+- Start the stack.
+- Create a project.
+- Configure an official Sentry SDK.
+- Capture exceptions.
+- Group issues.
+- Inspect stack traces.
+- Configure alerts and releases.
+
+Expect protocol gaps, incomplete SDK coverage, breaking changes, and rough edges before the first stable `1.0` release.
+
+If you find a compatibility problem, please include:
+
+- Language and SDK name.
+- SDK version.
+- Epure version.
+- Relevant initialization code.
+- A sanitized event payload or reproduction.
+- Logs from the Epure container.
+
+## Documentation
+
+- [Epure documentation](https://epure.sh/docs)
+- [Quickstart](https://epure.sh/docs/get-started/quickstart)
+- [Concepts](https://epure.sh/docs/get-started/concepts)
+- [Self-hosting installation](https://epure.sh/docs/self-hosting/installation)
+- [Configuration](https://epure.sh/docs/self-hosting/configuration)
+- [Platform support](https://epure.sh/docs/platforms)
+- [Ingest API](https://epure.sh/docs/api)
+- [Envelope endpoint](https://epure.sh/docs/api/envelope)
+
+## Community and support
+
+- [GitHub Discussions](https://github.com/epure-sh/epure/discussions) — setup questions and usage discussions.
+- [GitHub Issues](https://github.com/epure-sh/epure/issues) — bugs and SDK compatibility problems.
+- [Security policy](SECURITY.md) — private vulnerability reports.
+- [Contributing guide](CONTRIBUTING.md) — development setup and pull requests.
+- [Changelog](CHANGELOG.md) — release history.
+
+For commercial or Cloud questions: [support@epure.sh](mailto:support@epure.sh).
+
+## Managed hosting
+
+Epure Cloud is for teams that want Epure without operating PostgreSQL, backups, upgrades, TLS, alert delivery, and storage.
+
+Planned Cloud tiers:
+
+- **Pro — $24/month**
+- **Plus — $79/month**
+
+The planned pricing model uses flat pricing with no per-event overage charges. Final availability, limits, and included features may change before launch.
+
+[Join the Cloud launch list](https://epure.sh)
+
+Self-hosted Epure remains available under the Apache 2.0 license. Your data should remain exportable whether you run Epure yourself or use managed hosting.
+
+## Contributing
+
+Contributions are welcome.
+
+Before opening a pull request:
+
+1. Read [CONTRIBUTING.md](CONTRIBUTING.md).
+2. Search existing issues and discussions.
+3. Add or update tests where appropriate.
+4. Document compatibility or migration changes.
+5. Explain the user problem your change solves.
+
+Useful contribution areas include:
+
+- SDK compatibility.
+- Sourcemap support.
+- Documentation.
+- Deployment guides.
+- Backup and migration tooling.
+- Performance benchmarks.
+- Accessibility.
+- Dashboard improvements.
+
+## License
+
+Epure is licensed under the [Apache License 2.0](LICENSE).
+
+There is no separate `ee/` directory or closed-source core.
