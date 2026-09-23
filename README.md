@@ -27,7 +27,7 @@
 
 **Lightweight, exception-only error tracking for solo founders and small teams.**
 
-Keep your official Sentry SDK. Change the DSN. When production breaks, Epure gives you a grouped issue, readable stack trace, breadcrumbs, and release context—without requiring Kafka, Redis, or ClickHouse.
+Keep your official Sentry SDK. Change the DSN. When production breaks, Epure gives you a grouped issue, readable stack trace, breadcrumbs, and release context without requiring Kafka, Redis, or ClickHouse.
 
 Self-host it with Docker Compose, or use Epure Cloud when you no longer want to operate it yourself.
 
@@ -46,7 +46,7 @@ Self-host it with Docker Compose, or use Epure Cloud when you no longer want to 
 Clone the repository and start Epure:
 
 ```bash
-git clone --depth 1 [https://github.com/epure-sh/epure.git](https://github.com/epure-sh/epure.git)
+git clone https://github.com/epure-sh/epure.git
 cd epure
 docker compose up -d
 ```
@@ -357,23 +357,6 @@ If you find a compatibility problem, please include:
 - [Security policy](SECURITY.md) — private vulnerability reports.
 - [Contributing guide](CONTRIBUTING.md) — development setup and pull requests.
 - [Changelog](CHANGELOG.md) — release history.
-
-For commercial or Cloud questions: [support@epure.sh](mailto:support@epure.sh).
-
-## Managed hosting
-
-Epure Cloud is for teams that want Epure without operating PostgreSQL, backups, upgrades, TLS, alert delivery, and storage.
-
-Planned Cloud tiers:
-
-- **Pro — $24/month**
-- **Plus — $79/month**
-
-The planned pricing model uses flat pricing with no per-event overage charges. Final availability, limits, and included features may change before launch.
-
-[Join the Cloud launch list](https://epure.sh)
-
-Self-hosted Epure remains available under the Apache 2.0 license. Your data should remain exportable whether you run Epure yourself or use managed hosting.
 
 ## Contributing
 
