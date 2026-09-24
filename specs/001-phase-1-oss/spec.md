@@ -59,7 +59,6 @@ Resolved from constitution, `ARCHITECTURE.md`, and `ROADMAP.md` — no open ques
 - Distributed tracing, APM spans, session replay, continuous profiling, generic log ingestion
 - Server-side rendered triage UI
 - Stripe billing, Cloud split modes, `ee/` enterprise adapters
-- Waitlist rebuild (already shipped outside this repo)
 - Claiming 100% Sentry protocol parity
 
 ---
@@ -74,7 +73,7 @@ Stories map to FEATURES tiers and ROADMAP slices. Priorities reflect build order
 
 As a developer, I point my official Sentry SDK at Epure (change `dsn` only) and exception events are accepted immediately and persisted for later triage.
 
-**Why this priority**: Zero-migration ingest is the adoption wedge. Without accept-and-persist, nothing else matters.
+**Why this priority**: Zero-migration ingest is the primary adoption path. Without accept-and-persist, nothing else matters.
 
 **Independent Test**: Configure any supported SDK fixture, emit one exception, observe accepted response and a retrievable stored event linked to a project.
 
@@ -350,8 +349,8 @@ Measurable, technology-agnostic outcomes. Performance numbers marked "measure be
 - S1 ships minimal Postgres schema; S3 migrates to RLS + partitions without breaking S1 ingest proofs.
 - Source maps stored on local volume attached to the application container in OSS (object storage deferred to Phase 2 Cloud).
 - Wire compatibility tested against fixture dumps in `fixtures/sentry/`; matrix published after measurement.
-- RAM and binary size marketing claims deferred until measured and recorded in `marketing/landing/PROOF_INVENTORY.md`.
-- Waitlist and Cloud billing (Pro $24 / Plus $79) are Phase 2; this spec covers OSS self-host only.
+- RAM and binary size claims must be measured on target hardware and recorded in [CHANGELOG.md](../../CHANGELOG.md) before citing publicly.
+- Managed hosting and billing are out of scope for this repository; this spec covers OSS self-host only.
 - Apache 2.0 license; full core features in OSS — no crippleware.
 
 ---

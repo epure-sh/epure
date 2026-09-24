@@ -267,7 +267,7 @@
 **Goal**: OSS shippable per ROADMAP Phase 1 exit criteria.
 
 - [x] T118 [P] Write `apps/epure/README.md`: install, compose up, DSN config, honest SDK compatibility matrix — depends: T117 — AC: Phase 1 exit README
-- [x] T119 [P] Measure RAM + binary size; record in `marketing/landing/PROOF_INVENTORY.md` (do not publish until measured) — depends: T117 — AC: Phase 1 exit proof inventory
+- [x] T119 [P] Measure RAM + binary size; record in [CHANGELOG.md](../../CHANGELOG.md) — depends: T117
 - [x] T120 Run full quickstart validation from [quickstart.md](./quickstart.md) S0–S6 proofs — depends: T117 — AC: all ROADMAP proofs green
 
 ---
@@ -399,13 +399,13 @@ S0 (T001–T009)
 
 ## Phase 10: Convergence (Phase 1 exit)
 
-- [ ] T155 Publish public GitHub repository (this tree or OSS extract) per ROADMAP Phase 1 exit / spec Phase 1 exit — **ready to publish** (PUBLISH.md checklist green except push/tag; awaiting explicit approval)
+- [x] T155 Publish public GitHub repository per Phase 1 exit criteria
 - [x] T163 [US5] Webhook admin UI in `web/src/features/settings/webhooks.tsx` (Admin+) — depends: T099 — AC: Outbound Webhooks & Chat (FEATURES Tier 5)
 - [x] T164 [US2] Releases list API `GET /api/v1/releases?project_id=` + `web/src/features/releases/index.tsx` — depends: T032 — AC: release artifact visibility
 - [x] T165 Add `scripts/test.sh` + `.env.test.example` with `DATABASE_URL` on port 5433 — depends: T017 — AC: local test ergonomics
 - [x] T166 Add `LICENSE` (Apache 2.0) at repo root — depends: constitution OSS license
 - [x] T167 Rate limit `POST /api/v1/auth/login` and `/register` (in-memory per IP) in `crates/server/src/rate_limit.rs` — depends: T105 — AC: basic auth brute-force protection
 - [x] T156 Run migrations + `scripts/seed-dev.sql` automatically on compose first boot (entrypoint or init service) per T141 / quickstart onboarding (partial)
-- [x] T157 Measure cold-clone `docker compose up --build` → first issue on clean machine; record in `marketing/landing/PROOF_INVENTORY.md` per SC-001 (partial)
+- [x] T157 Measure cold-clone `docker compose up --build` → first issue on clean machine; record in [CHANGELOG.md](../../CHANGELOG.md) per SC-001 (partial)
 - [x] T158 Execute `web/design/qa.md` checklist and ROADMAP § S4 keyboard triage proof in browser; record pass date in quickstart or ROADMAP per S3b/S4 (partial)
 - [x] T159 Update `ROADMAP.md` slice checkboxes and Phase 1 exit checklist to match shipped state per ROADMAP hygiene (partial)

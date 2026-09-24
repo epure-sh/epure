@@ -230,7 +230,7 @@ Dockerfile:
 
 | Alternative | Rejected because |
 |---|---|
-| Proprietary Epure SDK | Violates adoption wedge (change DSN only) |
+| Proprietary Epure SDK | Violates DSN-only adoption (change DSN only) |
 | Envelope-only | Breaks legacy SDKs and curl reporters |
 | Full Sentry parity | Out of scope; dishonest |
 

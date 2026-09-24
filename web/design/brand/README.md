@@ -30,12 +30,6 @@ Geometry: stadium `54×32`, stroke `8.5`, diagonal cuts at `27.5°`.
 
 **Metaphor:** A calm ledger baseline (horizontal pill) with a single exception spike rising from it. One event on an otherwise flat line — the core job of exception-only monitoring. *Epure* = pure signal, noise stripped away.
 
-**Strategy (big-company methodology):**
-- **Discovery:** Epure surfaces one exception from a calm stream; favicon/navbar/lockup must read instantly.
-- **Differentiation:** Unlike generic pill+dot SaaS marks (#2), silhouette is an inverted-T / timeline spike — ownable monitoring metaphor.
-- **Squint test:** Blur → horizontal bar + vertical spike remain two distinct blobs.
-- **16px test:** Baseline = 11×2.5px pill; spike = 3×8px pill — both survive pixel grid.
-
 **Geometry** (32×32 viewBox, source of truth in `src/ui/logo.tsx`):
 
 | Element | Spec | Rationale |
@@ -57,9 +51,7 @@ Geometry: stadium `54×32`, stroke `8.5`, diagonal cuts at `27.5°`.
 
 ---
 
-## New directions (2026-09-14 research pass)
-
-Three marks designed from the big-company playbook (Paul Rand simplicity, Google squint test, Stripe restraint, product-native metaphor).
+## Alternate marks
 
 | # | Name | Metaphor | Status |
 |---|---|---|---|
@@ -106,7 +98,7 @@ import { LogoMark, LogoLockup, LogoNavButton } from "@/ui/logo";
 ```
 
 - **Navbar:** mark only at 22×22 (`LogoNavButton`, default `variant={7}`)
-- **Marketing / login:** lockup (28px mark + wordmark)
+- **Login / auth screens:** lockup (28px mark + wordmark)
 - **Favicon:** `public/favicon.svg` (synced to `PURE_SPIKE_GEOMETRY`)
 - **Compare directions:** `<LogoExplorationRow />` renders all 9 variants
 
@@ -126,4 +118,4 @@ import { LogoMark, LogoLockup, LogoNavButton } from "@/ui/logo";
 
 - **Motion:** Subtle spike pulse when live events arrive — never in static favicon.
 - **Standalone symbol:** Once brand recognition builds, drop wordmark in more contexts.
-- **Spike Valve (#8):** Pair with spike-valve / ingest-cap marketing.
+- **Spike Valve (#8):** Optional alternate for ingest-cap documentation.

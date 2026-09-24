@@ -1,6 +1,6 @@
 # Docs in this repository
 
-Operator and product guides live on the site so they stay versioned with the marketing/docs deploy:
+Operator and product guides are published on the documentation site:
 
 **[epure.sh/docs](https://epure.sh/docs)**
 
