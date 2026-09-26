@@ -8,6 +8,22 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 Nothing yet.
 
+## [v0.1.1] — 2026-09-26
+
+Setup and connection UI cover the full Phase 1 SDK matrix — not only JavaScript.
+
+Container: `ghcr.io/epure-sh/epure:v0.1.1` (also `:latest`).
+
+### Added
+
+- Java and .NET on the setup wizard language picker (with framework icons)
+- Shared multi-platform SDK snippets in Connection settings and the Releases empty state
+- Envelope parse tests for browser, Node, Go, Ruby, PHP, Java, and .NET fixtures (Python store unchanged)
+
+### Notes
+
+- Ingest stays DSN-only for official Sentry SDKs. Symbolication remains **JS/TS sourcemaps only**; other languages group on raw frames.
+
 ## [v0.1.0] — 2026-09-23
 
 First public tag. Exception-only error monitoring. Keep `@sentry/*`. Change the DSN.

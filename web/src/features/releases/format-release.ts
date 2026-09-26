@@ -75,12 +75,8 @@ export function formatReleaseDeltas(release: ReleaseSummary): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-export const RELEASE_SDK_SNIPPET = `import * as Sentry from "@sentry/browser";
-
-Sentry.init({
-  dsn: "YOUR_DSN",
-  release: "my-app@1.0.0",
-});`;
+/** Example release tag used in empty-state SDK snippets. */
+export const RELEASE_EXAMPLE_VERSION = "my-app@1.0.0";
 
 export const RELEASE_CLI_HINT =
   "sentry-cli releases new $VERSION && sentry-cli releases files $VERSION upload-sourcemaps ./dist";

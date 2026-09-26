@@ -5,17 +5,17 @@ import { fetchReleases, type ReleaseSummary } from "../../lib/api";
 import { issuesFilterPath, projectSettingsPath } from "../../lib/paths";
 import { useAppContext } from "../../shell/app-context";
 import { Button } from "../../ui/button";
-import { CopyButton } from "../../ui/copy-button";
 import { Empty } from "../../ui/empty";
 import { FeedListBody, StackedCardList } from "../../ui/feed-list-shell";
 import { FeedHeaderStat, FeedHeaderStatDot, SimpleFeedHeader } from "../../ui/simple-feed-header";
 import { ListRow } from "../../ui/list-row";
+import { SdkSnippetBlock } from "../../ui/sdk-snippet-block";
 import { CardRowSkeleton } from "../../ui/skeleton";
 import {
   formatReleaseDeltas,
   formatReleaseMeta,
   RELEASE_CLI_HINT,
-  RELEASE_SDK_SNIPPET,
+  RELEASE_EXAMPLE_VERSION,
 } from "./format-release";
 
 function ReleaseRow({
@@ -151,17 +151,15 @@ export function ReleasesPage() {
             description="Set a release when you initialize your SDK. Epure groups exceptions by version so you can spot what changed after each deploy."
           >
             <div className="w-full max-w-lg space-y-4 text-left">
+              <SdkSnippetBlock
+                dsn="YOUR_DSN"
+                release={RELEASE_EXAMPLE_VERSION}
+                title="SDK init"
+                description="Set a release when you initialize the SDK."
+                initOnly
+              />
               <div>
-                <p className="text-xs font-medium text-ink">SDK init</p>
-                <pre className="epure-code-well mt-2 overflow-x-auto rounded-lg border border-border bg-bg-subtle p-3 font-mono text-xs text-ink">
-                  {RELEASE_SDK_SNIPPET}
-                </pre>
-                <div className="mt-2">
-                  <CopyButton value={RELEASE_SDK_SNIPPET} label="Copy snippet" />
-                </div>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-ink">Source maps (optional)</p>
+                <p className="text-xs font-medium text-ink">Source maps (optional, JS/TS)</p>
                 <p className="mt-1 text-xs text-ink-muted">
                   Upload artifacts for the same version so stack traces resolve to your source.
                 </p>
