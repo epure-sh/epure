@@ -31,9 +31,7 @@ When production throws, you get a grouped issue, a readable stack, breadcrumbs, 
 
 **Idle footprint: ~53 MiB combined.** `docker stats` on 2026-09-23, 2 vCPU / 769 MiB Linux VPS (Alibaba Cloud), classic Compose (`epure` + `postgres`): Epure ~5 MiB RSS + PostgreSQL ~48 MiB RSS. [Full notes](#resource-usage).
 
-![Epure Issues dashboard](.github/readme-shot.gif)
-
-Animated Issues view ([`.github/readme-shot.gif`](.github/readme-shot.gif), 2.5 MiB). A lighter still of the same screen is [`.github/readme-shot.webp`](.github/readme-shot.webp).
+![Epure Issues dashboard](.github/readme-shot.webp)
 
 | Point the DSN at Epure | Rotate and revoke keys | Spike protection on an issue |
 | --- | --- | --- |
@@ -41,10 +39,11 @@ Animated Issues view ([`.github/readme-shot.gif`](.github/readme-shot.gif), 2.5 
 
 ## Run it
 
-Docker Engine and Compose v2. No clone and no `.env` file. This downloads the Compose file and pulls `ghcr.io/epure-sh/epure`:
+Docker Engine and Compose v2. Clone the repository and start the stack (pulls `ghcr.io/epure-sh/epure` by default):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/epure-sh/epure/main/docker-compose.yml -o docker-compose.yml
+git clone https://github.com/epure-sh/epure.git
+cd epure
 docker compose up -d
 ```
 
@@ -56,17 +55,9 @@ Pin a release instead of `:latest`:
 EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.1.1 docker compose up -d
 ```
 
-Defaults: app on host port `8080`, Postgres on host port `5433`. If either is taken, set `EPURE_PORT` and `POSTGRES_HOST_PORT` and run `docker compose up -d` again. Optional health check: `curl -sS http://localhost:8080/health` returns `{"status":"ok"}`.
+Defaults: app on host port `8080`, Postgres on host port `5433`. If either is taken, set `EPURE_PORT` and `POSTGRES_HOST_PORT` (for example in `.env`) and run `docker compose up -d` again. Health check: `curl -sS http://localhost:8080/health` returns `{"status":"ok"}`.
 
-### From source
-
-```bash
-git clone https://github.com/epure-sh/epure.git
-cd epure
-docker compose up -d
-```
-
-Source build overlay: [`deploy/docker-compose.build.yml`](deploy/docker-compose.build.yml).
+Build the app image from this tree: [`deploy/docker-compose.build.yml`](deploy/docker-compose.build.yml).
 
 > Epure is focused error tracking, not a complete observability platform. It deliberately does not provide distributed tracing, session replay, continuous profiling, or generic log ingestion. It is not a 1:1 Sentry-protocol implementation. See [Out of scope](#out-of-scope).
 
