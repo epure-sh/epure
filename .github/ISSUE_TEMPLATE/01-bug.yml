@@ -64,3 +64,11 @@ body:
         - DATABASE_URL host port (5433?):
     validations:
       required: false
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## Optional
+        If Epure helped you (or this report leads to a fix you care about), starring the repo helps others find a small self-hosted option.
+
+        **Never required for support.** We do not gate triage on stars.
