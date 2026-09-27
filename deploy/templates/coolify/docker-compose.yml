@@ -1,0 +1,59 @@
+# Epure — Coolify (Docker Compose build pack)
+#
+# Coolify → New resource → Public Git repo → Build pack: Docker Compose
+#   Base directory:        /deploy/templates/coolify
+#   Docker Compose file:   docker-compose.yml
+#
+# Domains: open the `epure` service → Domains → https://your-host:8080
+# (Coolify routes public HTTP(S) to container port 8080.)
+#
+# Coolify generates empty/required env keys from ${VAR} / ${VAR:?} below.
+# Passwords reuse SERVICE_* generators so postgres and epure stay in sync.
+
+services:
+  epure:
+    image: ${EPURE_IMAGE:-ghcr.io/epure-sh/epure:latest}
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      SERVICE_URL_EPURE_8080: /
+      EPURE_BIND: 0.0.0.0:8080
+      EPURE_MODE: all
+      EPURE_ALLOW_EXAMPLE_PASSWORDS: "0"
+      EPURE_SESSION_SECURE: "1"
+      EPURE_ARTIFACTS_DIR: /data/artifacts
+      EPURE_PUBLIC_URL: ${EPURE_PUBLIC_URL:-${SERVICE_URL_EPURE_8080}}
+      EPURE_CORS_ORIGINS: ${EPURE_CORS_ORIGINS:-${SERVICE_URL_EPURE_8080}}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_64_POSTGRES}
+      DATABASE_URL: postgres://epure:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/epure
+      EPURE_INGEST_DATABASE_URL: postgres://epure_ingest:${SERVICE_PASSWORD_64_EPURE_INGEST}@postgres:5432/epure
+      EPURE_APP_DATABASE_URL: postgres://epure_app:${SERVICE_PASSWORD_64_EPURE_APP}@postgres:5432/epure
+    volumes:
+      - artifacts_data:/data/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: epure
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_64_POSTGRES}
+      POSTGRES_DB: epure
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U epure -d epure && psql -U epure -d epure -qtAc 'SELECT 1' | grep -q 1",
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+volumes:
+  postgres_data:
+  artifacts_data:

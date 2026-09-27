@@ -15,6 +15,7 @@ docker compose up -d
 | [env.production.example](./env.production.example) | Copy → repo-root `.env` for production |
 | [env.dev.example](./env.dev.example) | Copy → repo-root `.env.dev` for host `cargo` / tests |
 | [env.test.example](./env.test.example) | Minimal `DATABASE_URL` for tests |
+| [templates/](./templates/) | Coolify, Dokploy, Render (`render.yaml`), Railway compose |
 
 ## Commands
 
