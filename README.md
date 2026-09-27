@@ -130,6 +130,28 @@ If you need tracing, replay, profiling, logs, or advanced infrastructure metrics
 - Two-container Docker Compose deployment.
 - No Redis, Kafka, ClickHouse, or separate worker container.
 
+## Agent triage (today)
+
+Epure issues export as Markdown aimed at coding agents.
+
+1. Self-host (`docker compose up -d`) and point your official Sentry SDK DSN at Epure.
+2. Open an issue → **Copy for AI** (button, command palette, or **⌘⇧C** / **Ctrl+Shift+C**).
+3. Paste into Cursor or Claude Code → ask for root cause and a minimal patch.
+4. Ship the fix, then **Resolve** in the Epure UI.
+
+The clipboard includes a one-shot fix prompt plus exception, in-app stack, breadcrumbs, and tags (see the issues Markdown export in the dashboard).
+
+### Agent Skills
+
+```bash
+npx skills add epure-sh/epure --skill epure-setup
+npx skills add epure-sh/epure --skill epure-triage
+```
+
+### MCP status
+
+A thin triage MCP (list/get/export/resolve-style tools over your self-hosted instance) is on the roadmap. **It is not required** for the Copy for AI loop above. When an HTTP MCP endpoint ships, we will document Cursor/Claude snippets and update this section — we will not advertise MCP before it is usable.
+
 ## Use the official Sentry SDKs
 
 Epure does not require a custom client SDK.
