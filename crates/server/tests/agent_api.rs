@@ -148,11 +148,7 @@ async fn read_pat_can_queue_and_context_but_not_triage() {
         .expect("seed dev");
     seed_dev_password(&migrate_pool).await;
 
-    let token = create_pat(
-        &migrate_pool,
-        &[agent_tokens::SCOPE_READ_AGENT],
-    )
-    .await;
+    let token = create_pat(&migrate_pool, &[agent_tokens::SCOPE_READ_AGENT]).await;
 
     let (base_url, _pool, handle) = spawn_test_server().await;
     let client = Client::new();
@@ -174,7 +170,9 @@ async fn read_pat_can_queue_and_context_but_not_triage() {
     assert!(queue.status().is_success());
 
     let resolve = client
-        .patch(format!("{base_url}/api/v1/agent/issues/00000000-0000-0000-0000-000000000001"))
+        .patch(format!(
+            "{base_url}/api/v1/agent/issues/00000000-0000-0000-0000-000000000001"
+        ))
         .header("Authorization", format!("Bearer {token}"))
         .json(&serde_json::json!({ "status": "resolved" }))
         .send()
@@ -197,11 +195,7 @@ async fn pat_cannot_read_other_org_issue() {
     seed_dev_password(&migrate_pool).await;
     seed_org_b_issue(&migrate_pool).await;
 
-    let token = create_pat(
-        &migrate_pool,
-        &[agent_tokens::SCOPE_READ_AGENT],
-    )
-    .await;
+    let token = create_pat(&migrate_pool, &[agent_tokens::SCOPE_READ_AGENT]).await;
 
     let (base_url, _pool, handle) = spawn_test_server().await;
     let client = Client::new();
@@ -554,4 +548,3 @@ async fn admin_pat_can_list_agent_tokens() {
 
     handle.abort();
 }
-

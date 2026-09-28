@@ -123,16 +123,10 @@ pub fn build_context(
     if let Some(ref mut ev) = event_out {
         if !options.include_user {
             if ev.user_email.is_some() {
-                ev.user_email = ev
-                    .user_email
-                    .as_ref()
-                    .map(|email| hash_user_email(email));
+                ev.user_email = ev.user_email.as_ref().map(|email| hash_user_email(email));
             }
             if ev.user_id.is_some() {
-                ev.user_id = ev
-                    .user_id
-                    .as_ref()
-                    .map(|id| hash_user_email(id));
+                ev.user_id = ev.user_id.as_ref().map(|id| hash_user_email(id));
             }
         }
     }
@@ -291,10 +285,12 @@ fn build_ai_prompt(title: &str, ctx: &AgentContextJson, culprit_section: &str) -
 }
 
 fn build_export_markdown(ctx: &AgentContextJson) -> String {
-    let title = ctx.issue.title.clone().unwrap_or_else(|| "Untitled issue".into());
-    let vendor_count = ctx
-        .app_stack
-        .len(); // simplified — app_stack already filtered
+    let title = ctx
+        .issue
+        .title
+        .clone()
+        .unwrap_or_else(|| "Untitled issue".into());
+    let vendor_count = ctx.app_stack.len(); // simplified — app_stack already filtered
     let app_count = ctx.app_stack.len();
 
     let mut lines = vec![
@@ -449,7 +445,10 @@ fn is_vendor_frame(frame: &StackFrame) -> bool {
 }
 
 fn has_source_context(frame: &StackFrame) -> bool {
-    frame.context_line.as_ref().is_some_and(|l| !l.trim().is_empty())
+    frame
+        .context_line
+        .as_ref()
+        .is_some_and(|l| !l.trim().is_empty())
         || frame
             .pre_context
             .as_ref()
@@ -591,8 +590,7 @@ fn infer_user_journey(crumbs: &[Breadcrumb], exception_text: &str) -> String {
                 Some(format!("navigated to {dest}"))
             } else if category.contains("click") || category == "ui" {
                 Some(format!("clicked {message}"))
-            } else if category.contains("fetch") || category.contains("http") || category == "xhr"
-            {
+            } else if category.contains("fetch") || category.contains("http") || category == "xhr" {
                 let method = crumb
                     .data
                     .as_ref()

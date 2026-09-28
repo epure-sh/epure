@@ -86,8 +86,12 @@ enum TriageCommands {
         #[arg(long)]
         release: Option<String>,
     },
-    Ignore { issue_id: String },
-    Reopen { issue_id: String },
+    Ignore {
+        issue_id: String,
+    },
+    Reopen {
+        issue_id: String,
+    },
     Snooze {
         issue_id: String,
         #[arg(long, default_value = "hours")]
@@ -142,9 +146,7 @@ async fn run() -> Result<(), String> {
             format,
             out,
         } => {
-            let url = format!(
-                "{base}/api/v1/agent/issues/{issue_id}/context?format={format}"
-            );
+            let url = format!("{base}/api/v1/agent/issues/{issue_id}/context?format={format}");
             if format == "markdown" {
                 let text = get_text(&client, &token, &url).await?;
                 if let Some(path) = out {
@@ -203,13 +205,8 @@ async fn run() -> Result<(), String> {
             }
             TriageCommands::Snooze { issue_id, mode } => {
                 let url = format!("{base}/api/v1/issues/{issue_id}/snooze");
-                let body = post_json(
-                    &client,
-                    &token,
-                    &url,
-                    &serde_json::json!({ "mode": mode }),
-                )
-                .await?;
+                let body =
+                    post_json(&client, &token, &url, &serde_json::json!({ "mode": mode })).await?;
                 print_output(&cli.output, &body, |_| Ok(()))?;
             }
         },
@@ -287,12 +284,7 @@ async fn patch_json(
     api_call(client, token, "PATCH", url, Some(body)).await
 }
 
-async fn post_json(
-    client: &Client,
-    token: &str,
-    url: &str,
-    body: &Value,
-) -> Result<Value, String> {
+async fn post_json(client: &Client, token: &str, url: &str, body: &Value) -> Result<Value, String> {
     api_call(client, token, "POST", url, Some(body)).await
 }
 
@@ -311,7 +303,9 @@ async fn api_call(
         )
         .header(AUTHORIZATION, format!("Bearer {token}"));
     if let Some(payload) = body {
-        request = request.header(CONTENT_TYPE, "application/json").json(payload);
+        request = request
+            .header(CONTENT_TYPE, "application/json")
+            .json(payload);
     }
     let response = request.send().await.map_err(|err| err.to_string())?;
     parse_response(response).await
@@ -405,10 +399,7 @@ fn print_queue_table(body: &Value) -> Result<(), String> {
             .get("title")
             .and_then(|v| v.as_str())
             .unwrap_or("Untitled");
-        let status = issue
-            .get("status")
-            .and_then(|v| v.as_str())
-            .unwrap_or("?");
+        let status = issue.get("status").and_then(|v| v.as_str()).unwrap_or("?");
         let reasons = row
             .get("reasons")
             .and_then(|v| v.as_array())

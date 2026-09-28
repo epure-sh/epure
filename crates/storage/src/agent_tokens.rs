@@ -83,10 +83,7 @@ pub async fn touch_last_used(pool: &PgPool, token_id: Uuid) -> Result<(), sqlx::
     Ok(())
 }
 
-pub async fn list_for_org(
-    pool: &PgPool,
-    org_id: Uuid,
-) -> Result<Vec<AgentTokenRow>, sqlx::Error> {
+pub async fn list_for_org(pool: &PgPool, org_id: Uuid) -> Result<Vec<AgentTokenRow>, sqlx::Error> {
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
     let rows = sqlx::query_as::<_, AgentTokenRow>(
         r#"
@@ -203,6 +200,9 @@ mod tests {
         ]));
         assert!(!scopes_valid(&[SCOPE_WRITE_TRIAGE.to_string()]));
         assert!(!scopes_valid(&[]));
-        assert!(!scopes_valid(&["admin:all".to_string(), SCOPE_READ_AGENT.to_string()]));
+        assert!(!scopes_valid(&[
+            "admin:all".to_string(),
+            SCOPE_READ_AGENT.to_string()
+        ]));
     }
 }
