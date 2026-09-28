@@ -12,13 +12,16 @@ Nothing yet.
 
 Agent workspace for coding tools: scoped PATs, HTTP Agent API, `epure-cli`, and `@epure/mcp`.
 
-Container: `ghcr.io/epure-sh/epure:v0.1.2` (also `:latest` after Image workflow).
+- **Release:** [GitHub v0.1.2](https://github.com/epure-sh/epure/releases/tag/v0.1.2)
+- **Compare:** [v0.1.1…v0.1.2](https://github.com/epure-sh/epure/compare/v0.1.1...v0.1.2)
+- **Image:** `ghcr.io/epure-sh/epure:v0.1.2` (also `:latest` after Image workflow)
+- **Docs:** [epure.sh/docs/changelog](https://epure.sh/docs/changelog) · [MCP and CLI](https://epure.sh/docs/guides/mcp-and-cli)
 
 ### Added
 
 - Agent API (`/api/v1/agent/*`) with queue, issue context, and scoped PATs (`write:admin`, project read/write)
 - `epure-cli` in the release image for scripts and CI
-- `@epure/mcp` stdio MCP server wrapping the dashboard API ([MCP and CLI guide](https://epure.sh/docs/guides/mcp-and-cli))
+- `@epure/mcp` stdio MCP server in `tools/epure-mcp` ([MCP and CLI guide](https://epure.sh/docs/guides/mcp-and-cli))
 - Org settings: agent token tab; setup wizard refresh (platform marks, docs links, Apply with AI prompt)
 - OpenAPI: [docs/agent.openapi.yaml](./docs/agent.openapi.yaml)
 
@@ -26,6 +29,10 @@ Container: `ghcr.io/epure-sh/epure:v0.1.2` (also `:latest` after Image workflow)
 
 - Calm Ledger design tokens and brand kit SVG refresh
 - Org home and billing settings UX
+
+### Upgrade
+
+Pin `EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.1.2`, pull, and `docker compose up -d`. Migrations run on startup. Smoke-test a PAT and the [Agent API](https://epure.sh/docs/api/agent) after upgrade.
 
 ## [v0.1.1] — 2026-09-26
 
