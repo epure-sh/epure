@@ -42,8 +42,8 @@ Operator and product guides are published on the documentation site:
 # latest multi-arch build
 docker pull ghcr.io/epure-sh/epure:latest
 
-# pin a numbered release (only when you intentionally cut one)
-docker pull ghcr.io/epure-sh/epure:v0.1.0
+# pin a numbered release (see GitHub Releases for the current tag)
+docker pull ghcr.io/epure-sh/epure:v0.1.2
 ```
 
 Pin with `EPURE_IMAGE` in `.env` for production. Source build: `docker compose -f docker-compose.yml -f deploy/docker-compose.build.yml up --build`.
