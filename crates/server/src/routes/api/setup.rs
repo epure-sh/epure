@@ -51,6 +51,7 @@ struct SetupProgressResponse {
 #[derive(Serialize)]
 struct SetupDsnResponse {
     project_id: Uuid,
+    dsn_project_id: i64,
     public_key: Option<String>,
     has_active_key: bool,
 }
@@ -100,14 +101,11 @@ async fn ensure_project(
     state: &AppState,
     org_id: Uuid,
     project_id: Uuid,
-) -> Result<(), StatusCode> {
-    let project = projects::get_project(&state.pools.app, org_id, project_id)
+) -> Result<projects::ProjectRow, StatusCode> {
+    projects::get_project(&state.pools.app, org_id, project_id)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    if project.is_none() {
-        return Err(StatusCode::NOT_FOUND);
-    }
-    Ok(())
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)
 }
 
 async fn get_setup(
@@ -115,7 +113,7 @@ async fn get_setup(
     Extension(dashboard): Extension<DashboardSession>,
     Query(query): Query<SetupQuery>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    ensure_project(&state, dashboard.org_id, query.project_id).await?;
+    let _project = ensure_project(&state, dashboard.org_id, query.project_id).await?;
 
     let row = setup::get_setup_progress(
         &state.pools.app,
@@ -134,7 +132,7 @@ async fn get_setup_dsn(
     Extension(dashboard): Extension<DashboardSession>,
     Query(query): Query<SetupQuery>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    ensure_project(&state, dashboard.org_id, query.project_id).await?;
+    let project = ensure_project(&state, dashboard.org_id, query.project_id).await?;
 
     let public_key =
         dsn_keys::first_active_public_key(&state.pools.app, dashboard.org_id, query.project_id)
@@ -143,6 +141,7 @@ async fn get_setup_dsn(
 
     Ok(Json(SetupDsnResponse {
         project_id: query.project_id,
+        dsn_project_id: project.dsn_project_id,
         has_active_key: public_key.is_some(),
         public_key,
     }))
@@ -153,7 +152,7 @@ async fn post_test_event(
     Extension(dashboard): Extension<DashboardSession>,
     Query(query): Query<SetupQuery>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    ensure_project(&state, dashboard.org_id, query.project_id).await?;
+    let _project = ensure_project(&state, dashboard.org_id, query.project_id).await?;
 
     let public_key =
         dsn_keys::first_active_public_key(&state.pools.app, dashboard.org_id, query.project_id)
@@ -208,7 +207,7 @@ async fn patch_setup(
     Extension(dashboard): Extension<DashboardSession>,
     Json(body): Json<PatchSetupBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    ensure_project(&state, dashboard.org_id, body.project_id).await?;
+    let _project = ensure_project(&state, dashboard.org_id, body.project_id).await?;
 
     if body.dsn_copied == Some(true) {
         let public_key =

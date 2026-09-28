@@ -185,6 +185,7 @@ export function IssuesPage() {
         projectId ?? undefined,
         window,
         sort === DEFAULT_ISSUE_SORT ? undefined : sort,
+        environment,
       );
       setIssues(rows);
       try {
@@ -224,7 +225,7 @@ export function IssuesPage() {
     } finally {
       setLoading(false);
     }
-  }, [buildQuery, projectId, toast, urlIssueId]);
+  }, [buildQuery, environment, projectId, toast, urlIssueId]);
 
   const setTimeWindow = useCallback(
     (nextWindow: TimeWindowValue) => {

@@ -360,6 +360,7 @@ export const me: MeResponse = {
 export const projects: ProjectRow[] = [
   {
     id: PROJECT_WEB,
+    dsn_project_id: 100001,
     org_id: ORG_ID,
     name: "Acme Web",
     slug: "acme-web",
@@ -370,6 +371,7 @@ export const projects: ProjectRow[] = [
   },
   {
     id: PROJECT_API,
+    dsn_project_id: 100002,
     org_id: ORG_ID,
     name: "Acme API",
     slug: "acme-api",
@@ -380,6 +382,7 @@ export const projects: ProjectRow[] = [
   },
   {
     id: PROJECT_SETUP,
+    dsn_project_id: 100010,
     org_id: ORG_ID,
     name: "Checkout Web",
     slug: "checkout-web",

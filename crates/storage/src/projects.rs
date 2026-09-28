@@ -5,6 +5,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
 pub struct ProjectRow {
     pub id: Uuid,
+    pub dsn_project_id: i64,
     pub org_id: Uuid,
     pub name: String,
     pub slug: Option<String>,
@@ -29,7 +30,7 @@ pub async fn list_projects(pool: &PgPool, org_id: Uuid) -> Result<Vec<ProjectRow
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
     let rows = sqlx::query_as::<_, ProjectRow>(
         r#"
-        SELECT id, org_id, name, slug, retention_days, ingest_cap_per_hour, is_demo, created_at
+        SELECT id, dsn_project_id, org_id, name, slug, retention_days, ingest_cap_per_hour, is_demo, created_at
         FROM projects
         ORDER BY created_at ASC
         "#,
@@ -48,7 +49,7 @@ pub async fn get_project(
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
     let row = sqlx::query_as::<_, ProjectRow>(
         r#"
-        SELECT id, org_id, name, slug, retention_days, ingest_cap_per_hour, is_demo, created_at
+        SELECT id, dsn_project_id, org_id, name, slug, retention_days, ingest_cap_per_hour, is_demo, created_at
         FROM projects
         WHERE id = $1
         "#,
@@ -70,7 +71,7 @@ pub async fn create_project(
         r#"
         INSERT INTO projects (org_id, name, slug, retention_days, ingest_cap_per_hour, is_demo)
         VALUES ($1, $2, $3, 30, 5000, false)
-        RETURNING id, org_id, name, slug, retention_days, ingest_cap_per_hour, is_demo, created_at
+        RETURNING id, dsn_project_id, org_id, name, slug, retention_days, ingest_cap_per_hour, is_demo, created_at
         "#,
     )
     .bind(org_id)
@@ -92,7 +93,7 @@ pub async fn update_project(
 
     let current = sqlx::query_as::<_, ProjectRow>(
         r#"
-        SELECT id, org_id, name, slug, retention_days, ingest_cap_per_hour, is_demo, created_at
+        SELECT id, dsn_project_id, org_id, name, slug, retention_days, ingest_cap_per_hour, is_demo, created_at
         FROM projects
         WHERE id = $1
         "#,
@@ -117,7 +118,7 @@ pub async fn update_project(
         UPDATE projects
         SET name = $2, retention_days = $3, ingest_cap_per_hour = $4
         WHERE id = $1
-        RETURNING id, org_id, name, slug, retention_days, ingest_cap_per_hour, is_demo, created_at
+        RETURNING id, dsn_project_id, org_id, name, slug, retention_days, ingest_cap_per_hour, is_demo, created_at
         "#,
     )
     .bind(project_id)
@@ -157,6 +158,16 @@ pub struct ProjectIngestMeta {
     pub org_id: Uuid,
     pub name: String,
     pub ingest_cap_per_hour: i32,
+}
+
+pub async fn project_id_for_dsn_segment(
+    pool: &PgPool,
+    dsn_project_id: i64,
+) -> Result<Option<Uuid>, sqlx::Error> {
+    sqlx::query_scalar("SELECT ingest_lookup_project_id($1)")
+        .bind(dsn_project_id)
+        .fetch_optional(pool)
+        .await
 }
 
 pub async fn project_ingest_meta(
