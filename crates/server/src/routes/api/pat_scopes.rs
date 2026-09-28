@@ -3,11 +3,7 @@ use epure_auth::AgentTokenSession;
 use epure_storage::agent_tokens;
 
 /// Which PAT scopes are required for this request (empty = session cookie only, no PAT check).
-pub fn pat_missing_scopes(
-    method: &Method,
-    path: &str,
-    scopes: &[String],
-) -> Option<StatusCode> {
+pub fn pat_missing_scopes(method: &Method, path: &str, scopes: &[String]) -> Option<StatusCode> {
     let path = path.strip_prefix("/api/v1").unwrap_or(path);
 
     if path.starts_with("/auth") {
@@ -106,9 +102,7 @@ pub fn session_from_pat(agent: &AgentTokenSession, email: String) -> epure_auth:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use epure_storage::agent_tokens::{
-        SCOPE_READ_AGENT, SCOPE_WRITE_ADMIN, SCOPE_WRITE_TRIAGE,
-    };
+    use epure_storage::agent_tokens::{SCOPE_READ_AGENT, SCOPE_WRITE_ADMIN, SCOPE_WRITE_TRIAGE};
 
     fn scopes(read: bool, triage: bool, admin: bool) -> Vec<String> {
         let mut s = Vec::new();

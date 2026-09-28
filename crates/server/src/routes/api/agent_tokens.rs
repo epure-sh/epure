@@ -9,8 +9,7 @@ use axum::{
 };
 use epure_auth::{hash_password, DashboardSession};
 use epure_storage::agent_tokens::{
-    self, scopes_valid, CreatedAgentToken, SCOPE_READ_AGENT, TOKEN_PREFIX,
-    TOKEN_PREFIX_DISPLAY_LEN,
+    self, scopes_valid, CreatedAgentToken, SCOPE_READ_AGENT, TOKEN_PREFIX, TOKEN_PREFIX_DISPLAY_LEN,
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -71,7 +70,9 @@ async fn create_token(
 ) -> Result<impl IntoResponse, StatusCode> {
     require_min_role(&dashboard, Role::Admin)?;
 
-    let mut scopes = body.scopes.unwrap_or_else(|| vec![SCOPE_READ_AGENT.to_string()]);
+    let mut scopes = body
+        .scopes
+        .unwrap_or_else(|| vec![SCOPE_READ_AGENT.to_string()]);
     if scopes.is_empty() {
         scopes.push(SCOPE_READ_AGENT.to_string());
     }

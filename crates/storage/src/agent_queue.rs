@@ -64,11 +64,7 @@ pub async fn build_agent_queue(
     scored.sort_by(|a, b| {
         b.priority_score
             .cmp(&a.priority_score)
-            .then_with(|| {
-                b.issue
-                    .last_seen_at
-                    .cmp(&a.issue.last_seen_at)
-            })
+            .then_with(|| b.issue.last_seen_at.cmp(&a.issue.last_seen_at))
     });
 
     let limit = params.limit.clamp(1, AGENT_QUEUE_MAX);

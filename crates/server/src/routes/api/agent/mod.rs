@@ -23,10 +23,7 @@ use crate::state::AppState;
 pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/queue", get(queue))
-        .route(
-            "/issues/{id}",
-            get(get_issue).patch(patch_issue),
-        )
+        .route("/issues/{id}", get(get_issue).patch(patch_issue))
         .route("/issues/{id}/context", get(issue_context))
         .route("/issues/{id}/snooze", post(snooze_issue))
         .route("/alerts", get(list_alerts))
@@ -58,7 +55,10 @@ async fn queue(
     if filter.time_window.is_none() {
         filter.time_window = Some(window);
     }
-    let limit = query.limit.unwrap_or(AGENT_QUEUE_DEFAULT).clamp(1, AGENT_QUEUE_MAX);
+    let limit = query
+        .limit
+        .unwrap_or(AGENT_QUEUE_DEFAULT)
+        .clamp(1, AGENT_QUEUE_MAX);
 
     let rows = agent_queue::build_agent_queue(
         &state.pools.app,
@@ -119,7 +119,10 @@ async fn issue_context(
 
     if query.format.as_deref() == Some("markdown") {
         return Ok((
-            [(axum::http::header::CONTENT_TYPE, "text/markdown; charset=utf-8")],
+            [(
+                axum::http::header::CONTENT_TYPE,
+                "text/markdown; charset=utf-8",
+            )],
             render_markdown(&ctx),
         )
             .into_response());
@@ -212,7 +215,6 @@ async fn patch_issue(
     Path(id): Path<Uuid>,
     Json(body): Json<PatchIssueBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
-
     if let Some(status) = &body.status {
         if !matches!(
             status.as_str(),
@@ -253,7 +255,6 @@ async fn snooze_issue(
     Path(id): Path<Uuid>,
     Json(body): Json<SnoozeBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
-
     let mode = match body.mode.as_str() {
         "hours" | "4h" => SnoozeMode::Hours4,
         "occurrences" | "100" => SnoozeMode::Occurrences100,

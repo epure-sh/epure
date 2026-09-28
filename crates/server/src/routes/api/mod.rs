@@ -7,9 +7,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json, Router,
 };
-use epure_auth::{
-    authenticate_agent_token, load_dashboard_session, ApiPatAuth, DashboardSession,
-};
+use epure_auth::{authenticate_agent_token, load_dashboard_session, ApiPatAuth, DashboardSession};
 use epure_storage::members as member_store;
 use serde_json::json;
 use tower_sessions::Session;
@@ -125,14 +123,8 @@ async fn authenticate_pat(
     };
 
     let path = request.uri().path().to_string();
-    if let Some(status) =
-        pat_scopes::pat_missing_scopes(request.method(), &path, &agent.scopes)
-    {
-        return (
-            status,
-            Json(json!({ "error": "forbidden" })),
-        )
-            .into_response();
+    if let Some(status) = pat_scopes::pat_missing_scopes(request.method(), &path, &agent.scopes) {
+        return (status, Json(json!({ "error": "forbidden" }))).into_response();
     }
 
     let dashboard = pat_scopes::session_from_pat(&agent, String::new());
