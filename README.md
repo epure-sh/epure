@@ -31,11 +31,7 @@ When production throws, you get a grouped issue, a readable stack, breadcrumbs, 
 
 **Idle footprint: ~53 MiB combined.** `docker stats` on 2026-09-23, 2 vCPU / 769 MiB Linux VPS (Alibaba Cloud), classic Compose (`epure` + `postgres`): Epure ~5 MiB RSS + PostgreSQL ~48 MiB RSS. [Full notes](#resource-usage).
 
-![Epure Issues dashboard](.github/readme-shot.webp)
-
-| Point the DSN at Epure | Rotate and revoke keys | Spike protection on an issue |
-| --- | --- | --- |
-| <img src=".github/readme-dsn.webp" alt="Connection settings with a Sentry DSN and a curl example" width="280" /> | <img src=".github/readme-keys.webp" alt="API keys with create, rotate, and revoke actions" width="280" /> | <img src=".github/readme-spike.webp" alt="Grouped issue with a spike-protection notice above the stack" width="280" /> |
+![Epure Issues dashboard](.github/readme-shot.gif)
 
 ## Run it
 
