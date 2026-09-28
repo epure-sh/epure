@@ -2,17 +2,17 @@
   "theme": "calm-ledger",
   "source": "../themes/calm-ledger.css",
   "colors": {
-    "bg": "#f4f4f2",
-    "bgSubtle": "#ebebe8",
+    "bg": "#faf9f7",
+    "bgSubtle": "#f3f1ed",
     "surface": "#ffffff",
     "surfaceElevated": "#ffffff",
-    "ink": "#0a0a0a",
-    "inkMuted": "#525252",
-    "inkSubtle": "#737373",
-    "accent": "#4338ca",
-    "accentMuted": "#e8e7fb",
+    "ink": "#141210",
+    "inkMuted": "#5c5954",
+    "inkSubtle": "#8a857c",
+    "accent": "#4f46e5",
+    "accentMuted": "#eceafd",
     "accentContrast": "#ffffff",
-    "accentHover": "#3730a3"
+    "accentHover": "#4338ca"
   },
   "typography": {
     "wordmark": {

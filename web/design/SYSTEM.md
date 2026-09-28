@@ -21,9 +21,9 @@ Warm **paper canvas**, **one indigo chroma**. Hex lives in theme CSS only. Copy 
 
 | Role | Use |
 |---|---|
-| `--bg` / `--bg-subtle` | Page paper (`#f4f4f2`) and rail (`#ebebe8`) |
+| `--bg` / `--bg-subtle` | Warm ivory paper (`#faf9f7`) and tinted rail wash (`#f3f1ed`) |
 | `--surface` | Cards, list well — white |
-| `--text` | Near-black ink (`#0a0a0a`); muted/subtle = ink alphas (`#525252` / `#737373`) |
+| `--text` | Near-black ink (`#141210`); muted/subtle = warm greys (`#5c5954` / `#8a857c`) |
 | `--border` | 8% hairline (`rgba(10,10,10,0.08)`), not opaque slate |
 | `--accent` | Primary actions, focus, selected wash (`--accent-muted`), unread cue |
 | `--signal` | **Alias of `--accent`** — unread / hot use the same indigo, never a second green brand chroma |

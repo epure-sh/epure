@@ -1,24 +1,25 @@
 /* Calm Ledger — paper/indigo ops: landing chroma, compact product density. */
 
 [data-style="calm-ledger"] {
-  --bg: #f4f4f2;
-  --bg-subtle: #ebebe8;
+  /* Warm ivory paper — avoid cold blue-grey slate */
+  --bg: #faf9f7;
+  --bg-subtle: #f3f1ed;
   --surface: #ffffff;
-  --surface-inset: #ebebe8;
+  --surface-inset: #f6f4f0;
   --surface-elevated: #ffffff;
   --surface-raised: var(--surface-elevated);
-  --border: rgba(10, 10, 10, 0.08);
-  --border-strong: rgba(10, 10, 10, 0.18);
+  --border: rgba(26, 22, 18, 0.07);
+  --border-strong: rgba(26, 22, 18, 0.14);
 
-  --text: #0a0a0a;
-  --text-muted: #525252;
-  --text-subtle: #737373;
-  --text-inverse: #f4f4f2;
+  --text: #141210;
+  --text-muted: #5c5954;
+  --text-subtle: #8a857c;
+  --text-inverse: #faf9f7;
 
-  --accent: #4338ca;
-  --accent-muted: #e8e7fb;
+  --accent: #4f46e5;
+  --accent-muted: #eceafd;
   --accent-contrast: #ffffff;
-  --accent-hover-border: #3730a3;
+  --accent-hover-border: #4338ca;
 
   --signal: var(--accent);
   --signal-muted: var(--accent-muted);
@@ -31,9 +32,9 @@
   --info: #4f6b8a;
   --focus-ring: var(--accent);
 
-  --state-hover: #ebebe8;
+  --state-hover: #f0eeea;
   --state-selected: var(--accent-muted);
-  --state-pressed: #e0e0dc;
+  --state-pressed: #e5e2dc;
 
   --body-size: 0.875rem;
   --body-leading: 1.45;
@@ -208,7 +209,7 @@
   box-shadow: none;
   height: auto;
   min-height: 0;
-  background: var(--bg-subtle);
+  background: var(--surface);
 }
 
 [data-style="calm-ledger"] .epure-issue-list-header .epure-checkbox {
@@ -418,7 +419,8 @@
 
 /* Dialog, popover, dropdown */
 [data-style="calm-ledger"] .epure-dialog-overlay {
-  background: color-mix(in srgb, var(--text) 15%, transparent);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  backdrop-filter: blur(4px);
 }
 
 [data-style="calm-ledger"] .epure-dialog-content {
@@ -508,7 +510,7 @@
 /* Issues context chrome */
 [data-style="calm-ledger"] .epure-context-strip,
 [data-style="calm-ledger"] .epure-home-hint {
-  background: color-mix(in srgb, var(--bg-subtle) 70%, transparent);
+  background: color-mix(in srgb, var(--accent-muted) 40%, var(--bg));
 }
 
 /* Settings nav — pill active rail */
@@ -575,7 +577,7 @@
 /* Shell rail — flat paper, 1px rule, compact 8px items, 2px inset accent */
 [data-style="calm-ledger"] .epure-shell-rail,
 [data-style="calm-ledger"] .epure-rail {
-  background: var(--bg-subtle);
+  background: color-mix(in srgb, var(--bg) 90%, var(--accent-muted));
   border-right: 1px solid var(--border);
   padding: var(--space-2);
 }
@@ -854,7 +856,7 @@
 }
 
 [data-style="calm-ledger"] .epure-setup-checklist {
-  background: var(--bg-subtle);
+  background: color-mix(in srgb, var(--accent-muted) 35%, var(--bg));
 }
 
 [data-style="calm-ledger"] .epure-separator {
@@ -1015,24 +1017,25 @@
 [data-style="calm-ledger"][data-theme="dark"],
 [data-theme="dark"]:not([data-style]),
 [data-theme="dark"][data-style="calm-ledger"] {
-  --bg: #111318;
-  --bg-subtle: #181b22;
-  --surface: #1c1f27;
-  --surface-inset: #151820;
-  --surface-elevated: #242833;
+  /* Warm ink + indigo depth — not blue-slate chrome */
+  --bg: #100f14;
+  --bg-subtle: #17151c;
+  --surface: #1c1a22;
+  --surface-inset: #14121a;
+  --surface-elevated: #22202a;
   --surface-raised: var(--surface-elevated);
-  --border: #2e3340;
-  --border-strong: #4a5162;
+  --border: rgba(236, 232, 255, 0.08);
+  --border-strong: rgba(236, 232, 255, 0.16);
 
-  --text: #f3f4f6;
-  --text-muted: #9ca3af;
-  --text-subtle: #6b7280;
-  --text-inverse: #111318;
+  --text: #f4f2fa;
+  --text-muted: #b3aec6;
+  --text-subtle: #847e96;
+  --text-inverse: #100f14;
 
-  --accent: #8b84f0;
-  --accent-muted: #1e1b4b;
-  --accent-contrast: #111318;
-  --accent-hover-border: #6f66e8;
+  --accent: #8b85f5;
+  --accent-muted: #2a2640;
+  --accent-contrast: #100f14;
+  --accent-hover-border: #7a73eb;
 
   --signal: var(--accent);
   --signal-muted: var(--accent-muted);
@@ -1042,9 +1045,9 @@
   --warning: #d4a054;
   --danger: #e07a7a;
   --info: #7c9ec4;
-  --focus-ring: #8b84f0;
+  --focus-ring: #8b85f5;
 
-  --state-hover: #181b22;
-  --state-selected: #252a35;
-  --state-pressed: #1f232c;
+  --state-hover: #211f28;
+  --state-selected: #2f2a42;
+  --state-pressed: #1a1822;
 }

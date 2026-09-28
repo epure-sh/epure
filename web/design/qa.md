@@ -3,7 +3,7 @@
 Ship a product UI slice only if all pass:
 
 - [ ] `--danger` only for live exceptions — not decorative chrome
-- [ ] Palette: paper canvas (`#f4f4f2`), indigo accent (`#4338ca`), **one chroma** — `--signal` aliases `--accent`. Unread is **not** green
+- [ ] Palette: warm ivory canvas (`#faf9f7`), indigo accent (`#4f46e5`), **one chroma** — `--signal` aliases `--accent`. Unread is **not** green
 - [ ] Unread vs selected: unread = weight + small indigo cue (dot/2px edge), **no full-row wash**; selected = `--accent-muted` wash; both = wash + unread mark
 - [ ] Accent < ~10% of pixels on issue list — do not flood rows with indigo
 - [ ] DSN, stack paths, hashes use `font-mono` only
@@ -22,3 +22,4 @@ Ship a product UI slice only if all pass:
 - [ ] No hex literals or `bg-[#…]` in `src/ui/`, `src/shell/`, `src/features/`
 - [ ] Sans UI uses `tracking-ui` (-0.007em) where type is set explicitly
 - [ ] No marketing.css / landing tokens in the product tree
+- [ ] User-facing copy: no em dash (U+2014). Use periods, commas, or colons instead

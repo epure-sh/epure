@@ -46,12 +46,12 @@ cd web/design/brand/kit && python3 generate.py
 
 | Token | Hex | Use in kit |
 |---|---|---|
-| `bg` | `#f4f4f2` | Light page background |
-| `bgSubtle` | `#ebebe8` | Subtle panels |
+| `bg` | `#faf9f7` | Light page background |
+| `bgSubtle` | `#f3f1ed` | Subtle panels |
 | `surface` | `#ffffff` | Cards, modals |
-| `ink` | `#0a0a0a` | Wordmark on light |
-| `accent` | `#4338ca` | Mark on light, icon fills |
-| `accentMuted` | `#e8e7fb` | Soft accent panels |
+| `ink` | `#141210` | Wordmark on light |
+| `accent` | `#4f46e5` | Mark on light, icon fills |
+| `accentMuted` | `#eceafd` | Soft accent panels |
 | `accentContrast` | `#ffffff` | Mark on accent / ink |
 
 ---
