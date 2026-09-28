@@ -41,6 +41,31 @@ async fn store_ingest_persists_issue_row() {
 }
 
 #[tokio::test]
+async fn numeric_dsn_project_id_resolves_ingest() {
+    let (base_url, pool, server) = spawn_test_server().await;
+    let dsn_project_id: i64 =
+        sqlx::query_scalar("SELECT dsn_project_id FROM projects WHERE id = $1")
+            .bind(project_id())
+            .fetch_one(&pool)
+            .await
+            .expect("dsn project id");
+
+    let body = fs::read(fixture_path("python", "store.json")).expect("python store fixture");
+    let client = reqwest::Client::new();
+    let response = client
+        .post(format!("{}/api/{dsn_project_id}/store/", base_url))
+        .header("X-Sentry-Auth", auth_header())
+        .header("Content-Type", "application/json")
+        .body(body)
+        .send()
+        .await
+        .expect("post store");
+
+    assert_eq!(response.status(), reqwest::StatusCode::ACCEPTED);
+    server.abort();
+}
+
+#[tokio::test]
 async fn invalid_dsn_returns_unauthorized_without_panic() {
     let (base_url, _pool, server) = spawn_test_server().await;
     let client = reqwest::Client::new();

@@ -32,7 +32,7 @@ export function SetupWaitingPanel({
           return;
         }
         if (info.public_key) {
-          setDsn(formatDsn(info.public_key, projectId));
+          setDsn(formatDsn(info.public_key, info.dsn_project_id));
         } else {
           setDsn("");
         }

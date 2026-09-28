@@ -926,6 +926,8 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
       .slice(0, 32);
     const created: ProjectRow = {
       id: crypto.randomUUID(),
+      dsn_project_id:
+        mockProjects.reduce((max, row) => Math.max(max, row.dsn_project_id), 100010) + 1,
       org_id: projects[0].org_id,
       name,
       slug: slug || "project",

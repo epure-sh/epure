@@ -4,6 +4,7 @@ import { projectSettingsPath } from "../../lib/paths";
 import {
   createDsnKey,
   fetchDsnKeys,
+  dsnPathSegment,
   formatDsn,
   revokeDsnKey,
   rotateDsnKeys,
@@ -25,7 +26,7 @@ import { InfoCallout, MemberAccessNotice, SettingsTabHeader } from "./shared";
 
 export function DsnKeysSettings() {
   const { projectId: paramId } = useParams<{ projectId: string }>();
-  const { user } = useAppContext();
+  const { projects, user } = useAppContext();
   const [keys, setKeys] = useState<DsnKeyRow[]>([]);
   const [revealed, setRevealed] = useState<CreatedDsnKey | null>(null);
   const [keyLabel, setKeyLabel] = useState("default");
@@ -134,11 +135,15 @@ export function DsnKeysSettings() {
     );
   }
 
-  const activeDsn = activeKey
-    ? formatDsn(activeKey.public_key, activeProjectId)
-    : revealed
-      ? formatDsn(revealed.public_key, revealed.project_id)
-      : null;
+  const activeProject = projects.find((row) => row.id === activeProjectId) ?? null;
+  const dsnSegment = activeProject ? dsnPathSegment(activeProject) : null;
+
+  const activeDsn =
+    activeKey && dsnSegment
+      ? formatDsn(activeKey.public_key, dsnSegment)
+      : revealed && dsnSegment
+        ? formatDsn(revealed.public_key, dsnSegment)
+        : null;
 
   return (
     <div className="space-y-4">
@@ -170,7 +175,7 @@ export function DsnKeysSettings() {
           </CardHeader>
           <CardContent className="space-y-4">
             <CopyDsnBlock
-              dsn={formatDsn(revealed.public_key, revealed.project_id)}
+              dsn={dsnSegment ? formatDsn(revealed.public_key, dsnSegment) : ""}
               label="Connection string (DSN)"
               hint="Paste into your SDK init. Safe to embed in client apps."
             />
@@ -268,7 +273,7 @@ export function DsnKeysSettings() {
                     {!key.revoked_at ? (
                       <>
                         <CopyButton
-                          value={formatDsn(key.public_key, activeProjectId)}
+                          value={dsnSegment ? formatDsn(key.public_key, dsnSegment) : ""}
                           label="Copy DSN"
                         />
                         <Button

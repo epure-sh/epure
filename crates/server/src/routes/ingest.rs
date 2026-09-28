@@ -86,11 +86,16 @@ async fn cors_preflight(State(state): State<Arc<AppState>>, headers: HeaderMap) 
 
 async fn post_envelope(
     State(state): State<Arc<AppState>>,
-    Path(project_id): Path<Uuid>,
+    Path(raw_project_id): Path<String>,
     Query(query): Query<IngestQuery>,
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
+    let project_id = match resolve_ingest_project_id(&state, &raw_project_id).await {
+        Ok(id) => id,
+        Err(response) => return response,
+    };
+
     let auth = match extract_auth(&headers, &query) {
         Ok(auth) => auth,
         Err(_) => {
@@ -141,11 +146,16 @@ async fn post_envelope(
 
 async fn post_release_files(
     State(state): State<Arc<AppState>>,
-    Path((project_id, version)): Path<(Uuid, String)>,
+    Path((raw_project_id, version)): Path<(String, String)>,
     Query(query): Query<IngestQuery>,
     headers: HeaderMap,
     mut multipart: Multipart,
 ) -> Response {
+    let project_id = match resolve_ingest_project_id(&state, &raw_project_id).await {
+        Ok(id) => id,
+        Err(response) => return response,
+    };
+
     let auth = match extract_auth(&headers, &query) {
         Ok(auth) => auth,
         Err(_) => {
@@ -309,11 +319,16 @@ async fn post_release_files(
 
 async fn post_store(
     State(state): State<Arc<AppState>>,
-    Path(project_id): Path<Uuid>,
+    Path(raw_project_id): Path<String>,
     Query(query): Query<IngestQuery>,
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
+    let project_id = match resolve_ingest_project_id(&state, &raw_project_id).await {
+        Ok(id) => id,
+        Err(response) => return response,
+    };
+
     let auth = match extract_auth(&headers, &query) {
         Ok(auth) => auth,
         Err(_) => {
@@ -352,11 +367,16 @@ async fn post_store(
 
 async fn post_user_feedback(
     State(state): State<Arc<AppState>>,
-    Path(project_id): Path<Uuid>,
+    Path(raw_project_id): Path<String>,
     Query(query): Query<IngestQuery>,
     headers: HeaderMap,
     Json(body): Json<UserFeedbackBody>,
 ) -> Response {
+    let project_id = match resolve_ingest_project_id(&state, &raw_project_id).await {
+        Ok(id) => id,
+        Err(response) => return response,
+    };
+
     let auth = match extract_auth(&headers, &query) {
         Ok(auth) => auth,
         Err(_) => {
@@ -547,6 +567,39 @@ async fn check_ingest_cap(state: &AppState, project_id: Uuid) -> Result<(), Resp
             "Failed to check ingest cap",
         )),
     }
+}
+
+async fn resolve_ingest_project_id(state: &AppState, raw: &str) -> Result<Uuid, Response> {
+    if let Ok(id) = Uuid::parse_str(raw) {
+        return Ok(id);
+    }
+    if !raw.is_empty() && raw.chars().all(|c| c.is_ascii_digit()) {
+        let dsn_id = raw.parse::<i64>().map_err(|_| {
+            error_response(
+                StatusCode::BAD_REQUEST,
+                "invalid_project",
+                "Invalid project id",
+            )
+        })?;
+        return match projects::project_id_for_dsn_segment(&state.pools.ingest, dsn_id).await {
+            Ok(Some(id)) => Ok(id),
+            Ok(None) => Err(error_response(
+                StatusCode::NOT_FOUND,
+                "project_not_found",
+                "Project not found",
+            )),
+            Err(_) => Err(error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "storage_error",
+                "Failed to resolve project",
+            )),
+        };
+    }
+    Err(error_response(
+        StatusCode::BAD_REQUEST,
+        "invalid_project",
+        "Invalid project id",
+    ))
 }
 
 #[allow(clippy::result_large_err)]

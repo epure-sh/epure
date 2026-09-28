@@ -126,6 +126,7 @@ export async function fetchIssues(
   projectId?: string,
   window?: string,
   sort?: string,
+  environment?: string,
 ): Promise<IssueSummary[]> {
   const params = new URLSearchParams();
   if (query.trim()) {
@@ -133,6 +134,9 @@ export async function fetchIssues(
   }
   if (projectId) {
     params.set("project_id", projectId);
+  }
+  if (environment) {
+    params.set("environment", environment);
   }
   if (window) {
     params.set("window", window);
@@ -522,6 +526,7 @@ export async function deleteAccount(input: {
 
 export interface ProjectRow {
   id: string;
+  dsn_project_id: number;
   org_id: string;
   name: string;
   slug: string | null;
@@ -744,6 +749,7 @@ export async function patchSetupProgress(input: {
 
 export interface SetupDsnInfo {
   project_id: string;
+  dsn_project_id: number;
   public_key: string | null;
   has_active_key: boolean;
 }
@@ -834,8 +840,13 @@ export async function revokeAgentToken(id: string): Promise<void> {
   await apiFetch<void>(`/api/v1/agent-tokens/${id}/revoke`, { method: "POST" });
 }
 
-export function formatDsn(publicKey: string, projectId: string): string {
+/** Numeric path segment for Sentry SDK DSN compatibility (not the internal UUID). */
+export function dsnPathSegment(project: Pick<ProjectRow, "dsn_project_id">): string {
+  return String(project.dsn_project_id);
+}
+
+export function formatDsn(publicKey: string, dsnProjectId: number | string): string {
   const host = window.location.host;
   const protocol = window.location.protocol === "https:" ? "https" : "http";
-  return `${protocol}://${publicKey}@${host}/${projectId}`;
+  return `${protocol}://${publicKey}@${host}/${dsnProjectId}`;
 }

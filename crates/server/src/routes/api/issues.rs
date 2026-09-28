@@ -32,6 +32,7 @@ pub fn router(state: Arc<AppState>) -> Router {
 struct ListQuery {
     q: Option<String>,
     project_id: Option<Uuid>,
+    environment: Option<String>,
     window: Option<String>,
     sort: Option<String>,
 }
@@ -157,6 +158,9 @@ async fn list_issues(
     let mut filter = parse_issue_query(query.q.as_deref().unwrap_or_default());
     if let Some(project_id) = query.project_id {
         filter.project_id = Some(project_id);
+    }
+    if let Some(environment) = query.environment {
+        filter.environment = Some(environment);
     }
     filter.time_window = Some(issues::TimeWindow::parse(query.window.as_deref()));
     filter.sort = Some(issues::IssueSort::parse(query.sort.as_deref()));

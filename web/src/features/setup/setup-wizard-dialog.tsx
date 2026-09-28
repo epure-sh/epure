@@ -6,6 +6,7 @@ import {
   createProject,
   fetchSetupDsn,
   fetchSetupProgress,
+  dsnPathSegment,
   formatDsn,
   patchSetupProgress,
   sendSetupTestEvent,
@@ -79,7 +80,7 @@ export function SetupWizardDialog({
   projectId = null,
 }: SetupWizardDialogProps) {
   const navigate = useNavigate();
-  const { refreshProjects, setProjectId } = useAppContext();
+  const { projects, refreshProjects, setProjectId } = useAppContext();
   const { toast } = useToast();
 
   const [step, setStep] = useState<WizardStep>("path");
@@ -181,15 +182,23 @@ export function SetupWizardDialog({
     void loadOrCreateDsn(activeProjectId);
   }, [activeProjectId, dsnError, dsnPublicKey, loadOrCreateDsn, open, step]);
 
+  const activeProject = useMemo(
+    () => projects.find((row) => row.id === activeProjectId) ?? null,
+    [activeProjectId, projects],
+  );
+
+  const dsnSegment = activeProject ? dsnPathSegment(activeProject) : null;
+
   const platforms = useMemo(
-    () => setupPlatformSnippets(dsnPublicKey && activeProjectId ? formatDsn(dsnPublicKey, activeProjectId) : "YOUR_DSN"),
-    [activeProjectId, dsnPublicKey],
+    () =>
+      setupPlatformSnippets(
+        dsnPublicKey && dsnSegment ? formatDsn(dsnPublicKey, dsnSegment) : "YOUR_DSN",
+      ),
+    [dsnPublicKey, dsnSegment],
   );
 
   const dsn =
-    dsnPublicKey && activeProjectId
-      ? formatDsn(dsnPublicKey, activeProjectId)
-      : "";
+    dsnPublicKey && dsnSegment ? formatDsn(dsnPublicKey, dsnSegment) : "";
 
   const selectedPlatform = platformId && dsn ? setupPlatformById(dsn, platformId) : null;
 

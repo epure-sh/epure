@@ -14,6 +14,7 @@ import { SettingsPage } from "../features/settings";
 import { projectPath } from "../lib/paths";
 import { RouteErrorBoundary } from "../ui/route-error-boundary";
 import { AppProvider, useAppContext } from "./app-context";
+import { EnvironmentUrlSync } from "./environment-url-sync";
 import { CommandPalette } from "./command-palette";
 import { ProjectScope } from "./project-scope";
 import { ShellRail } from "./shell-rail";
@@ -76,6 +77,7 @@ export function AppShell() {
           <ShellRail />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <TopStrip />
+            <EnvironmentUrlSync />
             <main className="epure-app-shell-main flex min-h-0 flex-1 flex-col overflow-hidden bg-bg">
               <Routes>
                 {/* Workspace scope */}
