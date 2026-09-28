@@ -8,6 +8,25 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 Nothing yet.
 
+## [v0.1.3] — 2026-09-28
+
+Sentry SDK v7 rejects non-numeric DSN project segments; Epure keeps UUID primary keys and exposes stable numeric `dsn_project_id` values in DSN URLs and ingest paths.
+
+- **Release:** [GitHub v0.1.3](https://github.com/epure-sh/epure/releases/tag/v0.1.3)
+- **Compare:** [v0.1.2…v0.1.3](https://github.com/epure-sh/epure/compare/v0.1.2...v0.1.3)
+- **Image:** `ghcr.io/epure-sh/epure:v0.1.3`
+- **Docs:** [epure.sh/docs/changelog](https://epure.sh/docs/changelog)
+
+### Added
+
+- `projects.dsn_project_id` sequence and migration for existing projects
+- Ingest envelope/store/release paths accept numeric DSN segment (UUID still accepted during transition)
+- Dashboard DSN copy and setup wizard use numeric segment; environment URL sync for multi-tab setup
+
+### Upgrade
+
+Pull `v0.1.3`, restart — migration assigns numeric IDs. Re-copy DSN from Settings if clients still use an old UUID in the path.
+
 ## [v0.1.2] — 2026-09-28
 
 Agent workspace for coding tools: scoped PATs, HTTP Agent API, `epure-cli`, and `@epure/mcp`.
