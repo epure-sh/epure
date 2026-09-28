@@ -8,6 +8,25 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 Nothing yet.
 
+## [v0.1.2] — 2026-09-28
+
+Agent workspace for coding tools: scoped PATs, HTTP Agent API, `epure-cli`, and `@epure/mcp`.
+
+Container: `ghcr.io/epure-sh/epure:v0.1.2` (also `:latest` after Image workflow).
+
+### Added
+
+- Agent API (`/api/v1/agent/*`) with queue, issue context, and scoped PATs (`write:admin`, project read/write)
+- `epure-cli` in the release image for scripts and CI
+- `@epure/mcp` stdio MCP server wrapping the dashboard API ([MCP and CLI guide](https://epure.sh/docs/guides/mcp-and-cli))
+- Org settings: agent token tab; setup wizard refresh (platform marks, docs links, Apply with AI prompt)
+- OpenAPI: [docs/agent.openapi.yaml](./docs/agent.openapi.yaml)
+
+### Changed
+
+- Calm Ledger design tokens and brand kit SVG refresh
+- Org home and billing settings UX
+
 ## [v0.1.1] — 2026-09-26
 
 Setup and connection UI cover the full Phase 1 SDK matrix — not only JavaScript.
