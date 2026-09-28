@@ -27,7 +27,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [location.pathname]);
+  }, []);
 
   if (status === "loading") {
     return (

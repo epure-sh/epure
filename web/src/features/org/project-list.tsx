@@ -1,10 +1,12 @@
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { HeadlineStats, ProjectRow, TimelineBucket } from "../../lib/api";
+import { cn } from "../../lib/cn";
 import { formatCompactCount } from "../../lib/format-count";
 import { projectPath } from "../../lib/paths";
 import { Empty } from "../../ui/empty";
 import { Badge } from "../../ui/badge";
+import { Checkbox } from "../../ui/checkbox";
 import { OccurrenceLineChart } from "../../ui/occurrence-line-chart";
 import { Skeleton } from "../../ui/skeleton";
 import { isSharedProjectRole, SharedProjectBadge } from "../../ui/shared-project-badge";
@@ -15,20 +17,29 @@ export interface ProjectListProps {
   activityByProject: Map<string, TimelineBucket[]>;
   loading?: boolean;
   viewerRole?: string | null;
+  editMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (projectId: string) => void;
 }
 
-function ProjectCard({
+function ProjectCardBody({
   project,
   stats,
   activity,
   statsLoading,
   viewerRole,
+  editMode,
+  selected,
+  onToggleSelect,
 }: {
   project: ProjectRow;
   stats?: HeadlineStats;
   activity?: TimelineBucket[];
   statsLoading?: boolean;
   viewerRole?: string | null;
+  editMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (projectId: string) => void;
 }) {
   const unresolved = stats?.unresolved ?? 0;
   const events7d = stats?.events_7d ?? 0;
@@ -37,13 +48,24 @@ function ProjectCard({
   const hasActivity = buckets.some((bucket) => bucket.count > 0);
 
   return (
-    <Link
-      to={projectPath(project.id, "issues")}
-      className="epure-card group flex min-h-[6.5rem] items-stretch gap-3 rounded-lg border border-border bg-surface p-3.5 transition-colors hover:border-border-strong hover:bg-state-hover focus-ring"
-    >
+    <>
+      {editMode ? (
+        <Checkbox
+          checked={selected}
+          onCheckedChange={() => onToggleSelect?.(project.id)}
+          aria-label={`Select ${project.name}`}
+          className="mt-0.5 shrink-0"
+          onClick={(event) => event.stopPropagation()}
+        />
+      ) : null}
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="min-w-0">
-          <h2 className="flex min-w-0 items-center gap-2 text-sm font-medium tracking-ui text-ink transition-colors group-hover:text-accent">
+          <h2
+            className={cn(
+              "flex min-w-0 items-center gap-2 text-sm font-medium tracking-ui text-ink",
+              !editMode && "transition-colors group-hover:text-accent",
+            )}
+          >
             <span className="truncate">{project.name}</span>
             {project.is_demo ? (
               <Badge variant="secondary" size="compact" className="shrink-0 tracking-ui">
@@ -103,12 +125,68 @@ function ProjectCard({
         )}
       </div>
 
-      <span
-        className="flex shrink-0 items-center self-center text-ink-muted opacity-0 transition-opacity group-hover:opacity-100"
-        aria-hidden
+      {!editMode ? (
+        <span
+          className="flex shrink-0 items-center self-center text-ink-muted opacity-0 transition-opacity group-hover:opacity-100"
+          aria-hidden
+        >
+          <ArrowRight size={14} />
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+function ProjectCard(props: {
+  project: ProjectRow;
+  stats?: HeadlineStats;
+  activity?: TimelineBucket[];
+  statsLoading?: boolean;
+  viewerRole?: string | null;
+  editMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (projectId: string) => void;
+}) {
+  const { editMode, selected, onToggleSelect, project } = props;
+  const shellClass = cn(
+    "epure-card flex min-h-[6.5rem] items-stretch gap-3 rounded-lg border border-border bg-surface p-3.5 transition-colors",
+    editMode
+      ? cn(
+          "cursor-pointer focus-ring",
+          selected
+            ? "border-accent bg-accent-muted/50"
+            : "hover:border-border-strong hover:bg-state-hover",
+        )
+      : "group hover:border-border-strong hover:bg-state-hover focus-ring",
+  );
+
+  if (editMode) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        className={shellClass}
+        onClick={(event) => {
+          if ((event.target as HTMLElement).closest("button")) {
+            return;
+          }
+          onToggleSelect?.(project.id);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onToggleSelect?.(project.id);
+          }
+        }}
       >
-        <ArrowRight size={14} />
-      </span>
+        <ProjectCardBody {...props} />
+      </div>
+    );
+  }
+
+  return (
+    <Link to={projectPath(project.id, "issues")} className={shellClass}>
+      <ProjectCardBody {...props} />
     </Link>
   );
 }
@@ -133,6 +211,9 @@ export function ProjectList({
   activityByProject,
   loading = false,
   viewerRole,
+  editMode = false,
+  selectedIds,
+  onToggleSelect,
 }: ProjectListProps) {
   if (loading && projects.length > 0 && statsByProject.size === 0) {
     return (
@@ -164,6 +245,9 @@ export function ProjectList({
           activity={activityByProject.get(project.id)}
           statsLoading={loading && !statsByProject.has(project.id)}
           viewerRole={viewerRole}
+          editMode={editMode}
+          selected={selectedIds?.has(project.id)}
+          onToggleSelect={onToggleSelect}
         />
       ))}
     </div>

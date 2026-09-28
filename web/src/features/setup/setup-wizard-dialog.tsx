@@ -1,15 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { buildSetupAiPrompt } from "../../lib/setup-ai-prompt";
+import { buildSetupAiPrompt, type SetupPath } from "../../lib/setup-ai-prompt";
 import {
   createDsnKey,
   createProject,
   fetchSetupDsn,
+  fetchSetupProgress,
   formatDsn,
   patchSetupProgress,
+  sendSetupTestEvent,
+  setupOnboardingDone,
 } from "../../lib/api";
 import { projectPath } from "../../lib/paths";
 import { cn } from "../../lib/cn";
+import {
+  EPURE_DOCS_MIGRATION_URL,
+  EPURE_DOCS_QUICKSTART_URL,
+  EPURE_DOCS_URL,
+} from "../../lib/docs-url";
 import {
   setupPlatformById,
   setupPlatformSnippets,
@@ -17,9 +25,10 @@ import {
 } from "../../lib/setup-platform-snippets";
 import { useAppContext } from "../../shell/app-context";
 import { ApplyWithAiButton } from "../../ui/apply-with-ai-button";
+import { SetupPlatformMark } from "../../ui/setup-platform-mark";
 import { Button } from "../../ui/button";
-import { CopyButton } from "../../ui/copy-button";
-import { CopyDsnBlock } from "../../ui/copy-dsn-block";
+import { SetupConnectPanel } from "../../ui/setup-connect-panel";
+import { SetupDocsLink } from "../../ui/setup-docs-link";
 import {
   Dialog,
   DialogContent,
@@ -30,10 +39,9 @@ import {
 import { Field } from "../../ui/field";
 import { Input } from "../../ui/input";
 import { StepIndicator } from "../../ui/step-indicator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { useToast } from "../../ui/toast-provider";
 
-type WizardStep = "name" | "language" | "connect" | "done";
+type WizardStep = "name" | "path" | "language" | "connect" | "verify";
 
 export interface SetupWizardDialogProps {
   open: boolean;
@@ -44,8 +52,25 @@ export interface SetupWizardDialogProps {
   projectId?: string | null;
 }
 
-const CARD_SHELL =
-  "flex h-[min(34rem,90vh)] w-[min(28rem,calc(100vw-2rem))] max-w-none flex-col gap-0 overflow-hidden p-0";
+const CARD_BASE =
+  "flex w-[min(30rem,calc(100vw-2rem))] max-w-none flex-col gap-0 overflow-hidden p-0";
+
+const PATH_OPTIONS: {
+  id: SetupPath;
+  title: string;
+  description: string;
+}[] = [
+  {
+    id: "fresh",
+    title: "New integration",
+    description: "Install the Sentry SDK and point it at Epure.",
+  },
+  {
+    id: "sentry",
+    title: "Already on Sentry",
+    description: "Keep your SDK. Swap the DSN and disable tracing/replay.",
+  },
+];
 
 export function SetupWizardDialog({
   open,
@@ -57,25 +82,29 @@ export function SetupWizardDialog({
   const { refreshProjects, setProjectId } = useAppContext();
   const { toast } = useToast();
 
-  const [step, setStep] = useState<WizardStep>("language");
+  const [step, setStep] = useState<WizardStep>("path");
   const [projectName, setProjectName] = useState(initialName);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(projectId);
+  const [setupPath, setSetupPath] = useState<SetupPath | null>(null);
   const [platformId, setPlatformId] = useState<SetupPlatformId | null>(null);
+  const [verifyListening, setVerifyListening] = useState(false);
+  const [verifyIssueSeen, setVerifyIssueSeen] = useState(false);
   const [dsnPublicKey, setDsnPublicKey] = useState<string | null>(null);
   const [dsnError, setDsnError] = useState<string | null>(null);
-  const [readyToContinue, setReadyToContinue] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const resetLocal = useCallback(
     (name: string, id: string | null) => {
       const needsName = !id && !name.trim();
-      setStep(needsName ? "name" : "language");
+      setStep(needsName ? "name" : "path");
       setProjectName(name);
       setActiveProjectId(id);
+      setSetupPath(null);
       setPlatformId(null);
       setDsnPublicKey(null);
       setDsnError(null);
-      setReadyToContinue(false);
+      setVerifyListening(false);
+      setVerifyIssueSeen(false);
       setBusy(false);
     },
     [],
@@ -164,21 +193,62 @@ export function SetupWizardDialog({
 
   const selectedPlatform = platformId && dsn ? setupPlatformById(dsn, platformId) : null;
 
-  const aiPrompt = useMemo(
+  const resolvedPath = setupPath ?? "fresh";
+
+  const aiPromptConnect = useMemo(
     () =>
       dsn
         ? buildSetupAiPrompt({
             dsn,
-            path: "fresh",
+            path: resolvedPath,
             phase: "connect",
             projectName: projectName.trim() || undefined,
+            platformId: platformId ?? undefined,
+            platformLabel: selectedPlatform?.label,
+            packageName: selectedPlatform?.packageName,
+            installCommand: selectedPlatform?.installCommand,
           })
         : "",
-    [dsn, projectName],
+    [
+      dsn,
+      platformId,
+      projectName,
+      resolvedPath,
+      selectedPlatform?.installCommand,
+      selectedPlatform?.label,
+      selectedPlatform?.packageName,
+    ],
   );
 
+  useEffect(() => {
+    if (!open || step !== "verify" || !activeProjectId || verifyIssueSeen) {
+      return;
+    }
+    setVerifyListening(true);
+    let cancelled = false;
+    const tick = () => {
+      void fetchSetupProgress(activeProjectId)
+        .then((progress) => {
+          if (cancelled) {
+            return;
+          }
+          if (setupOnboardingDone(progress)) {
+            setVerifyIssueSeen(true);
+            setVerifyListening(false);
+          }
+        })
+        .catch(() => undefined);
+    };
+    tick();
+    const intervalId = window.setInterval(tick, 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      setVerifyListening(false);
+    };
+  }, [activeProjectId, open, step, verifyIssueSeen]);
+
   const markReady = useCallback(async () => {
-    setReadyToContinue(true);
     if (!activeProjectId) {
       return;
     }
@@ -199,9 +269,20 @@ export function SetupWizardDialog({
     }
     const id = await ensureProject();
     if (id) {
-      setStep("language");
+      setStep("path");
     }
   }, [ensureProject, projectName, toast]);
+
+  const handlePathSelect = useCallback(
+    async (path: SetupPath) => {
+      setSetupPath(path);
+      const projectIdResolved = await ensureProject();
+      if (projectIdResolved) {
+        setStep("language");
+      }
+    },
+    [ensureProject],
+  );
 
   const handleLanguageSelect = useCallback(
     async (id: SetupPlatformId) => {
@@ -215,12 +296,33 @@ export function SetupWizardDialog({
     [ensureProject],
   );
 
-  const handleFinish = useCallback(() => {
-    if (!activeProjectId || !readyToContinue) {
+  const handleConnectContinue = useCallback(() => {
+    if (!activeProjectId || !dsn) {
       return;
     }
-    setStep("done");
-  }, [activeProjectId, readyToContinue]);
+    setStep("verify");
+  }, [activeProjectId, dsn]);
+
+  const handleSendTestEvent = useCallback(async () => {
+    if (!activeProjectId) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await sendSetupTestEvent(activeProjectId);
+      const progress = await fetchSetupProgress(activeProjectId);
+      if (setupOnboardingDone(progress)) {
+        setVerifyIssueSeen(true);
+        toast("Test event accepted. Open Issues to see it.");
+      } else {
+        toast("Test event sent. Waiting for Issues.");
+      }
+    } catch {
+      toast("Could not send test event");
+    } finally {
+      setBusy(false);
+    }
+  }, [activeProjectId, toast]);
 
   const handleOpenIssues = useCallback(() => {
     if (!activeProjectId) {
@@ -231,12 +333,19 @@ export function SetupWizardDialog({
   }, [activeProjectId, navigate, onOpenChange]);
 
   const handleBack = useCallback(() => {
-    if (step === "connect") {
-      setStep("language");
-      setReadyToContinue(false);
+    if (step === "verify") {
+      setStep("connect");
       return;
     }
-    if (step === "language" && !projectId && !initialName.trim()) {
+    if (step === "connect") {
+      setStep("language");
+      return;
+    }
+    if (step === "language") {
+      setStep("path");
+      return;
+    }
+    if (step === "path" && !projectId && !initialName.trim()) {
       setStep("name");
     }
   }, [initialName, projectId, step]);
@@ -254,41 +363,80 @@ export function SetupWizardDialog({
     }
     items.push(
       {
+        id: "path",
+        label: "Start",
+        complete: step !== "name" && step !== "path",
+        active: step === "path",
+      },
+      {
         id: "language",
         label: "Stack",
-        complete: step === "connect" || step === "done",
+        complete: step === "connect" || step === "verify",
         active: step === "language",
       },
       {
         id: "connect",
         label: "Connect",
-        complete: step === "done" || readyToContinue,
+        complete: step === "verify" || Boolean(dsn),
         active: step === "connect",
+      },
+      {
+        id: "verify",
+        label: "Verify",
+        complete: verifyIssueSeen,
+        active: step === "verify",
       },
     );
     return items;
-  }, [initialName, projectId, readyToContinue, step]);
+  }, [dsn, initialName, projectId, step, verifyIssueSeen]);
+
+  const dialogSizeClass =
+    step === "connect"
+      ? "max-h-[min(34rem,90vh)]"
+      : step === "language"
+        ? "max-h-[min(28rem,90vh)]"
+        : "h-auto max-h-[90vh]";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={CARD_SHELL} aria-describedby={undefined}>
-        <DialogHeader className="shrink-0 space-y-3 border-b border-border px-4 py-3 pr-10">
-          <DialogTitle className="text-base font-medium tracking-ui">
-            {step === "done" ? "Connected" : "New project"}
+      <DialogContent
+        className={cn(CARD_BASE, dialogSizeClass)}
+        aria-describedby={undefined}
+      >
+        <DialogHeader className="shrink-0 space-y-2 border-b border-border px-3 py-2.5 pr-10">
+          <DialogTitle className="flex items-center gap-2 text-base font-medium tracking-ui">
+            {step === "connect" && selectedPlatform ? (
+              <>
+                <SetupPlatformMark logo={selectedPlatform.logo} size="sm" />
+                <span>Connect {selectedPlatform.label}</span>
+              </>
+            ) : step === "verify" ? (
+              "Almost there"
+            ) : (
+              "Set up error tracking"
+            )}
           </DialogTitle>
           <DialogDescription className="sr-only">
             Create a project and connect your app with a DSN.
           </DialogDescription>
-          {step !== "done" ? <StepIndicator steps={stepItems} variant="bar" /> : null}
+          <StepIndicator steps={stepItems} variant="bar" />
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-4">
+        <div
+          className={cn(
+            "flex flex-col overflow-hidden px-3 py-3",
+            (step === "connect" || step === "language") && "min-h-0 flex-1",
+          )}
+        >
           {step === "name" ? (
-            <div className="flex min-h-0 flex-1 flex-col justify-between gap-4">
-              <div className="space-y-3">
+            <div className="flex flex-col gap-3">
+              <div className="space-y-2">
                 <p className="text-sm font-medium tracking-ui text-ink">Project name</p>
                 <p className="text-xs text-ink-muted">
                   One app or service. You can rename later.
+                </p>
+                <p className="text-2xs text-ink-muted">
+                  <SetupDocsLink href={EPURE_DOCS_QUICKSTART_URL}>Setup guide</SetupDocsLink>
                 </p>
                 <Field label="Name">
                   <Input
@@ -305,7 +453,7 @@ export function SetupWizardDialog({
                   />
                 </Field>
               </div>
-              <div className="flex justify-end border-t border-border pt-3">
+              <div className="flex justify-end border-t border-border pt-2">
                 <Button
                   type="button"
                   variant="primary"
@@ -318,14 +466,65 @@ export function SetupWizardDialog({
             </div>
           ) : null}
 
+          {step === "path" ? (
+            <div className="flex flex-col gap-3">
+              <div className="space-y-2">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium tracking-ui text-ink">How are you starting?</p>
+                  <p className="text-xs text-ink-muted">
+                    Snippets on the next steps.
+                  </p>
+                </div>
+                <div className="grid gap-1.5">
+                  {PATH_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void handlePathSelect(option.id)}
+                      className={cn(
+                        "rounded-lg border border-border bg-surface px-2.5 py-2 text-left transition-colors",
+                        "hover:border-border-strong hover:bg-state-hover focus-ring",
+                        setupPath === option.id && "border-accent bg-accent-muted",
+                      )}
+                    >
+                      <p className="text-sm font-medium tracking-ui text-ink">{option.title}</p>
+                      <p className="mt-0.5 text-xs text-ink-muted">{option.description}</p>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-2xs text-ink-muted">
+                  Not sure?{" "}
+                  <SetupDocsLink href={EPURE_DOCS_QUICKSTART_URL}>Quickstart</SetupDocsLink>
+                  {" · "}
+                  <SetupDocsLink href={EPURE_DOCS_MIGRATION_URL}>From Sentry</SetupDocsLink>
+                </p>
+              </div>
+              <div className="flex justify-start border-t border-border pt-2">
+                {!projectId && !initialName.trim() ? (
+                  <Button type="button" variant="ghost" onClick={handleBack}>
+                    Back
+                  </Button>
+                ) : (
+                  <span />
+                )}
+              </div>
+            </div>
+          ) : null}
+
           {step === "language" ? (
-            <div className="flex min-h-0 flex-1 flex-col gap-3">
-              <div className="space-y-1">
-                <p className="text-sm font-medium tracking-ui text-ink">Choose your stack</p>
-                <p className="text-xs text-ink-muted">We’ll show the exact files to edit.</p>
+            <div className="flex min-h-0 flex-1 flex-col gap-2">
+              <div className="flex shrink-0 items-start justify-between gap-2">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium tracking-ui text-ink">Choose your stack</p>
+                  <p className="text-xs text-ink-muted">Tap one. We show install and init next.</p>
+                </div>
+                <SetupDocsLink href={`${EPURE_DOCS_URL}/platforms`} className="shrink-0 pt-0.5">
+                  All platforms
+                </SetupDocsLink>
               </div>
               <div className="min-h-0 flex-1 overflow-auto">
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-1.5">
                   {platforms.map((platform) => (
                     <button
                       key={platform.id}
@@ -333,13 +532,13 @@ export function SetupWizardDialog({
                       disabled={busy}
                       onClick={() => void handleLanguageSelect(platform.id)}
                       className={cn(
-                        "flex flex-col items-center gap-2 rounded-lg border border-border bg-surface px-2 py-3 text-center transition-colors",
+                        "flex flex-col items-center gap-1.5 rounded-lg border border-border bg-surface px-1.5 py-2 text-center transition-colors",
                         "hover:border-border-strong hover:bg-state-hover focus-ring",
                         platformId === platform.id && "border-accent bg-accent-muted",
                       )}
                     >
                       <span
-                        className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-bg-subtle"
+                        className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-bg-subtle"
                         aria-hidden
                       >
                         <img
@@ -355,22 +554,16 @@ export function SetupWizardDialog({
                   ))}
                 </div>
               </div>
-              {(!projectId && !initialName.trim()) || step === "language" ? (
-                <div className="flex justify-start border-t border-border pt-3">
-                  {!projectId && !initialName.trim() ? (
-                    <Button type="button" variant="ghost" onClick={handleBack}>
-                      Back
-                    </Button>
-                  ) : (
-                    <span />
-                  )}
-                </div>
-              ) : null}
+              <div className="flex shrink-0 justify-start border-t border-border pt-2">
+                <Button type="button" variant="ghost" onClick={handleBack}>
+                  Back
+                </Button>
+              </div>
             </div>
           ) : null}
 
           {step === "connect" ? (
-            <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <div className="flex min-h-0 flex-1 flex-col gap-2">
               {dsnError ? (
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="text-semantic-danger">{dsnError}</span>
@@ -391,80 +584,39 @@ export function SetupWizardDialog({
 
               {dsn && selectedPlatform ? (
                 <>
-                  <div className="space-y-2 shrink-0">
-                    <p className="text-sm font-medium tracking-ui text-ink">Your DSN</p>
-                    <CopyDsnBlock
-                      dsn={dsn}
-                      compact
-                      hint={null}
-                      onCopied={() => void markReady()}
-                      onCopyFailed={() =>
-                        toast("Clipboard blocked — select the DSN and copy manually")
-                      }
-                    />
-                  </div>
-
-                  <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-                    <p className="shrink-0 text-xs text-ink-muted">
-                      {selectedPlatform.label} — copy each file diff
-                    </p>
-                    <Tabs defaultValue={selectedPlatform.files[0]?.filename} className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                      <TabsList className="h-auto w-full shrink-0 flex-wrap justify-start gap-0">
-                        {selectedPlatform.files.map((file) => (
-                          <TabsTrigger
-                            key={file.filename}
-                            value={file.filename}
-                            className="px-2.5 py-1.5 text-xs"
-                          >
-                            {file.filename}
-                          </TabsTrigger>
-                        ))}
-                      </TabsList>
-                      {selectedPlatform.files.map((file) => (
-                        <TabsContent
-                          key={file.filename}
-                          value={file.filename}
-                          className="mt-2 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"
-                        >
-                          <div className="mb-1.5 flex shrink-0 justify-end">
-                            <CopyButton
-                              value={file.code}
-                              label="Copy"
-                              className="h-7 px-2"
-                              onCopied={() => void markReady()}
-                            />
-                          </div>
-                          <pre className="epure-code-well min-h-0 flex-1 overflow-auto rounded-md border border-border bg-bg-subtle p-2.5 font-mono text-xs text-ink">
-                            {file.code}
-                          </pre>
-                        </TabsContent>
-                      ))}
-                    </Tabs>
-                  </div>
-
-                  <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border pt-3">
+                  <SetupConnectPanel
+                    dsn={dsn}
+                    platform={selectedPlatform}
+                    setupPath={resolvedPath}
+                    onCopied={() => void markReady()}
+                    onCopyFailed={() =>
+                      toast("Clipboard blocked. Select text and copy manually.")
+                    }
+                  />
+                  <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border pt-2">
                     <Button type="button" variant="ghost" onClick={handleBack}>
                       Back
                     </Button>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
                       <ApplyWithAiButton
-                        prompt={aiPrompt}
-                        size="toolbar"
+                        prompt={aiPromptConnect}
+                        prominence="main"
                         onCopied={() => {
                           void markReady();
-                          toast("Copied — paste into Cursor or your AI assistant");
+                          toast("Copied. Paste into Agent chat.");
                         }}
                         onCopyFailed={() =>
-                          toast("Clipboard blocked — try Copy on a file tab")
+                          toast("Clipboard blocked. Copy a tab instead.")
                         }
                       />
                       <Button
                         type="button"
-                        variant={readyToContinue ? "primary" : "secondary"}
-                        disabled={!readyToContinue}
-                        onClick={handleFinish}
+                        variant="secondary"
+                        size="lg"
+                        disabled={!dsn || busy}
+                        onClick={handleConnectContinue}
                       >
-                        {readyToContinue ? "Continue" : "Copy to continue"}
+                        Continue
                       </Button>
                     </div>
                   </div>
@@ -473,18 +625,37 @@ export function SetupWizardDialog({
             </div>
           ) : null}
 
-          {step === "done" ? (
-            <div className="flex min-h-0 flex-1 flex-col justify-between gap-4">
-              <div className="space-y-2 pt-6">
-                <p className="text-sm font-medium tracking-ui text-ink">You’re set</p>
-                <p className="text-xs text-ink-muted">
-                  Throw once in your app — the issue will show up here.
+          {step === "verify" ? (
+            <div className="flex flex-col gap-5">
+              <div className="space-y-1.5 py-2 text-center">
+                <p className="text-xl font-medium tracking-ui text-ink">You&apos;re wired.</p>
+                <p className="text-sm text-ink-muted">
+                  Break something on purpose, or wait for the next one. We&apos;re listening.
                 </p>
+                {verifyIssueSeen ? (
+                  <p className="pt-1 text-sm font-medium text-accent">Got it. You&apos;re live.</p>
+                ) : verifyListening ? (
+                  <p className="pt-1 text-xs text-ink-muted">Listening…</p>
+                ) : null}
               </div>
-              <div className="flex justify-end border-t border-border pt-3">
-                <Button type="button" variant="primary" onClick={handleOpenIssues}>
-                  Open issues
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
+                <Button type="button" variant="ghost" onClick={handleBack}>
+                  Back
                 </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy || !activeProjectId}
+                    onClick={() => void handleSendTestEvent()}
+                  >
+                    Send test event
+                  </Button>
+                  <Button type="button" variant="primary" onClick={handleOpenIssues}>
+                    Open issues
+                  </Button>
+                </div>
               </div>
             </div>
           ) : null}

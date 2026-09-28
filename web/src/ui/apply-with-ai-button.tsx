@@ -1,4 +1,4 @@
-import { Check, Sparkles } from "lucide-react";
+import { Bot, Check } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { cn } from "../lib/cn";
 import { copyText } from "../lib/copy-text";
@@ -8,6 +8,9 @@ export interface ApplyWithAiButtonProps {
   prompt: string;
   className?: string;
   size?: "sm" | "toolbar" | "default";
+  variant?: "ghost" | "secondary" | "primary";
+  /** Setup footer — primary fill, larger hit target, Bot icon. */
+  prominence?: "default" | "main";
   onCopied?: () => void;
   onCopyFailed?: () => void;
 }
@@ -16,10 +19,13 @@ export function ApplyWithAiButton({
   prompt,
   className,
   size = "sm",
+  variant = "ghost",
+  prominence = "default",
   onCopied,
   onCopyFailed,
 }: ApplyWithAiButtonProps) {
   const [copied, setCopied] = useState(false);
+  const isMain = prominence === "main";
 
   useEffect(() => {
     if (!copied) {
@@ -43,13 +49,17 @@ export function ApplyWithAiButton({
   return (
     <Button
       type="button"
-      variant="ghost"
-      size={size}
-      className={cn("gap-1.5 text-xs", className)}
+      variant={isMain ? "primary" : variant}
+      size={isMain ? "lg" : size}
+      className={cn(
+        !isMain && size === "default" && "text-sm",
+        !isMain && size !== "default" && "text-xs",
+        className,
+      )}
       onClick={() => void handleCopy()}
-      aria-label={copied ? "Copied prompt for AI" : "Apply with AI — copy prompt"}
+      aria-label={copied ? "Copied prompt for AI" : "Apply with AI, copy prompt"}
     >
-      {copied ? <Check size={14} /> : <Sparkles size={14} />}
+      {copied ? <Check strokeWidth={2.5} aria-hidden /> : <Bot strokeWidth={2} aria-hidden />}
       {copied ? "Copied" : "Apply with AI"}
     </Button>
   );

@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { workspaceSettingsPath } from "../../../lib/paths";
 import { PageChrome } from "../../../ui/page-chrome";
 import { WorkspaceSettingsNav } from "../../../ui/workspace-settings-nav";
+import { AgentTokensTab } from "./agent-tokens-tab";
 import { GeneralTab } from "./general-tab";
 import { SecurityTab } from "./security-tab";
 import { useAccountSettings } from "./use-account-settings";
@@ -27,6 +28,7 @@ export function AccountSettingsPage() {
               <Routes>
                 <Route index element={<GeneralTab settings={settings} />} />
                 <Route path="security" element={<SecurityTab settings={settings} />} />
+                <Route path="agent" element={<AgentTokensTab />} />
                 <Route path="*" element={<Navigate to={workspaceSettingsPath()} replace />} />
               </Routes>
             )}

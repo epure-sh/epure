@@ -38,7 +38,7 @@ export function StepIndicator({
       : `${completedCount} of ${steps.length} complete`;
 
     return (
-      <div className={cn("epure-step-indicator epure-step-indicator-bar space-y-2", className)}>
+      <div className={cn("epure-step-indicator epure-step-indicator-bar space-y-1", className)}>
         <p className="text-xs tracking-ui text-ink-muted">{label}</p>
         <div
           className="h-1 overflow-hidden rounded-sm bg-border"

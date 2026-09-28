@@ -21,7 +21,7 @@ export const PLANS: PlanDefinition[] = [
     name: "Self-hosted",
     price: "$0",
     period: null,
-    description: "Apache 2.0 — run Epure on your own infrastructure.",
+    description: "Apache 2.0. Run Epure on your own infrastructure.",
     features: [
       "Full core product",
       "Unlimited projects & seats",
@@ -41,7 +41,7 @@ export const PLANS: PlanDefinition[] = [
     features: [
       "200k errors included / month",
       "30-day retention",
-      "Zero overage bills — soft sampling",
+      "Zero overage bills, soft sampling",
       "TLS, backups, upgrades handled",
     ],
     limits: {
@@ -73,27 +73,5 @@ export const PLANS: PlanDefinition[] = [
 
 export const CLOUD_PLANS = PLANS.filter((plan) => plan.cloudOnly);
 
-export interface BillingFaqItem {
-  question: string;
-  answer: string;
-}
-
-export const BILLING_FAQ: BillingFaqItem[] = [
-  {
-    question: "Is self-hosted really free?",
-    answer:
-      "Yes. The OSS build is Apache 2.0 with the full core product — no subscription, no usage billing, no crippleware. You pay only for your own server.",
-  },
-  {
-    question: "What happens if I exceed my Cloud limit?",
-    answer:
-      "Epure never sends overage invoices or shuts off your dashboard. Counts stay at 100%; raw payloads soft-sample. Upgrade when you need more included volume.",
-  },
-  {
-    question: "Can I switch between Pro and Plus?",
-    answer:
-      "Yes. Upgrades apply immediately with prorated billing. Downgrades take effect at the end of your current period.",
-  },
-];
-
+/** Pricing + Cloud waitlist on the marketing site. */
 export const CLOUD_UPGRADE_URL = "https://epure.sh#plans";

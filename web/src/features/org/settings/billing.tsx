@@ -2,7 +2,6 @@ import { ArrowRight, Check, ExternalLink, Server } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  BILLING_FAQ,
   CLOUD_PLANS,
   CLOUD_UPGRADE_URL,
   PLANS,
@@ -16,7 +15,7 @@ import { useAppContext } from "../../../shell/app-context";
 import { Badge } from "../../../ui/badge";
 import { Button } from "../../../ui/button";
 import { Card, CardContent } from "../../../ui/card";
-import { Section, SectionHeader } from "../../../ui/section";
+import { SectionHeader } from "../../../ui/section";
 import { StatBar } from "../../../ui/stat-bar";
 
 const CLOUD_CURRENT_PLAN: PlanId = "pro";
@@ -87,90 +86,70 @@ function WorkspaceUsageStrip() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
       <StatBar
-        className="rounded-lg border border-border !border-b !px-4 !py-3"
+        className="min-w-0 flex-1 rounded-lg border border-border !border-b !px-4 !py-3"
         items={[
           { label: "Events (7d)", value: events7d },
           { label: "Unresolved", value: unresolved },
           { label: "Projects", value: projects.length },
         ]}
       />
-      <div className="flex justify-end">
-        <Button variant="ghost" size="sm" asChild>
-          <Link to={usagePath()} className="gap-1.5 text-xs">
-            Full usage breakdown
-            <ArrowRight size={14} />
-          </Link>
-        </Button>
-      </div>
+      <Button variant="ghost" size="sm" asChild className="shrink-0">
+        <Link to={usagePath()} className="gap-1.5 text-xs">
+          Usage details
+          <ArrowRight size={14} />
+        </Link>
+      </Button>
     </div>
   );
 }
 
-function DeploymentStatusCard({ cloud }: { cloud: boolean }) {
-  const plan = cloud ? planById(CLOUD_CURRENT_PLAN) : planById("oss");
-
+function SelfHostedBilling() {
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="p-0">
-        <div className="border-b border-border bg-surface-elevated px-5 py-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-bg">
-                <Server size={18} className="text-accent" aria-hidden />
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-base font-medium text-ink">
-                    {cloud ? `${plan.name} plan` : "Self-hosted"}
-                  </h2>
-                  <Badge variant="env">{cloud ? "Cloud" : "OSS"}</Badge>
-                </div>
-                <p className="mt-1 text-sm text-ink-muted">{plan.description}</p>
-              </div>
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-bg-subtle">
+              <Server size={16} className="text-accent" aria-hidden />
             </div>
-            <p className="font-mono text-2xl font-medium tabular-nums text-ink">
-              {plan.price ?? "$0"}
-              {plan.period ? (
-                <span className="text-sm font-normal text-ink-muted">{plan.period}</span>
-              ) : null}
-            </p>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-sm font-medium text-ink">Self-hosted</h2>
+                <Badge variant="env">OSS</Badge>
+              </div>
+              <p className="text-xs text-ink-muted">Apache 2.0. No subscription on this install.</p>
+            </div>
           </div>
-        </div>
+          <p className="font-mono text-lg font-medium tabular-nums text-ink">$0</p>
+        </CardContent>
+      </Card>
 
-        <div className="grid gap-px bg-border sm:grid-cols-3">
-          <StatusFact
-            label="Events"
-            value={
-              plan.limits.eventsPerMonth
-                ? `${formatEvents(plan.limits.eventsPerMonth)} / mo included`
-                : "Unlimited (your hardware)"
-            }
-          />
-          <StatusFact
-            label="Retention"
-            value={
-              plan.limits.retentionDays
-                ? `${plan.limits.retentionDays} days`
-                : "Per-project config"
-            }
-          />
-          <StatusFact
-            label="Billing"
-            value={cloud ? "Flat monthly rate" : "No subscription"}
-          />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+      <WorkspaceUsageStrip />
 
-function StatusFact({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-surface px-5 py-3">
-      <p className="text-xs text-ink-muted">{label}</p>
-      <p className="mt-0.5 text-sm font-medium text-ink">{value}</p>
+      <p className="text-sm text-ink-muted">
+        Epure Cloud is not available on this instance yet. Pro ($24/mo) and Plus ($79/mo) launch on{" "}
+        <a
+          href={CLOUD_UPGRADE_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-0.5 text-ink underline-offset-2 hover:underline"
+        >
+          epure.sh
+          <ExternalLink size={12} className="opacity-70" aria-hidden />
+        </a>
+        .{" "}
+        <a
+          href={CLOUD_UPGRADE_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="text-ink underline-offset-2 hover:underline"
+        >
+          Join the waitlist
+        </a>
+        .
+      </p>
     </div>
   );
 }
@@ -198,7 +177,7 @@ function CloudUsageMeter({ monthlyLimit }: { monthlyLimit: number }) {
       <CardContent className="space-y-3 p-4">
         <SectionHeader
           title="Included volume"
-          description="Projection from your last 7 days. No overage invoices — soft sampling applies first."
+          description="7-day projection. Soft sampling before hard limits."
         />
         {projected === null ? (
           <p className="text-sm text-ink-muted">Loading…</p>
@@ -258,7 +237,9 @@ function PlanOptionCard({
           <h3 className="text-base font-medium text-ink">{plan.name}</h3>
           {isCurrent ? <Badge variant="env">Current</Badge> : null}
           {plan.highlighted && !isCurrent ? (
-            <Badge variant="secondary" className="text-2xs uppercase">Popular</Badge>
+            <Badge variant="secondary" className="text-2xs uppercase">
+              Popular
+            </Badge>
           ) : null}
         </div>
 
@@ -281,7 +262,7 @@ function PlanOptionCard({
         {upgradeOnly ? (
           <Button variant={plan.highlighted ? "signal" : "secondary"} className="mt-4 w-full" asChild>
             <a href={CLOUD_UPGRADE_URL} target="_blank" rel="noreferrer" className="gap-1.5">
-              Get {plan.name}
+              Join waitlist
               <ExternalLink size={14} />
             </a>
           </Button>
@@ -299,54 +280,52 @@ function PlanOptionCard({
   );
 }
 
-function BillingFaq() {
-  return (
-    <Section variant="inset">
-      <SectionHeader title="Common questions" />
-      <div className="mt-3 divide-y divide-border">
-        {BILLING_FAQ.map((item) => (
-          <details key={item.question} className="group py-3 first:pt-0 last:pb-0">
-            <summary className="cursor-pointer list-none text-sm font-medium text-ink [&::-webkit-details-marker]:hidden">
-              <span className="flex items-center justify-between gap-2">
-                {item.question}
-                <span className="text-ink-muted transition-transform group-open:rotate-90">›</span>
-              </span>
-            </summary>
-            <p className="mt-2 text-sm leading-relaxed text-ink-muted">{item.answer}</p>
-          </details>
-        ))}
-      </div>
-    </Section>
-  );
-}
+function CloudBilling({ isOwner }: { isOwner: boolean }) {
+  const currentPlan = planById(CLOUD_CURRENT_PLAN);
+  const plan = planById(CLOUD_CURRENT_PLAN);
 
-function CloudBillingExtras({ isOwner }: { isOwner: boolean }) {
   return (
-    <Card>
-      <CardContent className="divide-y divide-border p-0">
-        <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
           <div>
-            <p className="text-sm font-medium text-ink">Payment method</p>
-            <p className="mt-0.5 text-sm text-ink-muted">
-              {isOwner
-                ? "Stripe checkout coming soon — no card on file yet."
-                : "Ask your workspace owner to manage billing."}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-sm font-medium text-ink">{plan.name}</h2>
+              <Badge variant="env">Cloud</Badge>
+            </div>
+            <p className="text-xs text-ink-muted">{plan.description}</p>
           </div>
-          {isOwner ? (
-            <Button variant="secondary" size="sm" disabled>
-              Add card
-            </Button>
-          ) : null}
+          <p className="font-mono text-lg font-medium tabular-nums text-ink">
+            {plan.price}
+            {plan.period ? (
+              <span className="text-sm font-normal text-ink-muted">{plan.period}</span>
+            ) : null}
+          </p>
+        </CardContent>
+      </Card>
+
+      <CloudUsageMeter monthlyLimit={currentPlan.limits.eventsPerMonth ?? 200_000} />
+
+      <div className="space-y-3">
+        <SectionHeader
+          title="Plans"
+          description={
+            isOwner ? "Flat monthly rate." : "Workspace owners manage plan changes."
+          }
+        />
+        <div className="grid gap-3 sm:grid-cols-2">
+          {CLOUD_PLANS.map((p) => (
+            <PlanOptionCard key={p.id} plan={p} isCurrent={p.id === CLOUD_CURRENT_PLAN} />
+          ))}
         </div>
-        <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-ink">Invoices</p>
-            <p className="mt-0.5 text-sm text-ink-muted">No invoices yet.</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      {isOwner ? (
+        <p className="text-xs text-ink-muted">Stripe checkout and invoices coming soon.</p>
+      ) : (
+        <p className="text-xs text-ink-muted">Ask your workspace owner to manage billing.</p>
+      )}
+    </div>
   );
 }
 
@@ -354,70 +333,10 @@ export function OrgBillingSettings() {
   const { user } = useAppContext();
   const cloud = isCloudDeployment();
   const isOwner = user?.role === "owner";
-  const currentPlan = planById(CLOUD_CURRENT_PLAN);
 
   if (!cloud) {
-    return (
-      <div className="space-y-6">
-        <DeploymentStatusCard cloud={false} />
-        <WorkspaceUsageStrip />
-
-        <div className="space-y-3">
-          <SectionHeader
-            title="Managed Cloud"
-            description="Same core product — we run Postgres, TLS, and backups. Flat $24 or $79 per month. No per-event overages."
-          />
-          <div className="grid gap-3 sm:grid-cols-2">
-            {CLOUD_PLANS.map((plan) => (
-              <PlanOptionCard key={plan.id} plan={plan} upgradeOnly />
-            ))}
-          </div>
-          <p className="text-center text-xs text-ink-muted">
-            Join the waitlist at{" "}
-            <a
-              href={CLOUD_UPGRADE_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="text-ink underline-offset-2 hover:underline"
-            >
-              epure.sh
-            </a>
-            {" "}— Cloud ships in Phase 2.
-          </p>
-        </div>
-
-        <BillingFaq />
-      </div>
-    );
+    return <SelfHostedBilling />;
   }
 
-  return (
-    <div className="space-y-6">
-      <DeploymentStatusCard cloud={true} />
-      <CloudUsageMeter monthlyLimit={currentPlan.limits.eventsPerMonth ?? 200_000} />
-
-      <div className="space-y-3">
-        <SectionHeader
-          title="Plans"
-          description={
-            isOwner
-              ? "Flat monthly rate. Upgrade or downgrade anytime."
-              : "Only workspace owners can change plans."
-          }
-        />
-        <div className="grid gap-3 sm:grid-cols-2">
-          {CLOUD_PLANS.map((plan) => (
-            <PlanOptionCard
-              key={plan.id}
-              plan={plan}
-              isCurrent={plan.id === CLOUD_CURRENT_PLAN}
-            />
-          ))}
-        </div>
-      </div>
-
-      <CloudBillingExtras isOwner={isOwner} />
-      <BillingFaq />
-    </div>
-  );
+  return <CloudBilling isOwner={isOwner} />;
 }

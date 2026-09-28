@@ -304,7 +304,7 @@ export function IssuesPage() {
 
         await fetchEvents(urlIssueId, { limit: 1, offset: 0 });
         if (!cancelled) {
-          toast("Issue not found — it may have been deleted");
+          toast("Issue not found. It may have been deleted.");
           setSelectedId(null);
           setFocusedId(null);
           setSearchParams(
@@ -321,7 +321,7 @@ export function IssuesPage() {
           return;
         }
         if (isApiError(error, 404)) {
-          toast("Issue not found — it may have been deleted");
+          toast("Issue not found. It may have been deleted.");
           setSelectedId(null);
           setFocusedId(null);
           setSearchParams(
@@ -623,7 +623,7 @@ export function IssuesPage() {
         toast(
           updated.snoozed
             ? "Issue snoozed"
-            : "Snooze did not apply — try another duration",
+            : "Snooze did not apply. Try another duration.",
         );
       } catch {
         setIssues(previous);
@@ -923,12 +923,12 @@ export function IssuesPage() {
       return;
     }
     void copyIssueExport(selectedIssue, selectedEvent).then(() =>
-      toast("Copied — paste into Cursor or your AI assistant"),
+      toast("Copied. Paste into Cursor or your AI assistant."),
     );
   }, [selectedEvent, selectedIssue]);
 
   useExportHotkey(Boolean(selectedIssue), selectedIssue, selectedEvent, () => {
-    toast("Copied — paste into Cursor or your AI assistant");
+    toast("Copied. Paste into Cursor or your AI assistant.");
   });
 
   useEffect(() => {

@@ -12,15 +12,21 @@ export function workspacePath(
 /** @deprecated use workspacePath */
 export const orgPath = workspacePath;
 
-export function workspaceSettingsPath(tab?: "general" | "security"): string {
+export function workspaceSettingsPath(tab?: "general" | "security" | "agent"): string {
   if (!tab || tab === "general") {
     return "/settings";
   }
   return `/settings/${tab}`;
 }
 
-export function settingsTabFromPath(pathname: string): "general" | "security" {
-  return pathname.endsWith("/security") ? "security" : "general";
+export function settingsTabFromPath(pathname: string): "general" | "security" | "agent" {
+  if (pathname.endsWith("/security")) {
+    return "security";
+  }
+  if (pathname.endsWith("/agent")) {
+    return "agent";
+  }
+  return "general";
 }
 
 /** @deprecated use workspaceSettingsPath */
