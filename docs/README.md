@@ -6,19 +6,29 @@ Operator and product guides are published on the documentation site:
 
 | Guide | URL |
 |---|---|
+| Docs hub | https://epure.sh/docs |
 | Quickstart | https://epure.sh/docs/get-started/quickstart |
+| Migrate from Sentry | https://epure.sh/docs/guides/migrate-from-sentry |
+| FAQ index | https://epure.sh/docs/reference/faq |
+| SDK matrix | https://epure.sh/docs/reference/sdk-matrix |
 | Concepts | https://epure.sh/docs/get-started/concepts |
+| Alerts | https://epure.sh/docs/product/alerts |
 | Self-host install | https://epure.sh/docs/self-hosting/installation |
+| Production checklist | https://epure.sh/docs/guides/production-checklist |
 | Configuration | https://epure.sh/docs/self-hosting/configuration |
 | Upgrades | https://epure.sh/docs/self-hosting/upgrades |
 | Platforms | https://epure.sh/docs/platforms |
-| Ingest API | https://epure.sh/docs/api |
+| API overview | https://epure.sh/docs/api |
+| Agent API (human docs) | https://epure.sh/docs/api/agent |
+| MCP and epure-cli | https://epure.sh/docs/guides/mcp-and-cli |
+| Webhooks API | https://epure.sh/docs/api/webhooks |
 
 ## Files here
 
 | Path | Purpose |
 |---|---|
 | [ingest.openapi.yaml](./ingest.openapi.yaml) | Machine-readable ingest contract (envelope + store) |
+| [agent.openapi.yaml](./agent.openapi.yaml) | Agent API for MCP / `epure-cli` (PAT auth) |
 | [../CHANGELOG.md](../CHANGELOG.md) | Tagged release history for the binary / image |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | Build, test, PR workflow |
 | [../.github/SUPPORT.md](../.github/SUPPORT.md) | Where to ask questions |

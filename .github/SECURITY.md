@@ -35,7 +35,9 @@ Good-faith research on **your own** Epure instance is welcome. Do not test again
 
 ## Scope
 
-**In scope:** Epure server (ingest, dashboard APIs, auth, worker), PostgreSQL RLS, sessions, webhooks, bundled SPA.
+**In scope:** Epure server (ingest, dashboard APIs, Agent API / personal access tokens, auth, worker), PostgreSQL RLS, sessions, webhooks, bundled SPA.
+
+**PAT / Agent API:** Tokens are `epure_pat_…` secrets shown once at creation; store them like passwords. Scopes are `read:agent` (GET dashboard + agent routes), `write:triage` (issue/alerts mutations), and `write:admin` (projects, webhooks, members, agent-token management). Session cookies bypass PAT scope checks; PAT requests are rate-limited per IP and token prefix. MCP `epure_api` and `epure-cli api` only allow paths under `/api/v1/` and block `/api/v1/auth/*`.
 
 **Out of scope:** Your reverse proxy, TLS, host OS, Postgres backups, misconfigured `.env`, and Sentry SDK behavior in your app. Epure scrubs common secret patterns at ingest but cannot audit your instrumentation.
 
