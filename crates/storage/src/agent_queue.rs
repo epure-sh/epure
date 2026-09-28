@@ -96,10 +96,9 @@ fn score_issue(
     }
 
     if let Some(rows) = alerts.get(&issue.id) {
-        for alert in rows {
+        if let Some(alert) = rows.first() {
             score += 500;
             reasons.push(format!("{} alert", alert.kind));
-            break;
         }
     }
 
@@ -120,7 +119,7 @@ fn score_issue(
         }
     }
 
-    let user_boost = (issue.unique_user_count as i32 * 10).min(200);
+    let user_boost = (issue.unique_user_count * 10).min(200);
     if user_boost > 0 {
         score += user_boost;
         if issue.unique_user_count >= 2 {

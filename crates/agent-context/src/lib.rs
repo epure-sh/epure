@@ -72,19 +72,10 @@ pub struct AgentContextJson {
     pub payload_json: Option<Value>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct RenderOptions {
     pub include_payload: bool,
     pub include_user: bool,
-}
-
-impl Default for RenderOptions {
-    fn default() -> Self {
-        Self {
-            include_payload: false,
-            include_user: false,
-        }
-    }
 }
 
 pub fn build_context(
@@ -604,8 +595,8 @@ fn infer_user_journey(crumbs: &[Breadcrumb], exception_text: &str) -> String {
                     .map(|v| v.to_string())
                     .unwrap_or_else(|| message.to_string());
                 let status = crumb.data.as_ref().and_then(|d| d.get("status_code"));
-                Some(if status.is_some() {
-                    format!("{method} {url} → {}", status.unwrap())
+                Some(if let Some(status) = status {
+                    format!("{method} {url} → {status}")
                 } else {
                     format!("{method} {url}")
                 })
