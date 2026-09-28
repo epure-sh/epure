@@ -1,8 +1,9 @@
-import { Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Pencil, Plus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   createProject,
+  deleteProject,
   fetchHeadlineStats,
   patchSetupProgress,
   type HeadlineStats,
@@ -16,6 +17,7 @@ import { useToast } from "../../ui/toast-provider";
 import { SetupWizardDialog } from "../setup/setup-wizard-dialog";
 import { emptyListTrendBuckets } from "../issues/issue-feed-utils";
 import { fetchProjectActivityBuckets } from "./project-activity";
+import { DeleteProjectsDialog } from "./delete-projects-dialog";
 import { ProjectList } from "./project-list";
 
 export function OrgHomePage() {
@@ -31,9 +33,39 @@ export function OrgHomePage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardName, setWizardName] = useState("");
   const [wizardProjectId, setWizardProjectId] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const { toast } = useToast();
 
   const canManage = user?.role === "owner" || user?.role === "admin";
+  const canDeleteProjects = user?.role === "owner";
+
+  const selectedProjects = useMemo(
+    () => projects.filter((project) => selectedIds.has(project.id)),
+    [projects, selectedIds],
+  );
+
+  const exitEditMode = useCallback(() => {
+    setEditMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  const toggleProjectSelect = useCallback((id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const selectAllProjects = useCallback(() => {
+    setSelectedIds(new Set(projects.map((project) => project.id)));
+  }, [projects]);
   const setupParam = searchParams.get("setup");
 
   useEffect(() => {
@@ -137,6 +169,35 @@ export function OrgHomePage() {
     }
   }
 
+  async function handleBulkDelete() {
+    if (!canDeleteProjects || selectedProjects.length === 0) {
+      return;
+    }
+    setBusy(true);
+    const ids = selectedProjects.map((project) => project.id);
+    try {
+      const results = await Promise.allSettled(ids.map((id) => deleteProject(id)));
+      const failed = results.filter((result) => result.status === "rejected").length;
+      const deleted = ids.length - failed;
+      await refreshProjects();
+      exitEditMode();
+      setDeleteOpen(false);
+      if (failed > 0) {
+        toast(
+          deleted > 0
+            ? `Deleted ${deleted} project${deleted === 1 ? "" : "s"} — ${failed} failed`
+            : "Failed to delete projects",
+        );
+      } else {
+        toast(`Deleted ${deleted} project${deleted === 1 ? "" : "s"}`);
+      }
+    } catch {
+      toast("Failed to delete projects");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <PageChrome
@@ -149,30 +210,77 @@ export function OrgHomePage() {
               : "Choose a project to monitor exceptions, or create a new one."
         }
         actions={
-          canManage ? (
+          canManage || canDeleteProjects ? (
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <Input
-                aria-label="New project name"
-                placeholder="Project name"
-                value={newProjectName}
-                onChange={(event) => setNewProjectName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    void handleCreateClick();
-                  }
-                }}
-                className="h-8 w-40 sm:w-52"
-              />
-              <Button
-                type="button"
-                disabled={busy}
-                className="gap-1.5"
-                onClick={() => void handleCreateClick()}
-              >
-                <Plus size={14} />
-                Create project
-              </Button>
+              {editMode && canDeleteProjects ? (
+                <>
+                  <span className="text-xs text-ink-muted">
+                    {selectedIds.size} selected
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={projects.length === 0}
+                    onClick={selectAllProjects}
+                  >
+                    Select all
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    disabled={busy || selectedIds.size === 0}
+                    onClick={() => setDeleteOpen(true)}
+                  >
+                    Delete
+                  </Button>
+                  <Button type="button" variant="secondary" size="sm" onClick={exitEditMode}>
+                    Done
+                  </Button>
+                </>
+              ) : (
+                <>
+                  {canManage ? (
+                    <>
+                      <Input
+                        aria-label="New project name"
+                        placeholder="Project name"
+                        value={newProjectName}
+                        onChange={(event) => setNewProjectName(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void handleCreateClick();
+                          }
+                        }}
+                        className="h-8 w-40 sm:w-52"
+                      />
+                      <Button
+                        type="button"
+                        disabled={busy}
+                        className="gap-1.5"
+                        onClick={() => void handleCreateClick()}
+                      >
+                        <Plus size={14} />
+                        Create project
+                      </Button>
+                    </>
+                  ) : null}
+                  {canDeleteProjects && projects.length > 0 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => setEditMode(true)}
+                    >
+                      <Pencil size={14} />
+                      Edit
+                    </Button>
+                  ) : null}
+                </>
+              )}
             </div>
           ) : undefined
         }
@@ -186,6 +294,9 @@ export function OrgHomePage() {
             activityByProject={activityByProject}
             loading={statsLoading}
             viewerRole={user?.role}
+            editMode={editMode && canDeleteProjects}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleProjectSelect}
           />
 
           {!canManage && projects.length === 0 ? (
@@ -199,6 +310,14 @@ export function OrgHomePage() {
         onOpenChange={handleWizardOpenChange}
         initialName={wizardName}
         projectId={wizardProjectId}
+      />
+
+      <DeleteProjectsDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        projectNames={selectedProjects.map((project) => project.name)}
+        onConfirm={handleBulkDelete}
+        busy={busy}
       />
     </div>
   );

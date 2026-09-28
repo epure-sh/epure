@@ -19,6 +19,50 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+:root {
+  --scrollbar-size: 4px;
+  --scrollbar-thumb: color-mix(in srgb, var(--text) 22%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--text) 34%, transparent);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Light scrim when a product popover is open (dialogs use their own overlay). */
+body:has(.epure-popover-content[data-state="open"])::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 89;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  backdrop-filter: blur(3px);
+}
+
 .epure-section-header-title {
   font-family: var(--section-header-font);
   font-size: var(--section-header-size);

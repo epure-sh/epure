@@ -5,6 +5,7 @@ import { cn } from "../lib/cn";
 const tabs = [
   { id: "general", label: "General", path: workspaceSettingsPath() },
   { id: "security", label: "Security", path: workspaceSettingsPath("security") },
+  { id: "agent", label: "Agent tokens", path: workspaceSettingsPath("agent") },
 ] as const;
 
 export function WorkspaceSettingsNav() {

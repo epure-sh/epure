@@ -19,7 +19,7 @@ export const DialogOverlay = forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "epure-dialog-overlay fixed inset-0 z-50 bg-ink/20",
+      "epure-dialog-overlay fixed inset-0 z-50 bg-ink/10 backdrop-blur-[3px]",
       className,
     )}
     {...props}
@@ -42,7 +42,7 @@ export const DialogContent = forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm text-ink-muted transition-colors hover:text-ink focus-ring">
+      <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm text-ink-muted transition-colors hover:text-ink focus-ring">
         <X size={16} />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>

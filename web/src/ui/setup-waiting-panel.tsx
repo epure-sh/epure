@@ -58,7 +58,8 @@ export function SetupWaitingPanel({
     <div className="flex flex-1 min-h-0 items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardContent className="space-y-3 p-4">
-          <p className="text-sm font-medium tracking-ui text-ink">Waiting for the first error</p>
+          <p className="text-xl font-medium tracking-ui text-ink">You&apos;re wired.</p>
+          <p className="text-sm text-ink-muted">Break something. We&apos;re listening.</p>
 
           {dsnLoading ? (
             <p className="text-xs text-ink-muted">Loading…</p>
@@ -79,7 +80,7 @@ export function SetupWaitingPanel({
                 dsn={dsn}
                 phase="verify"
                 onAiCopied={() =>
-                  toast("Copied — paste into Cursor or your AI assistant")
+                  toast("Copied. Paste into Cursor or your AI assistant.")
                 }
               />
             </>

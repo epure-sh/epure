@@ -792,6 +792,48 @@ export async function fetchProjectActivity(
   return body.buckets;
 }
 
+export interface AgentTokenRow {
+  id: string;
+  org_id: string;
+  user_id: string;
+  label: string;
+  token_prefix: string;
+  scopes: string[];
+  last_used_at: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+}
+
+export interface CreatedAgentToken {
+  id: string;
+  label: string;
+  token: string;
+  token_prefix: string;
+  scopes: string[];
+  created_at: string;
+}
+
+export async function fetchAgentTokens(): Promise<AgentTokenRow[]> {
+  const body = await apiFetch<{ tokens: AgentTokenRow[] }>("/api/v1/agent-tokens");
+  return body.tokens;
+}
+
+export async function createAgentToken(input: {
+  label?: string;
+  scopes?: string[];
+}): Promise<CreatedAgentToken> {
+  const body = await apiFetch<{ token: CreatedAgentToken }>("/api/v1/agent-tokens", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  return body.token;
+}
+
+export async function revokeAgentToken(id: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/agent-tokens/${id}/revoke`, { method: "POST" });
+}
+
 export function formatDsn(publicKey: string, projectId: string): string {
   const host = window.location.host;
   const protocol = window.location.protocol === "https:" ? "https" : "http";
