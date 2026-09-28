@@ -569,6 +569,7 @@ async fn check_ingest_cap(state: &AppState, project_id: Uuid) -> Result<(), Resp
     }
 }
 
+#[allow(clippy::result_large_err)]
 async fn resolve_ingest_project_id(state: &AppState, raw: &str) -> Result<Uuid, Response> {
     if let Ok(id) = Uuid::parse_str(raw) {
         return Ok(id);
