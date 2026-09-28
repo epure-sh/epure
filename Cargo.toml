@@ -6,10 +6,12 @@ members = [
     "crates/storage",
     "crates/auth",
     "crates/demangle",
+    "crates/agent-context",
+    "crates/cli",
 ]
 
 [workspace.package]
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -21,6 +23,7 @@ bytes = "1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive", "env"] }
 dashmap = "6"
+epure-agent-context = { path = "crates/agent-context" }
 epure-auth = { path = "crates/auth" }
 epure-envelope = { path = "crates/envelope" }
 epure-storage = { path = "crates/storage" }

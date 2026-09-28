@@ -130,6 +130,50 @@ pub async fn count_events_for_issue(
     Ok(count)
 }
 
+pub async fn get_event_by_id(
+    pool: &PgPool,
+    org_id: Uuid,
+    event_id: Uuid,
+) -> Result<Option<EventDetail>, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let row = sqlx::query_as::<_, EventDetail>(
+        r#"
+        SELECT
+            id,
+            issue_id,
+            occurred_at,
+            environment,
+            release,
+            platform,
+            runtime_name,
+            runtime_version,
+            browser_name,
+            os_name,
+            user_id,
+            user_email,
+            payload_json,
+            stack_frames,
+            breadcrumbs
+        FROM events
+        WHERE id = $1
+        "#,
+    )
+    .bind(event_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
+pub async fn latest_event_for_issue(
+    pool: &PgPool,
+    org_id: Uuid,
+    issue_id: Uuid,
+) -> Result<Option<EventDetail>, sqlx::Error> {
+    let rows = list_events_for_issue(pool, org_id, issue_id, 1, 0, None).await?;
+    Ok(rows.into_iter().next())
+}
+
 pub async fn list_events_for_issue(
     pool: &PgPool,
     org_id: Uuid,

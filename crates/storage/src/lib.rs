@@ -1,3 +1,5 @@
+pub mod agent_queue;
+pub mod agent_tokens;
 pub mod alert_rules;
 pub mod alerts;
 pub mod batch;

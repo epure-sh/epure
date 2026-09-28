@@ -1,0 +1,147 @@
+openapi: 3.1.0
+info:
+  title: Epure Agent API
+  version: 0.1.1
+  description: |
+    Agent shortcuts under `/api/v1/agent/*`. The same PAT also authorizes the full dashboard API
+    at `/api/v1/*` (issues, events, projects, stats, setup, DSN, webhooks, alert-rules, members).
+
+    Scopes: `read:agent` (GET), `write:triage` (issue/alert mutations), `write:admin` (settings).
+
+    Authenticate with `Authorization: Bearer epure_pat_…` (Settings → Agent tokens).
+
+    Rate limits per IP + token prefix: 120 reads / 20 writes per minute per instance.
+
+servers:
+  - url: /api/v1/agent
+
+security:
+  - bearerAuth: []
+
+paths:
+  /whoami:
+    get:
+      summary: Token identity and scopes
+      responses:
+        "200":
+          description: OK
+
+  /queue:
+    get:
+      summary: Prioritized issue queue for agents
+      parameters:
+        - name: project_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: environment
+          in: query
+          schema: { type: string }
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 50 }
+        - name: window
+          in: query
+          schema: { type: string, enum: [24h, 7d, 14d, 30d, 90d] }
+      responses:
+        "200":
+          description: Scored queue items with reasons
+
+  /issues/{id}:
+    get:
+      summary: Issue summary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Issue row
+    patch:
+      summary: Triage update (requires write:triage)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [unresolved, resolved, ignored, regression] }
+                resolved_in_release: { type: string }
+      responses:
+        "200":
+          description: Updated issue
+
+  /issues/{id}/context:
+    get:
+      summary: Fix-ready agent context
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: format
+          in: query
+          schema: { type: string, enum: [json, markdown], default: json }
+        - name: event
+          in: query
+          schema: { type: string, description: "latest or event UUID" }
+        - name: include_payload
+          in: query
+          schema: { type: boolean, default: false }
+        - name: include_user
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: JSON context or markdown prompt
+
+  /issues/{id}/snooze:
+    post:
+      summary: Snooze issue (requires write:triage)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode: { type: string, enum: [hours, occurrences, users, 4h, 100, 10] }
+      responses:
+        "200":
+          description: Updated issue
+
+  /alerts:
+    get:
+      summary: Alerts for the token user
+      parameters:
+        - name: view
+          in: query
+          schema: { type: string, enum: [all, unread, ignored] }
+        - name: project_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema: { type: integer, maximum: 200 }
+      responses:
+        "200":
+          description: Alert rows
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Personal access token (`epure_pat_…`)
