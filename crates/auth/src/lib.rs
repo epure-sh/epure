@@ -1,9 +1,15 @@
+pub mod agent_token;
+pub mod api_pat;
 pub mod credentials;
 pub mod dsn;
 pub mod google;
 pub mod password;
 pub mod session;
 
+pub use api_pat::ApiPatAuth;
+pub use agent_token::{
+    authenticate_agent_token, require_read, require_scope, AgentTokenError, AgentTokenSession,
+};
 pub use credentials::{AccountProfile, CredentialAuth, CredentialError};
 pub use dsn::{DsnAuthError, DsnRecord, DsnValidator};
 pub use google::{GoogleAuth, GoogleAuthError};

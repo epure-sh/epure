@@ -629,8 +629,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "epure-agent-context"
+version = "0.1.2"
+dependencies = [
+ "chrono",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "uuid",
+]
+
+[[package]]
 name = "epure-auth"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "argon2",
  "chrono",
@@ -654,8 +666,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "epure-cli"
+version = "0.1.2"
+dependencies = [
+ "clap",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "urlencoding",
+ "uuid",
+]
+
+[[package]]
 name = "epure-demangle"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -665,7 +690,7 @@ dependencies = [
 
 [[package]]
 name = "epure-envelope"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "flate2",
  "hex",
@@ -680,12 +705,13 @@ dependencies = [
 
 [[package]]
 name = "epure-server"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "axum",
  "chrono",
  "clap",
  "dashmap",
+ "epure-agent-context",
  "epure-auth",
  "epure-demangle",
  "epure-envelope",
@@ -714,7 +740,7 @@ dependencies = [
 
 [[package]]
 name = "epure-storage"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "epure-envelope",

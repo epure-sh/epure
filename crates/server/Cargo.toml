@@ -17,6 +17,7 @@ axum.workspace = true
 chrono.workspace = true
 dashmap.workspace = true
 clap.workspace = true
+epure-agent-context.workspace = true
 epure-auth.workspace = true
 epure-demangle.workspace = true
 epure-envelope.workspace = true

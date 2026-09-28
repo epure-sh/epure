@@ -157,7 +157,7 @@ fn ilike_escape(value: &str) -> String {
         .replace('_', "\\_")
 }
 
-#[derive(Debug, sqlx::FromRow, serde::Serialize)]
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
 pub struct IssueSummary {
     pub id: Uuid,
     pub org_id: Uuid,
@@ -521,6 +521,28 @@ pub async fn get_issue_by_fingerprint(
     let mut tx = crate::rls::begin_ingest_transaction(pool, org_id).await?;
     let row =
         crate::persist::get_issue_by_fingerprint_in_tx(&mut tx, project_id, fingerprint).await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
+pub async fn get_issue_summary_by_id(
+    pool: &PgPool,
+    org_id: Uuid,
+    issue_id: Uuid,
+) -> Result<Option<IssueSummary>, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    wake_expired_snoozes_in_tx(&mut tx).await?;
+    let row = sqlx::query_as::<_, IssueSummary>(&format!(
+        r#"
+        SELECT
+            {ISSUE_SUMMARY_COLUMNS}
+        FROM issues
+        WHERE id = $1 AND merge_parent_id IS NULL
+        "#
+    ))
+    .bind(issue_id)
+    .fetch_optional(&mut *tx)
+    .await?;
     tx.commit().await?;
     Ok(row)
 }
