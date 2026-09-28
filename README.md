@@ -1,8 +1,6 @@
-# Epure
-
-**Exception-only error tracking.** Keep your official Sentry SDK and point the DSN at Epure. Self-host with two containers: the app and PostgreSQL 16. [Apache 2.0](LICENSE). There is no `ee/` directory.
-
-When production throws, you get a grouped issue, a readable stack, breadcrumbs, and release context — without Kafka, Redis, or ClickHouse.
+<p align="center">
+  <img src=".github/readme-hero.webp" alt="Epure — lightweight error tracking for small SaaS teams" />
+</p>
 
 <p align="center">
   <a href="https://github.com/epure-sh/epure/stargazers">
@@ -27,6 +25,12 @@ When production throws, you get a grouped issue, a readable stack, breadcrumbs, 
     <img src="https://img.shields.io/badge/GHCR-epure--sh%2Fepure-blue?logo=github" alt="GitHub Container Registry" />
   </a>
 </p>
+
+# Epure
+
+**Exception-only error tracking.** Keep your official Sentry SDK and point the DSN at Epure. Self-host with two containers: the app and PostgreSQL 16. [Apache 2.0](LICENSE). There is no `ee/` directory.
+
+When production throws, you get a grouped issue, a readable stack, breadcrumbs, and release context — without Kafka, Redis, or ClickHouse.
 
 **Idle footprint: ~53 MiB combined.** `docker stats` on 2026-09-23, 2 vCPU / 769 MiB Linux VPS (Alibaba Cloud), classic Compose (`epure` + `postgres`): Epure ~5 MiB RSS + PostgreSQL ~48 MiB RSS. [Full notes](#resource-usage).
 
