@@ -42,7 +42,7 @@ Operator and product guides are published on the documentation site:
 # latest multi-arch build
 docker pull ghcr.io/epure-sh/epure:latest
 
-# pin a numbered release (see GitHub Releases for the current tag)
+# pin a numbered release (only when you intentionally cut one)
 docker pull ghcr.io/epure-sh/epure:v0.1.2
 ```
 
