@@ -17,9 +17,12 @@ Self-hosted error tracking: grouped issues and stack traces, one Rust binary and
 
 Keep the official Sentry SDK. Change the DSN to Epure. Docker Compose runs two containers (app + Postgres). You own backups and upgrades. Hosting the data means you are not billed per event.
 
-Idle footprint is about 53 MiB combined. Copy stack and breadcrumbs into Cursor or Claude, or use the [MCP and CLI](https://epure.sh/docs/guides/mcp-and-cli).
+| Lightweight | Keep your Sentry SDK | Built for agents |
+| :--- | :--- | :--- |
+| **~53 MiB combined idle.** App plus Postgres on a small VPS. | **DSN only.** Official Sentry SDK. Tracing, replay, and profiling sample rates stay at 0. | **Copy for AI.** Stack and breadcrumbs into Cursor or Claude, or [MCP and CLI](https://epure.sh/docs/guides/mcp-and-cli). |
 
-![Epure Issues dashboard](.github/readme-shot.gif)
+## From clone to Issues
+![Clone, docker compose up, Issues](.github/readme-shot.gif)
 
 Docs: [architecture, deploy, and DSN migration](https://epure.sh/docs).
 
@@ -76,10 +79,9 @@ Pin `ghcr.io/epure-sh/epure` to a [release](https://github.com/epure-sh/epure/re
 
 **On a platform**
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/epure-sh/epure)
-
 | Platform | Start here |
 | --- | --- |
+| Render | Blueprint [`render.yaml`](render.yaml). |
 | Railway | Drag [`deploy/railway/docker-compose.yml`](deploy/railway/docker-compose.yml) onto the project. [Notes](deploy/railway/README.md). |
 | Coolify | Compose, base directory [`deploy/templates/coolify`](deploy/templates/coolify). |
 | Dokploy | Compose file [`deploy/templates/dokploy/docker-compose.yml`](deploy/templates/dokploy/docker-compose.yml). |
@@ -88,16 +90,11 @@ Then the same steps: register, copy the DSN, throw once, open **Issues**. Longer
 
 ## Architecture
 
-Ingest acknowledges fast; a background async SQLx worker demangles, scrubs, groups, and writes to Postgres.
+Two containers. The SDK talks to ingest; ingest returns 202 and a worker writes Postgres. The dashboard is the same binary.
 
-```mermaid
-graph TD
-  SDK[Sentry SDKs] -->|Envelope or store request| EPURE[Epure :8080]
-  Browser[Browser dashboard] -->|Session API| EPURE
-  EPURE -->|Async SQLx worker| PG[(PostgreSQL 16)]
-  EPURE -->|Embedded SPA| Browser
-
-```
+<p align="center">
+  <img src=".github/readme-architecture.png" alt="How an error gets in: your app sends an envelope to ingest (202 ACK), a worker demangles and groups into Postgres 16, and you open the dashboard over a session. One Rust binary on :8080. No Kafka, Redis, or ClickHouse." />
+</p>
 
 ---
 
