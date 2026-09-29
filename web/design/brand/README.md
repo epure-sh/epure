@@ -28,7 +28,7 @@ Geometry: stadium `54×32`, stroke `8.5`, diagonal cuts at `27.5°`.
 
 ## Legacy mark — Pure Spike (#7)
 
-**Metaphor:** A calm ledger baseline (horizontal pill) with a single exception spike rising from it. One event on an otherwise flat line — the core job of exception-only monitoring. *Epure* = pure signal, noise stripped away.
+**Metaphor:** A calm ledger baseline (horizontal pill) with a single exception spike rising from it. One grouped error on an otherwise flat line. The job is error tracking: exceptions, issues, stack traces. *Epure* = pure signal, noise stripped away.
 
 **Geometry** (32×32 viewBox, source of truth in `src/ui/logo.tsx`):
 

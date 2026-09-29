@@ -23,7 +23,7 @@ export const PLANS: PlanDefinition[] = [
     period: null,
     description: "Apache 2.0. Run Epure on your own infrastructure.",
     features: [
-      "Full core product",
+      "Issues, stack traces, grouping, DSN ingest",
       "Unlimited projects & seats",
       "You manage Postgres & backups",
     ],
@@ -37,7 +37,7 @@ export const PLANS: PlanDefinition[] = [
     name: "Pro",
     price: "$24",
     period: "/ mo",
-    description: "Managed hosting for indie teams and early startups.",
+    description: "Managed hosting of the same binary. Pro $24. No overage invoice.",
     features: [
       "200k errors included / month",
       "30-day retention",

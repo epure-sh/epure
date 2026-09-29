@@ -3,13 +3,13 @@ name: epure-setup
 description: >-
   Set up self-hosted Epure error tracking with Docker Compose and point official
   Sentry SDKs at an Epure DSN. Use when the user asks for Epure install, self-hosted
-  Sentry alternative setup, DSN swap, exception-only monitoring, or verifying
+  Sentry alternative setup, DSN swap, grouped exceptions, or verifying
   /health and a first test event on Epure.
 ---
 
 # Epure setup (Compose + DSN swap)
 
-Epure is **exception-only** error tracking: keep official Sentry SDKs, point the DSN at Epure, self-host with **two containers** (app + PostgreSQL 16). Apache-2.0. Repo: https://github.com/epure-sh/epure
+Epure is error tracking for exceptions: keep official Sentry SDKs, point the DSN at Epure, self-host with **two containers** (app + PostgreSQL 16). Apache-2.0. Repo: https://github.com/epure-sh/epure
 
 ## When to use this skill
 

@@ -55,7 +55,7 @@ Pin `EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.1.2`, pull, and `docker compose up -d
 
 ## [v0.1.1] — 2026-09-26
 
-Setup and connection UI cover the full Phase 1 SDK matrix — not only JavaScript.
+Setup and connection UI cover the official Sentry SDK matrix in setup, not only JavaScript.
 
 Container: `ghcr.io/epure-sh/epure:v0.1.1` (also `:latest`).
 
@@ -71,7 +71,7 @@ Container: `ghcr.io/epure-sh/epure:v0.1.1` (also `:latest`).
 
 ## [v0.1.0] — 2026-09-23
 
-First public tag. Exception-only error monitoring. Keep `@sentry/*`. Change the DSN.
+First public tag. Error tracking for exceptions. Keep `@sentry/*`. Change the DSN.
 
 Container: `ghcr.io/epure-sh/epure:v0.1.0` (also `:latest`).
 

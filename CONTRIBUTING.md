@@ -1,6 +1,6 @@
 # Contributing to Epure
 
-Help ship exception-only error monitoring. Product overview and install: [README.md](./README.md). Operator docs: [epure.sh/docs](https://epure.sh/docs).
+Help ship error tracking for exceptions: grouped issues, stack traces, a DSN swap. Product overview and install: [README.md](./README.md). Operator docs: [epure.sh/docs](https://epure.sh/docs).
 
 **Stack lock:** Rust + PostgreSQL 16 + RLS, 2-container compose. No Redis, ClickHouse, Kafka, or SQLite-as-primary.
 
