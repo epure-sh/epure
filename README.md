@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/readme-hero.webp" alt="Epure, lightweight error tracking for small SaaS teams" />
+  <img src=".github/readme-hero.webp" alt="Epure issues dashboard" />
 </p>
 
 <p align="center">
@@ -13,34 +13,15 @@
 
 # Epure
 
-**Exception-only error tracking you self-host.**
+Self-hosted error tracking: grouped issues and stack traces, one Rust binary and PostgreSQL 16.
 
-You don't need a 10-node observability cluster to catch a production error. Epure gives you grouped issues, readable stacks, and release context using just one Rust binary and PostgreSQL 16. **No Kafka, no Redis, no ClickHouse.**
+Keep the official Sentry SDK. Change the DSN to Epure. Docker Compose runs two containers (app + Postgres). You own backups and upgrades. Hosting the data means you are not billed per event.
 
-| 🪶 Ultra-lightweight | 🔌 Keep Your Sentry SDK | 🤖 Built for AI Agents |
-| :--- | :--- | :--- |
-| **~53 MiB combined idle footprint.** Runs effortlessly on the smallest VPS you can find. | **Zero code changes.** Keep the official Sentry SDK. Just point your `DSN` to Epure. | **Copy for AI.** Instantly export issue context (stack, breadcrumbs) to Cursor or Claude. |
-
-
-## 💨 Setup in 15s (on watch)
+Idle footprint is about 53 MiB combined. Copy stack and breadcrumbs into Cursor or Claude, or use the [MCP and CLI](https://epure.sh/docs/guides/mcp-and-cli).
 
 ![Epure Issues dashboard](.github/readme-shot.gif)
 
-> **[📖 Read the Full Documentation](https://epure.sh/docs)** — Check out our architecture, deployment guides, and Sentry migration path.
-
-
-
-### Everything you can do
-
-<div align="center">
-
-| ⚡ **Run Locally** | 🚀 **Deploy to Prod** | 🔄 **Migrate from Sentry** | 🤖 **Connect to LLM** |
-| :---: | :---: | :---: | :---: |
-| Install and spin up <br> via Docker in 15 seconds | Everything you need to know <br>to run Epure in production <br>**[check docs](https://epure.sh/docs/self-hosting/installation)** | Swap DSN & zero out tracing <br>**[migration guide](https://epure.sh/docs/guides/migrate-from-sentry)** | AI integration, MCP and CLI <br> **[check docs](https://epure.sh/docs/guides/mcp-and-cli)** |
-
-</div>
-
-
+Docs: [architecture, deploy, and DSN migration](https://epure.sh/docs).
 
 ## Quickstart
 
@@ -58,7 +39,7 @@ Open [http://localhost:8080](http://localhost:8080). Register, create a project,
 
 **3. Throw one error**
 
-Use the official Sentry SDK, paste the DSN, and set tracing, replay, and profiling to **0**.
+Keep the official Sentry SDK. Paste the Epure DSN. Set tracing, replay, and profiling sample rates to **0** (Epure does not store those payloads).
 
 ```javascript
 import * as Sentry from "@sentry/node";
@@ -120,27 +101,27 @@ graph TD
 
 ---
 
-## 📚 Details & Community
+## Details
 
-* Grouped issues & readable stack traces
+* Grouped issues and readable stack traces
 * JS/TS sourcemaps
 * Releases and regressions
 * Alerts and webhooks
-* Multi-project orgs & DSN rotation
-* RBAC & PostgreSQL RLS
+* Multi-project orgs and DSN rotation
+* RBAC and PostgreSQL RLS
 * Keyboard triage
 * Spike protection
 
-Epure is **exception tracking only**. It does not provide distributed tracing, session replay, continuous profiling, generic log ingestion, infrastructure metrics, iOS/Android symbolication, or high-volume analytics stacks.
+Epure does not store distributed traces, session replay, continuous profiling, generic logs, or infrastructure metrics. It does not symbolicate iOS/Android. Keep those sample rates at 0 in the SDK.
 
 |  | Epure | Bugsink | Sentry self-hosted | GlitchTip |
 | --- | --- | --- | --- | --- |
-| **Primary focus** | Exception tracking | Self-hosted error tracking | Broad observability | Error & performance |
+| **Primary focus** | Error tracking | Self-hosted error tracking | Errors plus tracing, replay, profiling | Errors and performance |
 | **Deployment** | Two-container Compose | Single-container `docker run` | Large multi-service cluster | Multiple options |
 | **License** | Apache 2.0. No `ee/` folder | PolyForm Shield 1.0.0 | Check current Sentry license | MIT |
 | **Database** | PostgreSQL 16 | See their docs | Multiple datastores | PostgreSQL |
 
-**Project Status:** Early release. Good for homelabs, side projects, and small teams who have tested backup/upgrade paths. Expect SDK and protocol gaps (please report them!). [Changelog](CHANGELOG.md).
+**Project Status:** Early release. Fits homelabs, side projects, and small teams who have tested backup and upgrade paths. Expect SDK and protocol gaps; [file them](https://github.com/epure-sh/epure/issues). [Changelog](CHANGELOG.md).
 
 * [Report an Issue](https://github.com/epure-sh/epure/issues)
 * [Join Discussions](https://github.com/epure-sh/epure/discussions)
