@@ -86,7 +86,7 @@ jobs:
           images: ghcr.io/epure-sh/epure
           labels: |
             org.opencontainers.image.title=Epure
-            org.opencontainers.image.description=Exception-only error monitoring
+            org.opencontainers.image.description=Error tracking for exceptions. Change the DSN. Two containers.
             org.opencontainers.image.licenses=Apache-2.0
             org.opencontainers.image.source=https://github.com/epure-sh/epure
 

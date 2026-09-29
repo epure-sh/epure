@@ -357,7 +357,7 @@ function buildIssueAiPrompt(
   return [
     "# Fix this production exception (one-shot)",
     "",
-    "You are a senior engineer debugging from error monitoring telemetry. Deliver a complete fix in **one response** — no clarifying questions, no exploration loops.",
+    "You are a senior engineer debugging from error tracking data (issues, stack traces, breadcrumbs, occurrences). Deliver a complete fix in **one response** — no clarifying questions, no exploration loops.",
     "",
     "## Required output (use these headings exactly)",
     "",

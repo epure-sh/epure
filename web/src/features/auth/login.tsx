@@ -96,7 +96,7 @@ export function LoginPage() {
               ? googleEnabled
                 ? "Create an account or sign in with Google to join the workspace."
                 : "Create an account to join the workspace."
-              : "Exception monitoring for indie teams."}
+              : "Error tracking for exceptions. Change the DSN."}
           </p>
         </div>
 

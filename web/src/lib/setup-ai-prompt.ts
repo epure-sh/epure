@@ -109,7 +109,7 @@ function workflowBlock(input: SetupAiPromptInput): string[] {
       "1. Search the repo for `Sentry.init`, `@sentry/`, or `sentry-sdk`.",
       "2. Replace **only** the `dsn` with the Epure DSN below; keep release/environment unless they enable tracing/replay.",
       "3. Set `tracesSampleRate`, `profilesSampleRate`, and replay sample rates to **0**.",
-      "4. Summarize what still differs vs Sentry (Epure is exception-only, no replay/APM parity). Link: " +
+      "4. Summarize what still differs vs Sentry (error tracking for exceptions; no replay or APM). Link: " +
         EPURE_DOCS_MIGRATION_URL,
       "5. Add or run a one-shot test exception.",
       "",
@@ -122,7 +122,7 @@ function workflowBlock(input: SetupAiPromptInput): string[] {
     "",
     "1. Install the official Sentry SDK for this stack (see platform doc).",
     "2. Initialize at startup with the Epure DSN below; set sample rates to **0** for tracing/replay/profiling.",
-    "3. Minimal diff. No extra observability libraries.",
+    "3. Minimal diff. No extra tracing or APM libraries.",
     "4. Add a clear test path for one exception.",
     "",
     "Quickstart: " + EPURE_DOCS_QUICKSTART_URL,
@@ -134,9 +134,9 @@ export function buildSetupAiPrompt(input: SetupAiPromptInput): string {
   const { dsn, path, phase, projectName, platformLabel } = input;
 
   return [
-    "# Epure setup: wire error monitoring in this repository",
+    "# Epure setup: wire error tracking in this repository",
     "",
-    "You are a senior engineer pairing with the user. Epure uses **official Sentry SDKs**; Epure-specific config is the **DSN** (and honest exception-only scope).",
+    "You are a senior engineer pairing with the user. Epure uses **official Sentry SDKs**; Epure-specific config is the **DSN** (exceptions, grouped issues, stack traces; no replay or traces).",
     "",
     "## Locked context",
     projectName ? `- Epure project name: **${projectName}**` : null,
@@ -167,7 +167,7 @@ export function buildSetupAiPrompt(input: SetupAiPromptInput): string {
     "",
     "## Constraints",
     "- Smallest correct diff; no drive-by refactors.",
-    "- Exception-only: do not enable transactions, session replay, or profiling.",
+    "- Do not enable transactions, session replay, or profiling.",
     "- Do not claim 100% Sentry parity.",
     "- JS/TS: prefer Sentry SDK **7.x** unless the repo already pins another major.",
     "",
