@@ -1,18 +1,19 @@
 openapi: 3.1.0
 info:
-  title: epure Ingest API
+  title: Epure Ingest API
   description: |
-    Sentry-compatible exception ingest endpoints for epure Phase 1 OSS.
+    Sentry envelope and store ingest for exception events.
 
-    **Scope**: exception events only. Transaction envelope items are accepted
-    then discarded. Not a full Sentry protocol implementation — see compatibility
-    matrix in project README.
+    **Scope**: exception events and breadcrumbs are stored. Transaction envelope
+    items are accepted then discarded. Replay, profile, session, and attachment
+    items are skipped. This is not a complete Sentry protocol implementation.
+    See the SDK matrix at https://epure.sh/docs/reference/sdk-matrix.
 
     **Auth**: DSN credentials via `X-Sentry-Auth` header or query parameters.
     Dashboard session cookies are **not** valid on these routes.
   version: 0.1.0
   contact:
-    name: epure
+    name: Epure
     url: https://epure.sh
     email: support@news.epure.sh
 
@@ -88,8 +89,8 @@ paths:
         Accepts `application/x-sentry-envelope` bodies per Sentry envelope spec.
 
         - **`event` items**: parsed and queued for persistence.
-        - **`transaction` items**: discarded (exception-only product).
-        - **`attachment` items**: ignored in Phase 1 (metadata not stored at scale).
+        - **`transaction` items**: discarded (not stored).
+        - **`attachment` items**: ignored; attachment metadata is not stored.
 
         Returns **202 Accepted** immediately; persistence is asynchronous.
       operationId: postEnvelope
