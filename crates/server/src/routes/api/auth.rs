@@ -8,8 +8,8 @@ use axum::{
     Json, Router,
 };
 use epure_auth::{
-    clear_dashboard_session, establish_dashboard_session, load_dashboard_session, CredentialError,
-    GoogleAuth, GoogleAuthError,
+    clear_dashboard_session, establish_dashboard_session, load_dashboard_session,
+    registration_enabled, CredentialError, GoogleAuth, GoogleAuthError,
 };
 use serde::{Deserialize, Serialize};
 use tower_sessions::Session;
@@ -56,6 +56,7 @@ struct AcceptInvitationBody {
 struct AuthConfigResponse {
     google_enabled: bool,
     password_enabled: bool,
+    registration_enabled: bool,
 }
 
 #[derive(Serialize)]
@@ -101,6 +102,7 @@ async fn auth_config(State(state): State<Arc<AppState>>) -> Json<AuthConfigRespo
     Json(AuthConfigResponse {
         google_enabled: state.google.is_some(),
         password_enabled: true,
+        registration_enabled: registration_enabled(),
     })
 }
 
@@ -109,9 +111,18 @@ async fn register(
     session: Session,
     Json(body): Json<CredentialsBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    let invite_token = body
+        .invite_token
+        .as_deref()
+        .map(str::trim)
+        .filter(|token| !token.is_empty());
+    if invite_token.is_none() && !registration_enabled() {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
     let dashboard = state
         .credentials
-        .register(&body.email, &body.password, body.invite_token.as_deref())
+        .register(&body.email, &body.password, invite_token)
         .await
         .map_err(map_credential_error)?;
 
@@ -197,10 +208,16 @@ async fn google_callback(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let dashboard = google
+    let dashboard = match google
         .authenticate_code(&query.code, invite_token.as_deref())
         .await
-        .map_err(map_google_error)?;
+    {
+        Ok(dashboard) => dashboard,
+        Err(GoogleAuthError::RegistrationClosed) => {
+            return Ok(Redirect::to("/login?error=registration_closed").into_response());
+        }
+        Err(error) => return Err(map_google_error(error)),
+    };
 
     establish_dashboard_session(&session, &dashboard)
         .await
@@ -353,6 +370,7 @@ fn map_google_error(error: GoogleAuthError) -> StatusCode {
         | GoogleAuthError::TokenExchange
         | GoogleAuthError::UserInfo => StatusCode::UNAUTHORIZED,
         GoogleAuthError::InvalidInviteToken => StatusCode::BAD_REQUEST,
+        GoogleAuthError::RegistrationClosed => StatusCode::FORBIDDEN,
         GoogleAuthError::NotConfigured => StatusCode::NOT_FOUND,
         GoogleAuthError::Http(_) | GoogleAuthError::Sqlx(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }

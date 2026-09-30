@@ -31,6 +31,8 @@ pub enum GoogleAuthError {
     UserInfo,
     #[error("invalid or expired invitation token")]
     InvalidInviteToken,
+    #[error("public registration is closed")]
+    RegistrationClosed,
     #[error(transparent)]
     Http(#[from] reqwest::Error),
     #[error(transparent)]
@@ -193,6 +195,10 @@ impl GoogleAuth {
             return self
                 .create_user_with_invitation(google_sub, &normalized, token)
                 .await;
+        }
+
+        if !crate::registration_enabled() {
+            return Err(GoogleAuthError::RegistrationClosed);
         }
 
         self.create_user_with_org(google_sub, &normalized).await

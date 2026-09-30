@@ -27,6 +27,8 @@ services:
       EPURE_CORS_ORIGINS: ${EPURE_CORS_ORIGINS:-*}
       EPURE_DEV_SEED: ${EPURE_DEV_SEED:-}
       EPURE_WEBHOOK_ALLOW_PRIVATE: ${EPURE_WEBHOOK_ALLOW_PRIVATE:-}
+      # Unset = public registration open. false closes new workspaces; login and invites stay.
+      EPURE_REGISTRATION: ${EPURE_REGISTRATION:-}
       # Cloud only — leave empty for OSS.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}

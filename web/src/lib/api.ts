@@ -487,6 +487,7 @@ export interface MeResponse {
 export interface AuthConfig {
   google_enabled: boolean;
   password_enabled: boolean;
+  registration_enabled: boolean;
 }
 
 export async function fetchMe(): Promise<MeResponse> {
