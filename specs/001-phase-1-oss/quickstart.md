@@ -37,6 +37,7 @@ Compose injects all three `DATABASE_URL*` values inside the container. Host-side
 | `EPURE_DEV_SEED` | Optional | off | `1` = fixed-UUID scaffold (`scripts/seed-dev.sql`) on startup — no accounts/passwords; localhost only |
 | `EPURE_CORS_ORIGINS` | Optional | `*` | Comma-separated ingest CORS origins |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Optional | empty | Google OAuth; leave empty for email/password |
+| `EPURE_REGISTRATION` | Optional | open | `false` / `0` / `off` blocks new workspaces. Login and invitation links stay open |
 | `DATABASE_URL` | `.env.dev` only | — | Host tools: `postgres://epure:epure@localhost:5433/epure` |
 | `EPURE_BIND` | `.env.dev` only | `0.0.0.0:8080` | Listen address when running the binary on the host |
 | `EPURE_MODE` | `.env.dev` only | `all` | Phase 1: only `all` supported |

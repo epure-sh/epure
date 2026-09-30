@@ -16,6 +16,7 @@ services:
       EPURE_SESSION_SECURE: "1"
       EPURE_ARTIFACTS_DIR: /data/artifacts
       EPURE_PUBLIC_URL: ${EPURE_PUBLIC_URL:?set me}
+      EPURE_REGISTRATION: ${EPURE_REGISTRATION:-}
       EPURE_CORS_ORIGINS: ${EPURE_CORS_ORIGINS:?set me}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set me}
       DATABASE_URL: postgres://epure:${POSTGRES_PASSWORD}@postgres:5432/epure

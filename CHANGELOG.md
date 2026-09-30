@@ -8,6 +8,25 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 Nothing yet.
 
+## [v0.1.4] — 2026-09-30
+
+Operators can close public registration after the first account exists.
+
+- **Release:** [GitHub v0.1.4](https://github.com/epure-sh/epure/releases/tag/v0.1.4)
+- **Compare:** [v0.1.3…v0.1.4](https://github.com/epure-sh/epure/compare/v0.1.3...v0.1.4)
+- **Image:** `ghcr.io/epure-sh/epure:v0.1.4`
+- **Docs:** [epure.sh/docs/changelog](https://epure.sh/docs/changelog)
+
+### Added
+
+- `EPURE_REGISTRATION=false` (also `0`, `off`, `no`, `disabled`) rejects new workspaces on `POST /api/v1/auth/register` and on Google sign-up
+- Login, existing Google accounts, and invitation links stay available
+- `GET /api/v1/auth/config` returns `registration_enabled`; the login page hides Register when it is false
+
+### Upgrade
+
+Create the account you need, set `EPURE_REGISTRATION=false`, recreate the container. No migration.
+
 ## [v0.1.3] — 2026-09-28
 
 Sentry SDK v7 rejects non-numeric DSN project segments; Epure keeps UUID primary keys and exposes stable numeric `dsn_project_id` values in DSN URLs and ingest paths.

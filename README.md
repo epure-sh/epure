@@ -75,6 +75,8 @@ docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d
 
 `./configure --prod` asks for the public HTTPS URL and writes the passwords. Put Caddy, nginx, or Traefik in front of port 8080. Open that URL and repeat steps 2 to 4.
 
+After that account exists, set `EPURE_REGISTRATION=false` and recreate the container. Sign-in stays available. New workspaces cannot be created from the public URL. Invitation links still work.
+
 Pin `ghcr.io/epure-sh/epure` to a [release](https://github.com/epure-sh/epure/releases) once the URL is public.
 
 **On a platform**

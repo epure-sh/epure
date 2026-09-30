@@ -36,7 +36,7 @@ Generate passwords (example):
 openssl rand -hex 24   # POSTGRES_PASSWORD, EPURE_INGEST_PASSWORD, EPURE_APP_PASSWORD
 ```
 
-Set `EPURE_PUBLIC_URL` and `EPURE_CORS_ORIGINS` to your public origin (e.g. `https://errors.example.com`).
+Set `EPURE_PUBLIC_URL` and `EPURE_CORS_ORIGINS` to your public origin (e.g. `https://errors.example.com`). After the first account exists, set `EPURE_REGISTRATION=false` so the public URL cannot open another workspace. Sign-in and invitation links still work.
 
 **Marketplace:** Copy `dokploy/` into `blueprints/epure/` on Dokploy/templates and open a PR (logo + `meta.json` entry still required upstream).
 

@@ -41,6 +41,10 @@ services:
         value: "0"
       - key: EPURE_SESSION_SECURE
         value: "1"
+      # Set to false in the Render dashboard after the first account exists.
+      - key: EPURE_REGISTRATION
+        value: "true"
+        sync: false
       - key: EPURE_ARTIFACTS_DIR
         value: /data/artifacts
       - key: EPURE_PUBLIC_URL

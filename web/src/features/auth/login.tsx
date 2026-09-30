@@ -13,6 +13,7 @@ type AuthMode = "login" | "register";
 interface AuthConfig {
   google_enabled: boolean;
   password_enabled: boolean;
+  registration_enabled?: boolean;
 }
 
 export function LoginPage() {
@@ -35,7 +36,11 @@ export function LoginPage() {
         }
       })
       .catch(() => {
-        setAuthConfig({ google_enabled: false, password_enabled: true });
+        setAuthConfig({
+          google_enabled: false,
+          password_enabled: true,
+          registration_enabled: true,
+        });
       });
   }, []);
 
@@ -65,6 +70,8 @@ export function LoginPage() {
         setMessage("Email already registered.");
       } else if (response.status === 401) {
         setMessage("Invalid email or password.");
+      } else if (response.status === 403) {
+        setMessage("Registration is closed on this server.");
       } else if (response.status === 400) {
         setMessage(
           inviteToken && mode === "register"
@@ -82,6 +89,16 @@ export function LoginPage() {
   }
 
   const googleEnabled = isGoogleSignInVisible(authConfig?.google_enabled);
+  const registrationClosed =
+    searchParams.get("error") === "registration_closed" ||
+    authConfig?.registration_enabled === false;
+  const canRegister = Boolean(inviteToken) || !registrationClosed;
+
+  useEffect(() => {
+    if (!canRegister && mode === "register") {
+      setMode("login");
+    }
+  }, [canRegister, mode]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg p-6">
@@ -105,6 +122,10 @@ export function LoginPage() {
             <p className="rounded-lg border border-border bg-bg-subtle px-3 py-2 text-center text-sm text-ink-muted">
               You were invited to join a workspace.
             </p>
+          ) : registrationClosed ? (
+            <p className="rounded-lg border border-border bg-bg-subtle px-3 py-2 text-center text-sm text-ink-muted">
+              Public registration is closed. Sign in with an existing account.
+            </p>
           ) : null}
           {googleEnabled ? (
             <Button
@@ -122,24 +143,26 @@ export function LoginPage() {
             </Button>
           ) : null}
 
-          <div className="flex gap-1 rounded-lg border border-border bg-bg-subtle p-0.5">
-            <Button
-              variant={mode === "login" ? "primary" : "ghost"}
-              type="button"
-              className="flex-1"
-              onClick={() => setMode("login")}
-            >
-              Log in
-            </Button>
-            <Button
-              variant={mode === "register" ? "primary" : "ghost"}
-              type="button"
-              className="flex-1"
-              onClick={() => setMode("register")}
-            >
-              Register
-            </Button>
-          </div>
+          {canRegister ? (
+            <div className="flex gap-1 rounded-lg border border-border bg-bg-subtle p-0.5">
+              <Button
+                variant={mode === "login" ? "primary" : "ghost"}
+                type="button"
+                className="flex-1"
+                onClick={() => setMode("login")}
+              >
+                Log in
+              </Button>
+              <Button
+                variant={mode === "register" ? "primary" : "ghost"}
+                type="button"
+                className="flex-1"
+                onClick={() => setMode("register")}
+              >
+                Register
+              </Button>
+            </div>
+          ) : null}
 
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
             <Field label="Email" htmlFor="email">
