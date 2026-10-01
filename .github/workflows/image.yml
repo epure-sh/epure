@@ -65,13 +65,12 @@ jobs:
         working-directory: web
         run: npm ci && npm run build
 
-      - name: Release binary
+      - name: Release binaries
         run: |
-          cargo build --release --bin epure
-          strip -s target/release/epure
+          cargo build --release --bin epure --bin epure-cli
+          strip -s target/release/epure target/release/epure-cli
           mkdir -p dist-image
-          cp target/release/epure dist-image/epure
-
+          cp target/release/epure target/release/epure-cli dist-image/
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -168,6 +167,8 @@ jobs:
           docker pull --platform linux/amd64 "$tag"
           docker run --rm --network none --read-only --tmpfs /tmp --platform linux/amd64 \
             "$tag" --help
+          docker run --rm --network none --read-only --tmpfs /tmp --platform linux/amd64 \
+            --entrypoint epure-cli "$tag" --help
 
       # GITHUB_TOKEN cannot flip org package visibility (API 404).
       # One-time: Package settings → Danger Zone → Change visibility → Public.
