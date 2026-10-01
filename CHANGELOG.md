@@ -6,7 +6,18 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 ## Unreleased
 
-Nothing yet.
+## [v0.1.5] — 2026-10-01
+
+Ingest now accepts official Sentry SDK DSN auth that omits `sentry_secret`.
+
+- **Release:** [GitHub v0.1.5](https://github.com/epure-sh/epure/releases/tag/v0.1.5)
+- **Compare:** [v0.1.4…v0.1.5](https://github.com/epure-sh/epure/compare/v0.1.4...v0.1.5)
+- **Image:** `ghcr.io/epure-sh/epure:v0.1.5`
+- **Docs:** [epure.sh/docs/changelog](https://epure.sh/docs/changelog)
+
+### Fixed
+
+- Ingest DSN auth no longer requires `sentry_secret`; `sentry_key` alone is accepted and `sentry_secret` is validated only when present
 
 ## [v0.1.4] — 2026-09-30
 

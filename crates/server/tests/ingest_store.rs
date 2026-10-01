@@ -4,7 +4,7 @@ use epure_envelope::preview_fingerprint;
 use epure_storage::{counters, events};
 use std::fs;
 use std::time::Duration;
-use support::{auth_header, fixture_path, project_id, spawn_test_server};
+use support::{auth_header, fixture_path, project_id, spawn_test_server, PUBLIC_KEY};
 
 #[tokio::test]
 async fn store_ingest_persists_issue_row() {
@@ -82,5 +82,26 @@ async fn invalid_dsn_returns_unauthorized_without_panic() {
         .expect("post store");
 
     assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
+    server.abort();
+}
+
+#[tokio::test]
+async fn dsn_without_secret_is_accepted() {
+    let (base_url, _pool, server) = spawn_test_server().await;
+    let body = fs::read(fixture_path("python", "store.json")).expect("python store fixture");
+    let client = reqwest::Client::new();
+    let response = client
+        .post(format!("{}/api/{}/store/", base_url, project_id()))
+        .header(
+            "X-Sentry-Auth",
+            format!("Sentry sentry_version=7, sentry_key={PUBLIC_KEY}"),
+        )
+        .header("Content-Type", "application/json")
+        .body(body)
+        .send()
+        .await
+        .expect("post store");
+
+    assert_eq!(response.status(), reqwest::StatusCode::ACCEPTED);
     server.abort();
 }
