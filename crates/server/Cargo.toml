@@ -45,6 +45,7 @@ uuid.workspace = true
 epure-auth.workspace = true
 epure-envelope.workspace = true
 epure-storage.workspace = true
+flate2.workspace = true
 reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls", "cookies"] }
 serde_json.workspace = true
 sqlx.workspace = true

@@ -125,6 +125,13 @@ async fn post_envelope(
                 "No event item found in envelope",
             )
         }
+        Err(EnvelopeError::DecompressFailed) => {
+            return error_response(
+                StatusCode::BAD_REQUEST,
+                "invalid_envelope",
+                "Envelope decompression failed",
+            )
+        }
         Err(_) => {
             return error_response(
                 StatusCode::BAD_REQUEST,
