@@ -6,7 +6,10 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 ## Unreleased
 
-Nothing yet.
+### Changed
+
+- PAT / MCP rate limits raised to **600 reads** and **120 writes** per minute (was 120 / 20) so agent loops are usable
+- Agent rate-limit middleware now runs outside auth so failed PAT attempts still consume the bucket
 
 ## [v0.1.5] — 2026-10-01
 

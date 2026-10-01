@@ -10,7 +10,7 @@ info:
 
     Authenticate with `Authorization: Bearer epure_pat_…` (Settings → Agent tokens).
 
-    Rate limits per IP + token prefix: 120 reads / 20 writes per minute per instance.
+    Rate limits per IP + token prefix: 600 reads / 120 writes per minute per instance.
 
 servers:
   - url: /api/v1/agent
