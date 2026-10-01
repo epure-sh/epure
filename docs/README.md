@@ -39,10 +39,10 @@ Operator and product guides are published on the documentation site:
 ## Images
 
 ```bash
-docker pull ghcr.io/epure-sh/epure:v0.1.4
+docker pull ghcr.io/epure-sh/epure:v0.1.5
 ```
 
-Production pin: `EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.1.4`. Source build: `docker compose -f docker-compose.yml -f deploy/docker-compose.build.yml up --build`.
+Production pin: `EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.1.5`. Source build: `docker compose -f docker-compose.yml -f deploy/docker-compose.build.yml up --build`.
 
 ### Refresh `:latest` without a new release
 

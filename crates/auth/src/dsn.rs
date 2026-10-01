@@ -53,7 +53,7 @@ impl DsnValidator {
     pub async fn validate(
         &self,
         public_key: &str,
-        secret_key: &str,
+        secret_key: Option<&str>,
         project_id: Uuid,
     ) -> Result<DsnRecord, DsnAuthError> {
         let record = if let Some(entry) = self.cache.get(public_key) {
@@ -81,8 +81,12 @@ impl DsnValidator {
             return Err(DsnAuthError::ProjectMismatch);
         }
 
-        if !constant_time_secret_eq(&record.secret_key, secret_key.as_bytes()) {
-            return Err(DsnAuthError::Invalid);
+        if let Some(secret_key) = secret_key {
+            if !secret_key.is_empty()
+                && !constant_time_secret_eq(&record.secret_key, secret_key.as_bytes())
+            {
+                return Err(DsnAuthError::Invalid);
+            }
         }
 
         Ok(record)

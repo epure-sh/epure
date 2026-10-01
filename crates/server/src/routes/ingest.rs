@@ -611,7 +611,7 @@ async fn validate_dsn(
 ) -> Result<DsnRecord, Response> {
     match state
         .dsn_validator
-        .validate(&auth.public_key, &auth.secret_key, project_id)
+        .validate(&auth.public_key, auth.secret_key.as_deref(), project_id)
         .await
     {
         Ok(record) => Ok(record),
