@@ -77,7 +77,7 @@ docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d
 
 After that account exists, set `EPURE_REGISTRATION=false` and recreate the container. Sign-in stays available. New workspaces cannot be created from the public URL. Invitation links still work.
 
-Pin `EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.1.5` once the URL is public. [Releases](https://github.com/epure-sh/epure/releases).
+Pin `EPURE_IMAGE` to the current release tag once the URL is public ([Releases](https://github.com/epure-sh/epure/releases) · [Installation](https://epure.sh/docs/self-hosting/installation)).
 
 **On a platform**
 
