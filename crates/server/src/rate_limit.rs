@@ -60,8 +60,8 @@ pub async fn login_rate_limit(
     }
 }
 
-const AGENT_READ_MAX: u32 = 120;
-const AGENT_WRITE_MAX: u32 = 20;
+const AGENT_READ_MAX: u32 = 600;
+const AGENT_WRITE_MAX: u32 = 120;
 
 static AGENT_LIMITER: LazyLock<Mutex<RateLimiter>> =
     LazyLock::new(|| Mutex::new(RateLimiter::default()));

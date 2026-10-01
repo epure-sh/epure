@@ -49,11 +49,13 @@ pub fn router(state: Arc<AppState>) -> Router {
         .merge(members::router(state.clone()))
         .merge(setup::router(state.clone()))
         .merge(stats::router(state.clone()))
-        .route_layer(axum::middleware::from_fn(rate_limit::agent_rate_limit))
+        // Innermost → outermost: auth then rate-limit so PAT-shaped requests are
+        // counted even when the token is rejected (brute-force / spray).
         .route_layer(axum::middleware::from_fn_with_state(
             state.clone(),
             require_api_auth,
-        ));
+        ))
+        .route_layer(axum::middleware::from_fn(rate_limit::agent_rate_limit));
 
     Router::new().nest("/api/v1", public.merge(protected))
 }
