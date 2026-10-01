@@ -13,7 +13,7 @@ Epure’s default install remains root [`docker-compose.yml`](../../docker-compo
 
 - **HTTPS** in front of the app (`EPURE_PUBLIC_URL`, `EPURE_CORS_ORIGINS`, `EPURE_SESSION_SECURE=1`).
 - **Three database roles** with distinct passwords: `epure`, `epure_ingest`, `epure_app` (see [`../docker-compose.prod.yml`](../docker-compose.prod.yml)).
-- **Pin** `ghcr.io/epure-sh/epure:v0.1.8` for anything beyond a trial.
+- **Pin** `ghcr.io/epure-sh/epure:v0.1.7` for anything beyond a trial.
 
 ## Coolify
 

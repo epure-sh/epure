@@ -8,31 +8,9 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 Nothing yet.
 
-## [v0.1.8] — 2026-10-01
-
-Auth, webhook, and ingest hardening.
-
-- **Release:** [GitHub v0.1.8](https://github.com/epure-sh/epure/releases/tag/v0.1.8)
-- **Compare:** [v0.1.7…v0.1.8](https://github.com/epure-sh/epure/compare/v0.1.7...v0.1.8)
-- **Image:** `ghcr.io/epure-sh/epure:v0.1.8`
-
-### Fixed
-
-- Personal access tokens: invitation routes require `write:admin`. Unlisted mutating routes are denied.
-- Webhook SSRF guard rejects IPv6 unique-local addresses and private IPv4 embedded in 6to4 or NAT64.
-- Webhook signatures are HMAC-SHA256 over `X-Epure-Timestamp`, a dot, and the raw body. Receivers must include the timestamp.
-- Password changes revoke that user's agent tokens and invalidate other dashboard sessions.
-- Login rate limits and stored client IPs use `X-Forwarded-For` only when the TCP peer is listed in `EPURE_TRUSTED_PROXIES`.
-- New DSN secrets are stored as argon2id hashes. Public-key ingest is unchanged.
-- SPA responses send CSP, `nosniff`, `DENY` framing, and `no-referrer`. Ingest CORS no longer reflects an origin that is not on the allowlist.
-
-### Upgrade
-
-`git pull`, pin `EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.1.8`, `docker compose up -d`. Migration `20261001120000_credential_generation` runs on startup. Set `EPURE_TRUSTED_PROXIES` to your reverse proxy. Webhook receivers must verify the timestamp. Existing sessions sign in again.
-
 ## [v0.1.7] — 2026-10-01
 
-Envelope ingest accepts gzip/zlib bodies (PHP/Laravel, Java, Ruby, .NET defaults) and CRLF item separators. Outbound webhooks pin DNS to the validated address (SSRF rebinding guard).
+Envelope ingest accepts gzip/zlib bodies (PHP/Laravel, Java, Ruby, .NET defaults) and CRLF item separators. Outbound webhooks pin DNS to the validated address (SSRF rebinding guard). Auth, webhook, and ingest hardening.
 
 - **Release:** [GitHub v0.1.7](https://github.com/epure-sh/epure/releases/tag/v0.1.7)
 - **Compare:** [v0.1.6…v0.1.7](https://github.com/epure-sh/epure/compare/v0.1.6...v0.1.7)
@@ -45,10 +23,17 @@ Envelope ingest accepts gzip/zlib bodies (PHP/Laravel, Java, Ruby, .NET defaults
 - CRLF (`\r\n`) envelope separators are normalized
 - Integration matrix covers every `fixtures/sentry/*/envelope.txt` raw + gzip, plus Laravel multi-item, numeric DSN, and query auth
 - Webhook dispatch pins HTTP connect to the IP addresses validated by the SSRF guard (blocks DNS rebinding / TOCTOU between check and request)
+- Personal access tokens: invitation routes require `write:admin`. Unlisted mutating routes are denied.
+- Webhook SSRF guard rejects IPv6 unique-local addresses and private IPv4 embedded in 6to4 or NAT64.
+- Webhook signatures are HMAC-SHA256 over `X-Epure-Timestamp`, a dot, and the raw body. Receivers must include the timestamp.
+- Password changes revoke that user's agent tokens and invalidate other dashboard sessions.
+- Login rate limits and stored client IPs use `X-Forwarded-For` only when the TCP peer is listed in `EPURE_TRUSTED_PROXIES`.
+- New DSN secrets are stored as argon2id hashes. Public-key ingest is unchanged.
+- SPA responses send CSP, `nosniff`, `DENY` framing, and `no-referrer`. Ingest CORS no longer reflects an origin that is not on the allowlist.
 
 ### Upgrade
 
-`git pull`, pin `EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.1.7`, `docker compose up -d`. No migration.
+`git pull`, pin `EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.1.7`, `docker compose up -d`. Migration `20261001120000_credential_generation` runs on startup. Set `EPURE_TRUSTED_PROXIES` to your reverse proxy. Webhook receivers must verify the timestamp. Existing sessions sign in again.
 
 ## [v0.1.6] — 2026-10-01
 
