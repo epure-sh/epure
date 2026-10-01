@@ -1,44 +1,39 @@
 # Security Policy
 
-Epure is self-hosted error tracking: a Rust binary and PostgreSQL 16. You run both containers on your infrastructure.
+Epure is self-hosted error tracking (Rust binary + PostgreSQL 16). You run it on your infrastructure.
 
 ## Supported versions
 
 | Version | Supported |
 |---|---|
-| Latest release (`v0.1.0` and newer tags) | Yes |
-| `main` branch | Yes (fixes land here first) |
-| Older tags / forks | Best-effort only |
+| Latest release tag | Yes |
+| `main` | Yes (fixes land here first) |
+| Older tags / forks | Best-effort |
 
-Upgrade: `git pull && docker compose up -d` (pulls GHCR; pin `EPURE_IMAGE` in production). Guide: [epure.sh/docs/self-hosting/upgrades](https://epure.sh/docs/self-hosting/upgrades).
+Upgrade: pin `EPURE_IMAGE` to the current release, then `docker compose pull && docker compose up -d`. Guide: [Upgrades](https://epure.sh/docs/self-hosting/upgrades).
 
 ## Reporting a vulnerability
 
-**Use [GitHub Private Vulnerability Reporting](https://github.com/epure-sh/epure/security/advisories/new)**. Keep details private until a fix ships.
+1. **Preferred:** [GitHub Private Vulnerability Reporting](https://github.com/epure-sh/epure/security/advisories/new)
+2. **Fallback:** email **`security@news.epure.sh`**
 
-Do **not** open a public GitHub issue for security vulnerabilities.
+Do **not** open a public issue for security bugs.
 
-You can also email **`security@news.epure.sh`**.
-
-Include: impact, repro steps, Epure version or commit SHA, and any PoC you are comfortable sharing.
+Include: impact, repro (or clear source path), Epure version or commit SHA, and any PoC you are comfortable sharing.
 
 ## What we will do
 
 1. Acknowledge within **72 hours** (business days).
 2. Confirm scope, usually within **7 days**.
-3. Fix on `main`, then patch release + GHSA with credit (unless you prefer anonymity).
+3. Fix on `main`, ship a patched release, publish a GHSA with credit (unless you prefer anonymity).
 4. Coordinate disclosure timing with you.
+
+## Scope
+
+**In scope:** server (ingest, dashboard, Agent API / PATs, auth, worker), Postgres RLS, sessions, webhooks, bundled SPA.
+
+**Out of scope:** your reverse proxy / TLS / host OS, Postgres backups, misconfigured `.env`, and Sentry SDK behavior in your app.
 
 ## Safe harbor
 
 Good-faith research on **your own** Epure instance is welcome. Do not test against Epure Cloud or third-party deployments without written permission.
-
-## Scope
-
-**In scope:** Epure server (ingest, dashboard APIs, Agent API / personal access tokens, auth, worker), PostgreSQL RLS, sessions, webhooks, bundled SPA.
-
-**PAT / Agent API:** Tokens are `epure_pat_…` secrets shown once at creation; store them like passwords. Scopes are `read:agent` (GET dashboard + agent routes), `write:triage` (issue/alerts mutations), and `write:admin` (projects, webhooks, members, agent-token management). Session cookies bypass PAT scope checks; PAT requests are rate-limited per IP and token prefix. MCP `epure_api` and `epure-cli api` only allow paths under `/api/v1/` and block `/api/v1/auth/*`.
-
-**Out of scope:** Your reverse proxy, TLS, host OS, Postgres backups, misconfigured `.env`, and Sentry SDK behavior in your app. Epure scrubs common secret patterns at ingest but cannot audit your instrumentation.
-
-Operator data handling: [epure.sh/docs](https://epure.sh/docs) · PII / retention concepts: [Concepts](https://epure.sh/docs/get-started/concepts).
