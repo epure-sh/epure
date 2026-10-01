@@ -19,6 +19,8 @@ services:
       EPURE_CORS_ORIGINS: ${EPURE_CORS_ORIGINS:?set me}
       EPURE_DEV_SEED: ""
       EPURE_WEBHOOK_ALLOW_PRIVATE: ""
+      # Comma-separated IPs or CIDRs of the reverse proxy. Empty keeps the TCP peer.
+      EPURE_TRUSTED_PROXIES: ${EPURE_TRUSTED_PROXIES:-}
     ports:
       - "${EPURE_PORT:-8080}:8080"
 

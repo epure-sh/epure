@@ -20,7 +20,7 @@ Railway does not run `docker-compose.yml` from Git on every push. This folder is
 6. Deploy, open the `epure` public URL, register, create a project, copy the DSN.
 7. Optional: set shared `EPURE_REGISTRATION` to `false` and redeploy so the public URL cannot open another workspace. Sign-in and invitation links still work.
 
-Pin the image in production: `ghcr.io/epure-sh/epure:v0.1.7`.
+Pin the image in production: `ghcr.io/epure-sh/epure:v0.1.8`.
 
 ## Publish a one-click template
 

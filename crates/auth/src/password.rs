@@ -6,6 +6,10 @@ use thiserror::Error;
 const SALT_LEN: usize = 16;
 const HASH_LEN: usize = 32;
 
+pub fn is_stored_password_hash(stored: &[u8]) -> bool {
+    stored.len() == SALT_LEN + HASH_LEN
+}
+
 #[derive(Debug, Error)]
 pub enum PasswordError {
     #[error("invalid password")]
