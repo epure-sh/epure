@@ -1,4 +1,4 @@
-# Thin runtime for a prebuilt `epure` binary (Image workflow).
+# Thin runtime for prebuilt `epure` + `epure-cli` binaries (Image workflow).
 # Contributor source builds still use ./Dockerfile (web + cargo inside Docker).
 FROM debian:bookworm-slim
 
@@ -10,7 +10,7 @@ RUN apt-get update \
     && mkdir -p /data/artifacts \
     && chown epure:epure /data/artifacts
 
-COPY --chmod=755 --chown=65532:65532 epure /usr/local/bin/epure
+COPY --chmod=755 --chown=65532:65532 epure epure-cli /usr/local/bin/
 
 USER 65532:65532
 EXPOSE 8080
