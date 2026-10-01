@@ -1,6 +1,6 @@
 use axum::{
     body::Bytes,
-    extract::{Multipart, Path, Query, State},
+    extract::{ConnectInfo, Multipart, Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{options, post},
@@ -13,6 +13,7 @@ use epure_envelope::{
 };
 use epure_storage::{alerts, projects, releases, user_feedback};
 use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::limit::RequestBodyLimitLayer;
 use uuid::Uuid;
@@ -86,6 +87,7 @@ async fn cors_preflight(State(state): State<Arc<AppState>>, headers: HeaderMap) 
 
 async fn post_envelope(
     State(state): State<Arc<AppState>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Path(raw_project_id): Path<String>,
     Query(query): Query<IngestQuery>,
     headers: HeaderMap,
@@ -144,6 +146,7 @@ async fn post_envelope(
     accept_payload(
         &state,
         &headers,
+        addr.ip(),
         project_id,
         record.org_id,
         parsed.event_payload,
@@ -326,6 +329,7 @@ async fn post_release_files(
 
 async fn post_store(
     State(state): State<Arc<AppState>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Path(raw_project_id): Path<String>,
     Query(query): Query<IngestQuery>,
     headers: HeaderMap,
@@ -369,7 +373,15 @@ async fn post_store(
         }
     };
 
-    accept_payload(&state, &headers, project_id, record.org_id, payload).await
+    accept_payload(
+        &state,
+        &headers,
+        addr.ip(),
+        project_id,
+        record.org_id,
+        payload,
+    )
+    .await
 }
 
 async fn post_user_feedback(
@@ -465,6 +477,7 @@ async fn post_user_feedback(
 async fn accept_payload(
     state: &AppState,
     headers: &HeaderMap,
+    peer: std::net::IpAddr,
     project_id: Uuid,
     org_id: Uuid,
     payload: Vec<u8>,
@@ -475,7 +488,7 @@ async fn accept_payload(
         .get("user-agent")
         .and_then(|value| value.to_str().ok())
         .map(str::to_string);
-    let client_ip = client_ip_from_headers(headers);
+    let client_ip = Some(client_ip_from_peer(peer, headers));
     let country_code_hint = country_code_from_headers(headers);
 
     let job = match state.spike_valve.check(&fingerprint) {
@@ -722,20 +735,26 @@ fn country_code_from_headers(headers: &HeaderMap) -> Option<String> {
         .map(|code| code.to_ascii_uppercase())
 }
 
-fn client_ip_from_headers(headers: &HeaderMap) -> Option<String> {
-    headers
+fn client_ip_from_peer(peer: std::net::IpAddr, headers: &HeaderMap) -> String {
+    let forwarded = headers
         .get("x-forwarded-for")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.split(',').next())
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-        .or_else(|| {
-            headers
-                .get("x-real-ip")
-                .and_then(|value| value.to_str().ok())
-                .map(str::to_string)
-        })
+        .and_then(|value| value.to_str().ok());
+    let real_ip = headers
+        .get("x-real-ip")
+        .and_then(|value| value.to_str().ok());
+    crate::rate_limit::client_ip_from_peer(peer, forwarded, real_ip).to_string()
+}
+
+fn allowed_cors_origin(allowed: &[String], origin: Option<&str>) -> Option<String> {
+    if allowed.iter().any(|value| value == "*") {
+        return Some("*".to_string());
+    }
+    let origin = origin?;
+    if allowed.iter().any(|value| value == origin) {
+        Some(origin.to_string())
+    } else {
+        None
+    }
 }
 
 fn apply_cors_headers(
@@ -747,25 +766,13 @@ fn apply_cors_headers(
         .get("origin")
         .and_then(|value| value.to_str().ok());
 
-    let allow_origin = state
-        .cors_origins
-        .iter()
-        .find(|allowed| *allowed == "*" || origin.is_some_and(|o| allowed.as_str() == o))
-        .cloned()
-        .or_else(|| {
-            if state.cors_origins.iter().any(|allowed| allowed == "*") {
-                Some("*".to_string())
-            } else {
-                origin.map(str::to_string)
-            }
-        });
-
-    if let Some(allow_origin) = allow_origin {
-        response_headers.insert(
-            "access-control-allow-origin",
-            allow_origin.parse().expect("valid origin header"),
-        );
-    }
+    let Some(allow_origin) = allowed_cors_origin(&state.cors_origins, origin) else {
+        return;
+    };
+    response_headers.insert(
+        "access-control-allow-origin",
+        allow_origin.parse().expect("valid origin header"),
+    );
 
     response_headers.insert(
         "access-control-allow-methods",
@@ -781,4 +788,24 @@ fn apply_cors_headers(
         "access-control-max-age",
         "600".parse().expect("valid max-age header"),
     );
+}
+
+#[cfg(test)]
+mod cors_tests {
+    use super::allowed_cors_origin;
+
+    #[test]
+    fn unknown_origin_is_not_reflected() {
+        let allowed = vec!["https://errors.example.com".to_string()];
+        assert!(allowed_cors_origin(&allowed, Some("https://evil.example")).is_none());
+        assert_eq!(
+            allowed_cors_origin(&allowed, Some("https://errors.example.com")).as_deref(),
+            Some("https://errors.example.com")
+        );
+        let any = vec!["*".to_string()];
+        assert_eq!(
+            allowed_cors_origin(&any, Some("https://evil.example")).as_deref(),
+            Some("*")
+        );
+    }
 }

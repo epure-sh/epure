@@ -99,13 +99,18 @@ function maskWebhookUrl(url: string): string {
 }
 
 function verificationSnippet(): string {
-  return `// Verify X-Epure-Signature on incoming POSTs
+  return `// Verify X-Epure-Signature on incoming POSTs.
+// The MAC is HMAC-SHA256(secret, timestamp + "." + rawBody).
 const crypto = require("node:crypto");
 
-function verifyEpureWebhook(rawBody, signatureHeader, signingSecret) {
+function verifyEpureWebhook(rawBody, signatureHeader, timestampHeader, signingSecret) {
   const key = Buffer.from(signingSecret.replace(/^whsec_/, ""), "hex");
-  const expected = "sha256=" + crypto.createHmac("sha256", key).update(rawBody).digest("hex");
-  return crypto.timingSafeEqual(Buffer.from(signatureHeader), Buffer.from(expected));
+  const expected =
+    "sha256=" +
+    crypto.createHmac("sha256", key).update(timestampHeader).update(".").update(rawBody).digest("hex");
+  const actual = Buffer.from(signatureHeader);
+  const want = Buffer.from(expected);
+  return actual.length === want.length && crypto.timingSafeEqual(actual, want);
 }`;
 }
 
@@ -581,9 +586,11 @@ export function WebhooksSettings() {
         </summary>
         <CardContent className="space-y-3 border-t border-border pt-4">
           <p className="text-sm text-ink-muted">
-            Read the raw request body, compute HMAC-SHA256 with your signing secret (strip the{" "}
-            <span className="font-mono text-xs text-ink">whsec_</span> prefix), and compare to{" "}
-            <span className="font-mono text-xs text-ink">X-Epure-Signature</span>.
+            Read the raw request body, compute HMAC-SHA256 over{" "}
+            <span className="font-mono text-xs text-ink">X-Epure-Timestamp</span>, a dot, and the
+            body. Use your signing secret with the{" "}
+            <span className="font-mono text-xs text-ink">whsec_</span> prefix removed, and compare
+            to <span className="font-mono text-xs text-ink">X-Epure-Signature</span>.
           </p>
           <pre className="overflow-x-auto rounded-md border border-border bg-bg-subtle p-3 font-mono text-xs text-ink">
             {verificationSnippet()}

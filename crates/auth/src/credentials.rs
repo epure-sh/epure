@@ -256,7 +256,7 @@ impl CredentialAuth {
         user_id: Uuid,
         current_password: Option<&str>,
         new_password: &str,
-    ) -> Result<(), CredentialError> {
+    ) -> Result<i64, CredentialError> {
         validate_password(new_password)?;
 
         let row = sqlx::query_as::<_, UserAuthRow>(
@@ -284,7 +284,18 @@ impl CredentialAuth {
             .execute(&self.pool)
             .await?;
 
-        Ok(())
+        let generation = sqlx::query_scalar::<_, i64>("SELECT auth_bump_credential_generation($1)")
+            .bind(user_id)
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(generation)
+    }
+
+    pub async fn credential_generation(&self, user_id: Uuid) -> Result<Option<i64>, sqlx::Error> {
+        sqlx::query_scalar("SELECT auth_credential_generation($1)")
+            .bind(user_id)
+            .fetch_one(&self.pool)
+            .await
     }
 
     pub async fn delete_account(

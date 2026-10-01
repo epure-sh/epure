@@ -7,7 +7,7 @@ use axum::{
     routing::{get, post},
     Extension, Json, Router,
 };
-use epure_auth::DashboardSession;
+use epure_auth::{hash_password_blocking, DashboardSession};
 use epure_storage::dsn_keys::{self, CreatedDsnKey, DsnKeyRow};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -106,12 +106,13 @@ async fn create_dsn_key(
 
     let public_key = generate_public_key();
     let secret = generate_secret_key();
-    let created = dsn_keys::create_key(
+    let (secret_text, secret_hash) = hash_dsn_secret(secret).await?;
+    let mut created = dsn_keys::create_key(
         &state.pools.app,
         dashboard.org_id,
         path.project_id,
         &public_key,
-        &secret,
+        &secret_hash,
         body.label.as_deref(),
     )
     .await
@@ -122,6 +123,7 @@ async fn create_dsn_key(
             StatusCode::INTERNAL_SERVER_ERROR
         }
     })?;
+    created.secret_key = secret_text;
 
     Ok((StatusCode::CREATED, Json(created)))
 }
@@ -162,16 +164,26 @@ async fn rotate_dsn_keys(
 
     let public_key = generate_public_key();
     let secret = generate_secret_key();
-    let created: CreatedDsnKey = dsn_keys::create_key(
+    let (secret_text, secret_hash) = hash_dsn_secret(secret).await?;
+    let mut created: CreatedDsnKey = dsn_keys::create_key(
         &state.pools.app,
         dashboard.org_id,
         path.project_id,
         &public_key,
-        &secret,
+        &secret_hash,
         body.label.as_deref(),
     )
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    created.secret_key = secret_text;
 
     Ok((StatusCode::CREATED, Json(created)))
+}
+
+async fn hash_dsn_secret(secret: Vec<u8>) -> Result<(String, Vec<u8>), StatusCode> {
+    let secret_text = String::from_utf8(secret).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let secret_hash = hash_password_blocking(secret_text.clone())
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok((secret_text, secret_hash))
 }
