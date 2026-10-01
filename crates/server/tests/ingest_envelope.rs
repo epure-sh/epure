@@ -105,14 +105,8 @@ async fn envelope_ingest_accepts_every_sdk_fixture_raw_and_gzip() {
                 .event_payload,
         );
 
-        let raw_response = post_envelope(
-            &client,
-            &url,
-            raw.clone(),
-            None,
-            Some(public_key_auth()),
-        )
-        .await;
+        let raw_response =
+            post_envelope(&client, &url, raw.clone(), None, Some(public_key_auth())).await;
         assert_eq!(
             raw_response.status(),
             reqwest::StatusCode::ACCEPTED,
