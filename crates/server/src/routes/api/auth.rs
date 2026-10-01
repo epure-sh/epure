@@ -8,8 +8,9 @@ use axum::{
     Json, Router,
 };
 use epure_auth::{
-    clear_dashboard_session, establish_dashboard_session, load_dashboard_session,
-    registration_enabled, CredentialError, GoogleAuth, GoogleAuthError,
+    clear_dashboard_session, establish_dashboard_session, load_credential_generation,
+    load_dashboard_session, registration_enabled, set_credential_generation, CredentialError,
+    DashboardSession, GoogleAuth, GoogleAuthError,
 };
 use serde::{Deserialize, Serialize};
 use tower_sessions::Session;
@@ -126,7 +127,8 @@ async fn register(
         .await
         .map_err(map_credential_error)?;
 
-    establish_dashboard_session(&session, &dashboard)
+    let generation = credential_generation(&state, dashboard.user_id).await?;
+    establish_dashboard_session(&session, &dashboard, generation)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -144,7 +146,8 @@ async fn login(
         .await
         .map_err(map_credential_error)?;
 
-    establish_dashboard_session(&session, &dashboard)
+    let generation = credential_generation(&state, dashboard.user_id).await?;
+    establish_dashboard_session(&session, &dashboard, generation)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -219,7 +222,8 @@ async fn google_callback(
         Err(error) => return Err(map_google_error(error)),
     };
 
-    establish_dashboard_session(&session, &dashboard)
+    let generation = credential_generation(&state, dashboard.user_id).await?;
+    establish_dashboard_session(&session, &dashboard, generation)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -230,9 +234,7 @@ async fn current_session(
     State(state): State<Arc<AppState>>,
     session: Session,
 ) -> Result<Json<MeResponse>, StatusCode> {
-    let dashboard = load_dashboard_session(&session)
-        .await
-        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let dashboard = fresh_session(&state, &session).await?;
 
     let profile = state
         .credentials
@@ -256,9 +258,7 @@ async fn update_profile(
     session: Session,
     Json(body): Json<UpdateProfileBody>,
 ) -> Result<StatusCode, StatusCode> {
-    let dashboard = load_dashboard_session(&session)
-        .await
-        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let dashboard = fresh_session(&state, &session).await?;
 
     state
         .credentials
@@ -274,11 +274,9 @@ async fn change_password(
     session: Session,
     Json(body): Json<ChangePasswordBody>,
 ) -> Result<StatusCode, StatusCode> {
-    let dashboard = load_dashboard_session(&session)
-        .await
-        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let dashboard = fresh_session(&state, &session).await?;
 
-    state
+    let generation = state
         .credentials
         .change_password(
             dashboard.user_id,
@@ -287,6 +285,9 @@ async fn change_password(
         )
         .await
         .map_err(map_credential_error)?;
+    set_credential_generation(&session, generation)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -296,9 +297,7 @@ async fn delete_account(
     session: Session,
     Json(body): Json<DeleteAccountBody>,
 ) -> Result<StatusCode, StatusCode> {
-    let dashboard = load_dashboard_session(&session)
-        .await
-        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let dashboard = fresh_session(&state, &session).await?;
 
     state
         .credentials
@@ -323,9 +322,7 @@ async fn accept_invitation(
     session: Session,
     Json(body): Json<AcceptInvitationBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let dashboard = load_dashboard_session(&session)
-        .await
-        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let dashboard = fresh_session(&state, &session).await?;
 
     let updated = state
         .credentials
@@ -333,7 +330,8 @@ async fn accept_invitation(
         .await
         .map_err(map_credential_error)?;
 
-    establish_dashboard_session(&session, &updated)
+    let generation = credential_generation(&state, updated.user_id).await?;
+    establish_dashboard_session(&session, &updated, generation)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -345,6 +343,33 @@ async fn logout(session: Session) -> Result<StatusCode, StatusCode> {
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+async fn credential_generation(state: &AppState, user_id: uuid::Uuid) -> Result<i64, StatusCode> {
+    state
+        .credentials
+        .credential_generation(user_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::UNAUTHORIZED)
+}
+
+async fn fresh_session(
+    state: &AppState,
+    session: &tower_sessions::Session,
+) -> Result<DashboardSession, StatusCode> {
+    let dashboard = load_dashboard_session(session)
+        .await
+        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let presented = load_credential_generation(session)
+        .await
+        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let current = credential_generation(state, dashboard.user_id).await?;
+    if presented != current {
+        let _ = clear_dashboard_session(session).await;
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    Ok(dashboard)
 }
 
 fn map_credential_error(error: CredentialError) -> StatusCode {

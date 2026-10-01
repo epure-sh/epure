@@ -7,7 +7,10 @@ use axum::{
     response::{IntoResponse, Response},
     Json, Router,
 };
-use epure_auth::{authenticate_agent_token, load_dashboard_session, ApiPatAuth, DashboardSession};
+use epure_auth::{
+    authenticate_agent_token, clear_dashboard_session, load_credential_generation,
+    load_dashboard_session, ApiPatAuth, DashboardSession,
+};
 use epure_storage::members as member_store;
 use serde_json::json;
 use tower_sessions::Session;
@@ -85,6 +88,11 @@ async fn require_api_auth(
 
     match load_dashboard_session(&session).await {
         Ok(dashboard) => {
+            if let Err(status) =
+                ensure_current_credential(&state, &session, dashboard.user_id).await
+            {
+                return (status, Json(json!({ "error": "unauthenticated" }))).into_response();
+            }
             epure_storage::rls::with_request_user(dashboard.user_id, async move {
                 let refreshed = match refresh_dashboard_session(&state, &dashboard).await {
                     Ok(session) => session,
@@ -141,6 +149,27 @@ async fn authenticate_pat(
         next.run(request).await
     })
     .await
+}
+
+async fn ensure_current_credential(
+    state: &AppState,
+    session: &tower_sessions::Session,
+    user_id: uuid::Uuid,
+) -> Result<(), StatusCode> {
+    let presented = load_credential_generation(session)
+        .await
+        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let current = state
+        .credentials
+        .credential_generation(user_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    if presented != current {
+        let _ = clear_dashboard_session(session).await;
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    Ok(())
 }
 
 async fn refresh_dashboard_session(

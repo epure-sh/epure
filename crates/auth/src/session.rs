@@ -10,6 +10,7 @@ pub const SESSION_USER_ID: &str = "user_id";
 pub const SESSION_ORG_ID: &str = "org_id";
 pub const SESSION_EMAIL: &str = "email";
 pub const SESSION_ROLE: &str = "role";
+pub const SESSION_CREDENTIAL_GENERATION: &str = "credential_generation";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DashboardSession {
@@ -83,6 +84,7 @@ pub fn spawn_session_cleanup(store: PostgresStore) -> tokio::task::JoinHandle<()
 pub async fn establish_dashboard_session(
     session: &Session,
     dashboard: &DashboardSession,
+    credential_generation: i64,
 ) -> Result<(), SessionError> {
     session
         .insert(SESSION_USER_ID, dashboard.user_id.to_string())
@@ -94,6 +96,27 @@ pub async fn establish_dashboard_session(
         .insert(SESSION_EMAIL, dashboard.email.clone())
         .await?;
     session.insert(SESSION_ROLE, dashboard.role.clone()).await?;
+    session
+        .insert(SESSION_CREDENTIAL_GENERATION, credential_generation)
+        .await?;
+    session.save().await?;
+    Ok(())
+}
+
+pub async fn load_credential_generation(session: &Session) -> Result<i64, SessionError> {
+    session
+        .get::<i64>(SESSION_CREDENTIAL_GENERATION)
+        .await?
+        .ok_or(SessionError::MissingFields)
+}
+
+pub async fn set_credential_generation(
+    session: &Session,
+    credential_generation: i64,
+) -> Result<(), SessionError> {
+    session
+        .insert(SESSION_CREDENTIAL_GENERATION, credential_generation)
+        .await?;
     session.save().await?;
     Ok(())
 }

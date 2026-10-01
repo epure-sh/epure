@@ -32,7 +32,7 @@ pub fn pat_missing_scopes(method: &Method, path: &str, scopes: &[String]) -> Opt
     };
 
     if method == Method::GET || method == Method::HEAD {
-        if path.starts_with("/agent-tokens") {
+        if path.starts_with("/agent-tokens") || path.starts_with("/invitations") {
             return needs_admin();
         }
         return needs_read();
@@ -61,6 +61,7 @@ pub fn pat_missing_scopes(method: &Method, path: &str, scopes: &[String]) -> Opt
         || path.starts_with("/alert-rules")
         || path.starts_with("/dsn-keys")
         || path.starts_with("/members")
+        || path.starts_with("/invitations")
     {
         return needs_admin();
     }
@@ -82,9 +83,8 @@ pub fn pat_missing_scopes(method: &Method, path: &str, scopes: &[String]) -> Opt
         return needs_triage();
     }
 
-    // Unknown mutating routes: deny unless explicitly triage/admin above.
     if *method != Method::GET && *method != Method::HEAD {
-        return needs_triage();
+        return Some(StatusCode::FORBIDDEN);
     }
 
     needs_read()
@@ -159,6 +159,31 @@ mod tests {
         let s = scopes(true, true, false);
         assert!(pat_missing_scopes(&Method::PATCH, "/api/v1/issues/uuid", &s).is_none());
         assert!(pat_missing_scopes(&Method::PATCH, "/api/v1/agent/issues/uuid", &s).is_none());
+    }
+
+    #[test]
+    fn invitations_require_admin_even_with_triage() {
+        let triage = scopes(true, true, false);
+        assert_eq!(
+            pat_missing_scopes(&Method::POST, "/api/v1/invitations", &triage),
+            Some(StatusCode::FORBIDDEN)
+        );
+        assert_eq!(
+            pat_missing_scopes(&Method::GET, "/api/v1/invitations", &triage),
+            Some(StatusCode::FORBIDDEN)
+        );
+        let admin = scopes(true, false, true);
+        assert!(pat_missing_scopes(&Method::POST, "/api/v1/invitations", &admin).is_none());
+        assert!(pat_missing_scopes(&Method::DELETE, "/api/v1/invitations/uuid", &admin).is_none());
+    }
+
+    #[test]
+    fn unknown_mutation_is_denied() {
+        let triage = scopes(true, true, false);
+        assert_eq!(
+            pat_missing_scopes(&Method::POST, "/api/v1/not-a-route", &triage),
+            Some(StatusCode::FORBIDDEN)
+        );
     }
 
     #[test]

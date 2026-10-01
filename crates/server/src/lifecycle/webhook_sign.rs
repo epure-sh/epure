@@ -7,15 +7,17 @@ pub const SIGNATURE_HEADER: &str = "X-Epure-Signature";
 pub const DELIVERY_HEADER: &str = "X-Epure-Delivery-Id";
 pub const TIMESTAMP_HEADER: &str = "X-Epure-Timestamp";
 
-pub fn sign_payload(secret: &[u8], body: &[u8]) -> String {
+pub fn sign_payload(secret: &[u8], timestamp: &str, body: &[u8]) -> String {
     let mut mac =
         HmacSha256::new_from_slice(secret).expect("webhook signing key must be non-empty");
+    mac.update(timestamp.as_bytes());
+    mac.update(b".");
     mac.update(body);
     format!("sha256={}", hex::encode(mac.finalize().into_bytes()))
 }
 
-pub fn verify_payload(secret: &[u8], body: &[u8], signature: &str) -> bool {
-    let expected = sign_payload(secret, body);
+pub fn verify_payload(secret: &[u8], timestamp: &str, body: &[u8], signature: &str) -> bool {
+    let expected = sign_payload(secret, timestamp, body);
     subtle_constant_time_eq(signature.trim(), expected.as_str())
 }
 
@@ -37,8 +39,14 @@ mod tests {
     fn signature_round_trip() {
         let secret = b"test-secret";
         let body = br#"{"event":"test"}"#;
-        let signature = sign_payload(secret, body);
-        assert!(verify_payload(secret, body, &signature));
-        assert!(!verify_payload(secret, body, "sha256=deadbeef"));
+        let signature = sign_payload(secret, "1710000000", body);
+        assert!(verify_payload(secret, "1710000000", body, &signature));
+        assert!(!verify_payload(secret, "1710000001", body, &signature));
+        assert!(!verify_payload(
+            secret,
+            "1710000000",
+            body,
+            "sha256=deadbeef"
+        ));
     }
 }

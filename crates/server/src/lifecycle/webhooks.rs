@@ -39,12 +39,36 @@ fn is_blocked_ipv6(addr: Ipv6Addr) -> bool {
     if let Some(v4) = addr.to_ipv4_mapped() {
         return is_blocked_ipv4(v4);
     }
+    if let Some(v4) = embedded_ipv4(addr) {
+        if is_blocked_ipv4(v4) {
+            return true;
+        }
+    }
     addr.is_loopback()
         || addr.is_unspecified()
-        || addr.segments()[0] == 0xfe80
-        || addr.segments()[0] == 0xfc00
-        || addr.segments()[0] == 0xfd00
+        || (addr.segments()[0] & 0xfe00) == 0xfc00
         || (addr.segments()[0] & 0xffc0) == 0xfe80
+}
+
+fn embedded_ipv4(addr: Ipv6Addr) -> Option<Ipv4Addr> {
+    let s = addr.segments();
+    if s[0] == 0x2002 {
+        return Some(Ipv4Addr::new(
+            (s[1] >> 8) as u8,
+            (s[1] & 0xff) as u8,
+            (s[2] >> 8) as u8,
+            (s[2] & 0xff) as u8,
+        ));
+    }
+    if s[0] == 0x0064 && s[1] == 0xff9b && s[2] == 0 && s[3] == 0 && s[4] == 0 && s[5] == 0 {
+        return Some(Ipv4Addr::new(
+            (s[6] >> 8) as u8,
+            (s[6] & 0xff) as u8,
+            (s[7] >> 8) as u8,
+            (s[7] & 0xff) as u8,
+        ));
+    }
+    None
 }
 
 /// Result of SSRF validation: either unrestricted (dev) or DNS-pinned safe addrs.
@@ -203,9 +227,9 @@ fn webhook_permits() -> &'static Semaphore {
 fn dispatch_hook(hook: WebhookDispatchRow, event: &str, context: &WebhookContext) {
     let payload = format_payload(&hook, event, context);
     let body = serde_json::to_vec(&payload).expect("webhook payload json");
-    let signature = super::webhook_sign::sign_payload(&hook.signing_secret, &body);
     let delivery_id = Uuid::new_v4();
     let timestamp = chrono::Utc::now().timestamp().to_string();
+    let signature = super::webhook_sign::sign_payload(&hook.signing_secret, &timestamp, &body);
     let url = hook.url.clone();
 
     tokio::spawn(async move {
@@ -328,6 +352,18 @@ mod tests {
         let _guard = env_lock().lock().await;
         std::env::remove_var("EPURE_WEBHOOK_ALLOW_PRIVATE");
         assert!(!validate_webhook_url("https://169.254.169.254/latest/meta-data/").await);
+    }
+
+    #[test]
+    fn unique_local_and_embedded_private_ipv4_are_blocked() {
+        let ula: Ipv6Addr = "fd12::1".parse().unwrap();
+        assert!(is_blocked_ip(IpAddr::V6(ula)));
+        let sixto4_metadata: Ipv6Addr = "2002:a9fe:a9fe::".parse().unwrap();
+        assert!(is_blocked_ip(IpAddr::V6(sixto4_metadata)));
+        let nat64_loopback: Ipv6Addr = "64:ff9b::7f00:1".parse().unwrap();
+        assert!(is_blocked_ip(IpAddr::V6(nat64_loopback)));
+        let nat64_public: Ipv6Addr = "64:ff9b::808:808".parse().unwrap();
+        assert!(!is_blocked_ip(IpAddr::V6(nat64_public)));
     }
 
     #[tokio::test]

@@ -1,3 +1,4 @@
+use crate::password::{is_stored_password_hash, verify_password};
 use dashmap::DashMap;
 use epure_storage::StorageError;
 use sqlx::PgPool;
@@ -82,10 +83,16 @@ impl DsnValidator {
         }
 
         if let Some(secret_key) = secret_key {
-            if !secret_key.is_empty()
-                && !constant_time_secret_eq(&record.secret_key, secret_key.as_bytes())
-            {
-                return Err(DsnAuthError::Invalid);
+            if !secret_key.is_empty() {
+                let stored = record.secret_key.clone();
+                let provided = secret_key.to_string();
+                let matches =
+                    tokio::task::spawn_blocking(move || secret_matches(&stored, &provided))
+                        .await
+                        .unwrap_or(false);
+                if !matches {
+                    return Err(DsnAuthError::Invalid);
+                }
             }
         }
 
@@ -141,9 +148,31 @@ struct DsnRow {
     revoked_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
+fn secret_matches(stored: &[u8], provided: &str) -> bool {
+    if is_stored_password_hash(stored) {
+        return verify_password(provided, stored).unwrap_or(false);
+    }
+    constant_time_secret_eq(stored, provided.as_bytes())
+}
+
 fn constant_time_secret_eq(stored: &[u8], provided: &[u8]) -> bool {
     if stored.len() != provided.len() {
         return false;
     }
     stored.ct_eq(provided).into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::secret_matches;
+    use crate::password::hash_password;
+
+    #[test]
+    fn hashed_secret_matches_and_legacy_plaintext_still_matches() {
+        let hash = hash_password("server-secret").expect("hash");
+        assert!(secret_matches(&hash, "server-secret"));
+        assert!(!secret_matches(&hash, "other"));
+        assert!(secret_matches(b"legacy-secret", "legacy-secret"));
+        assert!(!secret_matches(b"legacy-secret", "nope"));
+    }
 }
