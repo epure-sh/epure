@@ -2,7 +2,7 @@ use epure_storage::webhooks::{self, WebhookDispatchRow};
 use epure_storage::PgPool;
 use reqwest::Client;
 use serde_json::json;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::OnceLock;
 use tokio::sync::Semaphore;
 use tracing::warn;
@@ -47,30 +47,52 @@ fn is_blocked_ipv6(addr: Ipv6Addr) -> bool {
         || (addr.segments()[0] & 0xffc0) == 0xfe80
 }
 
-pub async fn validate_webhook_url(url: &str) -> bool {
+/// Result of SSRF validation: either unrestricted (dev) or DNS-pinned safe addrs.
+#[derive(Debug, Clone)]
+enum WebhookTarget {
+    /// `EPURE_WEBHOOK_ALLOW_PRIVATE` — no SSRF pin (local/dev only).
+    Unrestricted,
+    /// Connect only via these pre-validated addresses (Host/SNI keep the original name).
+    Pinned {
+        host: String,
+        addrs: Vec<SocketAddr>,
+    },
+}
+
+/// Resolve once, reject blocked ranges, return addresses to pin on the HTTP client.
+async fn resolve_webhook_target(url: &str) -> Option<WebhookTarget> {
     let parsed = match reqwest::Url::parse(url.trim()) {
         Ok(parsed) => parsed,
-        Err(_) => return false,
+        Err(_) => return None,
     };
     let scheme = parsed.scheme();
     if scheme != "https" && scheme != "http" {
-        return false;
+        return None;
     }
     if scheme == "http" && !webhook_allow_private() {
-        return false;
+        return None;
     }
 
     let host = match parsed.host_str() {
         Some(host) if !host.is_empty() => host,
-        _ => return false,
+        _ => return None,
     };
 
     if webhook_allow_private() {
-        return true;
+        return Some(WebhookTarget::Unrestricted);
     }
 
+    let host_key = host.to_ascii_lowercase();
+
     if let Ok(addr) = host.parse::<IpAddr>() {
-        return !is_blocked_ip(addr);
+        if is_blocked_ip(addr) {
+            return None;
+        }
+        // Port 0 → reqwest uses the scheme default (or the URL's explicit port).
+        return Some(WebhookTarget::Pinned {
+            host: host_key,
+            addrs: vec![SocketAddr::new(addr, 0)],
+        });
     }
 
     let port = parsed
@@ -79,17 +101,28 @@ pub async fn validate_webhook_url(url: &str) -> bool {
     let lookup = tokio::net::lookup_host((host, port)).await;
     match lookup {
         Ok(addresses) => {
-            let mut found = false;
+            let mut addrs = Vec::new();
             for address in addresses {
-                found = true;
                 if is_blocked_ip(address.ip()) {
-                    return false;
+                    return None;
                 }
+                // Normalize to port 0 so URL/scheme ports win (reqwest contract).
+                addrs.push(SocketAddr::new(address.ip(), 0));
             }
-            found
+            if addrs.is_empty() {
+                return None;
+            }
+            Some(WebhookTarget::Pinned {
+                host: host_key,
+                addrs,
+            })
         }
-        Err(_) => false,
+        Err(_) => None,
     }
+}
+
+pub async fn validate_webhook_url(url: &str) -> bool {
+    resolve_webhook_target(url).await.is_some()
 }
 
 #[derive(Debug, Clone)]
@@ -102,7 +135,7 @@ pub struct WebhookContext {
     pub event_count: i64,
 }
 
-fn http_client() -> &'static Client {
+fn shared_http_client() -> &'static Client {
     static CLIENT: OnceLock<Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
         Client::builder()
@@ -111,6 +144,20 @@ fn http_client() -> &'static Client {
             .build()
             .expect("webhook http client")
     })
+}
+
+fn http_client_for(target: &WebhookTarget) -> Client {
+    match target {
+        WebhookTarget::Unrestricted => shared_http_client().clone(),
+        WebhookTarget::Pinned { host, addrs } => Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .redirect(reqwest::redirect::Policy::none())
+            // Pin the validated IPs so connect cannot re-resolve to a different address
+            // (DNS rebinding / TOCTOU against the SSRF guard).
+            .resolve_to_addrs(host, addrs)
+            .build()
+            .expect("pinned webhook http client"),
+    }
 }
 
 pub async fn dispatch_event(pool: &PgPool, org_id: Uuid, event: &str, context: &WebhookContext) {
@@ -166,13 +213,13 @@ fn dispatch_hook(hook: WebhookDispatchRow, event: &str, context: &WebhookContext
             warn!("webhook semaphore closed");
             return;
         };
-        if !validate_webhook_url(&url).await {
+        let Some(target) = resolve_webhook_target(&url).await else {
             warn!("webhook dispatch blocked for unsafe url");
             return;
-        }
+        };
 
-        if let Err(err) = http_client()
-            .post(url)
+        if let Err(err) = http_client_for(&target)
+            .post(&url)
             .header(SIGNATURE_HEADER, signature)
             .header(DELIVERY_HEADER, delivery_id.to_string())
             .header(TIMESTAMP_HEADER, timestamp)
@@ -241,12 +288,65 @@ fn format_payload(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::OnceLock;
+    use tokio::sync::Mutex;
+
+    fn env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
 
     #[tokio::test]
     async fn mapped_ipv4_loopback_is_blocked() {
         let mapped: Ipv6Addr = "::ffff:127.0.0.1".parse().unwrap();
         assert!(is_blocked_ip(IpAddr::V6(mapped)));
+        let _guard = env_lock().lock().await;
         std::env::remove_var("EPURE_WEBHOOK_ALLOW_PRIVATE");
         assert!(!validate_webhook_url("http://[::ffff:127.0.0.1]/hook").await);
+    }
+
+    #[tokio::test]
+    async fn public_literal_ip_is_pinned() {
+        let _guard = env_lock().lock().await;
+        std::env::remove_var("EPURE_WEBHOOK_ALLOW_PRIVATE");
+        let target = resolve_webhook_target("https://8.8.8.8/hook")
+            .await
+            .expect("public literal should resolve");
+        match target {
+            WebhookTarget::Pinned { host, addrs } => {
+                assert_eq!(host, "8.8.8.8");
+                assert_eq!(addrs.len(), 1);
+                assert_eq!(addrs[0].ip(), IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)));
+                assert_eq!(addrs[0].port(), 0);
+            }
+            WebhookTarget::Unrestricted => panic!("expected pinned target"),
+        }
+    }
+
+    #[tokio::test]
+    async fn link_local_metadata_ip_is_blocked() {
+        let _guard = env_lock().lock().await;
+        std::env::remove_var("EPURE_WEBHOOK_ALLOW_PRIVATE");
+        assert!(!validate_webhook_url("https://169.254.169.254/latest/meta-data/").await);
+    }
+
+    #[tokio::test]
+    async fn private_literal_is_blocked() {
+        let _guard = env_lock().lock().await;
+        std::env::remove_var("EPURE_WEBHOOK_ALLOW_PRIVATE");
+        assert!(!validate_webhook_url("https://10.0.0.1/hook").await);
+        assert!(!validate_webhook_url("https://192.168.1.1/hook").await);
+        assert!(!validate_webhook_url("https://127.0.0.1/hook").await);
+    }
+
+    #[tokio::test]
+    async fn allow_private_skips_pin() {
+        let _guard = env_lock().lock().await;
+        std::env::set_var("EPURE_WEBHOOK_ALLOW_PRIVATE", "1");
+        let target = resolve_webhook_target("http://127.0.0.1/hook")
+            .await
+            .expect("allow_private should accept loopback http");
+        assert!(matches!(target, WebhookTarget::Unrestricted));
+        std::env::remove_var("EPURE_WEBHOOK_ALLOW_PRIVATE");
     }
 }
