@@ -335,15 +335,16 @@ components:
       in: header
       name: X-Sentry-Auth
       description: |
-        Format: `Sentry sentry_version=7, sentry_key={public_key}, sentry_secret={secret_key}`
+        Format: `Sentry sentry_version=7, sentry_key={public_key}`
 
-        Secret comparison uses constant-time equality.
+        Official Sentry SDKs send `sentry_key` only. A legacy `sentry_secret`
+        is accepted and validated when present; it is not required.
     SentryQueryAuth:
       type: apiKey
       in: query
       name: sentry_key
       description: |
-        Alternative DSN auth via query: `sentry_key` + `sentry_secret` parameters.
+        Alternative DSN auth via query `sentry_key` (optional `sentry_secret`).
         Prefer header auth in production.
 
   parameters:
@@ -368,6 +369,7 @@ components:
       name: sentry_secret
       in: query
       required: false
+      description: Optional legacy secret. Official SDKs omit this; Epure validates it only when present.
       schema:
         type: string
 

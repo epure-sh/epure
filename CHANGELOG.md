@@ -6,6 +6,8 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 ## Unreleased
 
+Nothing yet.
+
 ## [v0.1.5] — 2026-10-01
 
 Ingest now accepts official Sentry SDK DSN auth that omits `sentry_secret`.
@@ -18,6 +20,10 @@ Ingest now accepts official Sentry SDK DSN auth that omits `sentry_secret`.
 ### Fixed
 
 - Ingest DSN auth no longer requires `sentry_secret`; `sentry_key` alone is accepted and `sentry_secret` is validated only when present
+
+### Upgrade
+
+`git pull`, set `EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.1.5`, then `docker compose up -d`. Re-copy the DSN from Settings if clients still fail with `invalid_dsn` — modern SDKs send public-key-only auth.
 
 ## [v0.1.4] — 2026-09-30
 
@@ -36,7 +42,7 @@ Operators can close public registration after the first account exists.
 
 ### Upgrade
 
-Create the account you need, set `EPURE_REGISTRATION=false`, recreate the container. No migration.
+Create the account you need, `git pull`, set `EPURE_REGISTRATION=false`, pin `EPURE_IMAGE` if needed, recreate the container. Image pin alone does not refresh compose/env from an old checkout. No migration.
 
 ## [v0.1.3] — 2026-09-28
 
