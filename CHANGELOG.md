@@ -6,10 +6,25 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 ## Unreleased
 
-### Changed
+Nothing yet.
 
-- PAT / MCP rate limits raised to **600 reads** and **120 writes** per minute (was 120 / 20) so agent loops are usable
-- Agent rate-limit middleware now runs outside auth so failed PAT attempts still consume the bucket
+## [v0.1.6] — 2026-10-01
+
+`epure-cli` ships in the GHCR image. PAT/MCP rate limits raised for agent loops.
+
+- **Release:** [GitHub v0.1.6](https://github.com/epure-sh/epure/releases/tag/v0.1.6)
+- **Compare:** [v0.1.5…v0.1.6](https://github.com/epure-sh/epure/compare/v0.1.5...v0.1.6)
+- **Image:** `ghcr.io/epure-sh/epure:v0.1.6`
+- **Docs:** [epure.sh/docs/changelog](https://epure.sh/docs/changelog)
+
+### Fixed
+
+- Image workflow packs `epure-cli` beside `epure` (`Dockerfile.runtime`)
+- PAT / MCP rate limits: **600 reads** and **120 writes** per minute (was 120 / 20); failed PAT attempts still consume the bucket
+
+### Upgrade
+
+`git pull`, pin the current release tag in `EPURE_IMAGE` (see [Releases](https://github.com/epure-sh/epure/releases) or [Installation](https://epure.sh/docs/self-hosting/installation)), then `docker compose up -d`. No migration.
 
 ## [v0.1.5] — 2026-10-01
 
