@@ -64,11 +64,11 @@ pub fn decompress_store_payload(body: &[u8]) -> Result<Vec<u8>, StoreError> {
     Err(StoreError::InvalidJson)
 }
 
-fn is_gzip(body: &[u8]) -> bool {
+pub(crate) fn is_gzip(body: &[u8]) -> bool {
     body.len() >= 2 && body[0] == 0x1f && body[1] == 0x8b
 }
 
-fn is_zlib(body: &[u8]) -> bool {
+pub(crate) fn is_zlib(body: &[u8]) -> bool {
     body.len() >= 2 && body[0] == 0x78 && matches!(body[1], 0x01 | 0x5e | 0x9c | 0xda)
 }
 

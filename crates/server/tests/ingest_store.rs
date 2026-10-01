@@ -105,3 +105,48 @@ async fn dsn_without_secret_is_accepted() {
     assert_eq!(response.status(), reqwest::StatusCode::ACCEPTED);
     server.abort();
 }
+
+#[tokio::test]
+async fn store_ingest_accepts_gzip_python_fixture() {
+    use flate2::write::GzEncoder;
+    use flate2::Compression;
+    use std::io::Write;
+
+    let (base_url, pool, server) = spawn_test_server().await;
+    let raw = fs::read(fixture_path("python", "store.json")).expect("python store fixture");
+    let fingerprint = preview_fingerprint(&raw);
+
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(&raw).expect("gzip write");
+    let compressed = encoder.finish().expect("gzip finish");
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post(format!("{}/api/{}/store/", base_url, project_id()))
+        .header(
+            "X-Sentry-Auth",
+            format!("Sentry sentry_version=7, sentry_key={PUBLIC_KEY}"),
+        )
+        .header("Content-Type", "application/json")
+        .header("Content-Encoding", "gzip")
+        .body(compressed)
+        .send()
+        .await
+        .expect("post gzip store");
+
+    assert_eq!(response.status(), reqwest::StatusCode::ACCEPTED);
+
+    for _ in 0..40 {
+        let event_count =
+            counters::total_event_count_for_fingerprint(&pool, project_id(), &fingerprint)
+                .await
+                .expect("issue count");
+        if event_count >= 1 {
+            server.abort();
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    panic!("timed out waiting for gzip store event");
+}
+

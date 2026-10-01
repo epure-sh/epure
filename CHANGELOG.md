@@ -8,6 +8,25 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 Nothing yet.
 
+## [v0.1.7] — 2026-10-01
+
+Envelope ingest accepts gzip/zlib bodies (PHP/Laravel, Java, Ruby, .NET defaults) and CRLF item separators.
+
+- **Release:** [GitHub v0.1.7](https://github.com/epure-sh/epure/releases/tag/v0.1.7)
+- **Compare:** [v0.1.6…v0.1.7](https://github.com/epure-sh/epure/compare/v0.1.6...v0.1.7)
+- **Image:** `ghcr.io/epure-sh/epure:v0.1.7`
+- **Docs:** [epure.sh/docs/changelog](https://epure.sh/docs/changelog)
+
+### Fixed
+
+- Envelope parse decompresses gzip/zlib before scanning items (Laravel `http_compression` default)
+- CRLF (`\r\n`) envelope separators are normalized
+- Integration matrix covers every `fixtures/sentry/*/envelope.txt` raw + gzip, plus Laravel multi-item, numeric DSN, and query auth
+
+### Upgrade
+
+`git pull`, pin `EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.1.7`, `docker compose up -d`. No migration.
+
 ## [v0.1.6] — 2026-10-01
 
 `epure-cli` ships in the GHCR image. PAT/MCP rate limits raised for agent loops.
