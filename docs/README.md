@@ -44,6 +44,21 @@ docker pull ghcr.io/epure-sh/epure:v0.1.5
 
 Production pin: `EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.1.5`. Source build: `docker compose -f docker-compose.yml -f deploy/docker-compose.build.yml up --build`.
 
+### Upgrade from an older tag
+
+Always `git pull` (or check out the release tag) **and** bump `EPURE_IMAGE`. Compose files, `.env.example`, and deploy overlays ship in the clone — pinning the GHCR image alone leaves stale templates (for example Register still visible after `EPURE_REGISTRATION=false`).
+
+```bash
+git pull
+# .env
+EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.1.5
+docker compose up -d
+```
+
+**v0.1.5:** official Sentry SDKs authenticate with `sentry_key` only — no DSN secret. If ingest returns `invalid_dsn` on a public-key DSN, you are still on a pre-v0.1.5 binary.
+
+Published walkthrough: [epure.sh/docs/self-hosting/upgrades](https://epure.sh/docs/self-hosting/upgrades).
+
 ### Refresh `:latest` without a new release
 
 Day-to-day package updates (UI fixes, small patches) do **not** need a git tag or GitHub Release. Push to `main`, then:
