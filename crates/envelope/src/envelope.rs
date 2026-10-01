@@ -214,8 +214,8 @@ mod tests {
     }
 
     fn assert_parsed_event(language: &str, body: &[u8]) {
-        let parsed = parse_envelope(body)
-            .unwrap_or_else(|err| panic!("parse {language} envelope: {err:?}"));
+        let parsed =
+            parse_envelope(body).unwrap_or_else(|err| panic!("parse {language} envelope: {err:?}"));
         assert!(
             parsed.event_payload.starts_with(b"{"),
             "{language} event payload should be JSON object"
@@ -317,7 +317,8 @@ mod tests {
     fn extracts_event_after_session_and_client_report_items() {
         let session = r#"{"sid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","status":"ok"}"#;
         let report = r#"{"timestamp":"2026-10-01T00:00:00Z","discarded_events":[]}"#;
-        let event = r#"{"level":"error","exception":{"values":[{"type":"Error","value":"laravel boom"}]}}"#;
+        let event =
+            r#"{"level":"error","exception":{"values":[{"type":"Error","value":"laravel boom"}]}}"#;
         let body = format!(
             "{}\n{}\n{}\n{}\n{}\n{}\n{}\n",
             r#"{"event_id":"550e8400-e29b-41d4-a716-446655440099","sent_at":"2026-10-01T00:00:00Z"}"#,
@@ -367,7 +368,8 @@ mod tests {
         );
         let parsed = parse_envelope(body.as_bytes()).expect("parse attachment+event");
         assert_eq!(parsed.event_payload, event.as_bytes());
-        let parsed_gz = parse_envelope(&gzip_bytes(body.as_bytes())).expect("gzip attachment+event");
+        let parsed_gz =
+            parse_envelope(&gzip_bytes(body.as_bytes())).expect("gzip attachment+event");
         assert_eq!(parsed_gz.event_payload, event.as_bytes());
     }
 
@@ -380,4 +382,3 @@ mod tests {
         ));
     }
 }
-

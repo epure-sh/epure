@@ -149,4 +149,3 @@ async fn store_ingest_accepts_gzip_python_fixture() {
     }
     panic!("timed out waiting for gzip store event");
 }
-
