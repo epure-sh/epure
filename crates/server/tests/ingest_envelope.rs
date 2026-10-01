@@ -167,12 +167,14 @@ async fn envelope_ingest_accepts_laravel_like_multi_item_gzip() {
 
     let session = r#"{"sid":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","status":"ok"}"#;
     let event = r#"{"level":"error","platform":"php","exception":{"values":[{"type":"ErrorException","value":"Laravel multi-item envelope"}]}}"#;
+    let session_header = format!(r#"{{"type":"session","length":{}}}"#, session.len());
+    let event_header = format!(r#"{{"type":"event","length":{}}}"#, event.len());
     let body = format!(
         "{}\n{}\n{}\n{}\n{}\n",
         r#"{"event_id":"660e8400-e29b-41d4-a716-4466554400aa","sdk":{"name":"sentry.php.laravel","version":"4.8.0"}}"#,
-        format!(r#"{{"type":"session","length":{}}}"#, session.len()),
+        session_header,
         session,
-        format!(r#"{{"type":"event","length":{}}}"#, event.len()),
+        event_header,
         event,
     );
     let fingerprint = preview_fingerprint(event.as_bytes());
@@ -228,10 +230,11 @@ async fn envelope_ingest_accepts_numeric_dsn_and_query_auth() {
 async fn envelope_ingest_accepts_crlf_gzip_dotnet_style() {
     let (base_url, pool, server) = spawn_test_server().await;
     let event = r#"{"level":"error","platform":"csharp","exception":{"values":[{"type":"System.Exception","value":"CRLF envelope"}]}}"#;
+    let event_header = format!(r#"{{"type":"event","length":{}}}"#, event.len());
     let body = format!(
         "{}\r\n{}\r\n{}\r\n",
         r#"{"event_id":"770e8400-e29b-41d4-a716-4466554400bb","sdk":{"name":"sentry.dotnet","version":"4.9.0"}}"#,
-        format!(r#"{{"type":"event","length":{}}}"#, event.len()),
+        event_header,
         event,
     );
     let fingerprint = preview_fingerprint(event.as_bytes());

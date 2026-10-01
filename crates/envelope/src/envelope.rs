@@ -319,14 +319,17 @@ mod tests {
         let report = r#"{"timestamp":"2026-10-01T00:00:00Z","discarded_events":[]}"#;
         let event =
             r#"{"level":"error","exception":{"values":[{"type":"Error","value":"laravel boom"}]}}"#;
+        let session_header = format!(r#"{{"type":"session","length":{}}}"#, session.len());
+        let report_header = format!(r#"{{"type":"client_report","length":{}}}"#, report.len());
+        let event_header = format!(r#"{{"type":"event","length":{}}}"#, event.len());
         let body = format!(
             "{}\n{}\n{}\n{}\n{}\n{}\n{}\n",
             r#"{"event_id":"550e8400-e29b-41d4-a716-446655440099","sent_at":"2026-10-01T00:00:00Z"}"#,
-            format!(r#"{{"type":"session","length":{}}}"#, session.len()),
+            session_header,
             session,
-            format!(r#"{{"type":"client_report","length":{}}}"#, report.len()),
+            report_header,
             report,
-            format!(r#"{{"type":"event","length":{}}}"#, event.len()),
+            event_header,
             event,
         );
         let parsed = parse_envelope(body.as_bytes()).expect("parse multi-item envelope");
@@ -358,12 +361,14 @@ mod tests {
         // Attachment payload contains `{` and newlines that must not be treated as headers.
         let attachment = "not-json\n{\"fake\":\"header\"}\nmore-bytes";
         let event = r#"{"level":"error","exception":{"values":[{"type":"Error","value":"after attachment"}]}}"#;
+        let attachment_header = format!(r#"{{"type":"attachment","length":{}}}"#, attachment.len());
+        let event_header = format!(r#"{{"type":"event","length":{}}}"#, event.len());
         let body = format!(
             "{}\n{}\n{}\n{}\n{}\n",
             r#"{"event_id":"550e8400-e29b-41d4-a716-446655440088"}"#,
-            format!(r#"{{"type":"attachment","length":{}}}"#, attachment.len()),
+            attachment_header,
             attachment,
-            format!(r#"{{"type":"event","length":{}}}"#, event.len()),
+            event_header,
             event,
         );
         let parsed = parse_envelope(body.as_bytes()).expect("parse attachment+event");
