@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { resolvePostAuthPath } from "../../lib/onboarding";
+import { HTTP_SESSION_COOKIE_MESSAGE, httpSecureCookieTrap } from "../../lib/session-cookie";
 import { isGoogleSignInVisible } from "../../lib/deployment";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
@@ -14,6 +15,7 @@ interface AuthConfig {
   google_enabled: boolean;
   password_enabled: boolean;
   registration_enabled?: boolean;
+  session_secure?: boolean;
 }
 
 export function LoginPage() {
@@ -48,6 +50,12 @@ export function LoginPage() {
     event.preventDefault();
     setStatus("idle");
     setMessage(null);
+
+    if (httpSecureCookieTrap(window.location.protocol, authConfig?.session_secure === true)) {
+      setStatus("error");
+      setMessage(HTTP_SESSION_COOKIE_MESSAGE);
+      return;
+    }
 
     const path = mode === "login" ? "/api/v1/auth/login" : "/api/v1/auth/register";
     const payload: { email: string; password: string; invite_token?: string } = {
@@ -93,6 +101,10 @@ export function LoginPage() {
     searchParams.get("error") === "registration_closed" ||
     authConfig?.registration_enabled === false;
   const canRegister = Boolean(inviteToken) || !registrationClosed;
+  const cookieTrap = httpSecureCookieTrap(
+    window.location.protocol,
+    authConfig?.session_secure === true,
+  );
 
   useEffect(() => {
     if (!canRegister && mode === "register") {
@@ -132,6 +144,7 @@ export function LoginPage() {
               variant="secondary"
               type="button"
               className="w-full"
+              disabled={cookieTrap}
               onClick={() => {
                 const googleUrl = inviteToken
                   ? `/api/v1/auth/google?invite=${encodeURIComponent(inviteToken)}`
@@ -143,6 +156,11 @@ export function LoginPage() {
             </Button>
           ) : null}
 
+          {cookieTrap ? (
+            <p className="border border-border border-l-[3px] border-l-semantic-warning bg-surface px-3 py-2 text-sm text-ink">
+              {HTTP_SESSION_COOKIE_MESSAGE}
+            </p>
+          ) : null}
           {canRegister ? (
             <div className="flex gap-1 rounded-lg border border-border bg-bg-subtle p-0.5">
               <Button
@@ -196,7 +214,7 @@ export function LoginPage() {
                 minLength={8}
               />
             </Field>
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="w-full" disabled={cookieTrap}>
               {mode === "login" ? "Log in" : "Create account"}
             </Button>
           </form>

@@ -70,10 +70,12 @@ Other languages, same DSN: [Pick your SDK](https://epure.sh/docs/platforms). It 
 
 ```bash
 ./configure --prod
-docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d
+docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml --profile tls up -d
 ```
 
-`./configure --prod` asks for the public HTTPS URL and writes the passwords. Put Caddy, nginx, or Traefik in front of port 8080. Open that URL and repeat steps 2 to 4.
+`./configure --prod` asks for a public HTTPS hostname (not a raw IP) and writes the passwords. `--profile tls` starts Caddy on ports 80 and 443. Open `https://your-hostname/login` and repeat steps 2 to 4.
+
+`http://YOUR_SERVER:8080` will not keep you signed in. `/health` can still return ok. The browser drops the Secure session cookie and sends you back to the login form with no error. Drop `--profile tls` only when you already terminate HTTPS yourself.
 
 After that account exists, set `EPURE_REGISTRATION=false` and recreate the container. Sign-in stays available. New workspaces cannot be created from the public URL. Invitation links still work.
 

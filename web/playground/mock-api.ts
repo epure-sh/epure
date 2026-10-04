@@ -276,7 +276,11 @@ function handleGet(path: string, url: URL): Response {
   }
 
   if (path === "/api/v1/auth/config") {
-    return jsonResponse({ google_enabled: false, password_enabled: true });
+    return jsonResponse({
+      google_enabled: false,
+      password_enabled: true,
+      session_secure: false,
+    });
   }
 
   if (path === "/api/v1/projects") {

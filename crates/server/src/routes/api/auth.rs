@@ -9,8 +9,8 @@ use axum::{
 };
 use epure_auth::{
     clear_dashboard_session, establish_dashboard_session, load_credential_generation,
-    load_dashboard_session, registration_enabled, set_credential_generation, CredentialError,
-    DashboardSession, GoogleAuth, GoogleAuthError,
+    load_dashboard_session, registration_enabled, session_secure_enabled,
+    set_credential_generation, CredentialError, DashboardSession, GoogleAuth, GoogleAuthError,
 };
 use serde::{Deserialize, Serialize};
 use tower_sessions::Session;
@@ -58,6 +58,7 @@ struct AuthConfigResponse {
     google_enabled: bool,
     password_enabled: bool,
     registration_enabled: bool,
+    session_secure: bool,
 }
 
 #[derive(Serialize)]
@@ -104,6 +105,7 @@ async fn auth_config(State(state): State<Arc<AppState>>) -> Json<AuthConfigRespo
         google_enabled: state.google.is_some(),
         password_enabled: true,
         registration_enabled: registration_enabled(),
+        session_secure: session_secure_enabled(),
     })
 }
 

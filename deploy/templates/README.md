@@ -47,4 +47,4 @@ Set `EPURE_PUBLIC_URL` and `EPURE_CORS_ORIGINS` to your public origin (e.g. `htt
 
 ## VPS production (not a template)
 
-Use [`../docker-compose.prod.yml`](../docker-compose.prod.yml) with [`../env.production.example`](../env.production.example) or `./configure --prod`.
+Use [`../docker-compose.prod.yml`](../docker-compose.prod.yml) with [`../env.production.example`](../env.production.example) or `./configure --prod`. Add `--profile tls` to start Caddy, or omit it when the host already terminates HTTPS.

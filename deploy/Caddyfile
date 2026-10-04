@@ -1,0 +1,5 @@
+# Production TLS for `docker compose --profile tls`.
+# EPURE_SITE_ADDRESS is a hostname (errors.example.com), not a URL and not a raw IP.
+{$EPURE_SITE_ADDRESS} {
+	reverse_proxy epure:8080
+}

@@ -8,7 +8,7 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 Nothing yet.
 
-## [v0.1.7] — 2026-10-01
+## [v0.1.7] — 2026-10-04
 
 Envelope ingest accepts gzip/zlib bodies (PHP/Laravel, Java, Ruby, .NET defaults) and CRLF item separators. Outbound webhooks pin DNS to the validated address (SSRF rebinding guard). Auth, webhook, and ingest hardening.
 
@@ -30,10 +30,17 @@ Envelope ingest accepts gzip/zlib bodies (PHP/Laravel, Java, Ruby, .NET defaults
 - Login rate limits and stored client IPs use `X-Forwarded-For` only when the TCP peer is listed in `EPURE_TRUSTED_PROXIES`.
 - New DSN secrets are stored as argon2id hashes. Public-key ingest is unchanged.
 - SPA responses send CSP, `nosniff`, `DENY` framing, and `no-referrer`. Ingest CORS no longer reflects an origin that is not on the allowlist.
+- Login and register stay on the form when the page is HTTP and the session cookie is Secure. The browser would drop `__Host-epure.sid` and send you back with no error.
+- `GET /api/v1/auth/config` includes `session_secure`.
+
+### Added
+
+- `docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml --profile tls up -d` starts Caddy on ports 80 and 443 (`deploy/Caddyfile`).
+- `./configure --prod` requires an `https://` DNS name and writes `EPURE_SITE_ADDRESS`. A raw IP is refused.
 
 ### Upgrade
 
-`git pull`, pin `EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.1.7`, `docker compose up -d`. Migration `20261001120000_credential_generation` runs on startup. Set `EPURE_TRUSTED_PROXIES` to your reverse proxy. Webhook receivers must verify the timestamp. Existing sessions sign in again.
+`git pull`, pin `EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.1.7`, `docker compose up -d`. Migration `20261001120000_credential_generation` runs on startup. Set `EPURE_TRUSTED_PROXIES` to your reverse proxy. Webhook receivers must verify the timestamp. Existing sessions sign in again. Open `https://your-hostname/login`. Do not sign in at `http://YOUR_SERVER:8080`. Drop `--profile tls` only when you already terminate HTTPS.
 
 ## [v0.1.6] — 2026-10-01
 

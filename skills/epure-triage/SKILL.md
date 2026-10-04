@@ -1,71 +1,42 @@
 ---
 name: epure-triage
 description: >-
-  Triage self-hosted Epure / Sentry-compatible exceptions in Cursor or Claude Code.
-  Use when the user mentions Epure, DSN swap, Markdown issue export, Copy for AI,
-  production exceptions from a self-hosted Sentry alternative, or fixing issues
-  exported from the Epure dashboard. Prefer Markdown clipboard today; use MCP
-  tools only if the user already configured them.
+  Fix an Epure exception from MCP, epure-cli, or Copy for AI markdown. Use when
+  the user pastes an Epure issue, asks to triage a self-hosted Sentry error, or
+  names Copy for AI, ⌘⇧C, or Ctrl+Shift+C. Host setup is epure-setup. Tokens
+  and tool names are epure-agent.
 ---
 
-# Epure triage (Markdown → fix → resolve)
+# Epure triage
 
-Epure ships a **Markdown / Copy for AI** bridge today. Agents should root-cause from that export, propose a minimal patch, and leave resolve to the human UI unless MCP write tools are explicitly available.
+Prefer tools when `EPURE_URL` and `EPURE_TOKEN` work. Markdown from the dashboard is the same context when they do not.
 
-## When to use
+## Tool path
 
-- User pasted Epure “Copy for AI” / issue Markdown
-- “Triage this Epure / self-hosted Sentry issue”
-- After `epure-setup`, first production exception landed
-- Mentions of ⌘⇧C / Ctrl+Shift+C / command palette “Copy for AI”
+Follow **epure-agent**:
 
-## Product facts (do not hallucinate)
+1. `epure_queue` or `epure-cli queue`.
+2. `epure_issue_context` or `epure-cli context ISSUE_UUID --format markdown`.
+3. Patch from in-app frames. Run tests.
+4. `epure_triage_resolve` or `epure-cli triage resolve` only after the user confirms. `write:triage` required. Ignore and snooze are the same rule.
 
-- **Ingest:** official Sentry SDKs → Epure DSN (envelope/store). Exception-focused.
-- **UI action:** Issues view button **Copy for AI**; command palette; hotkey **⌘⇧C** (macOS) / **Ctrl+Shift+C** (others). Implemented in `web/src/features/issues/export-markdown.ts` (`buildIssueAiClipboard` → prompt + `buildIssueExportMarkdown`).
-- **Clipboard contents typically include:** one-shot fix prompt (root cause / culprit / patch / regression guard), exception summary, in-app stack (vendor frames omitted), breadcrumbs, runtime + tags, user journey hints.
-- **Also:** “Copy for AI & ignore” exists on resolve-with-AI dialog — same export family; still no server-side LLM.
+Production `EPURE_URL` is `https://your-hostname`, not `http://IP:8080`.
 
-## Workflow (today — no MCP required)
+## Markdown path
 
-1. Confirm the paste is an Epure export (look for the fix prompt headers and issue metadata).
-2. Treat stacks/breadcrumbs as ground truth; **do not invent** tracing, replay, logs, or metrics Epure did not capture.
-3. Identify likely culprit (prefer in-app frames with source context).
-4. Propose a **minimal** patch + a regression test or guard when feasible.
-5. Tell the user how to verify (repro → new event or silence) and to **Resolve** (or ignore) in the Epure dashboard.
-6. If setup is missing, point them at `epure-setup` / README try-path — do not invent deploy paths.
+UI: **Copy for AI**, command palette, **⌘⇧C** / **Ctrl+Shift+C**. Built in `web/src/features/issues/export-markdown.ts`.
 
-### Suggested assistant stance when user pastes export
+The paste has a fix prompt, exception summary, in-app stack (vendor frames omitted), breadcrumbs, runtime, tags.
 
-```text
-Root-cause from the Epure Markdown only. Propose a concrete patch.
-Do not invent telemetry Epure doesn’t store (traces, replay, logs).
-Call out uncertainty when frames lack context / sourcemaps.
-```
+1. Confirm it is an Epure export.
+2. Treat that text as ground truth. Do not add tracing, replay, or logs.
+3. Minimal patch plus a regression guard when feasible.
+4. Tell the user how to verify, then **Resolve** in the UI, or call the triage tool if a token exists.
 
-## MCP (optional — only if already configured)
+## If the host is down
 
-A thin triage MCP is **planned** (tools along the lines of `list_issues`, `get_issue`, `get_latest_event`, `export_issue_markdown`, `update_issue`, `list_projects`). **Do not claim MCP is available** unless the user’s environment already exposes those tools.
+Load **epure-setup**. Do not invent a deploy. If login loops on port 8080, they opened HTTP against the prod Secure cookie. Send them to the HTTPS URL.
 
-If MCP **is** present:
+## Honesty
 
-1. `list_issues` (unresolved) → pick issue  
-2. `export_issue_markdown` / `get_latest_event`  
-3. Patch in the working tree  
-4. `update_issue` with `resolve` only after user confirms the fix  
-
-If MCP is **absent**: Markdown clipboard + UI resolve is the complete supported loop.
-
-## Honesty constraints
-
-- Partial Sentry compatibility — don’t promise every SDK feature works.
-- Out of scope: APM, log search, Seer-style “analyze on server”, creating issues via agent as a primary path.
-- Footprint / perf claims: only cite dated README method (**2026-09-23** `docker stats`) or user-supplied numbers.
-
-## Install line (for humans sharing the skill)
-
-```bash
-npx skills add epure-sh/epure --skill epure-triage
-```
-
-(Requires these files merged under `skills/epure-triage/` in `epure-sh/epure`.)
+Partial Sentry compatibility. No APM, log search, or server-side LLM. Footprint numbers only from the README method dated **2026-09-23**, or numbers the user measured.

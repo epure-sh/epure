@@ -34,6 +34,7 @@ async fn registration_flag_blocks_public_signup_and_keeps_login_and_invites() {
     assert_eq!(open_config.status(), 200);
     let open_body: serde_json::Value = open_config.json().await.expect("open config json");
     assert_eq!(open_body["registration_enabled"], true);
+    assert_eq!(open_body["session_secure"], false);
 
     let email = format!(
         "open-{}@epure.local",

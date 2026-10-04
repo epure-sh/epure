@@ -1,8 +1,9 @@
 # Production overlay — use with:
-#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml --profile tls up -d
 #
 # Run `./configure --prod` or copy `deploy/env.production.example` → `.env` first.
-# Requires HTTPS in front of Epure.
+# Profile `tls` starts Caddy on ports 80 and 443. Omit it when you already
+# terminate HTTPS yourself. Epure stays HTTP on EPURE_PORT.
 # Example `epure:epure` passwords are refused. After migrate, the process sets
 # ingest/app role passwords from the URLs below.
 
@@ -24,7 +25,27 @@ services:
     ports:
       - "${EPURE_PORT:-8080}:8080"
 
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["tls"]
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      EPURE_SITE_ADDRESS: ${EPURE_SITE_ADDRESS:-}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - epure
+
   postgres:
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set me}
     ports: []
+
+volumes:
+  caddy_data:
+  caddy_config:

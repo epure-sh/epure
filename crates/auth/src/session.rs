@@ -46,7 +46,7 @@ pub fn build_session_layer(store: PostgresStore) -> SessionManagerLayer<Postgres
         .with_expiry(Expiry::OnInactivity(time::Duration::days(14)))
 }
 
-fn session_secure_enabled() -> bool {
+pub fn session_secure_enabled() -> bool {
     std::env::var("EPURE_SESSION_SECURE")
         .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
         .unwrap_or(true)
