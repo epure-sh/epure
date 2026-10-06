@@ -16,7 +16,11 @@ Usage: ./configure [options]
 
   --quick            Write .env only if 8080/5433 are busy (recommended)
   --dev              Vite CORS for web/ → .env
-  --prod             Production .env (HTTPS URL + generated passwords)
+  --prod             Production .env (HTTPS URL + database secrets)
+  --prod-rotate-secrets
+                     New random DB secrets in .env and apply them to a running Postgres
+  --sync-db-passwords
+                     Apply POSTGRES_* secrets from .env to Postgres (existing volume)
   --port N           Set Epure host port → .env
   --postgres-port N  Set Postgres host port → .env
   --up               After configure, `docker compose up -d` + wait for /health
@@ -27,7 +31,50 @@ Usage: ./configure [options]
 
 Most users:  docker compose up
 Port clash:  cp .env.example .env  OR  ./configure --quick
-Production:  ./configure --prod
+Production:  ./configure --prod   # before first up, or after down -v
+EOF
+}
+
+compose_project_name() {
+  local name="${COMPOSE_PROJECT_NAME:-}"
+  if [[ -z "$name" && -f .env ]]; then
+    name="$(grep -E '^COMPOSE_PROJECT_NAME=' .env 2>/dev/null | tail -1 | cut -d= -f2- || true)"
+  fi
+  if [[ -z "$name" ]]; then
+    name="$(basename "$ROOT")"
+  fi
+  printf '%s' "$name" | tr '[:upper:]' '[:lower:]'
+}
+
+postgres_data_volume_exists() {
+  local project vol
+  project="$(compose_project_name)"
+  vol="${project}_postgres_data"
+  docker volume inspect "$vol" >/dev/null 2>&1
+}
+
+env_has_prod_secrets() {
+  local pg ingest app
+  pg="$(read_env_value POSTGRES_PASSWORD "")"
+  ingest="$(read_env_value EPURE_INGEST_PASSWORD "")"
+  app="$(read_env_value EPURE_APP_PASSWORD "")"
+  [[ -n "$pg" && -n "$ingest" && -n "$app" ]] || return 1
+  [[ "$pg" != "CHANGE_ME" && "$ingest" != "CHANGE_ME" && "$app" != "CHANGE_ME" ]] || return 1
+}
+
+sync_db_passwords() {
+  "${ROOT}/scripts/sync-db-passwords.sh"
+}
+
+print_prod_start_hint() {
+  cat <<'EOF'
+Start Caddy on ports 80 and 443 (certificate for your EPURE_SITE_ADDRESS):
+  docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml --profile tls up -d
+
+Drop --profile tls only if nginx, Caddy, or Traefik already serves your public URL.
+
+Run ./configure --prod before the first `up`, or only after `docker compose … down -v`.
+If you already have Postgres data, secrets in .env are reused or synced — never silently replaced.
 EOF
 }
 
@@ -238,28 +285,74 @@ prod_site_address() {
 }
 
 mode_prod() {
+  local rotate="${1:-0}"
   local epure_port public_url cors pg_pw ingest_pw app_pw site
-  epure_port="$(prompt "Epure host port (behind reverse proxy)" "$DEFAULT_EPURE_PORT")"
-  public_url="$(prompt "Public HTTPS URL" "https://errors.example.com")"
+  local vol_exists=false reuse_secrets=false apply_to_db=false
+
+  if postgres_data_volume_exists; then
+    vol_exists=true
+  fi
+
+  epure_port="$(prompt "Epure host port (behind reverse proxy)" "$(read_env_value EPURE_PORT "$DEFAULT_EPURE_PORT")")"
+  public_url="$(prompt "Public HTTPS URL" "$(read_env_value EPURE_PUBLIC_URL "https://errors.example.com")")"
   site="$(prod_site_address "$public_url")" || exit 1
-  cors="$(prompt "CORS origins (comma-separated)" "$public_url")"
-  pg_pw="$(gen_secret)"
-  ingest_pw="$(gen_secret)"
-  app_pw="$(gen_secret)"
+  cors="$(prompt "CORS origins (comma-separated)" "$(read_env_value EPURE_CORS_ORIGINS "$public_url")")"
+
+  if [[ "$rotate" == 1 ]]; then
+    if [[ "$vol_exists" == true ]]; then
+      read -r -p "Generate new database secrets and apply them to the existing Postgres volume? [y/N]: " confirm
+      if [[ ! "$confirm" =~ ^[yY] ]]; then
+        echo "Aborted."
+        exit 0
+      fi
+    fi
+    pg_pw="$(gen_secret)"
+    ingest_pw="$(gen_secret)"
+    app_pw="$(gen_secret)"
+    apply_to_db="$vol_exists"
+  elif [[ "$vol_exists" == true ]] && env_has_prod_secrets; then
+    pg_pw="$(read_env_value POSTGRES_PASSWORD "")"
+    ingest_pw="$(read_env_value EPURE_INGEST_PASSWORD "")"
+    app_pw="$(read_env_value EPURE_APP_PASSWORD "")"
+    reuse_secrets=true
+    echo "Postgres data volume found — keeping database secrets from .env (URLs and CORS updated)." >&2
+  else
+    pg_pw="$(gen_secret)"
+    ingest_pw="$(gen_secret)"
+    app_pw="$(gen_secret)"
+    if [[ "$vol_exists" == true ]]; then
+      apply_to_db=true
+      echo "Postgres data volume found — new secrets will be written to .env and applied inside Postgres." >&2
+    fi
+  fi
+
   write_prod_env "$epure_port" "$public_url" "$cors" "$pg_pw" "$ingest_pw" "$app_pw" "$site"
+
+  if [[ "$apply_to_db" == true ]]; then
+    sync_db_passwords
+  fi
+
   cat <<EOF
 
-Wrote production .env (passwords generated — back this file up).
+Wrote production .env — back this file up.
 
 Sign in at ${public_url}/login
 Do not open http://THIS_SERVER:${epure_port}
 /health can succeed there. Login cannot. The Secure cookie is dropped and the form returns with no error.
-
-Start Caddy on ports 80 and 443 (certificate for ${site}):
-  docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml --profile tls up -d
-
-Drop --profile tls only if nginx, Caddy, or Traefik already serves ${public_url}.
 EOF
+  if [[ "$reuse_secrets" == true ]]; then
+    echo "Database passwords unchanged (matched existing volume)."
+  elif [[ "$apply_to_db" == true ]]; then
+    echo "Database passwords updated to match .env."
+  else
+    echo "Database passwords generated for a new Postgres volume."
+  fi
+  echo ""
+  print_prod_start_hint
+}
+
+mode_prod_rotate() {
+  mode_prod 1
 }
 
 mode_interactive() {
@@ -298,6 +391,11 @@ while [[ $# -gt 0 ]]; do
     --quick) MODE=quick; shift ;;
     --dev) MODE=dev; shift ;;
     --prod) MODE=prod; shift ;;
+    --prod-rotate-secrets) MODE=prod_rotate; shift ;;
+    --sync-db-passwords)
+      sync_db_passwords
+      exit 0
+      ;;
     --up) DO_UP=1; shift ;;
     --show) show_config; exit 0 ;;
     --reset)
@@ -325,7 +423,8 @@ elif [[ -n "${MODE:-}" ]]; then
   case "$MODE" in
     quick) mode_quick ;;
     dev) mode_dev ;;
-    prod) mode_prod ;;
+    prod) mode_prod 0 ;;
+    prod_rotate) mode_prod_rotate ;;
     interactive) mode_interactive ;;
   esac
 else

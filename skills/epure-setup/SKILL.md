@@ -46,7 +46,7 @@ docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml --profile
 curl -sS https://errors.example.com/health
 ```
 
-`./configure --prod` writes passwords and `EPURE_SITE_ADDRESS` from an `https://` DNS name. `--profile tls` starts Caddy on ports **80** and **443**. Open `https://that-hostname/login`.
+Run `./configure --prod` before the first prod `up`, or after `down -v`. With an existing Postgres volume it reuses `.env` database secrets or applies new ones (`./scripts/sync-db-passwords.sh`) so the app cannot drift from the database. `--profile tls` starts Caddy on **80** / **443**. Open `https://that-hostname/login`.
 
 Drop `--profile tls` only when nginx, Caddy, or Traefik already serves that HTTPS URL. Still do not sign in on port 8080.
 

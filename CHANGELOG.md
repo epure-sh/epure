@@ -6,7 +6,14 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 ## Unreleased
 
-Nothing yet.
+### Added
+
+- `./configure --sync-db-passwords` and `scripts/sync-db-passwords.sh` align Postgres role passwords with `.env`.
+- `./configure --prod-rotate-secrets` generates new secrets and applies them when rotating on an existing volume.
+
+### Changed
+
+- `./configure --prod` detects an existing Postgres data volume: reuses secrets from `.env` when present, or writes new secrets and applies them in Postgres (promote-after-`docker compose up` path). It no longer regenerates `.env` passwords while leaving the database unchanged.
 
 ## [v0.1.7] — 2026-10-04
 

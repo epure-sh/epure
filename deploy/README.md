@@ -32,3 +32,5 @@ cp deploy/env.dev.example .env.dev
 ```
 
 Or use `./configure --prod` / `./configure --dev` from the repo root.
+
+If the `epure` container crash-loops with Postgres password errors after changing `.env`, run `./configure --sync-db-passwords` (or `./configure --prod` again — it keeps or syncs secrets when a data volume exists).

@@ -73,7 +73,7 @@ Other languages, same DSN: [Pick your SDK](https://epure.sh/docs/platforms). It 
 docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml --profile tls up -d
 ```
 
-`./configure --prod` asks for a public HTTPS hostname (not a raw IP) and writes the passwords. `--profile tls` starts Caddy on ports 80 and 443. Open `https://your-hostname/login` and repeat steps 2 to 4.
+Run `./configure --prod` **before** the first `up`, or after `docker compose … down -v`. If Postgres data already exists, the script **reuses** secrets from `.env` or **applies** new ones into the database — it does not overwrite `.env` with fresh random passwords while leaving the volume on the old ones. To rotate secrets intentionally: `./configure --prod-rotate-secrets`. `./configure --prod` asks for a public HTTPS hostname (not a raw IP). `--profile tls` starts Caddy on ports 80 and 443. Open `https://your-hostname/login` and repeat steps 2 to 4.
 
 `http://YOUR_SERVER:8080` will not keep you signed in. `/health` can still return ok. The browser drops the Secure session cookie and sends you back to the login form with no error. Drop `--profile tls` only when you already terminate HTTPS yourself.
 
