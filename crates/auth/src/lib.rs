@@ -2,7 +2,9 @@ pub mod agent_token;
 pub mod api_pat;
 pub mod credentials;
 pub mod dsn;
+pub mod github;
 pub mod google;
+pub mod magic_link;
 pub mod password;
 pub mod registration;
 pub mod session;
@@ -13,7 +15,9 @@ pub use agent_token::{
 pub use api_pat::ApiPatAuth;
 pub use credentials::{AccountProfile, CredentialAuth, CredentialError};
 pub use dsn::{DsnAuthError, DsnRecord, DsnValidator};
+pub use github::{GitHubAuth, GitHubAuthError};
 pub use google::{GoogleAuth, GoogleAuthError};
+pub use magic_link::{create_magic_link, verify_magic_link, MagicLinkError};
 pub use password::{
     dev_seed_password_hash, hash_password, hash_password_blocking, is_stored_password_hash,
     verify_password, verify_password_blocking, PasswordError,

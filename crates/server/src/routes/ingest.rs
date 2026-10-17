@@ -120,6 +120,9 @@ async fn post_envelope(
 
     let parsed = match parse_envelope(&body) {
         Ok(parsed) => parsed,
+        Err(EnvelopeError::NonErrorAbsorbed) => {
+            return cors_response(&state, &headers, StatusCode::ACCEPTED);
+        }
         Err(EnvelopeError::NoEvent) => {
             return error_response(
                 StatusCode::BAD_REQUEST,
@@ -491,7 +494,7 @@ async fn accept_payload(
     let client_ip = Some(client_ip_from_peer(peer, headers));
     let country_code_hint = country_code_from_headers(headers);
 
-    let job = match state.spike_valve.check(&fingerprint) {
+    let job = match state.spike_valve.check_scoped(project_id, org_id, &fingerprint) {
         SpikeDecision::AllowStore => IngestJob::StoreEvent {
             event_id,
             project_id,
@@ -502,11 +505,14 @@ async fn accept_payload(
             client_ip,
             country_code_hint,
         },
-        SpikeDecision::CounterOnly => IngestJob::CounterOnly {
-            project_id,
-            org_id,
-            fingerprint,
-        },
+        SpikeDecision::CounterOnly => {
+            // Counted in RAM; will be flushed to PostgreSQL by background spike flusher.
+            return with_cors(
+                state,
+                headers,
+                (StatusCode::ACCEPTED, Json(IngestAccepted { id: event_id })).into_response(),
+            );
+        }
     };
 
     if state.ingest_tx.send(job).await.is_err() {

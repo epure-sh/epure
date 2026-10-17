@@ -189,12 +189,14 @@ export function removeChipToken(query: string, token: string): string {
   return removeToken(query, prefix);
 }
 
+export const DEFAULT_QUERY = "is:unresolved";
+
 export interface FilterPreset {
   label: string;
   token: string;
 }
 
-/** State filters surfaced in the feed search helper — no env, release, or level. */
+/** State filters surfaced in the feed search helper. */
 export const STATUS_FILTER_PRESETS: readonly FilterPreset[] = [
   { label: "Unresolved", token: "is:unresolved" },
   { label: "Came back", token: "is:regression" },
@@ -203,13 +205,33 @@ export const STATUS_FILTER_PRESETS: readonly FilterPreset[] = [
   { label: "Ignored", token: "is:ignored" },
 ];
 
+/** Severity level filters. */
+export const LEVEL_FILTER_PRESETS: readonly FilterPreset[] = [
+  { label: "Fatal", token: "level:fatal" },
+  { label: "Error", token: "level:error" },
+  { label: "Warning", token: "level:warning" },
+  { label: "Info", token: "level:info" },
+];
+
+/** Environment filters. */
+export const ENVIRONMENT_FILTER_PRESETS: readonly FilterPreset[] = [
+  { label: "Production", token: "env:production" },
+  { label: "Staging", token: "env:staging" },
+  { label: "Development", token: "env:development" },
+  { label: "Preview", token: "env:preview" },
+];
+
+/** Impact and telemetry filters. */
+export const IMPACT_FILTER_PRESETS: readonly FilterPreset[] = [
+  { label: "Affecting Users", token: "user.email:@" },
+];
+
 /** Label lookup for tokens typed manually or from advanced filters. */
 export const PRESET_FILTERS: readonly FilterPreset[] = [
   ...STATUS_FILTER_PRESETS,
-  { label: "Error", token: "level:error" },
-  { label: "Warning", token: "level:warning" },
-  { label: "Production", token: "env:production" },
-  { label: "Staging", token: "env:staging" },
+  ...LEVEL_FILTER_PRESETS,
+  ...ENVIRONMENT_FILTER_PRESETS,
+  ...IMPACT_FILTER_PRESETS,
 ];
 
 export function getFilterPresetLabel(token: string): string {
@@ -257,7 +279,7 @@ export function extractChips(query: string): QueryChip[] {
     const token = `env:${parsed.environment}`;
     chips.push({
       key: "env",
-      label: parsed.environment,
+      label: getFilterPresetLabel(token),
       token,
     });
   }
@@ -272,8 +294,8 @@ export function extractChips(query: string): QueryChip[] {
   if (parsed.userEmail) {
     const token = `user.email:${parsed.userEmail}`;
     chips.push({
-      key: "user.email",
-      label: parsed.userEmail,
+      key: "user",
+      label: parsed.userEmail === "@" ? "Users" : parsed.userEmail,
       token,
     });
   }
@@ -283,13 +305,57 @@ export function extractChips(query: string): QueryChip[] {
 
 export interface FilterHelperGroup {
   label: string;
+  category: "status" | "level" | "environment" | "impact";
   presets: readonly FilterPreset[];
 }
 
-/** @deprecated Feed search uses STATUS_FILTER_PRESETS only */
 export const FILTER_HELPER_GROUPS: readonly FilterHelperGroup[] = [
-  { label: "State", presets: STATUS_FILTER_PRESETS },
+  { label: "Lifecycle State", category: "status", presets: STATUS_FILTER_PRESETS },
+  { label: "Severity Level", category: "level", presets: LEVEL_FILTER_PRESETS },
+  { label: "Environment", category: "environment", presets: ENVIRONMENT_FILTER_PRESETS },
+  { label: "Impact & Users", category: "impact", presets: IMPACT_FILTER_PRESETS },
 ];
+
+export function getLevelFilter(query: string): string | null {
+  const parsed = parseQuery(query);
+  return parsed.level ?? null;
+}
+
+export function setLevelFilter(query: string, level: string | null): string {
+  if (!level) {
+    return removeToken(query, "level:");
+  }
+  return setToken(query, `level:${level}`);
+}
+
+export function getEnvironmentFilter(query: string): string | null {
+  const parsed = parseQuery(query);
+  return parsed.environment ?? null;
+}
+
+export function setEnvironmentFilter(query: string, environment: string | null): string {
+  if (!environment) {
+    return removeToken(query, "env:");
+  }
+  return setToken(query, `env:${environment}`);
+}
+
+export function hasActiveFilters(query: string): boolean {
+  const parsed = parseQuery(query);
+  const isDefault =
+    query.trim() === DEFAULT_QUERY ||
+    (parsed.status === "unresolved" &&
+      !parsed.level &&
+      !parsed.environment &&
+      !parsed.release &&
+      !parsed.userEmail &&
+      !parsed.freeText);
+  return !isDefault && query.trim().length > 0;
+}
+
+export function resetQuery(): string {
+  return DEFAULT_QUERY;
+}
 
 export function queryHasToken(query: string, token: string): boolean {
   return query.split(/\s+/).includes(token);
@@ -304,8 +370,10 @@ const STATUS_TITLES: Record<string, string> = {
 };
 
 const LEVEL_TITLES: Record<string, string> = {
+  fatal: "Fatal issues",
   error: "Critical issues",
   warning: "Warning issues",
+  info: "Informational issues",
 };
 
 /** Plain-language list title for J2 scan (no query tokens on surface). */

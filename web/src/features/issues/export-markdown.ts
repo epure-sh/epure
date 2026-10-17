@@ -520,7 +520,10 @@ export function useExportHotkey(
 
       const isMac = navigator.platform.toUpperCase().includes("MAC");
       const modifier = isMac ? keyboardEvent.metaKey : keyboardEvent.ctrlKey;
-      if (modifier && keyboardEvent.shiftKey && keyboardEvent.key.toLowerCase() === "c") {
+      const isPlainC = !keyboardEvent.metaKey && !keyboardEvent.ctrlKey && !keyboardEvent.altKey && keyboardEvent.key.toLowerCase() === "c";
+      const isModifierC = modifier && keyboardEvent.shiftKey && keyboardEvent.key.toLowerCase() === "c";
+
+      if (isPlainC || isModifierC) {
         keyboardEvent.preventDefault();
         void copyIssueExport(issue, event).then(() => onCopied?.());
       }

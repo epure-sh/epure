@@ -8,7 +8,7 @@ pub mod state;
 
 use epure_auth::{
     bootstrap_session_store, build_session_layer, init_session_store, spawn_session_cleanup,
-    CredentialAuth, DsnValidator, GoogleAuth,
+    CredentialAuth, DsnValidator, GitHubAuth, GoogleAuth,
 };
 use epure_storage::{connect, connect_pools, run_migrations, PgPool, StoragePools};
 use jobs::ttl::run_ttl_job;
@@ -117,12 +117,19 @@ pub async fn init_runtime(
         run_ttl_job(ttl_pool).await;
     });
 
+    let flusher_pool = ingest.clone();
+    let flusher_spike = spike_valve.clone();
+    let _flusher = tokio::spawn(async move {
+        pipeline::flusher::run_spike_flusher(flusher_pool, flusher_spike).await;
+    });
+
     bootstrap_session_store(migrate_pool).await?;
     let session_store = init_session_store(app.clone()).await?;
     let session_cleanup = spawn_session_cleanup(session_store.clone());
     let session_layer = build_session_layer(session_store);
     let credentials = CredentialAuth::new(app.clone());
-    let google = GoogleAuth::from_env(app);
+    let google = GoogleAuth::from_env(app.clone());
+    let github = GitHubAuth::from_env(app);
 
     let state = Arc::new(AppState {
         pools: pools.clone(),
@@ -135,6 +142,7 @@ pub async fn init_runtime(
         artifacts_dir,
         credentials,
         google,
+        github,
         session_layer,
     });
 
@@ -149,4 +157,8 @@ pub async fn init_runtime(
 
 pub fn router_for(runtime: &ServerRuntime) -> axum::Router {
     router(runtime.state.clone())
+}
+
+pub fn router_for_with_extensions(runtime: &ServerRuntime, extensions: axum::Router) -> axum::Router {
+    routes::router_with_extensions(runtime.state.clone(), extensions)
 }

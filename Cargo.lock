@@ -634,6 +634,7 @@ version = "0.1.7"
 dependencies = [
  "chrono",
  "hex",
+ "regex",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -679,6 +680,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "epure-core"
+version = "0.1.7"
+dependencies = [
+ "chrono",
+ "serde",
+ "thiserror 2.0.20",
+ "uuid",
+]
+
+[[package]]
 name = "epure-demangle"
 version = "0.1.7"
 dependencies = [
@@ -704,6 +715,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "epure-mcp"
+version = "0.1.7"
+dependencies = [
+ "clap",
+ "epure-agent-context",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "epure-server"
 version = "0.1.7"
 dependencies = [
@@ -715,6 +739,7 @@ dependencies = [
  "epure-auth",
  "epure-demangle",
  "epure-envelope",
+ "epure-mcp",
  "epure-storage",
  "flate2",
  "hex",

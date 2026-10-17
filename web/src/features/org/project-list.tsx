@@ -47,93 +47,135 @@ function ProjectCardBody({
   const buckets = activity ?? [];
   const hasActivity = buckets.some((bucket) => bucket.count > 0);
 
+  // Platform inference from slug or name
+  const platform = project.slug?.includes("web") || project.name.toLowerCase().includes("web")
+    ? "React"
+    : project.slug?.includes("api") || project.name.toLowerCase().includes("api")
+      ? "Node.js"
+      : project.slug?.includes("setup")
+        ? "Go"
+        : "TypeScript";
+
   return (
-    <>
-      {editMode ? (
-        <Checkbox
-          checked={selected}
-          onCheckedChange={() => onToggleSelect?.(project.id)}
-          aria-label={`Select ${project.name}`}
-          className="mt-0.5 shrink-0"
-          onClick={(event) => event.stopPropagation()}
-        />
-      ) : null}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="min-w-0">
-          <h2
-            className={cn(
-              "flex min-w-0 items-center gap-2 text-sm font-medium tracking-ui text-ink",
-              !editMode && "transition-colors group-hover:text-accent",
-            )}
-          >
-            <span className="truncate">{project.name}</span>
-            {project.is_demo ? (
-              <Badge variant="secondary" size="compact" className="shrink-0 tracking-ui">
-                Preview
-              </Badge>
-            ) : null}
-            {isSharedProjectRole(project.role ?? viewerRole) ? <SharedProjectBadge /> : null}
-          </h2>
-          <p className="mt-1 truncate font-mono text-xs text-ink-muted">
-            {project.slug ?? project.id.slice(0, 8)}
-          </p>
+    <div className="flex flex-col justify-between h-full min-h-[12rem] space-y-4">
+      {/* 1. Header Zone: Avatar, Full-width Uncropped Title, Platform Pill, Status Beacon */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0 flex-1">
+          {editMode ? (
+            <Checkbox
+              checked={selected}
+              onCheckedChange={() => onToggleSelect?.(project.id)}
+              aria-label={`Select ${project.name}`}
+              className="mt-1 shrink-0"
+              onClick={(event) => event.stopPropagation()}
+            />
+          ) : (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-muted/50 border border-accent/20 text-accent font-bold text-xs uppercase shadow-2xs select-none">
+              {project.name.slice(0, 2)}
+            </div>
+          )}
+
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {/* Project name is NEVER cropped with ... — wraps naturally with full width */}
+              <h2
+                className={cn(
+                  "text-base font-semibold tracking-tight text-ink break-words leading-snug",
+                  !editMode && "transition-colors group-hover:text-accent",
+                )}
+              >
+                {project.name}
+              </h2>
+
+              {project.is_demo ? (
+                <Badge variant="secondary" size="compact" className="shrink-0 tracking-ui font-mono text-[10px]">
+                  Demo
+                </Badge>
+              ) : null}
+              {isSharedProjectRole(project.role ?? viewerRole) ? <SharedProjectBadge /> : null}
+            </div>
+
+            <p className="font-mono text-2xs text-ink-subtle break-all">
+              {project.slug ?? project.id}
+            </p>
+          </div>
         </div>
 
-        {statsLoading || stats ? (
-          <p className="mt-auto pt-2 text-xs text-ink-muted">
-            <span className="font-mono tabular-nums text-ink">
-              {statsLoading ? "—" : formatCompactCount(unresolved)}
-            </span>{" "}
-            unresolved
-            <span className="px-1.5 text-ink-muted/40" aria-hidden>
-              ·
-            </span>
-            <span className="font-mono tabular-nums text-ink">
-              {statsLoading ? "—" : formatCompactCount(events7d)}
-            </span>{" "}
-            events (7d)
-            {regressions > 0 ? (
-              <>
-                <span className="px-1.5 text-ink-muted/40" aria-hidden>
-                  ·
-                </span>
-                <span className="font-mono tabular-nums text-semantic-warning">
-                  {statsLoading ? "—" : formatCompactCount(regressions)}
-                </span>{" "}
-                <span className="text-semantic-warning">regressions</span>
-              </>
-            ) : null}
-          </p>
+        {/* Platform Pill & Status Beacon */}
+        <div className="flex shrink-0 items-center gap-2 pt-0.5">
+          <span className="rounded-md bg-bg-subtle px-2 py-0.5 font-mono text-[11px] font-medium text-ink-muted border border-border/60">
+            {platform}
+          </span>
+          <span
+            className={cn(
+              "h-2 w-2 rounded-full shrink-0",
+              unresolved > 0
+                ? regressions > 0
+                  ? "bg-amber-500 ring-2 ring-amber-500/20"
+                  : "bg-signal ring-2 ring-signal/20 animate-pulse"
+                : "bg-emerald-500 ring-2 ring-emerald-500/20",
+            )}
+            title={unresolved > 0 ? `${unresolved} unresolved issues` : "All systems nominal"}
+          />
+        </div>
+      </div>
+
+      {/* 2. Middle Zone: High-Density Telemetry Chips */}
+      <div className="flex flex-wrap items-center gap-2 text-2xs">
+        <span
+          className={cn(
+            "font-mono font-medium tabular-nums px-2.5 py-1 rounded-md border flex items-center gap-1.5 shadow-2xs",
+            unresolved > 0
+              ? "bg-signal-muted text-signal border-signal/25 font-semibold"
+              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+          )}
+        >
+          <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", unresolved > 0 ? "bg-signal" : "bg-emerald-500")} />
+          <span>{statsLoading ? "…" : formatCompactCount(unresolved)} unresolved</span>
+        </span>
+
+        <span className="font-mono tabular-nums px-2.5 py-1 rounded-md bg-bg-subtle text-ink-muted border border-border/80 shadow-2xs">
+          {statsLoading ? "…" : formatCompactCount(events7d)} events (7d)
+        </span>
+
+        {regressions > 0 ? (
+          <span className="font-mono tabular-nums px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-2xs">
+            ⚡ {formatCompactCount(regressions)} came back
+          </span>
         ) : null}
       </div>
 
-      <div className="flex w-36 shrink-0 flex-col justify-end sm:w-44">
-        {statsLoading ? (
-          <Skeleton className="h-14 w-full rounded-md" />
-        ) : hasActivity ? (
-          <OccurrenceLineChart
-            buckets={buckets}
-            label={`${project.name} errors over time`}
-            height={56}
-            interactive={false}
-            className="w-full"
-          />
-        ) : (
-          <div className="flex h-14 items-end border-b border-border/40">
-            <span className="pb-1 text-2xs text-ink-muted">No recent errors</span>
-          </div>
-        )}
-      </div>
+      {/* 3. Bottom Zone: Full-Width 7-Day Activity Sparkline & Action Link */}
+      <div className="pt-3 border-t border-border/60 space-y-1.5">
+        <div className="flex items-center justify-between text-[11px] text-ink-subtle select-none">
+          <span className="font-mono text-2xs">7-day error velocity</span>
+          {!editMode ? (
+            <span className="inline-flex items-center gap-1 font-medium text-xs text-accent opacity-0 group-hover:opacity-100 transition-opacity">
+              <span>View issues</span>
+              <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
+            </span>
+          ) : null}
+        </div>
 
-      {!editMode ? (
-        <span
-          className="flex shrink-0 items-center self-center text-ink-muted opacity-0 transition-opacity group-hover:opacity-100"
-          aria-hidden
-        >
-          <ArrowRight size={14} />
-        </span>
-      ) : null}
-    </>
+        <div className="h-10 w-full">
+          {statsLoading ? (
+            <Skeleton className="h-10 w-full rounded-md" />
+          ) : hasActivity ? (
+            <OccurrenceLineChart
+              buckets={buckets}
+              label={`${project.name} errors over time`}
+              height={40}
+              interactive={false}
+              className="w-full"
+            />
+          ) : (
+            <div className="flex h-10 items-center justify-center rounded-md border border-dashed border-border/60 bg-bg-subtle/30">
+              <span className="text-[11px] font-mono text-ink-subtle">Zero errors in last 7 days · Calm</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -149,15 +191,15 @@ function ProjectCard(props: {
 }) {
   const { editMode, selected, onToggleSelect, project } = props;
   const shellClass = cn(
-    "epure-card flex min-h-[6.5rem] items-stretch gap-3 rounded-lg border border-border bg-surface p-3.5 transition-colors",
+    "epure-card relative flex flex-col justify-between rounded-xl border border-border/80 bg-surface p-5 transition-all duration-200 shadow-2xs",
     editMode
       ? cn(
           "cursor-pointer focus-ring",
           selected
-            ? "border-accent bg-accent-muted/50"
-            : "hover:border-border-strong hover:bg-state-hover",
+            ? "border-accent bg-accent-muted/40 ring-2 ring-accent"
+            : "hover:border-border-strong hover:bg-surface-elevated/40",
         )
-      : "group hover:border-border-strong hover:bg-state-hover focus-ring",
+      : "group hover:border-border-strong hover:bg-surface-elevated/40 hover:shadow-md focus-ring",
   );
 
   if (editMode) {
@@ -193,14 +235,19 @@ function ProjectCard(props: {
 
 function ProjectCardSkeleton() {
   return (
-    <div className="flex min-h-[6.5rem] items-stretch gap-3 rounded-lg border border-border bg-surface p-3.5">
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Skeleton className="h-4 w-28" />
-        <Skeleton className="mt-2 h-3 w-20" />
-        <Skeleton className="mt-auto h-3 w-40" />
+    <div className="flex flex-col justify-between h-48 rounded-xl border border-border bg-surface p-5 space-y-4">
+      <div className="flex items-start gap-3">
+        <Skeleton className="h-9 w-9 rounded-lg" />
+        <div className="flex-1 space-y-1.5">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-20" />
+        </div>
       </div>
-      <Skeleton className="h-14 w-36 shrink-0 rounded-md sm:w-44" />
-      <Skeleton className="h-3.5 w-3.5 shrink-0 self-center rounded-sm" />
+      <div className="flex gap-2">
+        <Skeleton className="h-6 w-24 rounded-md" />
+        <Skeleton className="h-6 w-24 rounded-md" />
+      </div>
+      <Skeleton className="h-10 w-full rounded-md" />
     </div>
   );
 }
@@ -217,7 +264,7 @@ export function ProjectList({
 }: ProjectListProps) {
   if (loading && projects.length > 0 && statsByProject.size === 0) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {projects.map((project) => (
           <ProjectCardSkeleton key={project.id} />
         ))}
@@ -229,14 +276,14 @@ export function ProjectList({
     return (
       <Empty
         variant="inset"
-        title="No projects yet"
-        description="Create a project to get a DSN and start ingesting errors."
+        title="No projects found"
+        description="Create a project to connect your SDK and start monitoring exceptions."
       />
     );
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {projects.map((project) => (
         <ProjectCard
           key={project.id}

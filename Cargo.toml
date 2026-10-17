@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/core",
     "crates/server",
     "crates/envelope",
     "crates/storage",
@@ -8,6 +9,7 @@ members = [
     "crates/demangle",
     "crates/agent-context",
     "crates/cli",
+    "crates/mcp",
 ]
 
 [workspace.package]
@@ -17,6 +19,8 @@ license = "Apache-2.0"
 
 [workspace.dependencies]
 axum = { version = "0.8", features = ["multipart"] }
+epure-core = { path = "crates/core" }
+epure-mcp = { path = "crates/mcp" }
 epure-demangle = { path = "crates/demangle" }
 flate2 = "1"
 bytes = "1"

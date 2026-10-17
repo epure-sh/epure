@@ -10,7 +10,8 @@ use axum::{
 use epure_auth::{
     clear_dashboard_session, establish_dashboard_session, load_credential_generation,
     load_dashboard_session, registration_enabled, session_secure_enabled,
-    set_credential_generation, CredentialError, DashboardSession, GoogleAuth, GoogleAuthError,
+    set_credential_generation, CredentialError, DashboardSession, GitHubAuth, GitHubAuthError,
+    GoogleAuth, GoogleAuthError,
 };
 use serde::{Deserialize, Serialize};
 use tower_sessions::Session;
@@ -32,6 +33,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .merge(credentials)
         .route("/google", get(google_start))
         .route("/google/callback", get(google_callback))
+        .route("/github", get(github_start))
+        .route("/github/callback", get(github_callback))
+        .route("/magic-link", post(request_magic_link))
+        .route("/magic-link/verify", get(verify_magic_link_handler))
         .route("/me", get(current_session))
         .route("/profile", axum::routing::patch(update_profile))
         .route("/password", axum::routing::patch(change_password))
@@ -56,6 +61,7 @@ struct AcceptInvitationBody {
 #[derive(Serialize)]
 struct AuthConfigResponse {
     google_enabled: bool,
+    github_enabled: bool,
     password_enabled: bool,
     registration_enabled: bool,
     session_secure: bool,
@@ -70,6 +76,7 @@ struct MeResponse {
     role: String,
     has_password: bool,
     google_linked: bool,
+    plan_tier: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -103,6 +110,7 @@ struct GoogleStartQuery {
 async fn auth_config(State(state): State<Arc<AppState>>) -> Json<AuthConfigResponse> {
     Json(AuthConfigResponse {
         google_enabled: state.google.is_some(),
+        github_enabled: state.github.is_some(),
         password_enabled: true,
         registration_enabled: registration_enabled(),
         session_secure: session_secure_enabled(),
@@ -232,6 +240,155 @@ async fn google_callback(
     Ok(Redirect::to("/").into_response())
 }
 
+#[derive(Deserialize)]
+struct GitHubCallbackQuery {
+    code: String,
+    state: String,
+}
+
+#[derive(Deserialize)]
+struct GitHubStartQuery {
+    invite: Option<String>,
+}
+
+async fn github_start(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Query(query): Query<GitHubStartQuery>,
+) -> Result<Response, StatusCode> {
+    let github = state.github.as_ref().ok_or(StatusCode::NOT_FOUND)?;
+    let state_token = GitHubAuth::generate_state();
+    session
+        .insert(OAUTH_STATE_KEY, state_token.clone())
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if let Some(invite_token) = query
+        .invite
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+    {
+        session
+            .insert(OAUTH_INVITE_KEY, invite_token)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    } else {
+        session
+            .remove::<String>(OAUTH_INVITE_KEY)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    }
+    session
+        .save()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Redirect::to(&github.authorize_url(&state_token)).into_response())
+}
+
+async fn github_callback(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Query(query): Query<GitHubCallbackQuery>,
+) -> Result<Response, StatusCode> {
+    let github = state.github.as_ref().ok_or(StatusCode::NOT_FOUND)?;
+    let expected_state = session
+        .get::<String>(OAUTH_STATE_KEY)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    if expected_state != query.state {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    let invite_token = session
+        .remove::<String>(OAUTH_INVITE_KEY)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let dashboard = match github
+        .authenticate_code(&query.code, invite_token.as_deref())
+        .await
+    {
+        Ok(dashboard) => dashboard,
+        Err(GitHubAuthError::RegistrationClosed) => {
+            return Ok(Redirect::to("/login?error=registration_closed").into_response());
+        }
+        Err(error) => return Err(map_github_error(error)),
+    };
+
+    let generation = credential_generation(&state, dashboard.user_id).await?;
+    establish_dashboard_session(&session, &dashboard, generation)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Redirect::to("/").into_response())
+}
+
+#[derive(Deserialize)]
+struct MagicLinkRequestBody {
+    email: String,
+    org_id: Option<uuid::Uuid>,
+    role: Option<String>,
+}
+
+#[derive(Serialize)]
+struct MagicLinkRequestResponse {
+    sent: bool,
+    dev_link: Option<String>,
+}
+
+async fn request_magic_link(
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<MagicLinkRequestBody>,
+) -> Result<Json<MagicLinkRequestResponse>, StatusCode> {
+    let token = epure_auth::create_magic_link(
+        &state.pools.app,
+        &body.email,
+        body.org_id,
+        body.role.as_deref(),
+    )
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let public_url = epure_storage::epure_public_url();
+    let link = format!("{}/api/v1/auth/magic-link/verify?token={}", public_url, token);
+    tracing::info!("magic link requested for {}: {}", body.email, link);
+
+    let dev_mode = epure_storage::allow_dev_db_fallback();
+    Ok(Json(MagicLinkRequestResponse {
+        sent: true,
+        dev_link: if dev_mode { Some(link) } else { None },
+    }))
+}
+
+#[derive(Deserialize)]
+struct VerifyMagicLinkQuery {
+    token: String,
+}
+
+async fn verify_magic_link_handler(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Query(query): Query<VerifyMagicLinkQuery>,
+) -> Result<Response, StatusCode> {
+    let dashboard = epure_auth::verify_magic_link(&state.pools.app, &query.token)
+        .await
+        .map_err(|e| match e {
+            epure_auth::MagicLinkError::InvalidOrExpiredToken => StatusCode::UNAUTHORIZED,
+            epure_auth::MagicLinkError::RegistrationClosed => StatusCode::FORBIDDEN,
+            epure_auth::MagicLinkError::Sqlx(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        })?;
+
+    let generation = credential_generation(&state, dashboard.user_id).await?;
+    establish_dashboard_session(&session, &dashboard, generation)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Redirect::to("/").into_response())
+}
+
 async fn current_session(
     State(state): State<Arc<AppState>>,
     session: Session,
@@ -252,6 +409,7 @@ async fn current_session(
         role: profile.role,
         has_password: profile.has_password,
         google_linked: profile.google_linked,
+        plan_tier: profile.plan_tier,
     }))
 }
 
@@ -400,5 +558,17 @@ fn map_google_error(error: GoogleAuthError) -> StatusCode {
         GoogleAuthError::RegistrationClosed => StatusCode::FORBIDDEN,
         GoogleAuthError::NotConfigured => StatusCode::NOT_FOUND,
         GoogleAuthError::Http(_) | GoogleAuthError::Sqlx(_) => StatusCode::INTERNAL_SERVER_ERROR,
+    }
+}
+
+fn map_github_error(error: GitHubAuthError) -> StatusCode {
+    match error {
+        GitHubAuthError::InvalidState
+        | GitHubAuthError::TokenExchange
+        | GitHubAuthError::UserInfo => StatusCode::UNAUTHORIZED,
+        GitHubAuthError::InvalidInviteToken => StatusCode::BAD_REQUEST,
+        GitHubAuthError::RegistrationClosed => StatusCode::FORBIDDEN,
+        GitHubAuthError::NotConfigured => StatusCode::NOT_FOUND,
+        GitHubAuthError::Http(_) | GitHubAuthError::Sqlx(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }

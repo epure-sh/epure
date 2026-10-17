@@ -1,6 +1,8 @@
 use dashmap::DashMap;
+use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use uuid::Uuid;
 
 const DEFAULT_RATE_PER_MINUTE: f64 = 100.0;
 
@@ -46,8 +48,24 @@ impl TokenBucket {
     }
 }
 
+pub struct RamValveEntry {
+    token_bucket: TokenBucket,
+    pub org_id: Uuid,
+    pub dropped_counter: AtomicU64,
+    pub last_seen_epoch_sec: AtomicI64,
+}
+
+#[derive(Debug, Clone)]
+pub struct PendingSpikeDelta {
+    pub project_id: Uuid,
+    pub org_id: Uuid,
+    pub fingerprint: String,
+    pub count_delta: u64,
+    pub last_seen: chrono::DateTime<chrono::Utc>,
+}
+
 pub struct SpikeValve {
-    buckets: DashMap<String, TokenBucket>,
+    buckets: DashMap<(Uuid, String), RamValveEntry>,
     rate_per_minute: f64,
 }
 
@@ -60,12 +78,45 @@ impl SpikeValve {
     }
 
     pub fn check(&self, fingerprint: &str) -> SpikeDecision {
+        self.check_scoped(Uuid::nil(), Uuid::nil(), fingerprint)
+    }
+
+    pub fn check_scoped(&self, project_id: Uuid, org_id: Uuid, fingerprint: &str) -> SpikeDecision {
         self.evict_if_needed();
-        let mut entry = self
-            .buckets
-            .entry(fingerprint.to_string())
-            .or_insert_with(|| TokenBucket::new(self.rate_per_minute));
-        entry.check()
+        let key = (project_id, fingerprint.to_string());
+        let mut entry = self.buckets.entry(key).or_insert_with(|| RamValveEntry {
+            token_bucket: TokenBucket::new(self.rate_per_minute),
+            org_id,
+            dropped_counter: AtomicU64::new(0),
+            last_seen_epoch_sec: AtomicI64::new(chrono::Utc::now().timestamp()),
+        });
+
+        let decision = entry.token_bucket.check();
+        if decision == SpikeDecision::CounterOnly {
+            entry.dropped_counter.fetch_add(1, Ordering::Relaxed);
+            entry.last_seen_epoch_sec.store(chrono::Utc::now().timestamp(), Ordering::Relaxed);
+        }
+        decision
+    }
+
+    pub fn take_pending_deltas(&self) -> Vec<PendingSpikeDelta> {
+        let mut deltas = Vec::new();
+        for entry in self.buckets.iter_mut() {
+            let count = entry.dropped_counter.swap(0, Ordering::Relaxed);
+            if count > 0 {
+                let sec = entry.last_seen_epoch_sec.load(Ordering::Relaxed);
+                let last_seen = chrono::DateTime::from_timestamp(sec, 0)
+                    .unwrap_or_else(chrono::Utc::now);
+                deltas.push(PendingSpikeDelta {
+                    project_id: entry.key().0,
+                    org_id: entry.org_id,
+                    fingerprint: entry.key().1.clone(),
+                    count_delta: count,
+                    last_seen,
+                });
+            }
+        }
+        deltas
     }
 
     fn evict_if_needed(&self) {
@@ -75,7 +126,7 @@ impl SpikeValve {
             return;
         }
         self.buckets
-            .retain(|_, bucket| bucket.last_refill.elapsed() < IDLE);
+            .retain(|_, bucket| bucket.token_bucket.last_refill.elapsed() < IDLE);
     }
 }
 
@@ -101,5 +152,8 @@ mod tests {
             assert_eq!(valve.check(fingerprint), SpikeDecision::AllowStore);
         }
         assert_eq!(valve.check(fingerprint), SpikeDecision::CounterOnly);
+        let deltas = valve.take_pending_deltas();
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].count_delta, 1);
     }
 }

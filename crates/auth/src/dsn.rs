@@ -10,10 +10,18 @@ use uuid::Uuid;
 
 const MAX_CACHE: usize = 10_000;
 const CACHE_TTL: Duration = Duration::from_secs(10 * 60);
+const NEGATIVE_CACHE_TTL: Duration = Duration::from_secs(60);
 
-struct CachedDsn {
-    record: DsnRecord,
-    last_hit: Instant,
+#[derive(Clone)]
+enum CachedDsnEntry {
+    Valid(DsnRecord),
+    Revoked,
+    NotFound,
+}
+
+struct CacheItem {
+    entry: CachedDsnEntry,
+    inserted_at: Instant,
 }
 
 #[derive(Debug, Clone)]
@@ -40,7 +48,7 @@ pub enum DsnAuthError {
 
 pub struct DsnValidator {
     pool: PgPool,
-    cache: Arc<DashMap<String, CachedDsn>>,
+    cache: Arc<DashMap<String, CacheItem>>,
 }
 
 impl DsnValidator {
@@ -57,16 +65,19 @@ impl DsnValidator {
         secret_key: Option<&str>,
         project_id: Uuid,
     ) -> Result<DsnRecord, DsnAuthError> {
-        let record = if let Some(entry) = self.cache.get(public_key) {
-            if entry.last_hit.elapsed() < CACHE_TTL {
-                let record = entry.record.clone();
-                drop(entry);
-                if let Some(mut existing) = self.cache.get_mut(public_key) {
-                    existing.last_hit = Instant::now();
+        let record = if let Some(item) = self.cache.get(public_key) {
+            let ttl = match item.entry {
+                CachedDsnEntry::Valid(_) => CACHE_TTL,
+                CachedDsnEntry::Revoked | CachedDsnEntry::NotFound => NEGATIVE_CACHE_TTL,
+            };
+            if item.inserted_at.elapsed() < ttl {
+                match &item.entry {
+                    CachedDsnEntry::Valid(record) => record.clone(),
+                    CachedDsnEntry::Revoked => return Err(DsnAuthError::Revoked),
+                    CachedDsnEntry::NotFound => return Err(DsnAuthError::Invalid),
                 }
-                record
             } else {
-                drop(entry);
+                drop(item);
                 self.cache.remove(public_key);
                 self.load_record(public_key).await?
             }
@@ -111,27 +122,51 @@ impl DsnValidator {
         .await
         .map_err(StorageError::from)?;
 
-        let row = row.ok_or(DsnAuthError::Invalid)?;
+        if self.cache.len() >= MAX_CACHE {
+            self.cache
+                .retain(|_, value| value.inserted_at.elapsed() < CACHE_TTL);
+        }
+
+        let Some(row) = row else {
+            if self.cache.len() < MAX_CACHE {
+                self.cache.insert(
+                    public_key.to_string(),
+                    CacheItem {
+                        entry: CachedDsnEntry::NotFound,
+                        inserted_at: Instant::now(),
+                    },
+                );
+            }
+            return Err(DsnAuthError::Invalid);
+        };
+
+        let revoked = row.revoked_at.is_some();
         let record = DsnRecord {
             project_id: row.project_id,
             org_id: row.org_id,
             secret_key: row.secret_key,
-            revoked: row.revoked_at.is_some(),
+            revoked,
         };
 
-        if self.cache.len() >= MAX_CACHE {
-            self.cache
-                .retain(|_, value| value.last_hit.elapsed() < CACHE_TTL);
-        }
         if self.cache.len() < MAX_CACHE {
+            let entry = if revoked {
+                CachedDsnEntry::Revoked
+            } else {
+                CachedDsnEntry::Valid(record.clone())
+            };
             self.cache.insert(
                 public_key.to_string(),
-                CachedDsn {
-                    record: record.clone(),
-                    last_hit: Instant::now(),
+                CacheItem {
+                    entry,
+                    inserted_at: Instant::now(),
                 },
             );
         }
+
+        if revoked {
+            return Err(DsnAuthError::Revoked);
+        }
+
         Ok(record)
     }
 

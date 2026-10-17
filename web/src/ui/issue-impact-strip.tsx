@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Activity, Clock, History, Users } from "lucide-react";
 import type { IssueSummary } from "../lib/api";
 import { formatRelativeTime } from "../lib/format-time";
 import { cn } from "../lib/cn";
@@ -9,41 +9,57 @@ export interface IssueImpactMetricsProps {
 }
 
 export function IssueImpactMetrics({ issue, className }: IssueImpactMetricsProps) {
-  const parts: ReactNode[] = [
-    <span key="events" className="font-mono-slash tabular-nums font-medium text-ink">
-      {issue.event_count.toLocaleString()} events
-    </span>,
+  const cards = [
+    {
+      label: "Total Events",
+      value: issue.event_count.toLocaleString(),
+      icon: Activity,
+      color: "text-signal",
+    },
+    {
+      label: "Impacted Users",
+      value: issue.unique_user_count > 0 ? issue.unique_user_count.toLocaleString() : "None",
+      icon: Users,
+      color: "text-accent",
+    },
+    {
+      label: "Last Occurrence",
+      value: issue.last_seen_at ? formatRelativeTime(issue.last_seen_at) : "N/A",
+      icon: Clock,
+      color: "text-ink-muted",
+    },
+    {
+      label: "First Detected",
+      value: issue.first_seen_at ? formatRelativeTime(issue.first_seen_at) : "N/A",
+      icon: History,
+      color: "text-ink-muted",
+    },
   ];
 
-  if (issue.unique_user_count >= 1) {
-    parts.push(
-      <span key="users" className="font-mono-slash tabular-nums font-medium text-ink">
-        {issue.unique_user_count.toLocaleString()} users
-      </span>,
-    );
-  }
-
-  if (issue.last_seen_at) {
-    parts.push(
-      <span key="last" className="text-ink-muted">
-        last {formatRelativeTime(issue.last_seen_at)}
-      </span>,
-    );
-  }
-
   return (
-    <p
+    <div
       className={cn(
-        "epure-impact-metrics flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm",
+        "epure-impact-metrics grid grid-cols-2 gap-2 sm:grid-cols-4 select-none",
         className,
       )}
     >
-      {parts.map((part, index) => (
-        <span key={index} className="inline-flex items-baseline gap-2">
-          {index > 0 ? <span className="text-ink-muted" aria-hidden>·</span> : null}
-          {part}
-        </span>
-      ))}
-    </p>
+      {cards.map((card) => {
+        const Icon = card.icon;
+        return (
+          <div
+            key={card.label}
+            className="flex flex-col rounded-md border border-border bg-surface px-3 py-2 shadow-xs transition-colors hover:border-border-strong"
+          >
+            <div className="flex items-center gap-1.5 text-ink-muted">
+              <Icon className={cn("h-3.5 w-3.5 shrink-0", card.color)} />
+              <span className="text-[11px] font-medium tracking-tight text-ink-subtle">{card.label}</span>
+            </div>
+            <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-ink">
+              {card.value}
+            </p>
+          </div>
+        );
+      })}
+    </div>
   );
 }

@@ -27,6 +27,7 @@ mod dsn_keys;
 mod events;
 mod issues;
 mod members;
+pub mod mcp;
 mod pat_scopes;
 mod projects;
 mod rbac;
@@ -36,7 +37,9 @@ mod stats;
 mod webhooks;
 
 pub fn router(state: Arc<AppState>) -> Router {
-    let public = Router::new().nest("/auth", auth::router(state.clone()));
+    let public = Router::new()
+        .nest("/auth", auth::router(state.clone()))
+        .merge(mcp::router(state.clone()));
 
     let protected = Router::new()
         .merge(Router::new().nest("/agent", agent::router(state.clone())))

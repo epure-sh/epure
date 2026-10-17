@@ -1,6 +1,7 @@
 import type { EventDetail, IssueSummary, IssueTimeline } from "../lib/api";
 import { cn } from "../lib/cn";
 import { Badge } from "./badge";
+import { IssueAiCopilotCard } from "./issue-ai-copilot-card";
 import { IssueImpactMetrics } from "./issue-impact-strip";
 import { IssuePriorityIcon } from "./issue-priority";
 import {
@@ -155,6 +156,10 @@ export function IssueOverviewPanel({
           <p className="text-sm text-ink">{formatRegressionCopy(issue)}</p>
         </div>
       ) : null}
+
+      <div className="px-5 pt-3 pb-1">
+        <IssueAiCopilotCard issue={issue} event={event} />
+      </div>
 
       <Section className="px-5 py-2.5">
         <SectionHeader title="Context" className="mb-2" />

@@ -1,4 +1,15 @@
-import { Search } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Clock,
+  Download,
+  Moon,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import { useState, type RefObject } from "react";
 import type { HeadlineStats } from "../../lib/api";
 import { formatCompactCount } from "../../lib/format-count";
@@ -21,57 +32,25 @@ import {
   SelectValue,
 } from "../../ui/select";
 import {
+  ENVIRONMENT_FILTER_PRESETS,
   extractChips,
   getEventsStatLabel,
   getIssueSortLabel,
+  hasActiveFilters,
+  IMPACT_FILTER_PRESETS,
   ISSUE_SORT_OPTIONS,
+  LEVEL_FILTER_PRESETS,
   parseQuery,
   queryHasToken,
   removeChipToken,
   replaceFreeText,
+  resetQuery,
   STATUS_FILTER_PRESETS,
   TIME_WINDOW_OPTIONS,
   toggleToken,
   type IssueSortValue,
   type TimeWindowValue,
 } from "./query-utils";
-
-function FeedStateDot() {
-  return <span className="px-1.5 text-ink-muted/40" aria-hidden>·</span>;
-}
-
-interface FeedStateStatProps {
-  label: string;
-  value: number;
-  loading?: boolean;
-  active?: boolean;
-  onClick?: () => void;
-}
-
-function FeedStateStat({ label, value, loading = false, active = false, onClick }: FeedStateStatProps) {
-  const count = loading ? "—" : formatCompactCount(value);
-
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className={cn(
-          "focus-ring rounded-md px-0.5 transition-colors duration-fast hover:text-ink",
-          active ? "font-medium text-accent" : "text-ink-muted",
-        )}
-      >
-        <span className="font-mono tabular-nums text-ink">{count}</span> {label}
-      </button>
-    );
-  }
-
-  return (
-    <span className="text-ink-muted">
-      <span className="font-mono tabular-nums text-ink">{count}</span> {label}
-    </span>
-  );
-}
 
 export interface IssuesFeedHeaderProps {
   query: string;
@@ -111,35 +90,174 @@ export function IssuesFeedHeader({
   const { freeText } = parseQuery(query);
   const hasStateChip = chips.some((chip) => chip.key === "is");
 
+  const isUnresolvedActive = queryHasToken(query, "is:unresolved");
+  const isRegressionActive = queryHasToken(query, "is:regression");
+  const isSnoozedActive = queryHasToken(query, "is:snoozed");
+  const isAllActive = !hasStateChip;
+
+  // Active filters beyond default "is:unresolved"
+  const isCustomized = hasActiveFilters(query) || Boolean(freeText && freeText.trim().length > 0);
+
+  function setDirectStateFilter(token: string | null) {
+    if (token && onFilterToken) {
+      onFilterToken(token);
+      return;
+    }
+    let nextQuery = query;
+    // Remove existing `is:...` tokens
+    for (const chip of chips) {
+      if (chip.key === "is") {
+        nextQuery = removeChipToken(nextQuery, chip.token);
+      }
+    }
+    if (token) {
+      nextQuery = `${nextQuery.trim()} ${token}`.trim();
+    }
+    onQueryChange(nextQuery);
+    filterInputRef?.current?.focus();
+  }
+
   function removeChip(token: string) {
     onQueryChange(removeChipToken(query, token));
     filterInputRef?.current?.focus();
   }
 
-  function applyStatePreset(token: string) {
+  function applyPreset(token: string) {
     onQueryChange(toggleToken(query, token));
     filterInputRef?.current?.focus();
   }
 
+  function handleResetAll() {
+    onQueryChange(resetQuery());
+    setSearchOpen(false);
+    filterInputRef?.current?.focus();
+  }
+
+  const unresolvedCount = statsLoading ? "…" : formatCompactCount(stats?.unresolved ?? 0);
+  const regressionCount = statsLoading ? "…" : formatCompactCount(stats?.regressions ?? 0);
+  const snoozedCount = statsLoading ? "…" : formatCompactCount(stats?.snoozed ?? 0);
+  const eventsCount = statsLoading ? "…" : formatCompactCount(stats?.events_7d ?? 0);
+
   return (
-    <header className="epure-issues-feed-header shrink-0 border-b border-border bg-bg">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2.5 md:px-6">
-        <h1 className="epure-page-title font-medium tracking-ui text-ink">Feed</h1>
-        <div className="flex flex-wrap items-center gap-2">
+    <header className="epure-issues-feed-header shrink-0 border-b border-border bg-bg select-none">
+      {/* Tier 1: Triage Mode Cockpit & View Horizon Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border/60 px-4 py-2 md:px-6">
+        {/* Triage Mode Tabs */}
+        <div className="flex items-center gap-1 overflow-x-auto py-0.5">
+          {/* Unresolved Tab */}
+          <button
+            type="button"
+            onClick={() => setDirectStateFilter(isUnresolvedActive ? null : "is:unresolved")}
+            className={cn(
+              "btn-tactile inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all focus-ring",
+              isUnresolvedActive
+                ? "bg-surface text-ink shadow-xs border border-border"
+                : "text-ink-muted hover:bg-state-hover/60 hover:text-ink",
+            )}
+          >
+            <span
+              className={cn(
+                "h-1.5 w-1.5 rounded-full shrink-0",
+                (stats?.unresolved ?? 0) > 0 ? "bg-signal animate-pulse" : "bg-ink-muted/40",
+              )}
+            />
+            <span>Unresolved</span>
+            <span
+              className={cn(
+                "ml-1 font-mono text-2xs font-semibold tabular-nums px-1.5 py-0.2 rounded-full",
+                isUnresolvedActive
+                  ? "bg-signal-muted text-signal"
+                  : "bg-bg-subtle text-ink-muted",
+              )}
+            >
+              {unresolvedCount}
+            </span>
+          </button>
+
+          {/* Regressions Tab */}
+          <button
+            type="button"
+            onClick={() => setDirectStateFilter(isRegressionActive ? null : "is:regression")}
+            className={cn(
+              "btn-tactile inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all focus-ring",
+              isRegressionActive
+                ? "bg-surface text-ink shadow-xs border border-border"
+                : "text-ink-muted hover:bg-state-hover/60 hover:text-ink",
+            )}
+          >
+            <AlertTriangle
+              className={cn(
+                "h-3 w-3 shrink-0",
+                (stats?.regressions ?? 0) > 0 ? "text-amber-500" : "text-ink-muted/60",
+              )}
+            />
+            <span>Regressions</span>
+            <span
+              className={cn(
+                "ml-0.5 font-mono text-2xs font-semibold tabular-nums px-1.5 py-0.2 rounded-full",
+                (stats?.regressions ?? 0) > 0
+                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                  : "bg-bg-subtle text-ink-muted",
+              )}
+            >
+              {regressionCount}
+            </span>
+          </button>
+
+          {/* Snoozed Tab */}
+          <button
+            type="button"
+            onClick={() => setDirectStateFilter(isSnoozedActive ? null : "is:snoozed")}
+            className={cn(
+              "btn-tactile inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all focus-ring",
+              isSnoozedActive
+                ? "bg-surface text-ink shadow-xs border border-border"
+                : "text-ink-muted hover:bg-state-hover/60 hover:text-ink",
+            )}
+          >
+            <Moon className="h-3 w-3 shrink-0 text-ink-muted/70" />
+            <span>Snoozed</span>
+            <span className="ml-0.5 font-mono text-2xs font-semibold tabular-nums px-1.5 py-0.2 rounded-full bg-bg-subtle text-ink-muted">
+              {snoozedCount}
+            </span>
+          </button>
+
+          {/* All Issues Tab */}
+          <button
+            type="button"
+            onClick={() => setDirectStateFilter(null)}
+            className={cn(
+              "btn-tactile inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-all focus-ring",
+              isAllActive
+                ? "bg-surface text-ink shadow-xs border border-border"
+                : "text-ink-muted hover:bg-state-hover/60 hover:text-ink",
+            )}
+          >
+            All
+          </button>
+        </div>
+
+        {/* View Controls: Sort, Time Window, Export */}
+        <div className="flex items-center gap-2">
+          {/* Sort Selector */}
           <Select value={issueSort} onValueChange={(value) => onIssueSortChange(value as IssueSortValue)}>
-            <SelectTrigger aria-label="Sort issues" className="h-7 w-auto min-w-[8.5rem] text-xs">
+            <SelectTrigger aria-label="Sort issues" className="h-7 w-auto min-w-[8rem] text-xs btn-tactile">
+              <SlidersHorizontal className="mr-1.5 h-3 w-3 text-ink-muted shrink-0" />
               <SelectValue>{getIssueSortLabel(issueSort)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {ISSUE_SORT_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value} className="text-sm">
+                <SelectItem key={option.value} value={option.value} className="text-xs">
                   {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+
+          {/* Time Window Selector */}
           <Select value={timeWindow} onValueChange={(value) => onTimeWindowChange(value as TimeWindowValue)}>
-            <SelectTrigger aria-label="Time range" className="h-7 w-auto min-w-[4.5rem] text-xs">
+            <SelectTrigger aria-label="Time range" className="h-7 w-auto min-w-[4.8rem] text-xs btn-tactile">
+              <Clock className="mr-1.5 h-3 w-3 text-ink-muted shrink-0" />
               <SelectValue>
                 {TIME_WINDOW_OPTIONS.find((option) => option.value === timeWindow)?.label.replace("Last ", "") ??
                   timeWindow.toUpperCase()}
@@ -147,170 +265,293 @@ export function IssuesFeedHeader({
             </SelectTrigger>
             <SelectContent>
               {TIME_WINDOW_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value} className="text-sm">
+                <SelectItem key={option.value} value={option.value} className="text-xs">
                   {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+
+          {/* Export Action */}
           {onExportCsv ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <ActionButton variant="ghost" size="toolbar" className="text-xs">
-                  Export
+                <ActionButton variant="ghost" size="toolbar" className="h-7 text-xs btn-tactile">
+                  <Download className="mr-1 h-3 w-3 text-ink-muted" />
+                  <span>Export</span>
                 </ActionButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-44">
                 <DropdownMenuItem
                   disabled={!issueCount}
                   onSelect={() => onExportCsv("view")}
                 >
-                  CSV · this view{issueCount ? ` (${issueCount})` : ""}
+                  CSV · Current view {issueCount ? `(${issueCount})` : ""}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   disabled={selectedCount === 0}
                   onSelect={() => onExportCsv("selected")}
                 >
-                  CSV · selected{selectedCount ? ` (${selectedCount})` : ""}
+                  CSV · Selected {selectedCount ? `(${selectedCount})` : ""}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : (
-            <ActionButton
-              variant="ghost"
-              size="toolbar"
-              disabled
-              tooltip="Saved views are coming soon"
-              className="text-xs"
-            >
-              Save As
-            </ActionButton>
-          )}
+          ) : null}
         </div>
       </div>
 
-      <div
-        className="flex flex-wrap items-center gap-x-0.5 border-t border-border px-4 py-2 text-xs leading-snug md:px-6"
-        aria-label="Issue counts by state"
-      >
-        <FeedStateStat
-          label="unresolved"
-          value={stats?.unresolved ?? 0}
-          loading={statsLoading}
-          active={queryHasToken(query, "is:unresolved")}
-          onClick={onFilterToken ? () => onFilterToken("is:unresolved") : undefined}
-        />
-        <FeedStateDot />
-        <FeedStateStat
-          label="regressions"
-          value={stats?.regressions ?? 0}
-          loading={statsLoading}
-          active={queryHasToken(query, "is:regression")}
-          onClick={onFilterToken ? () => onFilterToken("is:regression") : undefined}
-        />
-        <FeedStateDot />
-        <FeedStateStat
-          label="snoozed"
-          value={stats?.snoozed ?? 0}
-          loading={statsLoading}
-          active={queryHasToken(query, "is:snoozed")}
-          onClick={onFilterToken ? () => onFilterToken("is:snoozed") : undefined}
-        />
-        <FeedStateDot />
-        <FeedStateStat
-          label={getEventsStatLabel(timeWindow).toLowerCase()}
-          value={stats?.events_7d ?? 0}
-          loading={statsLoading}
-        />
-      </div>
-
-      <div className="border-t border-border py-2.5">
-        <div className="mx-4 md:mx-6">
-          <Popover open={searchOpen} onOpenChange={setSearchOpen}>
-            <PopoverAnchor asChild>
-              <div
-                className="epure-filter-panel epure-issues-feed-search flex h-9 min-w-0 items-center gap-2 rounded-lg border border-border px-3"
-                onClick={() => setSearchOpen(true)}
-              >
-                <Search size={14} className="shrink-0 text-ink-muted" aria-hidden />
-                <div className="flex min-h-0 min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-                  {chips.map((chip) => (
-                    <FilterChip
-                      key={chip.token}
-                      variant="query"
-                      filterKey={chip.plain ? undefined : chip.key}
-                      label={chip.label}
-                      tokenHint={chip.token}
-                      title={chip.token}
-                      onRemove={() => removeChip(chip.token)}
+      {/* Tier 2: Search Omnibar with Pre-Filter Palette on click & One Reset Button */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 px-4 py-2 md:px-6">
+        <div className="flex min-w-0 flex-1 items-center gap-2 max-w-2xl">
+          {/* Unified Command Omnibar */}
+          <div className="relative min-w-0 flex-1">
+            <Popover open={searchOpen} onOpenChange={setSearchOpen}>
+              <PopoverAnchor asChild>
+                <div
+                  className="epure-filter-panel epure-issues-feed-search flex h-8 min-w-0 items-center gap-2 rounded-md border border-border bg-surface px-2.5 transition-colors hover:border-border-strong focus-within:border-accent cursor-text"
+                  onClick={() => setSearchOpen(true)}
+                >
+                  <Search size={13} className="shrink-0 text-ink-muted" aria-hidden />
+                  <div className="flex min-h-0 min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+                    {chips.map((chip) => (
+                      <FilterChip
+                        key={chip.token}
+                        variant="query"
+                        filterKey={chip.plain ? undefined : chip.key}
+                        label={chip.label}
+                        tokenHint={chip.token}
+                        title={chip.token}
+                        onRemove={() => removeChip(chip.token)}
+                      />
+                    ))}
+                    <Input
+                      ref={filterInputRef}
+                      value={freeText ?? ""}
+                      onChange={(event) => onQueryChange(replaceFreeText(query, event.target.value))}
+                      onFocus={() => setSearchOpen(true)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          setSearchOpen(false);
+                        }
+                        if (event.key === "Escape") {
+                          setSearchOpen(false);
+                          filterInputRef?.current?.blur();
+                        }
+                      }}
+                      placeholder={
+                        hasStateChip
+                          ? "Filter in this view or type level:error…"
+                          : chips.length > 0
+                            ? "Add keywords or tokens…"
+                            : "Search exceptions (e.g. TypeError, level:error, env:prod)…"
+                      }
+                      aria-label="Search issues"
+                      aria-expanded={searchOpen}
+                      aria-haspopup="listbox"
+                      className="h-full min-h-0 min-w-[7rem] flex-1 border-0 bg-transparent px-0 py-0 text-xs leading-none shadow-none focus:outline-none"
                     />
-                  ))}
-                  <Input
-                    ref={filterInputRef}
-                    value={freeText ?? ""}
-                    onChange={(event) => onQueryChange(replaceFreeText(query, event.target.value))}
-                    onFocus={() => setSearchOpen(true)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        setSearchOpen(false);
-                      }
-                      if (event.key === "Escape") {
-                        setSearchOpen(false);
-                        filterInputRef?.current?.blur();
-                      }
-                    }}
-                    placeholder={
-                      hasStateChip
-                        ? "Search in this state…"
-                        : chips.length > 0
-                          ? "Add keywords…"
-                          : "Search exceptions…"
-                    }
-                    aria-label="Search issues"
-                    aria-expanded={searchOpen}
-                    aria-haspopup="listbox"
-                    className="h-full min-h-0 min-w-[8rem] flex-1 border-0 bg-transparent px-0 py-0 leading-none shadow-none focus-ring"
-                  />
+                  </div>
+
+                  <kbd className="hidden sm:inline-flex h-4 select-none items-center rounded border border-border px-1.5 font-mono text-[10px] text-ink-subtle">
+                    /
+                  </kbd>
                 </div>
-              </div>
-            </PopoverAnchor>
+              </PopoverAnchor>
 
-            <PopoverContent
-              align="start"
-              sideOffset={6}
-              className="w-[var(--radix-popover-anchor-width)] space-y-3 p-3.5"
-              onOpenAutoFocus={(event) => event.preventDefault()}
-              onInteractOutside={(event) => {
-                if (filterInputRef?.current?.contains(event.target as Node)) {
-                  event.preventDefault();
-                }
-              }}
+              {/* Comprehensive Pre-Filter Palette (opens only when clicking search bar) */}
+              <PopoverContent
+                align="start"
+                sideOffset={6}
+                className="w-[min(calc(100vw-2rem),520px)] space-y-3.5 p-4 shadow-xl border border-border bg-surface rounded-xl"
+                onOpenAutoFocus={(event) => event.preventDefault()}
+                onInteractOutside={(event) => {
+                  if (filterInputRef?.current?.contains(event.target as Node)) {
+                    event.preventDefault();
+                  }
+                }}
+              >
+                {/* Palette Header */}
+                <div className="border-b border-border/70 pb-2.5">
+                  <p className="text-xs font-semibold text-ink">Pre-Filter Options</p>
+                  <p className="text-2xs text-ink-muted">Click any token to filter results immediately.</p>
+                </div>
+
+                {/* Categorized Filter Tokens */}
+                <div className="space-y-3">
+                  {/* Category 1: Severity Level */}
+                  <div>
+                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-muted mb-1.5">
+                      Severity Level
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {LEVEL_FILTER_PRESETS.map((preset) => {
+                        const active = queryHasToken(query, preset.token);
+                        return (
+                          <button
+                            key={preset.token}
+                            type="button"
+                            onClick={() => applyPreset(preset.token)}
+                            className={cn(
+                              "btn-tactile inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all focus-ring border",
+                              active
+                                ? "bg-accent-muted border-accent text-accent font-semibold"
+                                : "bg-bg-subtle/80 border-border text-ink hover:border-border-strong hover:bg-bg-subtle",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "h-1.5 w-1.5 rounded-full shrink-0",
+                                preset.token === "level:fatal" && "bg-rose-500",
+                                preset.token === "level:error" && "bg-signal",
+                                preset.token === "level:warning" && "bg-amber-500",
+                                preset.token === "level:info" && "bg-sky-500",
+                              )}
+                            />
+                            <span>{preset.label}</span>
+                            {active ? <Check size={11} className="ml-0.5 text-accent" /> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Category 2: Environment */}
+                  <div>
+                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-muted mb-1.5">
+                      Environment
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ENVIRONMENT_FILTER_PRESETS.map((preset) => {
+                        const active = queryHasToken(query, preset.token);
+                        return (
+                          <button
+                            key={preset.token}
+                            type="button"
+                            onClick={() => applyPreset(preset.token)}
+                            className={cn(
+                              "btn-tactile inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all focus-ring border",
+                              active
+                                ? "bg-accent-muted border-accent text-accent font-semibold"
+                                : "bg-bg-subtle/80 border-border text-ink hover:border-border-strong hover:bg-bg-subtle",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "h-1.5 w-1.5 rounded-full shrink-0",
+                                preset.token === "env:production" && "bg-emerald-500",
+                                preset.token === "env:staging" && "bg-indigo-500",
+                                preset.token === "env:development" && "bg-amber-400",
+                                preset.token === "env:preview" && "bg-sky-400",
+                              )}
+                            />
+                            <span>{preset.label}</span>
+                            {active ? <Check size={11} className="ml-0.5 text-accent" /> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Category 3: Lifecycle State */}
+                  <div>
+                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-muted mb-1.5">
+                      Lifecycle State
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {STATUS_FILTER_PRESETS.map((preset) => {
+                        const active = queryHasToken(query, preset.token);
+                        return (
+                          <button
+                            key={preset.token}
+                            type="button"
+                            onClick={() => applyPreset(preset.token)}
+                            className={cn(
+                              "btn-tactile inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all focus-ring border",
+                              active
+                                ? "bg-accent-muted border-accent text-accent font-semibold"
+                                : "bg-bg-subtle/80 border-border text-ink hover:border-border-strong hover:bg-bg-subtle",
+                            )}
+                          >
+                            <span>{preset.label}</span>
+                            {active ? <Check size={11} className="ml-0.5 text-accent" /> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Category 4: Impact & Telemetry */}
+                  <div>
+                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-muted mb-1.5">
+                      Impact & Telemetry
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {IMPACT_FILTER_PRESETS.map((preset) => {
+                        const active = queryHasToken(query, preset.token);
+                        return (
+                          <button
+                            key={preset.token}
+                            type="button"
+                            onClick={() => applyPreset(preset.token)}
+                            className={cn(
+                              "btn-tactile inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all focus-ring border",
+                              active
+                                ? "bg-accent-muted border-accent text-accent font-semibold"
+                                : "bg-bg-subtle/80 border-border text-ink hover:border-border-strong hover:bg-bg-subtle",
+                            )}
+                          >
+                            <Users size={12} className="text-ink-muted" />
+                            <span>{preset.label}</span>
+                            {active ? <Check size={11} className="ml-0.5 text-accent" /> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Syntax Helper Footer */}
+                <div className="border-t border-border/80 pt-2.5 flex items-center justify-between text-2xs text-ink-muted">
+                  <span>
+                    Combine: <code className="font-mono text-ink">level:error env:production</code>
+                  </span>
+                  <span>
+                    Press <kbd className="font-mono text-ink border border-border px-1 rounded">Enter</kbd> to search
+                  </span>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Only ONE Reset Button (visible when query is customized) */}
+          {isCustomized ? (
+            <button
+              type="button"
+              onClick={handleResetAll}
+              title="Reset all filters to default (Esc)"
+              className="btn-tactile inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 text-xs font-medium text-ink-muted hover:border-border-strong hover:text-ink transition-colors focus-ring shrink-0"
             >
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-ink">State</p>
-                <p className="text-xs text-ink-muted">Show issues in one lifecycle state at a time.</p>
-              </div>
-              <div className="flex flex-wrap gap-1.5" role="listbox" aria-label="Issue state">
-                {STATUS_FILTER_PRESETS.map((preset) => {
-                  const active = queryHasToken(query, preset.token);
-                  return (
-                    <FilterChip
-                      key={preset.token}
-                      label={preset.label}
-                      active={active}
-                      onClick={() => applyStatePreset(preset.token)}
-                    />
-                  );
-                })}
-              </div>
-              <p className="text-xs leading-relaxed text-ink-muted">
-                Type in the search box to match exception titles and messages.
-              </p>
-            </PopoverContent>
-          </Popover>
+              <RotateCcw size={12} />
+              <span>Reset</span>
+            </button>
+          ) : null}
+        </div>
+
+        {/* Live Ingestion & Spike Valve Telemetry Indicator */}
+        <div className="hidden sm:flex items-center gap-2 text-2xs text-ink-muted shrink-0">
+          <span className="flex items-center gap-1.5 rounded-full border border-border/80 bg-surface px-2.5 py-0.5 font-tabular">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+            <span className="font-mono font-medium text-ink">{eventsCount}</span>
+            <span>{getEventsStatLabel(timeWindow).toLowerCase()}</span>
+          </span>
+          <span className="inline-flex items-center gap-1 text-ink-subtle">
+            <Sparkles className="h-3 w-3 text-emerald-500" />
+            <span>0 overages</span>
+          </span>
         </div>
       </div>
     </header>
   );
 }
+

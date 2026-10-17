@@ -83,6 +83,9 @@ function filterIssues(
   if (parsed.release) {
     filtered = filtered.filter((issue) => issue.release === parsed.release);
   }
+  if (parsed.userEmail) {
+    filtered = filtered.filter((issue) => (issue.unique_user_count ?? 0) > 0);
+  }
   if (parsed.freeText) {
     const needle = parsed.freeText.toLowerCase();
     filtered = filtered.filter((issue) =>

@@ -13,17 +13,23 @@ import {
   platformLabel,
   projectIssueCode,
 } from "./issue-feed-utils";
-import { canIgnoreIssue, canResolveIssue } from "./issue-triage-utils";
+import {
+  canIgnoreIssue,
+  canResolveIssue,
+  canSnoozeIssue,
+} from "./issue-triage-utils";
 
 export interface IssueListProps {
   issues: IssueSummary[];
   projects: ProjectRow[];
   focusedId: string | null;
+  selectedId?: string | null;
   selectedIds: Set<string>;
   onSelect: (id: string, extend?: boolean) => void;
   onToggleSelect: (id: string) => void;
   onResolve: (id: string) => void;
   onIgnore: (id: string) => void;
+  onSnooze?: (id: string) => void;
   actionsDisabled?: boolean;
   onMoveSelection: (direction: "up" | "down") => void;
   onOpenDetail: () => void;
@@ -46,11 +52,13 @@ export function IssueList({
   issues,
   projects,
   focusedId,
+  selectedId,
   selectedIds,
   onSelect,
   onToggleSelect,
   onResolve,
   onIgnore,
+  onSnooze,
   actionsDisabled = false,
   onMoveSelection,
   onOpenDetail,
@@ -78,7 +86,12 @@ export function IssueList({
         return;
       }
 
-      if (event.altKey && event.key.toLowerCase() === "k") {
+      const targetId = selectedId ?? focusedId;
+
+      if (
+        (event.altKey && event.key.toLowerCase() === "k") ||
+        (!event.altKey && !event.metaKey && !event.ctrlKey && (event.key === "Enter" || event.key === "o"))
+      ) {
         event.preventDefault();
         onOpenDetail();
         return;
@@ -106,20 +119,37 @@ export function IssueList({
         return;
       }
 
-      if (event.key === "e" && focusedId && !actionsDisabled) {
-        const issue = issues.find((row) => row.id === focusedId);
+      if (event.key === "e" && targetId && !actionsDisabled) {
+        const issue = issues.find((row) => row.id === targetId);
         if (issue && canResolveIssue(issue.status)) {
           event.preventDefault();
-          onResolve(focusedId);
+          onResolve(targetId);
         }
         return;
       }
 
-      if (event.key === "i" && focusedId && !actionsDisabled) {
-        const issue = issues.find((row) => row.id === focusedId);
+      if (event.key === "i" && targetId && !actionsDisabled) {
+        const issue = issues.find((row) => row.id === targetId);
         if (issue && canIgnoreIssue(issue.status)) {
           event.preventDefault();
-          onIgnore(focusedId);
+          onIgnore(targetId);
+        }
+        return;
+      }
+
+      if (
+        !event.altKey &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        event.key.toLowerCase() === "s" &&
+        targetId &&
+        !actionsDisabled &&
+        onSnooze
+      ) {
+        const issue = issues.find((row) => row.id === targetId);
+        if (issue && canSnoozeIssue(issue)) {
+          event.preventDefault();
+          onSnooze(targetId);
         }
         return;
       }
@@ -139,11 +169,13 @@ export function IssueList({
       actionsDisabled,
       issues,
       focusedId,
+      selectedId,
       onFocusQuery,
       onIgnore,
       onMoveSelection,
       onOpenDetail,
       onResolve,
+      onSnooze,
       onToggleSelect,
     ],
   );
@@ -162,23 +194,27 @@ export function IssueList({
   }, [focusedId]);
 
   const isEmpty = issues.length === 0;
-  const emptyTitle = filtersActive ? "No results" : "No issues";
-  const emptyDescription = filtersActive
-    ? "No issues match your current filters."
-    : "No unresolved exceptions in this environment.";
-  const emptyContent = (
+  const emptyContent = filtersActive ? (
     <Empty
-      variant="inset"
-      className="w-full items-start text-left"
-      title={emptyTitle}
-      description={emptyDescription}
-    >
-      {filtersActive && onResetFilters ? (
-        <Button variant="ghost" size="sm" onClick={onResetFilters}>
-          Reset filters
-        </Button>
-      ) : null}
-    </Empty>
+      variant="search"
+      className="w-full"
+      title="No matching exceptions"
+      description="No issues match your active filter criteria. Try adjusting your search query or clearing filters."
+      action={
+        onResetFilters ? (
+          <Button variant="outline" size="sm" onClick={onResetFilters} className="btn-tactile">
+            Clear active filters (Esc)
+          </Button>
+        ) : null
+      }
+    />
+  ) : (
+    <Empty
+      variant="zen"
+      className="w-full"
+      title="Inbox Zero · Production is Calm"
+      description="Zero unresolved exceptions detected in this time horizon. The Spike Valve is active and guarding against unneeded overage charges."
+    />
   );
 
   return (
@@ -214,7 +250,7 @@ export function IssueList({
         const title = issue.title ?? "Untitled issue";
         const { shortTitle, subtitle } = parseIssueTitle(title);
         const checked = selectedIds.has(issue.id);
-        const rowSelected = issue.id === focusedId;
+        const rowSelected = issue.id === (selectedId ?? focusedId);
         const project = projectForIssue(projects, issue);
         const platform = platformLabel(
           project?.slug?.includes("api")

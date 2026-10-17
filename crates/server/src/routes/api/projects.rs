@@ -106,6 +106,32 @@ async fn create_project(
         return Err(StatusCode::BAD_REQUEST);
     }
 
+    // Enforce multi-tenant plan tier project limits
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM projects WHERE org_id = $1")
+        .bind(dashboard.org_id)
+        .fetch_one(&state.pools.app)
+        .await
+        .unwrap_or(0);
+
+    let plan_tier: String = sqlx::query_scalar("SELECT plan_tier FROM organizations WHERE id = $1")
+        .bind(dashboard.org_id)
+        .fetch_optional(&state.pools.app)
+        .await
+        .unwrap_or(None)
+        .unwrap_or_else(|| "oss".to_string());
+
+    let max_projects = match plan_tier.as_str() {
+        "builder_pro" => 3,
+        "multi_app_studio" => 15,
+        "boutique_agency" => 25,
+        "canary_sandbox" => 1,
+        _ => i64::MAX,
+    };
+
+    if count >= max_projects {
+        return Err(StatusCode::PAYMENT_REQUIRED);
+    }
+
     let row = projects::create_project(
         &state.pools.app,
         dashboard.org_id,

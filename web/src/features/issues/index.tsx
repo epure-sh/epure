@@ -1,35 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Navigate, useParams, useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Check, EyeOff, RotateCcw, Sparkles } from "lucide-react";
+import { Navigate, useParams } from "react-router-dom";
 import {
   bulkUpdateIssues,
-  EVENTS_PAGE_SIZE,
-  fetchEvents,
-  fetchIssueReleases,
-  fetchIssueTimeline,
-  fetchHeadlineStats,
-  fetchIssues,
-  fetchIssueTrends,
-  fetchMergedChildren,
-  fetchSetupProgress,
-  mergeIssues,
-  patchIssue,
-  snoozeIssue,
-  splitIssues,
   setupNeedsWizard,
-  setupOnboardingDone,
-  type SnoozeMode,
-  type EventDetail,
-  type HeadlineStats,
-  type IssueSummary,
-  type IssueTimeline,
-  type TimelineBucket,
-  type SetupProgress,
 } from "../../lib/api";
-import { apiErrorMessage, isApiError } from "../../lib/api-error";
 import { projectPath } from "../../lib/paths";
 import { cn } from "../../lib/cn";
 import { useIssuesLayoutMode } from "../../lib/style-theme";
-import { useFocusQueryListener } from "../../shell/command-palette";
 import { useAppContext } from "../../shell/app-context";
 import { Badge } from "../../ui/badge";
 import { IssuePriorityBadge } from "../../ui/issue-priority";
@@ -40,7 +18,6 @@ import { IssueDetailOverlay } from "../../ui/issue-detail-overlay";
 import { IssueDetailTabs, type IssueDetailTab } from "../../ui/issue-detail-tabs";
 import { IssueOverviewPanel } from "../../ui/issue-overview-panel";
 import { IssueMorePanel } from "../../ui/issue-more-panel";
-import type { TimelineWindowValue } from "../../ui/issue-occurrence-timeline";
 import { KeyboardHintsFooter } from "../../ui/keyboard-hints-footer";
 import { SetupWaitingBanner, TestDataBanner } from "../../ui/setup-status-banner";
 import { IssueRowSkeleton } from "../../ui/skeleton";
@@ -50,14 +27,11 @@ import { BulkActions } from "./bulk-actions";
 import { BulkDeleteDialog } from "./bulk-delete-dialog";
 import { ResolveWithAiDialog } from "./resolve-with-ai-dialog";
 import { downloadIssuesCsv } from "./export-csv";
-import { DiffPanel, type DiffMode } from "./diff-panel";
+import { DiffPanel } from "./diff-panel";
 import {
-  applyOptimisticSnooze,
-  bulkTriageAvailability,
   canIgnoreIssue,
   canReopenIssue,
   canResolveIssue,
-  canSnoozeIssue,
 } from "./issue-triage-utils";
 import { copyBulkIssueExport, copyIssueExport, useExportHotkey } from "./export-markdown";
 import { IssueList } from "./issue-list";
@@ -65,61 +39,25 @@ import { IssuesFeedHeader } from "./issues-feed-header";
 import {
   DEFAULT_ISSUE_SORT,
   DEFAULT_TIME_WINDOW,
-  parseIssueSort,
-  parseTimeWindow,
-  setToken,
-  type IssueSortValue,
-  type TimeWindowValue,
 } from "./query-utils";
 import { registerIssuesTriage } from "./triage-bridge";
 import { SnoozeMenu } from "./snooze-menu";
-import { useIssueReadState } from "./use-issue-read-state";
 import { useResizableIssueDetail } from "./use-resizable-issue-detail";
+import { useIssueTriageMachine } from "./use-issue-triage-machine";
 
 const DEFAULT_QUERY = "is:unresolved";
 
+
 export function IssuesPage() {
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { buildQuery, projectId, environment, projects } = useAppContext();
-  const scopedProjectId = routeProjectId ?? projectId;
-  const timeWindow = parseTimeWindow(searchParams.get("window"));
-  const issueSort = parseIssueSort(searchParams.get("sort"));
-  const urlIssueId = searchParams.get("issue");
+  const { projectId, projects } = useAppContext();
   const filterInputRef = useRef<HTMLInputElement>(null);
-  const [query, setQuery] = useState(() => searchParams.get("q") ?? DEFAULT_QUERY);
-  const [issues, setIssues] = useState<IssueSummary[]>([]);
-  const [issueTrends, setIssueTrends] = useState<Record<string, TimelineBucket[]>>({});
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [loadForbidden, setLoadForbidden] = useState(false);
-  const [focusedId, setFocusedId] = useState<string | null>(urlIssueId);
-  const [selectedId, setSelectedId] = useState<string | null>(urlIssueId);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [events, setEvents] = useState<EventDetail[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [selectedEventRecord, setSelectedEventRecord] = useState<EventDetail | null>(null);
-  const [diffEventId, setDiffEventId] = useState<string | null>(null);
-  const [mergedChildren, setMergedChildren] = useState<IssueSummary[]>([]);
-  const [issueReleases, setIssueReleases] = useState<string[]>([]);
-  const [diffMode, setDiffMode] = useState<DiffMode>("occurrence");
-  const [leftRelease, setLeftRelease] = useState<string | null>(null);
-  const [rightRelease, setRightRelease] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [patchingId, setPatchingId] = useState<string | null>(null);
-  const [snoozingId, setSnoozingId] = useState<string | null>(null);
+  const { toast } = useToast();
+
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [resolveWithAiOpen, setResolveWithAiOpen] = useState(false);
-  const { toast } = useToast();
-  const [setup, setSetup] = useState<SetupProgress | null>(null);
-  const [setupLoading, setSetupLoading] = useState(true);
-  const celebratedFirstIssue = useRef(false);
   const [detailTab, setDetailTab] = useState<IssueDetailTab>("overview");
-  const [timeline, setTimeline] = useState<IssueTimeline | null>(null);
-  const [timelineLoading, setTimelineLoading] = useState(false);
-  const [timelineWindow, setTimelineWindow] = useState<TimelineWindowValue>("7d");
-  const [headlineStats, setHeadlineStats] = useState<HeadlineStats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(true);
+
   const {
     width: detailWidth,
     isFullscreen: detailFullscreen,
@@ -128,646 +66,79 @@ export function IssuesPage() {
     startResize: startDetailResize,
   } = useResizableIssueDetail();
 
-  const { isUnread: isIssueUnread, markRead: markIssueRead } = useIssueReadState(projectId);
+  const triage = useIssueTriageMachine({ routeProjectId });
+  const {
+    scopedProjectId,
+    query,
+    setQuery,
+    timeWindow,
+    setTimeWindow,
+    issueSort,
+    setIssueSort,
+    feedStatus,
+    loadError,
+    issues,
+    issueTrends,
+    loadIssues,
+    focusedId,
+    selectedId,
+    setSelectedId,
+    selectedIds,
+    setSelectedIds,
+    activeIssueId,
+    selectedIssue,
+    focusedIssue,
+    selectedIssues,
+    bulkAvailability,
+    events,
+    selectedEventId,
+    selectedEvent,
+    handleSelectEvent,
+    diffEventId,
+    setDiffEventId,
+    diffMode,
+    setDiffMode,
+    mergedChildren,
+    issueReleases,
+    leftRelease,
+    setLeftRelease,
+    rightRelease,
+    setRightRelease,
+    timeline,
+    timelineLoading,
+    timelineWindow,
+    setTimelineWindow,
+    headlineStats,
+    statsLoading,
+    setup,
+    setupLoading,
+    waitingForFirstIssue,
+    actionsDisabled,
+    busy,
+    setBusy,
+    patchingId,
+    isIssueUnread,
+    handleResolve,
+    handleIgnore,
+    handleReopen,
+    handleSnooze,
+    handleBulk,
+    handleBulkSnooze,
+    handleClearSelection,
+    handleToggleSelectAll,
+    handleMoveSelection,
+    handleOpenDetail,
+    handleCloseDetail,
+    handleSelect,
+    handleToggleSelect,
+    handleMerge,
+    handleSplit,
+    applyFilter,
+    handleResetFilters,
+  } = triage;
 
-  const activeIssueId = selectedId ?? focusedId;
-
-  const selectedIssue = useMemo(
-    () => issues.find((issue) => issue.id === selectedId) ?? null,
-    [issues, selectedId],
-  );
-
-  const focusedIssue = useMemo(
-    () => issues.find((issue) => issue.id === focusedId) ?? null,
-    [issues, focusedId],
-  );
-
-  useEffect(() => {
-    if (!selectedId) {
-      return;
-    }
-    markIssueRead(selectedId);
-  }, [markIssueRead, selectedId, selectedIssue?.last_seen_at]);
-
-  const selectedEvent = useMemo(() => {
-    if (selectedEventRecord?.id === selectedEventId) {
-      return selectedEventRecord;
-    }
-    return events.find((event) => event.id === selectedEventId) ?? events[0] ?? null;
-  }, [events, selectedEventId, selectedEventRecord]);
-
-  const handleSelectEvent = useCallback((eventId: string, event?: EventDetail) => {
-    setSelectedEventId(eventId);
-    if (event) {
-      setSelectedEventRecord(event);
-      setEvents((rows) => {
-        if (rows.some((row) => row.id === eventId)) {
-          return rows;
-        }
-        return [event, ...rows];
-      });
-      return;
-    }
-    const resolved = events.find((row) => row.id === eventId);
-    if (resolved) {
-      setSelectedEventRecord(resolved);
-    }
-  }, [events]);
-
-  const loadIssues = useCallback(async (nextQuery: string, window: TimeWindowValue, sort: IssueSortValue) => {
-    setLoading(true);
-    setLoadError(null);
-    setLoadForbidden(false);
-    try {
-      const scopedQuery = buildQuery(nextQuery);
-      const rows = await fetchIssues(
-        scopedQuery,
-        projectId ?? undefined,
-        window,
-        sort === DEFAULT_ISSUE_SORT ? undefined : sort,
-        environment,
-      );
-      setIssues(rows);
-      try {
-        const trends = await fetchIssueTrends(rows.map((row) => row.id));
-        setIssueTrends(trends);
-      } catch {
-        setIssueTrends({});
-      }
-      setFocusedId((current) => {
-        if (current && rows.some((row) => row.id === current)) {
-          return current;
-        }
-        if (current && current === urlIssueId) {
-          return current;
-        }
-        return null;
-      });
-      setSelectedId((current) => {
-        if (current && rows.some((row) => row.id === current)) {
-          return current;
-        }
-        if (current && current === urlIssueId) {
-          return current;
-        }
-        return null;
-      });
-    } catch (error) {
-      setIssues([]);
-      setIssueTrends({});
-      if (isApiError(error, 403)) {
-        setLoadForbidden(true);
-      } else {
-        const message = apiErrorMessage(error, "Failed to load issues");
-        setLoadError(message);
-        toast(message);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [buildQuery, environment, projectId, toast, urlIssueId]);
-
-  const setTimeWindow = useCallback(
-    (nextWindow: TimeWindowValue) => {
-      setSearchParams(
-        (current) => {
-          const params = new URLSearchParams(current);
-          if (nextWindow === DEFAULT_TIME_WINDOW) {
-            params.delete("window");
-          } else {
-            params.set("window", nextWindow);
-          }
-          return params;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
-
-  const setIssueSort = useCallback(
-    (nextSort: IssueSortValue) => {
-      setSearchParams(
-        (current) => {
-          const params = new URLSearchParams(current);
-          if (nextSort === DEFAULT_ISSUE_SORT) {
-            params.delete("sort");
-          } else {
-            params.set("sort", nextSort);
-          }
-          return params;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
-
-  useEffect(() => {
-    const urlQuery = searchParams.get("q");
-    if (urlQuery !== null) {
-      setQuery(urlQuery.trim() || DEFAULT_QUERY);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    void loadIssues(query, timeWindow, issueSort);
-  }, [loadIssues, query, environment, projectId, timeWindow, issueSort]);
-
-  useEffect(() => {
-    if (!urlIssueId || loading) {
-      return;
-    }
-
-    if (issues.some((issue) => issue.id === urlIssueId)) {
-      setSelectedId(urlIssueId);
-      setFocusedId(urlIssueId);
-      return;
-    }
-
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const broadRows = await fetchIssues("", projectId ?? undefined, "90d");
-        if (cancelled) {
-          return;
-        }
-        const found = broadRows.find((row) => row.id === urlIssueId);
-        if (found) {
-          setIssues((rows) =>
-            rows.some((row) => row.id === found.id) ? rows : [found, ...rows],
-          );
-          setSelectedId(urlIssueId);
-          setFocusedId(urlIssueId);
-          return;
-        }
-
-        await fetchEvents(urlIssueId, { limit: 1, offset: 0 });
-        if (!cancelled) {
-          toast("Issue not found. It may have been deleted.");
-          setSelectedId(null);
-          setFocusedId(null);
-          setSearchParams(
-            (current) => {
-              const params = new URLSearchParams(current);
-              params.delete("issue");
-              return params;
-            },
-            { replace: true },
-          );
-        }
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-        if (isApiError(error, 404)) {
-          toast("Issue not found. It may have been deleted.");
-          setSelectedId(null);
-          setFocusedId(null);
-          setSearchParams(
-            (current) => {
-              const params = new URLSearchParams(current);
-              params.delete("issue");
-              return params;
-            },
-            { replace: true },
-          );
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [urlIssueId, loading, issues, projectId, setSearchParams, toast]);
-
-  useEffect(() => {
-    const current = searchParams.get("issue");
-    if (selectedId === current || (!selectedId && !current)) {
-      return;
-    }
-    setSearchParams(
-      (currentParams) => {
-        const params = new URLSearchParams(currentParams);
-        if (selectedId) {
-          params.set("issue", selectedId);
-        } else {
-          params.delete("issue");
-        }
-        return params;
-      },
-      { replace: true },
-    );
-  }, [selectedId, searchParams, setSearchParams]);
-
-  useEffect(() => {
-    if (!projectId) {
-      setHeadlineStats(null);
-      setStatsLoading(false);
-      return;
-    }
-    setStatsLoading(true);
-    void fetchHeadlineStats(projectId, environment ?? undefined, timeWindow)
-      .then(setHeadlineStats)
-      .catch(() => setHeadlineStats(null))
-      .finally(() => setStatsLoading(false));
-  }, [projectId, environment, timeWindow]);
-
-  useEffect(() => {
-    if (!projectId) {
-      setSetup(null);
-      setSetupLoading(false);
-      return;
-    }
-    setSetupLoading(true);
-    void fetchSetupProgress(projectId)
-      .then(setSetup)
-      .catch(() => setSetup(null))
-      .finally(() => setSetupLoading(false));
-  }, [projectId]);
-
-  const waitingForFirstIssue =
-    Boolean(
-      setup &&
-        !setupOnboardingDone(setup) &&
-        setup.project_named &&
-        setup.has_active_key &&
-        setup.dsn_copied_at,
-    );
-
-  useEffect(() => {
-    if (!waitingForFirstIssue || issues.length > 0 || loading) {
-      return;
-    }
-    const intervalId = window.setInterval(() => {
-      void loadIssues(query, timeWindow, issueSort);
-    }, 3000);
-    return () => window.clearInterval(intervalId);
-  }, [issueSort, issues.length, loadIssues, loading, query, timeWindow, waitingForFirstIssue]);
-
-  useEffect(() => {
-    if (!projectId || !setup || setupOnboardingDone(setup) || !setup.dsn_copied_at) {
-      return;
-    }
-    if (issues.length === 0) {
-      return;
-    }
-    void fetchSetupProgress(projectId)
-      .then((progress) => {
-        setSetup(progress);
-        if (setupOnboardingDone(progress) && !celebratedFirstIssue.current) {
-          celebratedFirstIssue.current = true;
-          toast("First issue received");
-        }
-      })
-      .catch(() => {
-        // ignore
-      });
-  }, [issues.length, projectId, setup, toast]);
-
-  useFocusQueryListener(() => {
-    window.requestAnimationFrame(() => filterInputRef.current?.focus());
-  });
-
-  useEffect(() => {
-    if (!selectedId) {
-      setEvents([]);
-      setSelectedEventId(null);
-      setSelectedEventRecord(null);
-      setDiffEventId(null);
-      return;
-    }
-
-    let cancelled = false;
-    void fetchEvents(selectedId, { limit: EVENTS_PAGE_SIZE, offset: 0 })
-      .then((page) => {
-        if (cancelled) {
-          return;
-        }
-        setEvents(page.events);
-        setSelectedEventId((current) => {
-          if (current && page.events.some((event) => event.id === current)) {
-            return current;
-          }
-          return page.events[0]?.id ?? null;
-        });
-        setSelectedEventRecord((current) => {
-          if (current && page.events.some((event) => event.id === current.id)) {
-            return current;
-          }
-          return page.events[0] ?? null;
-        });
-        setDiffEventId(null);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          toast("Failed to load events");
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedId]);
-
-  useEffect(() => {
-    if (!selectedId) {
-      setTimeline(null);
-      setTimelineLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setTimelineLoading(true);
-    void fetchIssueTimeline(selectedId, timelineWindow)
-      .then((data) => {
-        if (!cancelled) {
-          setTimeline(data);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setTimeline(null);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setTimelineLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedId, timelineWindow]);
-
-  useEffect(() => {
-    setTimelineWindow("7d");
-  }, [selectedId]);
-
-  useEffect(() => {
-    if (!selectedId) {
-      setMergedChildren([]);
-      setIssueReleases([]);
-      setLeftRelease(null);
-      setRightRelease(null);
-      return;
-    }
-
-    let cancelled = false;
-    void Promise.all([
-      fetchMergedChildren(selectedId),
-      fetchIssueReleases(selectedId),
-    ])
-      .then(([children, releases]) => {
-        if (cancelled) {
-          return;
-        }
-        setMergedChildren(children);
-        setIssueReleases(releases);
-        setLeftRelease(releases[0] ?? null);
-        setRightRelease(releases[1] ?? null);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setMergedChildren([]);
-          setIssueReleases([]);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedId]);
-
-  const actionsDisabled = busy || patchingId !== null || snoozingId !== null;
-
-  const optimisticStatus = useCallback(
-    async (id: string, status: string, resolvedInRelease?: string) => {
-      if (busy || patchingId !== null) {
-        return;
-      }
-      const previous = issues;
-      setPatchingId(id);
-      setIssues((rows) =>
-        rows.map((row) => (row.id === id ? { ...row, status } : row)),
-      );
-      try {
-        await patchIssue(id, status, resolvedInRelease);
-      } catch {
-        setIssues(previous);
-        toast("Failed to update issue");
-      } finally {
-        setPatchingId(null);
-      }
-    },
-    [busy, issues, patchingId, toast],
-  );
-
-  const handleResolve = useCallback(
-    (id: string) => {
-      const issue = issues.find((row) => row.id === id);
-      if (!issue || !canResolveIssue(issue.status)) {
-        return;
-      }
-      const release = issue.release ?? undefined;
-      void optimisticStatus(id, "resolved", release);
-    },
-    [issues, optimisticStatus],
-  );
-
-  const handleIgnore = useCallback(
-    (id: string) => {
-      const issue = issues.find((row) => row.id === id);
-      if (!issue || !canIgnoreIssue(issue.status)) {
-        return;
-      }
-      void optimisticStatus(id, "ignored");
-    },
-    [issues, optimisticStatus],
-  );
-
-  const handleReopen = useCallback(
-    (id: string) => {
-      const issue = issues.find((row) => row.id === id);
-      if (!issue || !canReopenIssue(issue.status)) {
-        return;
-      }
-      void optimisticStatus(id, "unresolved");
-    },
-    [issues, optimisticStatus],
-  );
-
-  const handleSnooze = useCallback(
-    async (mode: SnoozeMode) => {
-      if (!selectedId || actionsDisabled) {
-        return;
-      }
-      const current = issues.find((row) => row.id === selectedId);
-      if (!current) {
-        return;
-      }
-
-      const previous = issues;
-      const optimistic = applyOptimisticSnooze(current, mode);
-      setSnoozingId(selectedId);
-      setIssues((rows) =>
-        rows.map((row) => (row.id === selectedId ? optimistic : row)),
-      );
-
-      try {
-        const updated = await snoozeIssue(selectedId, mode);
-        setIssues((rows) =>
-          rows.map((row) => (row.id === selectedId ? updated : row)),
-        );
-        toast(
-          updated.snoozed
-            ? "Issue snoozed"
-            : "Snooze did not apply. Try another duration.",
-        );
-      } catch {
-        setIssues(previous);
-        toast("Failed to snooze issue");
-      } finally {
-        setSnoozingId(null);
-      }
-    },
-    [actionsDisabled, issues, selectedId, toast],
-  );
-
-  const handleMoveSelection = useCallback(
-    (direction: "up" | "down") => {
-      if (issues.length === 0) {
-        return;
-      }
-      const index = issues.findIndex((issue) => issue.id === focusedId);
-      const start = index >= 0 ? index : 0;
-      const next =
-        direction === "down"
-          ? Math.min(start + 1, issues.length - 1)
-          : Math.max(start - 1, 0);
-      setFocusedId(issues[next]?.id ?? null);
-    },
-    [issues, focusedId],
-  );
-
-  const handleOpenDetail = useCallback(() => {
-    if (focusedId) {
-      setSelectedId(focusedId);
-      return;
-    }
-    if (issues.length > 0) {
-      const firstId = issues[0].id;
-      setFocusedId(firstId);
-      setSelectedId(firstId);
-    }
-  }, [focusedId, issues]);
-
-  const handleSelect = useCallback(
-    (id: string, extend = false) => {
-      setFocusedId(id);
-      setSelectedId(id);
-      if (extend) {
-        setSelectedIds((current) => {
-          const next = new Set(current);
-          next.add(id);
-          return next;
-        });
-      }
-    },
-    [],
-  );
-
-  const handleToggleSelect = useCallback((id: string) => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
-
-  const selectedIssues = useMemo(
-    () => issues.filter((issue) => selectedIds.has(issue.id)),
-    [issues, selectedIds],
-  );
-  const bulkAvailability = useMemo(
-    () => bulkTriageAvailability(selectedIssues),
-    [selectedIssues],
-  );
-
-  const handleBulkSnooze = useCallback(
-    async (mode: SnoozeMode) => {
-      const eligible = selectedIssues.filter(canSnoozeIssue);
-      if (eligible.length === 0 || actionsDisabled) {
-        return;
-      }
-
-      const ids = new Set(eligible.map((issue) => issue.id));
-      const previous = issues;
-      setBusy(true);
-      setIssues((rows) =>
-        rows.map((row) => (ids.has(row.id) ? applyOptimisticSnooze(row, mode) : row)),
-      );
-
-      try {
-        await Promise.all(eligible.map((issue) => snoozeIssue(issue.id, mode)));
-        setSelectedIds(new Set());
-        await loadIssues(query, timeWindow, issueSort);
-        toast(
-          eligible.length === 1
-            ? "Issue snoozed"
-            : `Snoozed ${eligible.length} issues`,
-        );
-      } catch {
-        setIssues(previous);
-        toast("Bulk snooze failed");
-      } finally {
-        setBusy(false);
-      }
-    },
-    [
-      actionsDisabled,
-      issueSort,
-      issues,
-      loadIssues,
-      query,
-      selectedIssues,
-      timeWindow,
-      toast,
-    ],
-  );
-
-  const handleBulk = useCallback(
-    async (action: "resolve" | "ignore" | "reopen" | "delete") => {
-      const ids = Array.from(selectedIds);
-      if (ids.length === 0 || actionsDisabled) {
-        return;
-      }
-      setBusy(true);
-      try {
-        await bulkUpdateIssues(ids, action);
-        setSelectedIds(new Set());
-        await loadIssues(query, timeWindow, issueSort);
-        const labels: Record<string, string> = {
-          delete: `Deleted ${ids.length} issues`,
-          resolve: `Marked ${ids.length} issues resolved`,
-          ignore: `Ignored ${ids.length} issues`,
-          reopen: `Reopened ${ids.length} issues`,
-        };
-        toast(labels[action]);
-      } catch {
-        toast("Bulk action failed");
-      } finally {
-        setBusy(false);
-      }
-    },
-    [actionsDisabled, loadIssues, query, selectedIds, timeWindow, issueSort],
-  );
+  const loading = feedStatus === "loading";
+  const loadForbidden = feedStatus === "forbidden";
 
   const handleConfirmBulkDelete = useCallback(() => {
     void handleBulk("delete").finally(() => setDeleteConfirmOpen(false));
@@ -780,11 +151,13 @@ export function IssuesPage() {
         toast("Nothing to export");
         return;
       }
-      downloadIssuesCsv(rows);
-      toast(`Exported ${rows.length} issue${rows.length === 1 ? "" : "s"}`);
+      downloadIssuesCsv(rows, `issues-${scope}-${new Date().toISOString().slice(0, 10)}.csv`);
+      toast(`Exported ${rows.length} issues to CSV`);
     },
     [issues, selectedIssues, toast],
   );
+
+  const openMoreGrouping = useCallback(() => setDetailTab("more"), []);
 
   const handleConfirmResolveWithAi = useCallback(async () => {
     const eligible = selectedIssues.filter((issue) => canIgnoreIssue(issue.status));
@@ -812,93 +185,8 @@ export function IssuesPage() {
     } finally {
       setBusy(false);
     }
-  }, [
-    actionsDisabled,
-    issueSort,
-    loadIssues,
-    query,
-    selectedIssues,
-    timeWindow,
-    toast,
-  ]);
+  }, [actionsDisabled, issueSort, loadIssues, query, selectedIssues, setSelectedIds, timeWindow, toast]);
 
-  const handleClearSelection = useCallback(() => {
-    setSelectedIds(new Set());
-  }, []);
-
-  const handleToggleSelectAll = useCallback(() => {
-    setSelectedIds((current) => {
-      if (current.size === issues.length && issues.length > 0) {
-        return new Set();
-      }
-      return new Set(issues.map((issue) => issue.id));
-    });
-  }, [issues]);
-
-  const openMoreGrouping = useCallback(() => setDetailTab("more"), []);
-
-  const handleCloseDetail = useCallback(() => {
-    setSelectedId(null);
-  }, []);
-
-  const handleMerge = useCallback(async () => {
-    if (!selectedId || actionsDisabled) {
-      return;
-    }
-    const mergeIds = Array.from(selectedIds).filter((id) => id !== selectedId);
-    if (mergeIds.length === 0) {
-      return;
-    }
-    setBusy(true);
-    try {
-      await mergeIssues(selectedId, mergeIds);
-      setSelectedIds(new Set());
-      await loadIssues(query, timeWindow, issueSort);
-      toast(`Merged ${mergeIds.length} issues`);
-    } catch {
-      toast("Merge failed");
-    } finally {
-      setBusy(false);
-    }
-  }, [actionsDisabled, loadIssues, query, selectedId, selectedIds, timeWindow, issueSort]);
-
-  const handleSplit = useCallback(
-    async (splitIds: string[]) => {
-      if (!selectedId || splitIds.length === 0 || actionsDisabled) {
-        return;
-      }
-      setBusy(true);
-      try {
-        await splitIssues(selectedId, splitIds);
-        setMergedChildren([]);
-        await loadIssues(query, timeWindow, issueSort);
-        toast(`Split ${splitIds.length} issues`);
-      } catch {
-        toast("Split failed");
-      } finally {
-        setBusy(false);
-      }
-    },
-    [actionsDisabled, loadIssues, query, selectedId, timeWindow, issueSort],
-  );
-
-  const applyFilter = useCallback((token: string) => {
-    setQuery((current) => setToken(current, token));
-  }, []);
-
-  const handleResetFilters = useCallback(() => {
-    setQuery(DEFAULT_QUERY);
-    setSearchParams(
-      (current) => {
-        const params = new URLSearchParams(current);
-        params.delete("q");
-        params.delete("window");
-        params.delete("sort");
-        return params;
-      },
-      { replace: true },
-    );
-  }, [setSearchParams]);
 
   const needsSetupRedirect =
     !setupLoading &&
@@ -928,9 +216,14 @@ export function IssuesPage() {
     );
   }, [selectedEvent, selectedIssue]);
 
-  useExportHotkey(Boolean(selectedIssue), selectedIssue, selectedEvent, () => {
-    toast("Copied. Paste into Cursor or your AI assistant.");
-  });
+  useExportHotkey(
+    Boolean(selectedIssue ?? focusedIssue),
+    selectedIssue ?? focusedIssue,
+    selectedEvent,
+    () => {
+      toast("Copied. Paste into Cursor or your AI assistant.");
+    },
+  );
 
   useEffect(() => {
     const triageIssue = selectedIssue ?? focusedIssue;
@@ -984,6 +277,11 @@ export function IssuesPage() {
     setDetailTab("overview");
   }, [selectedId]);
 
+  const filtersActive =
+    query !== DEFAULT_QUERY ||
+    timeWindow !== DEFAULT_TIME_WINDOW ||
+    issueSort !== DEFAULT_ISSUE_SORT;
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") {
@@ -1007,21 +305,21 @@ export function IssuesPage() {
       if (selectedIds.size > 0) {
         event.preventDefault();
         setSelectedIds(new Set());
+        return;
+      }
+      if (filtersActive) {
+        event.preventDefault();
+        handleResetFilters();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedId, selectedIds.size]);
+  }, [filtersActive, handleResetFilters, selectedId, selectedIds.size, setSelectedId, setSelectedIds]);
 
   if (needsSetupRedirect && scopedProjectId) {
     return <Navigate to={projectPath(scopedProjectId, "setup")} replace />;
   }
-
-  const filtersActive =
-    query !== DEFAULT_QUERY ||
-    timeWindow !== DEFAULT_TIME_WINDOW ||
-    issueSort !== DEFAULT_ISSUE_SORT;
 
   const canMerge = selectedIds.size >= 2 && Boolean(selectedId);
   const canSplit = Boolean(selectedId) && mergedChildren.length > 0;
@@ -1063,55 +361,67 @@ export function IssuesPage() {
           </>
         }
         actions={
-          <>
+          <div className="flex flex-wrap items-center gap-2">
             {canResolveIssue(selectedIssue.status) ? (
               <ActionButton
                 variant="primary"
-                size="toolbar"
+                size="sm"
+                className="btn-tactile bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs"
                 disabled={actionsDisabled}
                 tooltip={actionsDisabled ? "Saving changes…" : undefined}
                 onClick={() => void handleResolve(selectedIssue.id)}
               >
-                {patchingId === selectedIssue.id ? "Saving…" : "Resolve"}
-              </ActionButton>
-            ) : null}
-            {canIgnoreIssue(selectedIssue.status) ? (
-              <ActionButton
-                variant="ghost"
-                size="toolbar"
-                disabled={actionsDisabled}
-                tooltip={actionsDisabled ? "Saving changes…" : undefined}
-                onClick={() => void handleIgnore(selectedIssue.id)}
-              >
-                Ignore
+                <Check className="mr-1.5 h-3.5 w-3.5 stroke-[2.5]" />
+                <span>{patchingId === selectedIssue.id ? "Saving…" : "Resolve (E)"}</span>
               </ActionButton>
             ) : null}
             {canReopenIssue(selectedIssue.status) ? (
               <ActionButton
-                variant="ghost"
-                size="toolbar"
+                variant="outline"
+                size="sm"
+                className="btn-tactile text-xs font-medium"
                 disabled={actionsDisabled}
                 tooltip={actionsDisabled ? "Saving changes…" : undefined}
                 onClick={() => void handleReopen(selectedIssue.id)}
               >
-                {patchingId === selectedIssue.id ? "Saving…" : "Unresolve"}
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                <span>{patchingId === selectedIssue.id ? "Saving…" : "Unresolve"}</span>
               </ActionButton>
             ) : null}
-            <SnoozeMenu
-              issue={selectedIssue}
-              disabled={actionsDisabled}
-              onSnooze={handleSnooze}
-            />
             <ActionButton
-              variant="ghost"
-              size="toolbar"
+              variant="outline"
+              size="sm"
+              className="btn-tactile text-xs font-medium border-accent/40 bg-accent-muted/30 text-accent hover:bg-accent-muted/60"
               disabled={actionsDisabled}
               tooltip={actionsDisabled ? "Saving changes…" : undefined}
               onClick={handleExport}
             >
-              Copy for AI
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              <span>Copy for AI (C)</span>
             </ActionButton>
-          </>
+            <SnoozeMenu
+              issue={selectedIssue}
+              disabled={actionsDisabled}
+              buttonSize="sm"
+              variant="outline"
+              showShortcutHint
+              className="btn-tactile text-xs font-medium"
+              onSnooze={handleSnooze}
+            />
+            {canIgnoreIssue(selectedIssue.status) ? (
+              <ActionButton
+                variant="ghost"
+                size="sm"
+                className="btn-tactile text-xs text-ink-muted hover:text-ink"
+                disabled={actionsDisabled}
+                tooltip={actionsDisabled ? "Saving changes…" : undefined}
+                onClick={() => void handleIgnore(selectedIssue.id)}
+              >
+                <EyeOff className="mr-1.5 h-3.5 w-3.5" />
+                <span>Ignore (I)</span>
+              </ActionButton>
+            ) : null}
+          </div>
         }
         overview={
           <IssueOverviewPanel
@@ -1273,11 +583,13 @@ export function IssuesPage() {
               issues={issues}
               projects={projects}
               focusedId={focusedId}
+              selectedId={selectedId}
               selectedIds={selectedIds}
               onSelect={handleSelect}
               onToggleSelect={handleToggleSelect}
               onResolve={handleResolve}
               onIgnore={handleIgnore}
+              onSnooze={(id) => void handleSnooze("hours", id)}
               actionsDisabled={actionsDisabled}
               onMoveSelection={handleMoveSelection}
               onOpenDetail={handleOpenDetail}

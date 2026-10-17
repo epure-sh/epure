@@ -57,9 +57,9 @@
   /* Chrome layout */
   --chrome-rail-width: 12rem;
   --chrome-rail-width-collapsed: 3rem;
-  --chrome-top-height: 3rem;
-  --chrome-top-padding-y: 0.5rem;
-  --chrome-page-header-height: 3rem;
+  --chrome-top-height: 2.75rem;
+  --chrome-top-padding-y: 0.375rem;
+  --chrome-page-header-height: 2.75rem;
   --chrome-filter-height: 2.5rem;
   --chrome-list-width: 30rem;
   --chrome-detail-min-width: 40rem;

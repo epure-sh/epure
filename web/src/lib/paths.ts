@@ -68,7 +68,7 @@ export function issuesFilterPath(projectId: string, filterQuery: string): string
 
 export function projectSettingsPath(
   projectId: string,
-  tab?: "general" | "dsn" | "webhooks" | "alerts",
+  tab?: "general" | "filters" | "dsn" | "webhooks" | "alerts",
 ): string {
   if (!tab || tab === "general") {
     return `/p/${projectId}/settings`;

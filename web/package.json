@@ -9,7 +9,7 @@
     "build": "tsc -b tsconfig.app.json && vite build",
     "build:playground": "tsc -b tsconfig.playground.json && vite build --config vite.playground.config.ts",
     "preview": "vite preview",
-    "test": "node --import tsx --test src/**/*.test.ts"
+    "test": "node --import tsx --test 'src/**/*.test.ts'"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.11",

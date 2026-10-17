@@ -13,6 +13,8 @@ pub enum EnvelopeError {
     MalformedItemHeader,
     #[error("no event item found in envelope")]
     NoEvent,
+    #[error("non-error envelope items absorbed")]
+    NonErrorAbsorbed,
     #[error("envelope item length mismatch")]
     LengthMismatch,
     #[error("envelope decompression failed")]
@@ -82,6 +84,7 @@ fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> 
         .map(|end| end + 1)
         .unwrap_or(body.len());
     let mut event_payload = None;
+    let mut has_non_error_items = false;
 
     while offset < body.len() {
         let line_end = next_line_end(body, offset).ok_or(EnvelopeError::MalformedItemHeader)?;
@@ -116,14 +119,27 @@ fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> 
 
         match item_type.as_deref() {
             Some("event") => event_payload = Some(payload),
-            Some("transaction") => {}
-            _ => {}
+            Some("transaction")
+            | Some("session")
+            | Some("client_report")
+            | Some("replay_event")
+            | Some("check_in")
+            | Some("statsd") => {
+                has_non_error_items = true;
+            }
+            _ => {
+                has_non_error_items = true;
+            }
         }
     }
 
-    event_payload
-        .map(|event_payload| ParsedEnvelope { event_payload })
-        .ok_or(EnvelopeError::NoEvent)
+    if let Some(event_payload) = event_payload {
+        Ok(ParsedEnvelope { event_payload })
+    } else if has_non_error_items {
+        Err(EnvelopeError::NonErrorAbsorbed)
+    } else {
+        Err(EnvelopeError::NoEvent)
+    }
 }
 
 fn next_line_end(body: &[u8], start: usize) -> Option<usize> {
@@ -384,6 +400,22 @@ mod tests {
         assert!(matches!(
             parse_envelope(b"\x00\x01not-an-envelope"),
             Err(EnvelopeError::MalformedItemHeader)
+        ));
+    }
+
+    #[test]
+    fn absorbs_session_and_transaction_only_envelopes() {
+        let session = r#"{"sid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","status":"ok"}"#;
+        let session_header = format!(r#"{{"type":"session","length":{}}}"#, session.len());
+        let body = format!(
+            "{}\n{}\n{}\n",
+            r#"{"event_id":"550e8400-e29b-41d4-a716-446655440099"}"#,
+            session_header,
+            session,
+        );
+        assert!(matches!(
+            parse_envelope(body.as_bytes()),
+            Err(EnvelopeError::NonErrorAbsorbed)
         ));
     }
 }

@@ -10,15 +10,13 @@ import {
 } from "./dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
 
-const DETAIL_TABS = ["overview", "stack", "breadcrumbs", "more"] as const;
-const OVERFLOW_TABS = ["breadcrumbs", "more"] as const;
+const DETAIL_TABS = ["overview", "breadcrumbs", "stack", "more"] as const;
+const OVERFLOW_TABS = ["stack", "more"] as const;
 export type IssueDetailTab = (typeof DETAIL_TABS)[number];
-
-/** @deprecated Use Button `size="toolbar"` instead */
 export const DETAIL_TOOLBAR_BUTTON_CLASS = "h-control-sm gap-1 px-2 text-xs";
 
 const DETAIL_TAB_TRIGGER =
-  "h-control min-h-control max-h-control px-4 py-0 text-sm";
+  "h-7 px-2.5 text-2xs font-medium border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:text-ink text-ink-muted hover:text-ink transition-colors rounded-none";
 
 export interface IssueDetailTabsProps {
   overview: ReactNode;
@@ -94,10 +92,11 @@ export function IssueDetailTabs({
   return (
     <div
       ref={rootRef}
-      className="epure-issue-detail-tabs flex h-full min-h-0 flex-1 flex-col overflow-hidden outline-none"
+      className="epure-issue-detail-tabs flex h-full min-h-0 flex-1 flex-col overflow-hidden outline-none bg-surface"
       tabIndex={-1}
       onMouseDown={() => rootRef.current?.focus()}
     >
+      {/* Optional top back link for non-overlay views */}
       {onClose && showBackLink ? (
         <div className="shrink-0 border-b border-border px-4 py-1.5 md:px-6">
           <Button variant="ghost" size="toolbar" className="text-ink-muted" onClick={onClose}>
@@ -107,82 +106,90 @@ export function IssueDetailTabs({
         </div>
       ) : null}
 
+      {/* Hero Header Zone: Badges, Title, and Dedicated Action Ribbon */}
+      {issueTitle ? (
+        <div className="shrink-0 border-b border-border bg-surface px-5 py-4 md:px-7 select-none">
+          {statusBadges ? (
+            <div className="flex min-h-5 w-full flex-wrap items-center gap-1.5 mb-2.5">
+              {statusBadges}
+            </div>
+          ) : null}
+
+          <h2
+            className="w-full text-base md:text-lg font-bold tracking-tight text-ink select-text break-words leading-snug"
+            title={issueTitle}
+          >
+            {issueTitle}
+          </h2>
+
+          {/* High-Visibility Hero Action Toolbar */}
+          {actions ? (
+            <div className="mt-3.5 flex flex-wrap items-center gap-2 pt-3 border-t border-border/60">
+              {actions}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Navigation Tabs Bar */}
       <Tabs {...tabsProps} className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex h-control min-h-control shrink-0 items-stretch overflow-hidden bg-surface">
-          <div className="min-w-0 flex-1 overflow-hidden border-b border-border">
-            <TabsList className="h-control min-h-control flex w-full items-stretch gap-0 overflow-hidden border-b-0 bg-transparent px-4 md:px-6">
-              <TabsTrigger value="overview" className={cn(DETAIL_TAB_TRIGGER, "shrink-0 first:pl-0")}>
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="stack" className={cn(DETAIL_TAB_TRIGGER, "shrink-0")}>
-                Stack
-              </TabsTrigger>
-              <TabsTrigger
-                value="breadcrumbs"
-                className={cn(DETAIL_TAB_TRIGGER, "hidden shrink-0 lg:inline-flex")}
-              >
-                Breadcrumbs
-              </TabsTrigger>
-              <TabsTrigger value="more" className={cn(DETAIL_TAB_TRIGGER, "hidden shrink-0 lg:inline-flex")}>
-                More
-              </TabsTrigger>
-            </TabsList>
-          </div>
-          <div className="relative z-10 flex shrink-0 items-center gap-1 border-b border-border bg-surface pr-4 md:pr-6">
-            {onTabChange ? (
-              <div className="flex items-center lg:hidden">
-                <DropdownMenu modal={false}>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="toolbar"
-                      className={cn("h-control", overflowActive && "font-semibold text-ink")}
-                      aria-label="More tabs"
-                    >
-                      <MoreHorizontal className="h-4 w-4" aria-hidden />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => onTabChange("breadcrumbs")}>
-                      Breadcrumbs
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => onTabChange("more")}>More</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            ) : null}
-            {actions ? (
-              <div className="flex h-control items-center gap-1 border-l border-border bg-surface pl-2">
-                {actions}
-              </div>
-            ) : null}
-          </div>
+        <div className="flex h-7 shrink-0 items-center justify-between border-b border-border/80 bg-surface px-4 md:px-6 select-none">
+          <TabsList className="flex h-full items-stretch gap-1 border-b-0 bg-transparent p-0">
+            <TabsTrigger value="overview" className={DETAIL_TAB_TRIGGER}>
+              Overview
+            </TabsTrigger>
+            <TabsTrigger
+              value="breadcrumbs"
+              className={DETAIL_TAB_TRIGGER}
+            >
+              Breadcrumbs
+            </TabsTrigger>
+            <TabsTrigger value="stack" className={DETAIL_TAB_TRIGGER}>
+              Stack Trace
+            </TabsTrigger>
+            <TabsTrigger
+              value="more"
+              className={cn(DETAIL_TAB_TRIGGER, "hidden sm:inline-flex")}
+            >
+              Grouping & Diff
+            </TabsTrigger>
+          </TabsList>
+
+          {onTabChange ? (
+            <div className="flex items-center sm:hidden">
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="toolbar"
+                    className={cn("h-7 px-2", overflowActive && "font-semibold text-ink")}
+                    aria-label="More tabs"
+                  >
+                    <MoreHorizontal className="h-4 w-4" aria-hidden />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => onTabChange("stack")}>
+                    Stack Trace
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => onTabChange("more")}>
+                    Grouping & Diff
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : null}
         </div>
 
-        {issueTitle ? (
-          <div className="shrink-0 border-b border-border px-4 py-3 md:px-6">
-            <h2
-              className="w-full text-xl font-medium tracking-ui text-ink"
-              title={issueTitle}
-            >
-              {issueTitle}
-            </h2>
-            {statusBadges ? (
-              <div className="mt-2 flex min-h-5 w-full flex-wrap items-center gap-1">
-                {statusBadges}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
+        {/* Tab Panels */}
         <TabsContent value="overview" className="flex min-h-0 flex-1 flex-col overflow-auto">
           {overview}
         </TabsContent>
-        <TabsContent value="stack" className="flex min-h-0 flex-1 flex-col overflow-auto">
-          {stack}
-        </TabsContent>
         <TabsContent value="breadcrumbs" className="flex min-h-0 flex-1 flex-col overflow-auto">
           {breadcrumbs}
+        </TabsContent>
+        <TabsContent value="stack" className="flex min-h-0 flex-1 flex-col overflow-auto">
+          {stack}
         </TabsContent>
         <TabsContent value="more" className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {more}

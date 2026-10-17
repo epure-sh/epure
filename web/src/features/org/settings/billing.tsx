@@ -18,7 +18,7 @@ import { Card, CardContent } from "../../../ui/card";
 import { SectionHeader } from "../../../ui/section";
 import { StatBar } from "../../../ui/stat-bar";
 
-const CLOUD_CURRENT_PLAN: PlanId = "pro";
+const CLOUD_CURRENT_PLAN: PlanId = "builder_pro";
 
 function formatEvents(value: number | null): string {
   if (value === null) {
@@ -262,7 +262,7 @@ function PlanOptionCard({
         {upgradeOnly ? (
           <Button variant={plan.highlighted ? "signal" : "secondary"} className="mt-4 w-full" asChild>
             <a href={CLOUD_UPGRADE_URL} target="_blank" rel="noreferrer" className="gap-1.5">
-              Join waitlist
+              Upgrade to {plan.name}
               <ExternalLink size={14} />
             </a>
           </Button>

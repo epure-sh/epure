@@ -1,0 +1,27 @@
+{
+  "name": "@epure/mcp",
+  "version": "0.1.7",
+  "description": "Surgical <600-token Model Context Protocol server for Epure with Agentjacking prompt-injection defense",
+  "bin": {
+    "epure-mcp": "./bin/epure-mcp.js"
+  },
+  "files": [
+    "bin",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "epure",
+    "mcp",
+    "model-context-protocol",
+    "sentry",
+    "claude",
+    "cursor",
+    "error-tracking",
+    "telemetry"
+  ],
+  "author": "Epure <team@epure.sh>",
+  "license": "Apache-2.0"
+}

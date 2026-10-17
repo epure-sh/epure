@@ -18,6 +18,7 @@ pub struct AccountProfile {
     pub role: String,
     pub has_password: bool,
     pub google_linked: bool,
+    pub plan_tier: Option<String>,
 }
 
 #[derive(Debug, Error)]
@@ -212,9 +213,11 @@ impl CredentialAuth {
                     u.display_name,
                     u.password_hash,
                     u.google_sub,
-                    om.role
+                    om.role,
+                    o.plan_tier
                 FROM users u
                 INNER JOIN org_members om ON om.user_id = u.id
+                INNER JOIN organizations o ON o.id = om.org_id
                 WHERE u.id = $1 AND om.org_id = $2
                 "#,
             )
@@ -232,6 +235,7 @@ impl CredentialAuth {
                 role: row.role,
                 has_password: row.password_hash.is_some(),
                 google_linked: row.google_sub.is_some(),
+                plan_tier: row.plan_tier,
             })
         })
         .await
@@ -442,6 +446,7 @@ struct AccountProfileRow {
     password_hash: Option<Vec<u8>>,
     google_sub: Option<String>,
     role: String,
+    plan_tier: Option<String>,
 }
 
 #[derive(sqlx::FromRow)]

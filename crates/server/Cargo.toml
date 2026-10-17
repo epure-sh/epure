@@ -21,6 +21,7 @@ epure-agent-context.workspace = true
 epure-auth.workspace = true
 epure-demangle.workspace = true
 epure-envelope.workspace = true
+epure-mcp.workspace = true
 epure-storage.workspace = true
 hex.workspace = true
 hmac.workspace = true
@@ -40,6 +41,7 @@ tower-sessions.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
+sqlx.workspace = true
 
 [dev-dependencies]
 epure-auth.workspace = true

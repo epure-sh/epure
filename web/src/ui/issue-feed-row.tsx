@@ -49,13 +49,6 @@ const TREND_STATUS_LABEL: Record<TrendStatus, string> = {
   declining: "Declining",
 };
 
-function unreadDot(): { className: string; title: string } {
-  return {
-    className: "epure-issue-unread-dot h-1.5 w-1.5 rounded-full bg-signal",
-    title: "Not yet viewed",
-  };
-}
-
 function PlatformBadge({ label }: { label: string }) {
   return (
     <span
@@ -95,13 +88,31 @@ export function IssueFeedRow({
   ...props
 }: IssueFeedRowProps) {
   const rowVariant = getIssueRowVariant(useStyleTheme());
-  const showEdge = selected || unread;
+  const statusIndicator = unhandled ? (
+    <span
+      className="mt-1 h-2 w-2 shrink-0 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.65)] ring-[3px] ring-rose-500/25 animate-pulse"
+      title="Fatal unhandled crash"
+      aria-hidden
+    />
+  ) : unread ? (
+    <span
+      className="mt-1 h-2 w-2 shrink-0 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(56,189,248,0.55)] ring-[3px] ring-sky-500/25"
+      title="Unread issue"
+      aria-hidden
+    />
+  ) : (
+    <span
+      className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-ink-muted/30"
+      title="Viewed issue"
+      aria-hidden
+    />
+  );
+
   const rowClass = selected
-    ? "bg-accent-muted"
+    ? "bg-accent-muted/50 dark:bg-accent-muted/30 border-l-[3px] border-l-accent shadow-xs"
     : bulkSelected
-      ? "bg-accent-muted/70 hover:bg-state-hover"
-      : "hover:bg-state-hover";
-  const statusDot = unread ? unreadDot() : null;
+      ? "bg-accent-muted/30 hover:bg-state-hover border-l-[3px] border-l-accent/50"
+      : "hover:bg-state-hover border-l-[3px] border-l-transparent";
 
   const keyHandler = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter" || event.key === " ") {
@@ -118,11 +129,10 @@ export function IssueFeedRow({
       onClick={onClick}
       onKeyDown={keyHandler}
       className={cn(
-        "epure-issue-row grid items-center border-b border-border text-left transition-colors duration-fast focus-ring",
+        "epure-issue-row epure-feed-row grid items-center border-b border-border/80 text-left transition-colors duration-fast focus-ring",
         `epure-issue-row--${rowVariant}`,
         unread && "epure-issue-row--unread",
         compact ? FEED_GRID_COMPACT : FEED_GRID_FULL,
-        showEdge ? "border-l-2 border-l-accent" : "border-l-2 border-l-transparent",
         rowClass,
         className,
       )}
@@ -136,48 +146,43 @@ export function IssueFeedRow({
       </div>
 
       <div className={FEED_CELL_ISSUE}>
-        <div className="flex min-w-0 items-start gap-1.5">
-          {statusDot ? (
-            <span
-              className={cn("mt-0.5 shrink-0 rounded-full", statusDot.className)}
-              aria-hidden
-              title={statusDot.title}
-            />
-          ) : null}
+        <div className="flex min-w-0 items-start gap-2">
+          {statusIndicator}
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-1.5">
               <span
-                className={cn(
-                  "epure-issue-row-title truncate text-sm leading-tight tracking-ui",
-                  unread ? "font-semibold text-ink" : "font-medium text-ink-muted",
-                )}
+                className="epure-issue-row-title truncate text-sm font-semibold leading-tight tracking-ui text-ink"
               >
                 {shortTitle}
               </span>
               {regression ? (
-                <Badge variant="warning" className="shrink-0">
+                <Badge variant="warning" size="compact" className="shrink-0 font-medium">
                   Came back
                 </Badge>
               ) : null}
               {snoozed ? (
-                <Badge variant="info" size="compact" className="shrink-0">
+                <Badge variant="info" size="compact" className="shrink-0 font-medium">
                   Snoozed
                 </Badge>
               ) : null}
             </div>
             {subtitle ? (
-              <p className="mt-0 truncate text-xs leading-tight text-ink-muted">{subtitle}</p>
+              <p className="mt-0.5 truncate text-xs leading-tight text-ink-muted">{subtitle}</p>
             ) : null}
-            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-2xs text-ink-muted">
+            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-2xs text-ink-muted">
               {platform ? <PlatformBadge label={platform} /> : null}
               {projectCode ? (
-                <span className="font-mono tabular-nums">{projectCode}</span>
+                <span className="font-mono text-2xs font-medium text-ink-subtle">{projectCode}</span>
               ) : null}
-              {location ? <span className="truncate">{location}</span> : null}
+              {location ? (
+                <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-bg-subtle text-ink-muted border border-border/60 truncate max-w-sm">
+                  {location}
+                </span>
+              ) : null}
               {unhandled ? (
-                <Badge variant="error" className="h-4 px-1.5 text-2xs">
+                <span className="rounded bg-signal-muted px-1.5 py-0.2 font-mono text-[10px] font-semibold uppercase text-signal">
                   Unhandled
-                </Badge>
+                </span>
               ) : null}
             </div>
           </div>

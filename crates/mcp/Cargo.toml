@@ -1,0 +1,22 @@
+[package]
+name = "epure-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "epure_mcp"
+path = "src/lib.rs"
+
+[[bin]]
+name = "epure-mcp"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true, features = ["derive", "env"] }
+epure-agent-context = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "io-std", "io-util"] }
+uuid = { workspace = true, features = ["serde"] }

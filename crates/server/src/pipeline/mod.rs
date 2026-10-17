@@ -1,3 +1,4 @@
+pub mod flusher;
 pub mod ingest_cap;
 pub mod mpsc;
 pub mod spike;

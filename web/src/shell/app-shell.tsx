@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { AlertsPage } from "../features/alerts";
 import { IssuesPage } from "../features/issues";
@@ -17,8 +17,8 @@ import { AppProvider, useAppContext } from "./app-context";
 import { EnvironmentUrlSync } from "./environment-url-sync";
 import { CommandPalette } from "./command-palette";
 import { ProjectScope } from "./project-scope";
-import { ShellRail } from "./shell-rail";
 import { TopStrip } from "./top-strip";
+import { AppSidebar } from "./app-sidebar";
 import { ToastProvider } from "../ui/toast-provider";
 import { TooltipProvider } from "../ui/tooltip";
 
@@ -69,14 +69,19 @@ function LegacyProjectRedirect({ segment }: { segment: "issues" | "releases" | "
 }
 
 export function AppShell() {
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
   return (
     <AppProvider>
       <ToastProvider>
       <TooltipProvider delayDuration={300}>
-        <div className="epure-app-shell flex h-full min-h-0 bg-bg text-ink">
-          <ShellRail />
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <TopStrip />
+        <div className="epure-app-shell flex h-full min-h-0 flex-row bg-bg text-ink overflow-hidden">
+          <AppSidebar
+            mobileOpen={mobileSidebarOpen}
+            onMobileClose={() => setMobileSidebarOpen(false)}
+          />
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            <TopStrip onOpenMobileSidebar={() => setMobileSidebarOpen(true)} />
             <EnvironmentUrlSync />
             <main className="epure-app-shell-main flex min-h-0 flex-1 flex-col overflow-hidden bg-bg">
               <Routes>

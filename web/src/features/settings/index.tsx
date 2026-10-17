@@ -6,6 +6,7 @@ import { PageChrome } from "../../ui/page-chrome";
 import { SettingsNav } from "../../ui/settings-nav";
 import { DsnKeysSettings } from "./dsn-keys";
 import { ProjectGeneralSettings } from "./project-general";
+import { InboundFiltersSettings } from "./inbound-filters";
 import { AlertRulesSettings } from "./alert-rules";
 import { WebhooksSettings } from "./webhooks";
 
@@ -28,6 +29,7 @@ export function SettingsPage() {
           <div className="mx-auto max-w-default space-y-4">
             <Routes>
               <Route index element={<ProjectGeneralSettings />} />
+              <Route path="filters" element={<InboundFiltersSettings />} />
               <Route path="dsn" element={<DsnKeysSettings />} />
               <Route path="webhooks" element={<WebhooksSettings />} />
               <Route path="alerts" element={<AlertRulesSettings />} />

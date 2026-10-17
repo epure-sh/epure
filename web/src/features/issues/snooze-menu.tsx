@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { Clock } from "lucide-react";
 import type { IssueSummary, SnoozeMode } from "../../lib/api";
+import { cn } from "../../lib/cn";
 import { Button, type ButtonProps } from "../../ui/button";
 import {
   DropdownMenu,
@@ -14,6 +16,9 @@ interface SnoozeMenuProps {
   issue: IssueSummary;
   disabled?: boolean;
   buttonSize?: ButtonProps["size"];
+  variant?: ButtonProps["variant"];
+  showShortcutHint?: boolean;
+  className?: string;
   onSnooze: (mode: SnoozeMode) => Promise<void>;
 }
 
@@ -100,6 +105,9 @@ export function SnoozeMenu({
   issue,
   disabled = false,
   buttonSize = "toolbar",
+  variant = "ghost",
+  showShortcutHint = false,
+  className,
   onSnooze,
 }: SnoozeMenuProps) {
   const [pending, setPending] = useState(false);
@@ -126,18 +134,25 @@ export function SnoozeMenu({
     }
   }
 
-  const label = pending ? "Snoozing…" : issue.snoozed ? "Snoozed" : "Snooze";
+  const label = pending
+    ? "Snoozing…"
+    : issue.snoozed
+      ? "Snoozed"
+      : showShortcutHint
+        ? "Snooze (S)"
+        : "Snooze";
 
   const trigger = (
     <Button
-      variant="ghost"
+      variant={variant}
       size={buttonSize}
-      className="h-control shrink-0"
+      className={cn("h-control shrink-0", className)}
       disabled={triggerDisabled}
       aria-busy={pending || undefined}
       aria-pressed={issue.snoozed || undefined}
     >
-      {label}
+      <Clock className="mr-1.5 h-3.5 w-3.5 text-ink-muted" />
+      <span>{label}</span>
     </Button>
   );
 

@@ -7,17 +7,18 @@ import {
 } from "react";
 
 const STORAGE_KEY = "epure-issue-detail-width";
-const DEFAULT_WIDTH = 540;
-/** Matches --chrome-detail-min-width in design/tokens.css */
-const MIN_WIDTH = 640;
+const DEFAULT_WIDTH = 720;
+const MIN_WIDTH = 580;
 
 function readStoredWidth(): number {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) {
+  if (typeof window === "undefined") {
     return DEFAULT_WIDTH;
   }
-  const parsed = Number.parseInt(stored, 10);
-  return Number.isFinite(parsed) ? parsed : DEFAULT_WIDTH;
+  const stored = localStorage.getItem(STORAGE_KEY);
+  const parsed = stored ? Number.parseInt(stored, 10) : DEFAULT_WIDTH;
+  const valid = Number.isFinite(parsed) ? parsed : DEFAULT_WIDTH;
+  const minAllowed = Math.min(MIN_WIDTH, window.innerWidth);
+  return Math.min(window.innerWidth, Math.max(minAllowed, valid));
 }
 
 export interface UseResizableIssueDetailResult {

@@ -98,8 +98,27 @@ export function inferTrendStatus(
 }
 
 export function issueLocationHint(issue: IssueSummary): string | null {
-  if (issue.environment) {
-    return issue.environment === "production" ? null : issue.environment;
+  const title = issue.title ?? "";
+
+  // 1. Look for explicit file/location hints in title: "in filename.ts:123" or "at filename.ts:123"
+  const fileMatch = title.match(/(?:in|at)\s+([a-zA-Z0-9_\-./]+\.[a-zA-Z0-9]+(?::\d+)?)/i);
+  if (fileMatch?.[1]) {
+    const parts = fileMatch[1].split("/");
+    return parts.slice(-2).join("/");
+  }
+
+  // 2. Look for property or function calls: "(reading 'xyz')" -> ".xyz"
+  const propMatch = title.match(/\(reading\s+['"]([^'"]+)['"]\)/);
+  if (propMatch?.[1]) {
+    return `.${propMatch[1]}`;
+  }
+
+  // 3. Fallback to release or non-production environment if available
+  if (issue.release) {
+    return issue.release;
+  }
+  if (issue.environment && issue.environment !== "production") {
+    return issue.environment;
   }
   return null;
 }

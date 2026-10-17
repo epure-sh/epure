@@ -66,6 +66,50 @@ pub async fn persist_counter_only(
     Ok((prior, issue_id))
 }
 
+pub struct PersistCounterDelta {
+    pub org_id: Uuid,
+    pub project_id: Uuid,
+    pub fingerprint: String,
+    pub count_delta: i64,
+    pub occurred_at: DateTime<Utc>,
+    pub window_start: DateTime<Utc>,
+}
+
+pub async fn persist_counter_delta(
+    pool: &PgPool,
+    params: PersistCounterDelta,
+) -> Result<Uuid, sqlx::Error> {
+    let mut tx = rls::begin_ingest_transaction(pool, params.org_id).await?;
+    let issue_id = upsert_issue_in_tx(
+        &mut tx,
+        UpsertIssueParams {
+            org_id: params.org_id,
+            project_id: params.project_id,
+            fingerprint: params.fingerprint.clone(),
+            title: None,
+            level: None,
+            environment: None,
+            release: None,
+            occurred_at: params.occurred_at,
+            increment_by: params.count_delta,
+        },
+    )
+    .await?;
+    sync_counter_in_tx(
+        &mut tx,
+        SyncCounterParams {
+            project_id: params.project_id,
+            fingerprint: params.fingerprint,
+            window_start: params.window_start,
+            count_delta: params.count_delta,
+            bodies_stored_delta: 0,
+        },
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(issue_id)
+}
+
 pub async fn persist_store_event(
     pool: &PgPool,
     params: PersistStoreEvent,

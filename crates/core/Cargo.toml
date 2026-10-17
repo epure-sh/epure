@@ -1,0 +1,11 @@
+[package]
+name = "epure-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+uuid = { workspace = true, features = ["serde"] }
+chrono = { workspace = true, features = ["serde"] }
+thiserror = { workspace = true }

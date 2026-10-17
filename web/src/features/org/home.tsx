@@ -1,4 +1,4 @@
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -24,6 +24,7 @@ export function OrgHomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { projects, refreshProjects, user, setProjectId } = useAppContext();
   const [newProjectName, setNewProjectName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [statsByProject, setStatsByProject] = useState<Map<string, HeadlineStats>>(new Map());
   const [activityByProject, setActivityByProject] = useState<Map<string, TimelineBucket[]>>(
@@ -40,6 +41,14 @@ export function OrgHomePage() {
 
   const canManage = user?.role === "owner" || user?.role === "admin";
   const canDeleteProjects = user?.role === "owner";
+
+  const filteredProjects = useMemo(() => {
+    if (!searchQuery.trim()) return projects;
+    const q = searchQuery.toLowerCase().trim();
+    return projects.filter(
+      (p) => p.name.toLowerCase().includes(q) || (p.slug && p.slug.toLowerCase().includes(q)),
+    );
+  }, [projects, searchQuery]);
 
   const selectedProjects = useMemo(
     () => projects.filter((project) => selectedIds.has(project.id)),
@@ -286,10 +295,34 @@ export function OrgHomePage() {
         }
       />
 
-      <div className="flex-1 overflow-auto bg-bg px-4 py-4">
-        <div className="space-y-4">
+      <div className="flex-1 overflow-auto bg-bg px-4 py-5 md:px-6">
+        <div className="mx-auto max-w-7xl space-y-4">
+          {projects.length > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-1 select-none">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-ink">Active Projects</span>
+                <span className="rounded-full bg-bg-subtle px-2 py-0.5 font-mono text-[11px] font-medium text-ink-muted border border-border/60">
+                  {filteredProjects.length}
+                  {filteredProjects.length !== projects.length ? ` of ${projects.length}` : ""}
+                </span>
+              </div>
+
+              {projects.length >= 2 ? (
+                <div className="relative w-56 sm:w-64">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-subtle pointer-events-none" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Filter by name or slug…"
+                    className="h-8 pl-8 text-xs bg-surface border-border/80"
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           <ProjectList
-            projects={projects}
+            projects={filteredProjects}
             statsByProject={statsByProject}
             activityByProject={activityByProject}
             loading={statsLoading}

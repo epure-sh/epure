@@ -59,3 +59,56 @@ pub async fn begin_ingest_transaction(
         .await?;
     Ok(tx)
 }
+
+/// RAII transaction wrapper guaranteeing transaction-scoped tenant isolation.
+pub struct TenantTx<'a> {
+    tx: Transaction<'a, Postgres>,
+    org_id: Uuid,
+}
+
+impl<'a> TenantTx<'a> {
+    pub async fn begin_org(pool: &'a PgPool, org_id: Uuid) -> Result<Self, sqlx::Error> {
+        let tx = begin_org_transaction(pool, org_id).await?;
+        Ok(Self { tx, org_id })
+    }
+
+    pub async fn begin_ingest(pool: &'a PgPool, org_id: Uuid) -> Result<Self, sqlx::Error> {
+        let tx = begin_ingest_transaction(pool, org_id).await?;
+        Ok(Self { tx, org_id })
+    }
+
+    pub fn org_id(&self) -> Uuid {
+        self.org_id
+    }
+
+    pub fn tx(&mut self) -> &mut Transaction<'a, Postgres> {
+        &mut self.tx
+    }
+
+    pub fn conn(&mut self) -> &mut sqlx::PgConnection {
+        &mut self.tx
+    }
+
+    pub async fn commit(self) -> Result<(), sqlx::Error> {
+        self.tx.commit().await
+    }
+
+    pub async fn rollback(self) -> Result<(), sqlx::Error> {
+        self.tx.rollback().await
+    }
+}
+
+impl<'a> std::ops::Deref for TenantTx<'a> {
+    type Target = Transaction<'a, Postgres>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.tx
+    }
+}
+
+impl<'a> std::ops::DerefMut for TenantTx<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.tx
+    }
+}
+

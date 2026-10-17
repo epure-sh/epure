@@ -41,9 +41,14 @@ import {
 } from "../ui/command";
 
 const FOCUS_QUERY_EVENT = "epure:focus-query";
+const OPEN_COMMAND_PALETTE_EVENT = "epure:open-command-palette";
 
 export function dispatchFocusQuery() {
   window.dispatchEvent(new CustomEvent(FOCUS_QUERY_EVENT));
+}
+
+export function dispatchOpenCommandPalette() {
+  window.dispatchEvent(new CustomEvent(OPEN_COMMAND_PALETTE_EVENT));
 }
 
 export function useFocusQueryListener(callback: () => void) {
@@ -78,8 +83,13 @@ export function CommandPalette() {
         setOpen((current) => !current);
       }
     };
+    const onOpenEvent = () => setOpen(true);
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpenEvent);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpenEvent);
+    };
   }, []);
 
   useEffect(() => subscribeIssuesTriage(() => setTriageVersion((v) => v + 1)), []);
@@ -111,6 +121,23 @@ export function CommandPalette() {
             Billing
           </CommandItem>
         </CommandGroup>
+        {projects.length > 0 ? (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="Projects & Client Workspaces">
+              {projects.map((p) => (
+                <CommandItem
+                  key={p.id}
+                  onSelect={() => run(() => navigate(projectPath(p.id, "issues")))}
+                >
+                  <CircleDot className="h-4 w-4 text-signal" />
+                  {p.name}
+                  <span className="text-2xs text-ink-muted">/{p.slug}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        ) : null}
         {inProject ? (
           <>
             <CommandSeparator />

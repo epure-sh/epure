@@ -30,7 +30,7 @@ import {
   usageWindowDays,
 } from "./usage-utils";
 
-const CLOUD_CURRENT_PLAN: PlanId = "pro";
+const CLOUD_CURRENT_PLAN: PlanId = "builder_pro";
 
 interface OrgUsageSettingsProps {
   window: UsageTimeWindow;

@@ -1,4 +1,4 @@
-use epure_auth::{CredentialAuth, DsnValidator, GoogleAuth, PostgresStore};
+use epure_auth::{CredentialAuth, DsnValidator, GitHubAuth, GoogleAuth, PostgresStore};
 use epure_storage::StoragePools;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -22,5 +22,6 @@ pub struct AppState {
     pub artifacts_dir: PathBuf,
     pub credentials: CredentialAuth,
     pub google: Option<GoogleAuth>,
+    pub github: Option<GitHubAuth>,
     pub session_layer: SessionManagerLayer<PostgresStore>,
 }

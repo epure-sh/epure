@@ -1,14 +1,7 @@
-import { useLocation } from "react-router-dom";
-import { isProjectRoute } from "../lib/paths";
-import { OrgRail } from "./org-rail";
-import { ProjectRail } from "./project-rail";
-
+/**
+ * ShellRail is retired in favor of the consolidated 44px top navigation bar,
+ * maximizing horizontal feed width and eliminating dual-chrome conflicts.
+ */
 export function ShellRail() {
-  const { pathname } = useLocation();
-
-  if (isProjectRoute(pathname)) {
-    return <ProjectRail />;
-  }
-
-  return <OrgRail />;
+  return null;
 }
