@@ -1,6 +1,6 @@
-# @epure/mcp
+# @epure-sh/mcp
 
-[![npm version](https://img.shields.io/npm/v/@epure/mcp.svg)](https://www.npmjs.com/package/@epure/mcp)
+[![npm version](https://img.shields.io/npm/v/@epure-sh/mcp.svg)](https://www.npmjs.com/package/@epure-sh/mcp)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 > Surgical `<600`-token Model Context Protocol (MCP) server for [Epure](https://epure.sh) with built-in Agentjacking prompt-injection defense.
@@ -23,7 +23,7 @@
 ### Claude Code
 
 ```bash
-claude mcp add epure -- npx -y @epure/mcp --token <YOUR_EPURE_TOKEN>
+claude mcp add epure -- npx -y @epure-sh/mcp --token <YOUR_EPURE_TOKEN>
 ```
 
 ### Cursor (`.cursor/mcp.json`)
@@ -33,7 +33,7 @@ claude mcp add epure -- npx -y @epure/mcp --token <YOUR_EPURE_TOKEN>
   "mcpServers": {
     "epure": {
       "command": "npx",
-      "args": ["-y", "@epure/mcp", "--token", "epk_live_..."]
+      "args": ["-y", "@epure-sh/mcp", "--token", "epk_live_..."]
     }
   }
 }
@@ -42,7 +42,7 @@ claude mcp add epure -- npx -y @epure/mcp --token <YOUR_EPURE_TOKEN>
 ### Self-Hosted Epure Instance
 
 ```bash
-claude mcp add epure -- npx -y @epure/mcp --endpoint https://errors.mycompany.com --token <TOKEN>
+claude mcp add epure -- npx -y @epure-sh/mcp --endpoint https://errors.mycompany.com --token <TOKEN>
 ```
 
 ---
@@ -57,7 +57,7 @@ claude mcp add epure -- npx -y @epure/mcp --endpoint https://errors.mycompany.co
 
 ## Agentjacking Defense
 
-Public Sentry DSNs can receive poisoned exception values designed to manipulate LLM agents (e.g. Cursor or Claude Code). `@epure/mcp` sanitizes untrusted exception payloads by:
+Public Sentry DSNs can receive poisoned exception values designed to manipulate LLM agents (e.g. Cursor or Claude Code). `@epure-sh/mcp` sanitizes untrusted exception payloads by:
 - Neutralizing prompt-injection directives (`system:`, `instructions:`, `<instructions>`).
 - Escaping markdown fences (` ``` `).
 - Isolating stack data within defensive context boundaries.

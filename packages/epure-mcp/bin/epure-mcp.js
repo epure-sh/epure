@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * @epure/mcp - Surgical <600-token Model Context Protocol server for Epure
+ * @epure-sh/mcp - Surgical <600-token Model Context Protocol server for Epure
  * Implements MCP stdio transport with Agentjacking prompt-injection defense.
  */
 
@@ -19,11 +19,11 @@ let isDemo = false;
 
 if (args.includes('--help') || args.includes('-h')) {
   console.log(`
-@epure/mcp - Surgical <600-token Model Context Protocol server for Epure
+@epure-sh/mcp - Surgical <600-token Model Context Protocol server for Epure
 
 Usage:
-  npx @epure/mcp --token <token> [--endpoint <url>]
-  claude mcp add epure -- npx -y @epure/mcp --token epk_...
+  npx @epure-sh/mcp --token <token> [--endpoint <url>]
+  claude mcp add epure -- npx -y @epure-sh/mcp --token epk_...
 
 Options:
   --token, -t     Epure API PAT or Project Key (or EPURE_TOKEN env var)
@@ -108,7 +108,7 @@ function forwardToRemote(reqBody) {
     const headers = {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(postData),
-      'User-Agent': '@epure/mcp/0.1.7',
+      'User-Agent': '@epure-sh/mcp/0.1.7',
     };
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;

@@ -1,5 +1,5 @@
 {
-  "name": "@epure/mcp",
+  "name": "@epure-sh/mcp",
   "version": "0.1.7",
   "description": "Surgical <600-token Model Context Protocol server for Epure with Agentjacking prompt-injection defense",
   "bin": {

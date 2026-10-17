@@ -60,7 +60,7 @@ jobs:
         working-directory: web
         run: npm ci && npm run build
 
-      - name: Verify @epure/mcp CLI package
+      - name: Verify @epure-sh/mcp CLI package
         working-directory: packages/epure-mcp
         run: node bin/epure-mcp.js --help || true
 
