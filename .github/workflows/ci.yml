@@ -60,9 +60,13 @@ jobs:
         working-directory: web
         run: npm ci && npm run build
 
-      - name: Verify @epure-sh/mcp CLI package
+      - name: Verify @epure-sh/mcp package
         working-directory: packages/epure-mcp
         run: node bin/epure-mcp.js --help || true
+
+      - name: Verify @epure-sh/cli package
+        working-directory: packages/epure-cli
+        run: node bin/epure-cli.js --help || true
 
       - name: Format Check
         run: cargo fmt --all -- --check

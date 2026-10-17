@@ -1,0 +1,33 @@
+{
+  "name": "@epure-sh/cli",
+  "version": "0.1.7",
+  "description": "Official CLI for Epure: error triage, issue queues, demangled stack traces, and Agent API inspection",
+  "bin": {
+    "epure": "./bin/epure-cli.js",
+    "epure-cli": "./bin/epure-cli.js"
+  },
+  "files": [
+    "bin",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "epure",
+    "cli",
+    "error-tracking",
+    "sentry",
+    "triage",
+    "monitoring",
+    "telemetry",
+    "developer-tools"
+  ],
+  "author": "Epure <team@epure.sh>",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/epure-sh/epure.git",
+    "directory": "packages/epure-cli"
+  }
+}
