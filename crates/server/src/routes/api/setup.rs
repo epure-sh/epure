@@ -7,15 +7,15 @@ use axum::{
     routing::{get, post},
     Extension, Json, Router,
 };
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Timelike, Utc};
 use epure_auth::DashboardSession;
-use epure_envelope::{parse_envelope, preview_fingerprint, EnvelopeError};
+use epure_envelope::{parse_envelope, EnvelopeError};
 use epure_storage::setup::{PatchSetupProgress, SetupProgressRow};
 use epure_storage::{dsn_keys, projects, setup};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use uuid::Uuid;
 
-use crate::pipeline::mpsc::IngestJob;
 use crate::state::AppState;
 
 const TEST_ENVELOPE: &[u8] = include_bytes!("../../../../../fixtures/sentry/browser/envelope.txt");
@@ -167,23 +167,88 @@ async fn post_test_event(
         Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
     };
 
-    let fingerprint = preview_fingerprint(&parsed.event_payload);
+    let payload = epure_envelope::decompress_store_payload(&parsed.event_payload)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let mut payload_json: Value =
+        serde_json::from_slice(&payload).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let now = Utc::now();
+    let fingerprint = epure_envelope::compute_fingerprint(&payload_json);
+    epure_envelope::scrub_event(&mut payload_json);
+    let breadcrumbs = epure_envelope::extract_breadcrumbs(&payload_json);
+    let breadcrumbs_json = epure_envelope::breadcrumbs_to_json(&breadcrumbs);
+    let metadata =
+        epure_envelope::normalize_metadata(&payload_json, Some("epure-setup-test"), None, None);
+    let release = payload_json
+        .get("release")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let user_key = epure_storage::unique_users::user_key(
+        metadata.user_id.as_deref(),
+        metadata.user_email.as_deref(),
+    );
     let event_id = Uuid::new_v4();
 
-    let job = IngestJob::StoreEvent {
-        event_id,
-        project_id: query.project_id,
-        org_id: dashboard.org_id,
-        fingerprint,
-        payload: parsed.event_payload,
-        user_agent: Some("epure-setup-test".to_string()),
-        client_ip: None,
-        country_code_hint: None,
-    };
+    let window_start = now
+        .date_naive()
+        .and_hms_opt(now.hour(), 0, 0)
+        .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+        .unwrap_or(now);
 
-    if state.ingest_tx.send(job).await.is_err() {
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    }
+    epure_storage::persist::persist_store_event(
+        &state.pools.ingest,
+        epure_storage::persist::PersistStoreEvent {
+            upsert: epure_storage::issues::UpsertIssueParams {
+                org_id: dashboard.org_id,
+                project_id: query.project_id,
+                fingerprint: fingerprint.clone(),
+                title: epure_storage::issues::title_from_event(&payload_json),
+                level: payload_json
+                    .get("level")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                environment: metadata.environment.clone(),
+                release: release.clone(),
+                occurred_at: now,
+                increment_by: 1,
+            },
+            event: epure_storage::events::InsertEventParams {
+                id: event_id,
+                org_id: dashboard.org_id,
+                project_id: query.project_id,
+                issue_id: Uuid::nil(),
+                occurred_at: now,
+                environment: metadata.environment.clone(),
+                release: release.clone(),
+                platform: payload_json
+                    .get("platform")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                runtime_name: metadata.runtime_name.clone(),
+                runtime_version: metadata.runtime_version.clone(),
+                browser_name: metadata.browser_name.clone(),
+                os_name: metadata.os_name.clone(),
+                country_code: metadata.country_code.clone(),
+                user_id: metadata.user_id.clone(),
+                user_email: metadata.user_email.clone(),
+                payload_json,
+                stack_frames: Some(Value::Array(Vec::new())),
+                breadcrumbs: Some(breadcrumbs_json),
+            },
+            user_key,
+            counter: epure_storage::counters::SyncCounterParams {
+                project_id: query.project_id,
+                fingerprint,
+                window_start,
+                count_delta: 1,
+                bodies_stored_delta: 1,
+            },
+        },
+    )
+    .await
+    .map_err(|err| {
+        tracing::error!("failed to persist setup test event: {err}");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     Ok((
         StatusCode::ACCEPTED,
