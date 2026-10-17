@@ -29,6 +29,8 @@ services:
       EPURE_WEBHOOK_ALLOW_PRIVATE: ${EPURE_WEBHOOK_ALLOW_PRIVATE:-}
       # Unset = public registration open. false closes new workspaces; login and invites stay.
       EPURE_REGISTRATION: ${EPURE_REGISTRATION:-}
+      # Model Context Protocol server (deactivated by default on OSS)
+      EPURE_MCP_ENABLED: ${EPURE_MCP_ENABLED:-false}
       # Cloud only — leave empty for OSS.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}

@@ -157,6 +157,14 @@ impl GitHubAuth {
             .await?;
 
         if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            tracing::warn!(
+                status = %status,
+                body = %body,
+                redirect_uri = %self.redirect_uri,
+                "github oauth token exchange failed"
+            );
             return Err(GitHubAuthError::TokenExchange);
         }
 

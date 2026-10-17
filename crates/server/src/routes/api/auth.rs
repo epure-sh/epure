@@ -65,6 +65,7 @@ struct AuthConfigResponse {
     password_enabled: bool,
     registration_enabled: bool,
     session_secure: bool,
+    mcp_enabled: bool,
 }
 
 #[derive(Serialize)]
@@ -97,14 +98,45 @@ struct DeleteAccountBody {
 }
 
 #[derive(Deserialize)]
-struct GoogleCallbackQuery {
-    code: String,
-    state: String,
+struct OAuthCallbackQuery {
+    code: Option<String>,
+    state: Option<String>,
+    error: Option<String>,
 }
 
 #[derive(Deserialize)]
 struct GoogleStartQuery {
     invite: Option<String>,
+}
+
+fn oauth_login_redirect(error: &str) -> Response {
+    Redirect::to(&format!("/login?error={error}")).into_response()
+}
+
+#[allow(clippy::result_large_err)]
+fn parse_oauth_callback(query: &OAuthCallbackQuery) -> Result<(String, String), Response> {
+    if query
+        .error
+        .as_deref()
+        .is_some_and(|value| !value.is_empty())
+    {
+        return Err(oauth_login_redirect("oauth_denied"));
+    }
+    match (
+        query.code.as_deref().filter(|v| !v.is_empty()),
+        query.state.as_deref().filter(|v| !v.is_empty()),
+    ) {
+        (Some(code), Some(state)) => Ok((code.to_string(), state.to_string())),
+        _ => Err(oauth_login_redirect("oauth_invalid")),
+    }
+}
+
+async fn oauth_begin_session(session: &Session) -> Result<(), StatusCode> {
+    // Drop stale browser cookies whose id is missing from the store (common after DB resets).
+    session
+        .cycle_id()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
 async fn auth_config(State(state): State<Arc<AppState>>) -> Json<AuthConfigResponse> {
@@ -114,6 +146,7 @@ async fn auth_config(State(state): State<Arc<AppState>>) -> Json<AuthConfigRespo
         password_enabled: true,
         registration_enabled: registration_enabled(),
         session_secure: session_secure_enabled(),
+        mcp_enabled: state.mcp_enabled,
     })
 }
 
@@ -171,6 +204,7 @@ async fn google_start(
 ) -> Result<Response, StatusCode> {
     // Cloud only — 404 when GOOGLE_CLIENT_ID / SECRET are unset (OSS default).
     let google = state.google.as_ref().ok_or(StatusCode::NOT_FOUND)?;
+    oauth_begin_session(&session).await?;
     let state_token = GoogleAuth::generate_state();
     session
         .insert(OAUTH_STATE_KEY, state_token.clone())
@@ -203,17 +237,32 @@ async fn google_start(
 async fn google_callback(
     State(state): State<Arc<AppState>>,
     session: Session,
-    Query(query): Query<GoogleCallbackQuery>,
+    Query(query): Query<OAuthCallbackQuery>,
 ) -> Result<Response, StatusCode> {
     let google = state.google.as_ref().ok_or(StatusCode::NOT_FOUND)?;
-    let expected_state = session
+    let (code, state_param) = match parse_oauth_callback(&query) {
+        Ok(values) => values,
+        Err(response) => {
+            tracing::warn!("google oauth callback rejected: missing or denied parameters");
+            return Ok(response);
+        }
+    };
+
+    let expected_state = match session
         .get::<String>(OAUTH_STATE_KEY)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .ok_or(StatusCode::UNAUTHORIZED)?;
+    {
+        Some(value) => value,
+        None => {
+            tracing::warn!("google oauth callback: session missing oauth state (stale cookie?)");
+            return Ok(oauth_login_redirect("oauth_state"));
+        }
+    };
 
-    if expected_state != query.state {
-        return Err(StatusCode::UNAUTHORIZED);
+    if expected_state != state_param {
+        tracing::warn!("google oauth callback: state mismatch");
+        return Ok(oauth_login_redirect("oauth_state"));
     }
 
     let invite_token = session
@@ -222,14 +271,17 @@ async fn google_callback(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let dashboard = match google
-        .authenticate_code(&query.code, invite_token.as_deref())
+        .authenticate_code(&code, invite_token.as_deref())
         .await
     {
         Ok(dashboard) => dashboard,
         Err(GoogleAuthError::RegistrationClosed) => {
             return Ok(Redirect::to("/login?error=registration_closed").into_response());
         }
-        Err(error) => return Err(map_google_error(error)),
+        Err(error) => {
+            tracing::warn!("google oauth token exchange failed: {error}");
+            return Ok(oauth_login_redirect("oauth_google"));
+        }
     };
 
     let generation = credential_generation(&state, dashboard.user_id).await?;
@@ -238,12 +290,6 @@ async fn google_callback(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Redirect::to("/").into_response())
-}
-
-#[derive(Deserialize)]
-struct GitHubCallbackQuery {
-    code: String,
-    state: String,
 }
 
 #[derive(Deserialize)]
@@ -257,6 +303,7 @@ async fn github_start(
     Query(query): Query<GitHubStartQuery>,
 ) -> Result<Response, StatusCode> {
     let github = state.github.as_ref().ok_or(StatusCode::NOT_FOUND)?;
+    oauth_begin_session(&session).await?;
     let state_token = GitHubAuth::generate_state();
     session
         .insert(OAUTH_STATE_KEY, state_token.clone())
@@ -289,17 +336,32 @@ async fn github_start(
 async fn github_callback(
     State(state): State<Arc<AppState>>,
     session: Session,
-    Query(query): Query<GitHubCallbackQuery>,
+    Query(query): Query<OAuthCallbackQuery>,
 ) -> Result<Response, StatusCode> {
     let github = state.github.as_ref().ok_or(StatusCode::NOT_FOUND)?;
-    let expected_state = session
+    let (code, state_param) = match parse_oauth_callback(&query) {
+        Ok(values) => values,
+        Err(response) => {
+            tracing::warn!("github oauth callback rejected: missing or denied parameters");
+            return Ok(response);
+        }
+    };
+
+    let expected_state = match session
         .get::<String>(OAUTH_STATE_KEY)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .ok_or(StatusCode::UNAUTHORIZED)?;
+    {
+        Some(value) => value,
+        None => {
+            tracing::warn!("github oauth callback: session missing oauth state (stale cookie?)");
+            return Ok(oauth_login_redirect("oauth_state"));
+        }
+    };
 
-    if expected_state != query.state {
-        return Err(StatusCode::UNAUTHORIZED);
+    if expected_state != state_param {
+        tracing::warn!("github oauth callback: state mismatch");
+        return Ok(oauth_login_redirect("oauth_state"));
     }
 
     let invite_token = session
@@ -308,14 +370,17 @@ async fn github_callback(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let dashboard = match github
-        .authenticate_code(&query.code, invite_token.as_deref())
+        .authenticate_code(&code, invite_token.as_deref())
         .await
     {
         Ok(dashboard) => dashboard,
         Err(GitHubAuthError::RegistrationClosed) => {
             return Ok(Redirect::to("/login?error=registration_closed").into_response());
         }
-        Err(error) => return Err(map_github_error(error)),
+        Err(error) => {
+            tracing::warn!("github oauth failed: {error}");
+            return Ok(oauth_login_redirect("oauth_github"));
+        }
     };
 
     let generation = credential_generation(&state, dashboard.user_id).await?;
@@ -549,29 +614,5 @@ fn map_credential_error(error: CredentialError) -> StatusCode {
         CredentialError::Password(_) | CredentialError::Sqlx(_) => {
             StatusCode::INTERNAL_SERVER_ERROR
         }
-    }
-}
-
-fn map_google_error(error: GoogleAuthError) -> StatusCode {
-    match error {
-        GoogleAuthError::InvalidState
-        | GoogleAuthError::TokenExchange
-        | GoogleAuthError::UserInfo => StatusCode::UNAUTHORIZED,
-        GoogleAuthError::InvalidInviteToken => StatusCode::BAD_REQUEST,
-        GoogleAuthError::RegistrationClosed => StatusCode::FORBIDDEN,
-        GoogleAuthError::NotConfigured => StatusCode::NOT_FOUND,
-        GoogleAuthError::Http(_) | GoogleAuthError::Sqlx(_) => StatusCode::INTERNAL_SERVER_ERROR,
-    }
-}
-
-fn map_github_error(error: GitHubAuthError) -> StatusCode {
-    match error {
-        GitHubAuthError::InvalidState
-        | GitHubAuthError::TokenExchange
-        | GitHubAuthError::UserInfo => StatusCode::UNAUTHORIZED,
-        GitHubAuthError::InvalidInviteToken => StatusCode::BAD_REQUEST,
-        GitHubAuthError::RegistrationClosed => StatusCode::FORBIDDEN,
-        GitHubAuthError::NotConfigured => StatusCode::NOT_FOUND,
-        GitHubAuthError::Http(_) | GitHubAuthError::Sqlx(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }

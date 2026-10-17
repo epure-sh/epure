@@ -8,6 +8,10 @@ use tracing_subscriber::EnvFilter;
 struct Cli {
     #[arg(long, default_value = "all", env = "EPURE_MODE")]
     mode: String,
+
+    /// Activate embedded Model Context Protocol (MCP) server (deactivated by default on OSS)
+    #[arg(long, env = "EPURE_MCP_ENABLED", default_value_t = false)]
+    enable_mcp: bool,
 }
 
 #[tokio::main]
@@ -23,10 +27,20 @@ async fn main() {
         std::process::exit(1);
     }
 
+    if cli.enable_mcp {
+        std::env::set_var("EPURE_MCP_ENABLED", "true");
+    }
+
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let runtime = init_runtime(&database_url)
         .await
         .expect("failed to initialize epure runtime");
+
+    if runtime.state.mcp_enabled {
+        tracing::info!("Model Context Protocol (MCP) server is active (/mcp and /api/mcp)");
+    } else {
+        tracing::info!("Model Context Protocol (MCP) server is deactivated (enable via EPURE_MCP_ENABLED=true or --enable-mcp)");
+    }
 
     let bind = std::env::var("EPURE_BIND").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
     let addr: SocketAddr = bind

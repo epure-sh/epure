@@ -27,11 +27,21 @@ export function ConnectedAppsTab() {
   const [apps, setApps] = useState<ConnectedAppRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [mcpEnabled, setMcpEnabled] = useState<boolean>(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setApps(await fetchConnectedApps());
+      const [appList, authConfig] = await Promise.all([
+        fetchConnectedApps(),
+        fetch("/api/v1/auth/config", { credentials: "include" })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
+      ]);
+      setApps(appList);
+      if (authConfig && typeof authConfig.mcp_enabled === "boolean") {
+        setMcpEnabled(authConfig.mcp_enabled);
+      }
     } catch {
       toast("Failed to load connected apps");
     } finally {
@@ -58,6 +68,48 @@ export function ConnectedAppsTab() {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Bot size={18} className="text-accent" />
+                Embedded MCP Server
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Model Context Protocol server for Cursor, Claude Code, and autonomous AI agents.
+              </CardDescription>
+            </div>
+            <Badge variant={mcpEnabled ? "default" : "secondary"} className="text-[10px]">
+              {mcpEnabled ? "Active" : "Deactivated (Default)"}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="text-xs text-ink-muted space-y-2">
+          {mcpEnabled ? (
+            <p>
+              The embedded MCP server is active on this instance. Point Cursor or Claude Code to:
+              <br />
+              <code className="mt-1.5 inline-block rounded border border-border bg-surface-muted px-2 py-1 font-mono text-[11px] text-ink">
+                {window.location.origin}/mcp
+              </code>
+            </p>
+          ) : (
+            <div>
+              <p>
+                On open-source installations, the embedded MCP server is deactivated by default.
+                To activate it, set the environment variable in your <code className="font-mono text-ink">.env</code>:
+              </p>
+              <pre className="mt-2 rounded border border-border bg-surface-muted p-2 font-mono text-[11px] text-ink overflow-x-auto">
+                EPURE_MCP_ENABLED=true
+              </pre>
+              <p className="mt-1.5 text-[11px] text-ink-subtle">
+                Or launch the server binary with <code className="font-mono text-ink-muted">--enable-mcp</code>.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>Connected Apps & CLI</CardTitle>

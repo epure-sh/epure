@@ -24,4 +24,5 @@ pub struct AppState {
     pub google: Option<GoogleAuth>,
     pub github: Option<GitHubAuth>,
     pub session_layer: SessionManagerLayer<PostgresStore>,
+    pub mcp_enabled: bool,
 }

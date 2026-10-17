@@ -50,6 +50,27 @@ fn bind_is_loopback() -> bool {
     }
 }
 
+/// Parse whether the MCP server is enabled from an optional string value.
+/// Defaults to false (deactivated by default on OSS installation).
+pub fn parse_mcp_enabled(val: Option<&str>) -> bool {
+    match val {
+        Some(v) => {
+            let s = v.trim();
+            s == "1"
+                || s.eq_ignore_ascii_case("true")
+                || s.eq_ignore_ascii_case("yes")
+                || s.eq_ignore_ascii_case("on")
+        }
+        None => false,
+    }
+}
+
+pub fn is_mcp_enabled_env() -> bool {
+    std::env::var("EPURE_MCP_ENABLED")
+        .map(|value| parse_mcp_enabled(Some(&value)))
+        .unwrap_or(false)
+}
+
 pub async fn init_runtime(
     database_url: &str,
 ) -> Result<ServerRuntime, Box<dyn std::error::Error + Send + Sync>> {
@@ -131,6 +152,8 @@ pub async fn init_runtime(
     let google = GoogleAuth::from_env(app.clone());
     let github = GitHubAuth::from_env(app);
 
+    let mcp_enabled = is_mcp_enabled_env();
+
     let state = Arc::new(AppState {
         pools: pools.clone(),
         dsn_validator,
@@ -144,6 +167,7 @@ pub async fn init_runtime(
         google,
         github,
         session_layer,
+        mcp_enabled,
     });
 
     Ok(ServerRuntime {
@@ -164,4 +188,29 @@ pub fn router_for_with_extensions(
     extensions: axum::Router,
 ) -> axum::Router {
     routes::router_with_extensions(runtime.state.clone(), extensions)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mcp_is_deactivated_by_default() {
+        assert!(!parse_mcp_enabled(None));
+        assert!(!parse_mcp_enabled(Some("")));
+        assert!(!parse_mcp_enabled(Some("0")));
+        assert!(!parse_mcp_enabled(Some("false")));
+        assert!(!parse_mcp_enabled(Some("FALSE")));
+        assert!(!parse_mcp_enabled(Some("no")));
+        assert!(!parse_mcp_enabled(Some("off")));
+    }
+
+    #[test]
+    fn mcp_activates_on_truthy_flags() {
+        assert!(parse_mcp_enabled(Some("1")));
+        assert!(parse_mcp_enabled(Some("true")));
+        assert!(parse_mcp_enabled(Some("TRUE")));
+        assert!(parse_mcp_enabled(Some("yes")));
+        assert!(parse_mcp_enabled(Some("on")));
+    }
 }

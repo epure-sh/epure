@@ -104,9 +104,22 @@ export function LoginPage() {
   const googleEnabled = isCloudSocialSignInVisible(authConfig?.google_enabled);
   const githubEnabled = isCloudSocialSignInVisible(authConfig?.github_enabled);
   const socialSignInEnabled = googleEnabled || githubEnabled;
+  const oauthError = searchParams.get("error");
   const registrationClosed =
-    searchParams.get("error") === "registration_closed" ||
+    oauthError === "registration_closed" ||
     authConfig?.registration_enabled === false;
+  const oauthErrorMessage =
+    oauthError === "oauth_state"
+      ? "Sign-in session expired. Clear site cookies for app.epure.sh and try GitHub or Google again."
+      : oauthError === "oauth_github"
+        ? "GitHub sign-in failed. Confirm the OAuth app callback URL is https://app.epure.sh/api/v1/auth/github/callback and try again."
+        : oauthError === "oauth_google"
+          ? "Google sign-in failed. Try again or use email and password."
+          : oauthError === "oauth_denied"
+            ? "Sign-in was cancelled at the provider."
+            : oauthError === "oauth_invalid"
+              ? "Invalid sign-in response from the provider."
+              : null;
   const canRegister = Boolean(inviteToken) || !registrationClosed;
   const cookieTrap = httpSecureCookieTrap(
     window.location.protocol,
@@ -242,6 +255,9 @@ export function LoginPage() {
             </Button>
           </form>
 
+          {oauthErrorMessage ? (
+            <p className="text-center text-sm text-semantic-danger">{oauthErrorMessage}</p>
+          ) : null}
           {status === "error" && message ? (
             <p className="text-center text-sm text-semantic-danger">{message}</p>
           ) : null}

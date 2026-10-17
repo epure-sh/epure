@@ -54,9 +54,9 @@ fn get_public_url() -> String {
 // RFC 8414 Authorization Server Metadata (for Cursor / Claude Code MCP)
 // ---------------------------------------------------------------------------
 
-async fn get_oauth_metadata() -> impl IntoResponse {
+async fn get_oauth_metadata(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let base = get_public_url();
-    Json(json!({
+    let mut meta = json!({
         "issuer": base,
         "authorization_endpoint": format!("{base}/oauth/authorize"),
         "token_endpoint": format!("{base}/oauth/token"),
@@ -69,8 +69,13 @@ async fn get_oauth_metadata() -> impl IntoResponse {
         ],
         "code_challenge_methods_supported": ["S256"],
         "scopes_supported": ["read:agent", "write:triage", "write:admin"],
-        "token_endpoint_auth_methods_supported": ["none"]
-    }))
+        "token_endpoint_auth_methods_supported": ["none"],
+        "mcp_enabled": state.mcp_enabled,
+    });
+    if state.mcp_enabled {
+        meta["mcp_endpoint"] = json!(format!("{base}/mcp"));
+    }
+    Json(meta)
 }
 
 // ---------------------------------------------------------------------------
