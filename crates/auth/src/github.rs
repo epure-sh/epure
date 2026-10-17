@@ -259,12 +259,8 @@ impl GitHubAuth {
     ) -> Result<Option<DashboardSession>, GitHubAuthError> {
         let row = sqlx::query_as::<_, UserMembershipRow>(
             r#"
-            SELECT u.id AS user_id, u.email::text AS email, om.org_id, om.role
-            FROM users u
-            INNER JOIN org_members om ON om.user_id = u.id
-            WHERE u.github_id = $1
-            ORDER BY om.created_at ASC
-            LIMIT 1
+            SELECT user_id, email, org_id, role
+            FROM auth_lookup_user_by_github_id($1)
             "#,
         )
         .bind(github_id)
@@ -287,14 +283,9 @@ impl GitHubAuth {
     ) -> Result<Option<DashboardSession>, GitHubAuthError> {
         let user = sqlx::query_as::<_, (Uuid, String)>(
             r#"
-            UPDATE users
-            SET github_id = $1, github_login = $2
-            WHERE email = $3
-            RETURNING id, email::text
+            SELECT id, email FROM auth_lookup_user_by_email($1)
             "#,
         )
-        .bind(github_id)
-        .bind(github_login)
         .bind(email)
         .fetch_optional(&self.pool)
         .await?;
@@ -304,19 +295,24 @@ impl GitHubAuth {
         };
 
         let membership = sqlx::query_as::<_, (Uuid, String)>(
-            r#"
-            SELECT org_id, role
-            FROM org_members
-            WHERE user_id = $1
-            ORDER BY created_at ASC
-            LIMIT 1
-            "#,
+            "SELECT org_id, role FROM auth_lookup_membership($1)",
         )
         .bind(user_id)
         .fetch_optional(&self.pool)
         .await?;
 
-        Ok(membership.map(|(org_id, role)| DashboardSession {
+        let Some((org_id, role)) = membership else {
+            return Ok(None);
+        };
+
+        sqlx::query("SELECT auth_link_github_identity($1, $2, $3)")
+            .bind(user_id)
+            .bind(github_id)
+            .bind(github_login)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(Some(DashboardSession {
             user_id,
             org_id,
             email: email_text,
@@ -339,18 +335,13 @@ impl GitHubAuth {
 
         let user_id = Uuid::new_v4();
 
-        sqlx::query(
-            r#"
-            INSERT INTO users (id, email, github_id, github_login, credential_generation)
-            VALUES ($1, $2, $3, $4, 1)
-            "#,
-        )
-        .bind(user_id)
-        .bind(email)
-        .bind(github_id)
-        .bind(github_login)
-        .execute(&self.pool)
-        .await?;
+        sqlx::query("SELECT auth_insert_user_github($1, $2, $3, $4)")
+            .bind(user_id)
+            .bind(email)
+            .bind(github_id)
+            .bind(github_login)
+            .execute(&self.pool)
+            .await?;
 
         epure_storage::members::accept_invitation(
             &self.pool,
@@ -379,18 +370,13 @@ impl GitHubAuth {
         let org_id = Uuid::new_v4();
         let org_name = format!("{}'s Team", github_login);
 
-        sqlx::query(
-            r#"
-            INSERT INTO users (id, email, github_id, github_login, credential_generation)
-            VALUES ($1, $2, $3, $4, 1)
-            "#,
-        )
-        .bind(user_id)
-        .bind(email)
-        .bind(github_id)
-        .bind(github_login)
-        .execute(&self.pool)
-        .await?;
+        sqlx::query("SELECT auth_insert_user_github($1, $2, $3, $4)")
+            .bind(user_id)
+            .bind(email)
+            .bind(github_id)
+            .bind(github_login)
+            .execute(&self.pool)
+            .await?;
 
         sqlx::query("SELECT auth_bootstrap_workspace($1, $2, $3)")
             .bind(user_id)

@@ -112,7 +112,7 @@ export function LoginPage() {
     oauthError === "oauth_state"
       ? "Sign-in session expired. Clear site cookies for app.epure.sh and try GitHub or Google again."
       : oauthError === "oauth_github"
-        ? "GitHub sign-in failed. Confirm the OAuth app callback URL is https://app.epure.sh/api/v1/auth/github/callback and try again."
+        ? "GitHub sign-in failed at the server. Try again; if it persists, use Google or email/password."
         : oauthError === "oauth_google"
           ? "Google sign-in failed. Try again or use email and password."
           : oauthError === "oauth_denied"
