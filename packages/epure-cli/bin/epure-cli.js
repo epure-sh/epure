@@ -7,8 +7,8 @@
 
 const http = require('http');
 const https = require('https');
-const fs = require('fs');
 const { URL } = require('url');
+const auth = require('../lib/auth');
 
 const VERSION = '0.1.7';
 
@@ -22,8 +22,14 @@ Usage:
   npx @epure-sh/cli <command> [options]
   epure <command> [options]
 
-Core Commands:
+Authentication:
+  login                       Authenticate via browser OAuth (loopback or device code)
+  logout                      Remove saved credentials for current or specified instance
+  use <url>                   Switch active Epure instance
+  instances                   List all configured Epure instances
   auth whoami                 Verify your active token and organization role
+
+Core Commands:
   queue                       List unresolved production issue queue
   context <issue_id>          Export demangled stack trace and code lines for an issue
   issue show <issue_id>       View full metadata for a specific issue
@@ -35,18 +41,20 @@ Core Commands:
   api <METHOD> <PATH>         Execute raw authenticated API call against workspace
 
 Global Options:
-  --token, -t <token>         Epure Personal Access Token (or EPURE_TOKEN env var)
-  --url, -u <url>             Epure endpoint (default: https://epure.sh or EPURE_URL)
+  --token, -t <token>         Override Epure Personal Access Token
+  --url, -u <url>             Override Epure endpoint (default: current instance or https://epure.sh)
+  --device                    Force RFC 8628 Device Code flow (for SSH/headless)
   --output, -o <json|table>   Output format (default: json)
   --help, -h                  Display this help message
   --version, -v               Display CLI version
 
 Examples:
-  export EPURE_TOKEN="epk_live_..."
-  npx @epure-sh/cli auth whoami
-  npx @epure-sh/cli --output table queue --limit 20
-  npx @epure-sh/cli context 550e8400-e29b-41d4-a716-446655440000 --format markdown
-  npx @epure-sh/cli triage resolve 550e8400-e29b-41d4-a716-446655440000 --release v1.2.0
+  epure login
+  epure login --url http://localhost:8080
+  epure use https://epure.sh
+  epure queue --limit 20
+  epure context 550e8400-e29b-41d4-a716-446655440000 --format markdown
+  epure triage resolve 550e8400-e29b-41d4-a716-446655440000 --release v1.2.0
 `);
 }
 
@@ -61,21 +69,24 @@ if (args.includes('--version') || args.includes('-v')) {
 }
 
 // Parse top-level flags
-let token = process.env.EPURE_TOKEN || '';
-let baseUrl = process.env.EPURE_URL || 'https://epure.sh';
+let explicitToken = process.env.EPURE_TOKEN || '';
+let explicitUrl = process.env.EPURE_URL || '';
+let forceDevice = false;
 let outputFormat = 'json';
 
 const filteredArgs = [];
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
   if (arg === '--token' || arg === '-t') {
-    token = args[++i];
+    explicitToken = args[++i];
   } else if (arg.startsWith('--token=')) {
-    token = arg.split('=')[1];
+    explicitToken = arg.split('=')[1];
   } else if (arg === '--url' || arg === '-u') {
-    baseUrl = args[++i];
+    explicitUrl = args[++i];
   } else if (arg.startsWith('--url=')) {
-    baseUrl = arg.split('=')[1];
+    explicitUrl = arg.split('=')[1];
+  } else if (arg === '--device' || arg === '--no-browser') {
+    forceDevice = true;
   } else if (arg === '--output' || arg === '-o') {
     outputFormat = args[++i];
   } else if (arg.startsWith('--output=')) {
@@ -85,27 +96,61 @@ for (let i = 0; i < args.length; i++) {
   }
 }
 
-baseUrl = baseUrl.replace(/\/+$/, '');
+let activeToken = explicitToken;
+let baseUrl = explicitUrl;
+
+async function resolveAuthentication() {
+  if (explicitToken) {
+    baseUrl = auth.normalizeUrl(explicitUrl || 'https://epure.sh');
+    return explicitToken;
+  }
+
+  const cred = auth.getActiveCredentials(explicitUrl);
+  if (cred) {
+    baseUrl = cred.url;
+    try {
+      activeToken = await auth.ensureValidToken(cred);
+      return activeToken;
+    } catch {
+      activeToken = cred.access_token;
+      return activeToken;
+    }
+  }
+
+  baseUrl = auth.normalizeUrl(explicitUrl || 'https://epure.sh');
+  return '';
+}
 
 function request(method, path, body = null, headers = {}) {
   return new Promise((resolve, reject) => {
-    if (!token && !path.startsWith('/api/v1/auth/')) {
-      return reject(new Error('EPURE_TOKEN is required. Pass --token <token> or export EPURE_TOKEN="epk_..."'));
+    if (!activeToken && !path.startsWith('/api/v1/auth/')) {
+      return reject(
+        new Error(
+          'Authentication required. Run "epure login" or pass --token <token>'
+        )
+      );
     }
 
-    const fullUrl = path.startsWith('http://') || path.startsWith('https://') ? path : `${baseUrl}${path}`;
+    const fullUrl =
+      path.startsWith('http://') || path.startsWith('https://')
+        ? path
+        : `${baseUrl}${path}`;
     const urlObj = new URL(fullUrl);
     const isHttps = urlObj.protocol === 'https:';
     const client = isHttps ? https : http;
 
-    const payload = body ? (typeof body === 'string' ? body : JSON.stringify(body)) : null;
+    const payload = body
+      ? typeof body === 'string'
+        ? body
+        : JSON.stringify(body)
+      : null;
 
     const reqHeaders = {
       'User-Agent': `@epure-sh/cli/${VERSION}`,
       ...headers,
     };
-    if (token) {
-      reqHeaders['Authorization'] = `Bearer ${token}`;
+    if (activeToken) {
+      reqHeaders['Authorization'] = `Bearer ${activeToken}`;
     }
     if (payload && !reqHeaders['Content-Type']) {
       reqHeaders['Content-Type'] = 'application/json';
@@ -141,7 +186,7 @@ function request(method, path, body = null, headers = {}) {
             let errDetail = resBody;
             try {
               const parsed = JSON.parse(resBody);
-              errDetail = parsed.error || parsed.message || resBody;
+              errDetail = parsed.error_description || parsed.error || parsed.message || resBody;
             } catch {}
             reject(new Error(`HTTP ${res.statusCode}: ${errDetail}`));
           }
@@ -169,12 +214,74 @@ async function handleCommand() {
   const cmd = filteredArgs[0];
   const subCmd = filteredArgs[1];
 
+  if (cmd === 'login') {
+    const res = await auth.login({
+      url: explicitUrl,
+      device: forceDevice,
+      clientId: 'epure-cli',
+    });
+    console.log(`\n✓ Successfully authenticated with ${res.url}!`);
+    console.log(`  Organization: ${res.org_id}`);
+    console.log(`  Credentials saved to ${auth.getCredentialsPath()}\n`);
+    return;
+  }
+
+  if (cmd === 'logout') {
+    const removed = auth.removeInstance(explicitUrl);
+    console.log(`✓ Logged out of ${removed}. Credentials removed.\n`);
+    return;
+  }
+
+  if (cmd === 'use') {
+    const target = filteredArgs[1];
+    if (!target) {
+      throw new Error('Usage: epure use <url>');
+    }
+    const switched = auth.switchInstance(target);
+    console.log(`✓ Active instance switched to: ${switched}\n`);
+    return;
+  }
+
+  if (cmd === 'instances') {
+    const info = auth.listInstances();
+    console.log('\nConfigured Epure Instances:');
+    if (info.instances.length === 0) {
+      console.log('  (no instances configured. Run "epure login")\n');
+      return;
+    }
+    for (const inst of info.instances) {
+      const active = inst === info.current_instance ? '* ' : '  ';
+      console.log(`${active}${inst}`);
+    }
+    console.log('');
+    return;
+  }
+
+  // All other commands require authentication
+  await resolveAuthentication();
+  if (!activeToken) {
+    if (process.stdin.isTTY) {
+      console.log('No active session found. Initiating login...\n');
+      await auth.login({
+        url: explicitUrl,
+        device: forceDevice,
+        clientId: 'epure-cli',
+      });
+      await resolveAuthentication();
+    } else {
+      throw new Error(
+        'Authentication required. Run "epure login" or set EPURE_TOKEN.'
+      );
+    }
+  }
+
   switch (cmd) {
     case 'auth': {
       if (subCmd === 'whoami') {
         const res = await request('GET', '/api/v1/agent/whoami');
         printOutput(res.json(), (data) => {
           console.log('\nAuthenticated Agent Identity:');
+          console.log(`  Endpoint:     ${baseUrl}`);
           console.log(`  User ID:      ${data.user_id}`);
           console.log(`  Org ID:       ${data.org_id}`);
           console.log(`  Email:        ${data.email || 'N/A'}`);
@@ -198,41 +305,33 @@ async function handleCommand() {
         if (a === '--limit') limit = parseInt(filteredArgs[++i], 10);
         else if (a === '--project') project = filteredArgs[++i];
         else if (a === '--env') env = filteredArgs[++i];
-        else if (a === '--q') q = filteredArgs[++i];
+        else if (a === '--query' || a === '-q') q = filteredArgs[++i];
       }
 
-      let path = `/api/v1/agent/queue?limit=${limit}`;
-      if (project) path += `&project_id=${encodeURIComponent(project)}`;
-      if (env) path += `&environment=${encodeURIComponent(env)}`;
-      if (q) path += `&q=${encodeURIComponent(q)}`;
+      const params = new URLSearchParams({ limit: limit.toString() });
+      if (project) params.set('project_id', project);
+      if (env) params.set('environment', env);
+      if (q) params.set('query', q);
 
-      const res = await request('GET', path);
+      const res = await request('GET', `/api/v1/agent/queue?${params.toString()}`);
       const data = res.json();
-      printOutput(data, (queue) => {
-        const issues = Array.isArray(queue) ? queue : queue.issues || [];
+
+      printOutput(data, (body) => {
+        const issues = body.issues || [];
+        console.log(`\nUnresolved Production Queue (${issues.length} issues):\n`);
         if (issues.length === 0) {
-          console.log('No unresolved issues in queue.');
+          console.log('  All clear! No unresolved issues.');
           return;
         }
-        console.log(`\nUnresolved Queue (${issues.length} issues):`);
-        console.log('─'.repeat(100));
-        console.log(
-          'ID'.padEnd(38) +
-            'LEVEL'.padEnd(10) +
-            'EVENTS'.padEnd(10) +
-            'USERS'.padEnd(10) +
-            'TITLE'
-        );
-        console.log('─'.repeat(100));
-        for (const item of issues) {
-          const id = (item.id || '').padEnd(38);
-          const lvl = (item.level || 'error').padEnd(10);
-          const evts = String(item.event_count || item.events || 1).padEnd(10);
-          const users = String(item.unique_user_count || item.users || 1).padEnd(10);
-          const title = (item.title || item.fingerprint || '').slice(0, 40);
-          console.log(`${id}${lvl}${evts}${users}${title}`);
+        for (const iss of issues) {
+          const count = String(iss.event_count || 1).padStart(5, ' ');
+          const title = iss.title || 'Unknown error';
+          console.log(`  [${count} ev] ${iss.id} - ${title}`);
+          if (iss.culprit) {
+            console.log(`          Culprit: ${iss.culprit}`);
+          }
         }
-        console.log('─'.repeat(100) + '\n');
+        console.log('');
       });
       break;
     }
@@ -240,25 +339,21 @@ async function handleCommand() {
     case 'context': {
       const issueId = filteredArgs[1];
       if (!issueId) {
-        throw new Error('Usage: epure context <issue_id> [--format markdown|json] [--out <file>]');
+        throw new Error('Usage: epure context <issue_id> [--format markdown|json]');
       }
 
       let format = 'markdown';
-      let outFile = '';
       for (let i = 2; i < filteredArgs.length; i++) {
-        const a = filteredArgs[i];
-        if (a === '--format') format = filteredArgs[++i];
-        else if (a === '--out') outFile = filteredArgs[++i];
+        if (filteredArgs[i] === '--format') format = filteredArgs[++i];
       }
 
-      const res = await request('GET', `/api/v1/agent/issues/${issueId}/context?format=${format}`);
-      const content = format === 'markdown' ? res.text : JSON.stringify(res.json(), null, 2);
+      const params = new URLSearchParams({ issue_id: issueId, format });
+      const res = await request('GET', `/api/v1/agent/context?${params.toString()}`);
 
-      if (outFile) {
-        fs.writeFileSync(outFile, content, 'utf8');
-        console.log(`Saved context for issue ${issueId} to ${outFile}`);
+      if (format === 'markdown') {
+        console.log(res.text);
       } else {
-        console.log(content);
+        printOutput(res.json());
       }
       break;
     }
@@ -266,7 +361,9 @@ async function handleCommand() {
     case 'issue': {
       if (subCmd === 'show') {
         const issueId = filteredArgs[2];
-        if (!issueId) throw new Error('Usage: epure issue show <issue_id>');
+        if (!issueId) {
+          throw new Error('Usage: epure issue show <issue_id>');
+        }
         const res = await request('GET', `/api/v1/agent/issues/${issueId}`);
         printOutput(res.json());
       } else {
@@ -278,81 +375,64 @@ async function handleCommand() {
     case 'triage': {
       const action = subCmd;
       const issueId = filteredArgs[2];
-      if (!issueId) {
-        throw new Error(`Usage: epure triage ${action || 'resolve|ignore|reopen|snooze'} <issue_id>`);
+
+      if (!action || !issueId) {
+        throw new Error(
+          'Usage: epure triage <resolve|ignore|reopen|snooze> <issue_id> [flags]'
+        );
       }
 
-      if (action === 'resolve') {
-        let release = '';
-        for (let i = 3; i < filteredArgs.length; i++) {
-          if (filteredArgs[i] === '--release') release = filteredArgs[++i];
-        }
-        const body = { status: 'resolved' };
-        if (release) body.resolved_in_release = release;
-        const res = await request('PATCH', `/api/v1/issues/${issueId}`, body);
-        printOutput(res.json());
-      } else if (action === 'ignore') {
-        const res = await request('PATCH', `/api/v1/issues/${issueId}`, { status: 'ignored' });
-        printOutput(res.json());
-      } else if (action === 'reopen') {
-        const res = await request('PATCH', `/api/v1/issues/${issueId}`, { status: 'unresolved' });
-        printOutput(res.json());
-      } else if (action === 'snooze') {
-        let mode = 'hours';
-        for (let i = 3; i < filteredArgs.length; i++) {
-          if (filteredArgs[i] === '--mode') mode = filteredArgs[++i];
-        }
-        const res = await request('POST', `/api/v1/issues/${issueId}/snooze`, { mode });
-        printOutput(res.json());
-      } else {
-        throw new Error(`Unknown triage action: ${action}. Use: resolve, ignore, reopen, or snooze`);
+      let payload = { action };
+
+      for (let i = 3; i < filteredArgs.length; i++) {
+        const a = filteredArgs[i];
+        if (a === '--release') payload.release = filteredArgs[++i];
+        else if (a === '--commit') payload.commit_sha = filteredArgs[++i];
+        else if (a === '--mode') payload.snooze_mode = filteredArgs[++i];
+        else if (a === '--hours') payload.snooze_hours = parseInt(filteredArgs[++i], 10);
+        else if (a === '--count') payload.snooze_count = parseInt(filteredArgs[++i], 10);
       }
+
+      const res = await request('POST', `/api/v1/agent/issues/${issueId}/triage`, payload);
+      printOutput(res.json(), (data) => {
+        console.log(`\n✓ Issue ${issueId} triaged: ${data.status || action}\n`);
+      });
       break;
     }
 
     case 'alerts': {
-      let view = 'unread';
-      let project = '';
-      let limit = 20;
-
+      let view = '';
       for (let i = 1; i < filteredArgs.length; i++) {
-        const a = filteredArgs[i];
-        if (a === '--view') view = filteredArgs[++i];
-        else if (a === '--project') project = filteredArgs[++i];
-        else if (a === '--limit') limit = parseInt(filteredArgs[++i], 10);
+        if (filteredArgs[i] === '--view') view = filteredArgs[++i];
       }
+      const params = new URLSearchParams();
+      if (view) params.set('view', view);
 
-      let path = `/api/v1/alerts?view=${view}&limit=${limit}`;
-      if (project) path += `&project_id=${encodeURIComponent(project)}`;
-
-      const res = await request('GET', path);
+      const res = await request('GET', `/api/v1/agent/alerts?${params.toString()}`);
       printOutput(res.json());
       break;
     }
 
     case 'api': {
       const method = (filteredArgs[1] || 'GET').toUpperCase();
-      const apiPath = filteredArgs[2];
-      if (!apiPath) throw new Error('Usage: epure api <METHOD> <PATH> [--body <json>]');
-
-      let body = null;
-      for (let i = 3; i < filteredArgs.length; i++) {
-        if (filteredArgs[i] === '--body') body = filteredArgs[++i];
+      const path = filteredArgs[2];
+      if (!path) {
+        throw new Error('Usage: epure api <METHOD> <PATH> [JSON_BODY]');
       }
-
-      const res = await request(method, apiPath, body);
+      const rawBody = filteredArgs[3] || null;
+      const res = await request(method, path, rawBody);
       printOutput(res.json());
       break;
     }
 
     default:
-      console.error(`Unknown command: ${cmd}`);
+      console.error(`Unknown command: ${cmd}\n`);
       printHelp();
       process.exit(1);
   }
 }
 
 handleCommand().catch((err) => {
-  console.error(`Error: ${err.message}`);
+  console.error(`\nError: ${err.message}\n`);
   process.exit(1);
 });

@@ -3,9 +3,14 @@ export function isCloudDeployment(): boolean {
   return import.meta.env.VITE_EPURE_CLOUD === "1";
 }
 
-/** Google OAuth is Cloud-only. OSS builds never show the button, even if env vars leak. */
+/** Cloud OAuth buttons — hidden on OSS builds even if env vars leak at runtime. */
+export function isCloudSocialSignInVisible(enabled: boolean | undefined): boolean {
+  return isCloudDeployment() && Boolean(enabled);
+}
+
+/** @deprecated use {@link isCloudSocialSignInVisible} */
 export function isGoogleSignInVisible(googleEnabled: boolean | undefined): boolean {
-  return isCloudDeployment() && Boolean(googleEnabled);
+  return isCloudSocialSignInVisible(googleEnabled);
 }
 
 /** True when running the mock-API playground (`npm run dev:playground`). */

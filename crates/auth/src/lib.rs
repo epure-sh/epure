@@ -5,6 +5,7 @@ pub mod dsn;
 pub mod github;
 pub mod google;
 pub mod magic_link;
+pub mod oauth;
 pub mod password;
 pub mod registration;
 pub mod session;

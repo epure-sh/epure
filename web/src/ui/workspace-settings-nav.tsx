@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Key, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { Key, Laptop, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { workspaceSettingsPath } from "../lib/paths";
 import { cn } from "../lib/cn";
 
@@ -21,9 +21,16 @@ const tabs = [
   {
     id: "agent",
     label: "Agent tokens",
-    description: "CLI & background agent tokens",
+    description: "Personal access tokens",
     icon: Key,
     path: workspaceSettingsPath("agent"),
+  },
+  {
+    id: "connected-apps",
+    label: "Connected Apps & CLI",
+    description: "OAuth CLI & MCP sessions",
+    icon: Laptop,
+    path: workspaceSettingsPath("connected-apps"),
   },
 ] as const;
 

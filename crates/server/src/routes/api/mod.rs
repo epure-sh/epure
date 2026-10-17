@@ -28,6 +28,7 @@ mod events;
 mod issues;
 pub mod mcp;
 mod members;
+pub mod oauth;
 mod pat_scopes;
 mod projects;
 mod rbac;
@@ -44,6 +45,7 @@ pub fn router(state: Arc<AppState>) -> Router {
     let protected = Router::new()
         .merge(Router::new().nest("/agent", agent::router(state.clone())))
         .merge(agent_tokens::router(state.clone()))
+        .merge(oauth::protected_router(state.clone()))
         .merge(issues::router(state.clone()))
         .merge(events::router(state.clone()))
         .merge(releases::router(state.clone()))

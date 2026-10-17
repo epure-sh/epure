@@ -1,8 +1,8 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { resolvePostAuthPath } from "../../lib/onboarding";
 import { HTTP_SESSION_COOKIE_MESSAGE, httpSecureCookieTrap } from "../../lib/session-cookie";
-import { isGoogleSignInVisible } from "../../lib/deployment";
+import { isCloudSocialSignInVisible } from "../../lib/deployment";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { Field } from "../../ui/field";
@@ -13,6 +13,7 @@ type AuthMode = "login" | "register";
 
 interface AuthConfig {
   google_enabled: boolean;
+  github_enabled: boolean;
   password_enabled: boolean;
   registration_enabled?: boolean;
   session_secure?: boolean;
@@ -20,6 +21,7 @@ interface AuthConfig {
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite")?.trim() || null;
   const [mode, setMode] = useState<AuthMode>(inviteToken ? "register" : "login");
@@ -40,6 +42,7 @@ export function LoginPage() {
       .catch(() => {
         setAuthConfig({
           google_enabled: false,
+          github_enabled: false,
           password_enabled: true,
           registration_enabled: true,
         });
@@ -92,11 +95,15 @@ export function LoginPage() {
       return;
     }
 
-    const nextPath = await resolvePostAuthPath();
+    const fromParam = searchParams.get("from");
+    const fromState = (location.state as { from?: string } | null)?.from;
+    const nextPath = fromParam || fromState || (await resolvePostAuthPath());
     navigate(nextPath, { replace: true });
   }
 
-  const googleEnabled = isGoogleSignInVisible(authConfig?.google_enabled);
+  const googleEnabled = isCloudSocialSignInVisible(authConfig?.google_enabled);
+  const githubEnabled = isCloudSocialSignInVisible(authConfig?.github_enabled);
+  const socialSignInEnabled = googleEnabled || githubEnabled;
   const registrationClosed =
     searchParams.get("error") === "registration_closed" ||
     authConfig?.registration_enabled === false;
@@ -122,8 +129,8 @@ export function LoginPage() {
           <h1 className="epure-page-title mt-4 text-base font-medium tracking-ui text-ink">Sign in to Epure</h1>
           <p className="mt-2 text-sm text-ink-muted">
             {inviteToken
-              ? googleEnabled
-                ? "Create an account or sign in with Google to join the workspace."
+              ? socialSignInEnabled
+                ? "Create an account or continue with GitHub or Google to join the workspace."
                 : "Create an account to join the workspace."
               : "Error tracking for exceptions. Change the DSN."}
           </p>
@@ -138,6 +145,22 @@ export function LoginPage() {
             <p className="rounded-lg border border-border bg-bg-subtle px-3 py-2 text-center text-sm text-ink-muted">
               Public registration is closed. Sign in with an existing account.
             </p>
+          ) : null}
+          {githubEnabled ? (
+            <Button
+              variant="secondary"
+              type="button"
+              className="w-full"
+              disabled={cookieTrap}
+              onClick={() => {
+                const githubUrl = inviteToken
+                  ? `/api/v1/auth/github?invite=${encodeURIComponent(inviteToken)}`
+                  : "/api/v1/auth/github";
+                window.location.href = githubUrl;
+              }}
+            >
+              Continue with GitHub
+            </Button>
           ) : null}
           {googleEnabled ? (
             <Button
@@ -199,8 +222,8 @@ export function LoginPage() {
               hint={
                 mode === "register"
                   ? "At least 8 characters."
-                  : googleEnabled
-                    ? "Forgot your password? Ask your workspace admin or sign in with Google."
+                  : socialSignInEnabled
+                    ? "Forgot your password? Ask your workspace admin or use GitHub / Google."
                     : "Forgot your password? Ask your workspace admin."
               }
             >

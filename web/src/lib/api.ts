@@ -852,3 +852,81 @@ export function formatDsn(publicKey: string, dsnProjectId: number | string): str
   const protocol = window.location.protocol === "https:" ? "https" : "http";
   return `${protocol}://${publicKey}@${host}/${dsnProjectId}`;
 }
+
+export interface ConnectedAppRow {
+  id: string;
+  client_id: string;
+  client_name: string;
+  scopes: string[];
+  created_at: string;
+  last_used_at: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+}
+
+export async function fetchConnectedApps(): Promise<ConnectedAppRow[]> {
+  const body = await apiFetch<{ connected_apps: ConnectedAppRow[] }>("/api/user/connected-apps");
+  return body.connected_apps;
+}
+
+export async function revokeConnectedApp(id: string): Promise<void> {
+  await apiFetch<void>(`/api/user/connected-apps/${id}`, { method: "DELETE" });
+}
+
+export interface OAuthInfoOrg {
+  id: string;
+  name: string;
+  role: string;
+}
+
+export interface OAuthInfoResponse {
+  client_id: string;
+  redirect_uri?: string;
+  current_org_id: string;
+  organizations: OAuthInfoOrg[];
+}
+
+export async function fetchOAuthInfo(clientId: string, redirectUri?: string): Promise<OAuthInfoResponse> {
+  const params = new URLSearchParams({ client_id: clientId });
+  if (redirectUri) {
+    params.set("redirect_uri", redirectUri);
+  }
+  return apiFetch<OAuthInfoResponse>(`/api/oauth/info?${params.toString()}`);
+}
+
+export interface OAuthAuthorizePayload {
+  client_id: string;
+  client_name?: string;
+  org_id: string;
+  redirect_uri: string;
+  code_challenge: string;
+  code_challenge_method?: string;
+  scopes?: string[];
+  state?: string;
+}
+
+export async function submitOAuthAuthorize(payload: OAuthAuthorizePayload): Promise<{ code: string; redirect_uri: string }> {
+  return apiFetch<{ code: string; redirect_uri: string }>("/api/oauth/authorize", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export interface DeviceVerifyResponse {
+  user_code: string;
+  client_name: string;
+  scopes: string[];
+  status: string;
+}
+
+export async function verifyDeviceCode(userCode: string): Promise<DeviceVerifyResponse> {
+  return apiFetch<DeviceVerifyResponse>(`/api/oauth/device/verify?user_code=${encodeURIComponent(userCode)}`);
+}
+
+export async function approveDeviceCode(userCode: string, orgId: string): Promise<void> {
+  await apiFetch<void>("/api/oauth/device/approve", {
+    method: "POST",
+    body: JSON.stringify({ user_code: userCode, org_id: orgId }),
+  });
+}
+

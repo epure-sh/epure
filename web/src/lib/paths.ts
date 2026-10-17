@@ -12,19 +12,22 @@ export function workspacePath(
 /** @deprecated use workspacePath */
 export const orgPath = workspacePath;
 
-export function workspaceSettingsPath(tab?: "general" | "security" | "agent"): string {
+export function workspaceSettingsPath(tab?: "general" | "security" | "agent" | "connected-apps"): string {
   if (!tab || tab === "general") {
     return "/settings";
   }
   return `/settings/${tab}`;
 }
 
-export function settingsTabFromPath(pathname: string): "general" | "security" | "agent" {
+export function settingsTabFromPath(pathname: string): "general" | "security" | "agent" | "connected-apps" {
   if (pathname.endsWith("/security")) {
     return "security";
   }
   if (pathname.endsWith("/agent")) {
     return "agent";
+  }
+  if (pathname.endsWith("/connected-apps")) {
+    return "connected-apps";
   }
   return "general";
 }

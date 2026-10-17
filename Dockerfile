@@ -16,7 +16,7 @@ COPY crates ./crates
 COPY fixtures ./fixtures
 COPY scripts ./scripts
 COPY --from=web-build /app/web/dist ./web/dist
-RUN cargo build --release --bin epure --bin epure-cli
+RUN cargo build --release --bin epure
 
 FROM debian:bookworm-slim AS runtime
 
@@ -29,7 +29,6 @@ RUN apt-get update \
     && chown epure:epure /data/artifacts
 
 COPY --from=builder --chown=epure:epure /app/target/release/epure /usr/local/bin/epure
-COPY --from=builder --chown=epure:epure /app/target/release/epure-cli /usr/local/bin/epure-cli
 
 USER 65532:65532
 EXPOSE 8080

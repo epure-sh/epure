@@ -43,10 +43,10 @@ export const PLANS: PlanDefinition[] = [
   },
   {
     id: "builder_pro",
-    name: "Builder Pro",
-    price: "$39",
-    period: "/ mo ($29/mo Founding Lock)",
-    description: "For solo founders and software makers. 1 Org, up to 3 Projects.",
+    name: "Epure Pro",
+    price: "$24",
+    period: "/ mo flat · launch",
+    description: "Solo founders and indie SaaS. Flat Cloud — typically less than Sentry Team for comparable error volume.",
     features: [
       "Up to 3 Projects / Apps",
       "30-day encrypted retention",
@@ -57,7 +57,7 @@ export const PLANS: PlanDefinition[] = [
     ],
     limits: {
       maxProjects: 3,
-      eventsPerMonth: 250_000,
+      eventsPerMonth: 200_000,
       retentionDays: 30,
     },
     highlighted: true,
@@ -65,10 +65,10 @@ export const PLANS: PlanDefinition[] = [
   },
   {
     id: "multi_app_studio",
-    name: "Multi-App Studio",
-    price: "$89",
-    period: "/ mo",
-    description: "For dev studios running multiple SaaS products under one flat bill.",
+    name: "Epure Plus",
+    price: "$79",
+    period: "/ mo flat · launch",
+    description: "Small teams and multi-app studios. One flat bill, no meter anxiety.",
     features: [
       "Up to 15 isolated Projects / Apps",
       "Independent per-project Spike Valves",
@@ -86,10 +86,10 @@ export const PLANS: PlanDefinition[] = [
   },
   {
     id: "boutique_agency",
-    name: "Boutique Agency",
-    price: "199€",
-    period: "/ mo ($199/mo)",
-    description: "For agencies reselling TMA monitoring at 80€–150€/mo/client margin.",
+    name: "Epure Agency",
+    price: "$149",
+    period: "/ mo flat · launch",
+    description: "Agencies and consultancies reselling client monitoring with strict tenant isolation.",
     features: [
       "Parent Agency managing up to 25 Workspaces",
       "Strict PostgreSQL 16 RLS tenant isolation",
