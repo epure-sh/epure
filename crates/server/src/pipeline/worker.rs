@@ -76,6 +76,7 @@ pub async fn run_worker(
                             &velocity_tracker,
                             job,
                         ).await {
+                            tracing::error!("ingest worker processing error: {err}");
                             record_lost_event(&sanitize_error(err.as_ref()));
                         }
                     }

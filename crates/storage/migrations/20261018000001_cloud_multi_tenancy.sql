@@ -145,3 +145,4 @@ CREATE POLICY projects_tenant ON projects
 -- 8. Grants
 GRANT SELECT, INSERT, UPDATE, DELETE ON subscriptions, canary_meta, magic_link_tokens TO epure_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON subscriptions, canary_meta, magic_link_tokens TO epure_ingest;
+GRANT SELECT ON organizations TO epure_ingest;
