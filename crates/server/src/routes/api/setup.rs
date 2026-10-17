@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::pipeline::mpsc::IngestJob;
-use crate::pipeline::spike::SpikeDecision;
 use crate::state::AppState;
 
 const TEST_ENVELOPE: &[u8] = include_bytes!("../../../../../fixtures/sentry/browser/envelope.txt");
@@ -171,22 +170,15 @@ async fn post_test_event(
     let fingerprint = preview_fingerprint(&parsed.event_payload);
     let event_id = Uuid::new_v4();
 
-    let job = match state.spike_valve.check(&fingerprint) {
-        SpikeDecision::AllowStore => IngestJob::StoreEvent {
-            event_id,
-            project_id: query.project_id,
-            org_id: dashboard.org_id,
-            fingerprint,
-            payload: parsed.event_payload,
-            user_agent: Some("epure-setup-test".to_string()),
-            client_ip: None,
-            country_code_hint: None,
-        },
-        SpikeDecision::CounterOnly => IngestJob::CounterOnly {
-            project_id: query.project_id,
-            org_id: dashboard.org_id,
-            fingerprint,
-        },
+    let job = IngestJob::StoreEvent {
+        event_id,
+        project_id: query.project_id,
+        org_id: dashboard.org_id,
+        fingerprint,
+        payload: parsed.event_payload,
+        user_agent: Some("epure-setup-test".to_string()),
+        client_ip: None,
+        country_code_hint: None,
     };
 
     if state.ingest_tx.send(job).await.is_err() {

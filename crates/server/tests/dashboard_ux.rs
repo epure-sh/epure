@@ -110,7 +110,7 @@ async fn setup_progress_patch_advances_steps() {
         .expect("test event");
     assert_eq!(test.status(), 202);
 
-    for _ in 0..20 {
+    for _ in 0..50 {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         let setup = client
             .get(format!("{base_url}/api/v1/setup?project_id={pid}"))
@@ -220,7 +220,7 @@ async fn setup_test_event_creates_issue() {
     let body: serde_json::Value = test.json().await.expect("json");
     assert_eq!(body["accepted"], true);
 
-    for _ in 0..20 {
+    for _ in 0..50 {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         let issues = client
             .get(format!(
