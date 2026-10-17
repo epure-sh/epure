@@ -4,6 +4,7 @@
 ALTER TABLE organizations
     ADD COLUMN IF NOT EXISTS plan_tier TEXT NOT NULL DEFAULT 'oss'
         CHECK (plan_tier IN ('oss', 'builder_pro', 'multi_app_studio', 'boutique_agency', 'canary_sandbox')),
+    ADD COLUMN IF NOT EXISTS slug TEXT,
     ADD COLUMN IF NOT EXISTS parent_agency_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
     ADD COLUMN IF NOT EXISTS subscription_id TEXT,
     ADD COLUMN IF NOT EXISTS subscription_status TEXT NOT NULL DEFAULT 'active',

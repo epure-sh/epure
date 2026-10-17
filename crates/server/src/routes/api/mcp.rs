@@ -17,10 +17,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .with_state(state)
 }
 
-async fn post_mcp(
-    headers: HeaderMap,
-    Json(req): Json<JsonRpcRequest>,
-) -> impl IntoResponse {
+async fn post_mcp(headers: HeaderMap, Json(req): Json<JsonRpcRequest>) -> impl IntoResponse {
     let token = headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())

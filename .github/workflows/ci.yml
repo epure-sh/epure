@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   test:
-    name: cargo test
+    name: cargo test & web build
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -44,6 +44,8 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - uses: Swatinem/rust-cache@v2
+
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-audit
@@ -58,15 +60,19 @@ jobs:
         working-directory: web
         run: npm ci && npm run build
 
-      - name: Format
+      - name: Verify @epure/mcp CLI package
+        working-directory: packages/epure-mcp
+        run: node bin/epure-mcp.js --help || true
+
+      - name: Format Check
         run: cargo fmt --all -- --check
 
-      - name: Clippy
+      - name: Clippy Check
         run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Audit
+      - name: Security Audit
         run: cargo audit
 
-      - name: Run tests
+      - name: Run Tests
         # Serial: parallel init_runtime migrations race on shared Postgres (XX000 tuple concurrently updated).
         run: cargo test -- --test-threads=1

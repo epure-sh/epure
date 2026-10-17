@@ -2,11 +2,13 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 static RE_PROMPT_TAGS: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)</?(system|instructions|prompt|human|assistant|user|developer|context)[^>]*>").unwrap()
+    Regex::new(r"(?i)</?(system|instructions|prompt|human|assistant|user|developer|context)[^>]*>")
+        .unwrap()
 });
 
 static RE_SHELL_COMMANDS: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)\b(curl|wget|bash|sh|sudo|chmod|chown|rm\s+-rf|nc\s+-e|python\s+-c)\b").unwrap()
+    Regex::new(r"(?i)\b(curl|wget|bash|sh|sudo|chmod|chown|rm\s+-rf|nc\s+-e|python\s+-c)\b")
+        .unwrap()
 });
 
 /// Sanitizes untrusted exception telemetry strings to prevent Agentjacking prompt injections.

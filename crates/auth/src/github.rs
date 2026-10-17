@@ -123,7 +123,8 @@ impl GitHubAuth {
         let token = self.exchange_code(code).await?;
         let (github_user, primary_email) = self.fetch_user_and_email(&token.access_token).await?;
 
-        let email = primary_email.unwrap_or_else(|| format!("{}@users.noreply.github.com", github_user.login));
+        let email = primary_email
+            .unwrap_or_else(|| format!("{}@users.noreply.github.com", github_user.login));
         let github_id = github_user.id.to_string();
 
         self.load_or_create_session(&github_id, &github_user.login, &email, invite_token)
@@ -193,7 +194,8 @@ impl GitHubAuth {
             if let Ok(resp) = emails_resp {
                 if resp.status().is_success() {
                     if let Ok(emails) = resp.json::<Vec<GitHubEmail>>().await {
-                        if let Some(primary) = emails.into_iter().find(|e| e.primary && e.verified) {
+                        if let Some(primary) = emails.into_iter().find(|e| e.primary && e.verified)
+                        {
                             email = Some(primary.email);
                         }
                     }
@@ -239,7 +241,8 @@ impl GitHubAuth {
         }
 
         // 5. Create new user with workspace
-        self.create_user_with_org(github_id, github_login, &normalized).await
+        self.create_user_with_org(github_id, github_login, &normalized)
+            .await
     }
 
     async fn session_by_github_id(
@@ -320,10 +323,11 @@ impl GitHubAuth {
         email: &str,
         invite_token: &str,
     ) -> Result<DashboardSession, GitHubAuthError> {
-        let invitation = epure_storage::members::find_pending_invitation_by_token(&self.pool, invite_token)
-            .await?
-            .filter(|inv| inv.email == email)
-            .ok_or(GitHubAuthError::InvalidInviteToken)?;
+        let invitation =
+            epure_storage::members::find_pending_invitation_by_token(&self.pool, invite_token)
+                .await?
+                .filter(|inv| inv.email == email)
+                .ok_or(GitHubAuthError::InvalidInviteToken)?;
 
         let user_id = Uuid::new_v4();
 

@@ -409,9 +409,7 @@ mod tests {
         let session_header = format!(r#"{{"type":"session","length":{}}}"#, session.len());
         let body = format!(
             "{}\n{}\n{}\n",
-            r#"{"event_id":"550e8400-e29b-41d4-a716-446655440099"}"#,
-            session_header,
-            session,
+            r#"{"event_id":"550e8400-e29b-41d4-a716-446655440099"}"#, session_header, session,
         );
         assert!(matches!(
             parse_envelope(body.as_bytes()),

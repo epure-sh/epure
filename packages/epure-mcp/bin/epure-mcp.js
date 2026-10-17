@@ -17,6 +17,22 @@ let endpoint = process.env.EPURE_URL || 'https://epure.sh';
 let domain = '';
 let isDemo = false;
 
+if (args.includes('--help') || args.includes('-h')) {
+  console.log(`
+@epure/mcp - Surgical <600-token Model Context Protocol server for Epure
+
+Usage:
+  npx @epure/mcp --token <token> [--endpoint <url>]
+  claude mcp add epure -- npx -y @epure/mcp --token epk_...
+
+Options:
+  --token, -t     Epure API PAT or Project Key (or EPURE_TOKEN env var)
+  --endpoint, -e  Epure Cloud / self-hosted URL (default: https://epure.sh)
+  --help, -h      Show this help message
+`);
+  process.exit(0);
+}
+
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
   if (arg === 'demo') {

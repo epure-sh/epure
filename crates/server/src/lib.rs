@@ -159,6 +159,9 @@ pub fn router_for(runtime: &ServerRuntime) -> axum::Router {
     router(runtime.state.clone())
 }
 
-pub fn router_for_with_extensions(runtime: &ServerRuntime, extensions: axum::Router) -> axum::Router {
+pub fn router_for_with_extensions(
+    runtime: &ServerRuntime,
+    extensions: axum::Router,
+) -> axum::Router {
     routes::router_with_extensions(runtime.state.clone(), extensions)
 }

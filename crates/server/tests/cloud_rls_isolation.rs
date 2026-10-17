@@ -41,7 +41,9 @@ async fn agency_parent_can_access_sub_tenants_while_clients_are_strictly_isolate
     run_migrations(&migrate_pool).await.expect("run migrations");
     let pools = connect_pools(&database_url).await.expect("connect pools");
 
-    seed_agency_hierarchy(&migrate_pool).await.expect("seed agency hierarchy");
+    seed_agency_hierarchy(&migrate_pool)
+        .await
+        .expect("seed agency hierarchy");
 
     // Client A user in Client A org sees only Client A issues
     let client_a_count = rls::with_request_user(client_a_user(), async {
@@ -59,12 +61,11 @@ async fn agency_parent_can_access_sub_tenants_while_clients_are_strictly_isolate
     // Client A user cannot see Client B issues
     let cross_client_count = rls::with_request_user(client_a_user(), async {
         let mut tx = rls::TenantTx::begin_org(&pools.app, client_org_a()).await?;
-        let count = sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*)::bigint FROM issues WHERE org_id = $1"
-        )
-        .bind(client_org_b())
-        .fetch_one(tx.conn())
-        .await?;
+        let count =
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*)::bigint FROM issues WHERE org_id = $1")
+                .bind(client_org_b())
+                .fetch_one(tx.conn())
+                .await?;
         tx.commit().await?;
         Ok::<_, sqlx::Error>(count)
     })
@@ -76,7 +77,7 @@ async fn agency_parent_can_access_sub_tenants_while_clients_are_strictly_isolate
     let agency_visible_orgs = rls::with_request_user(agency_user(), async {
         let mut tx = rls::TenantTx::begin_org(&pools.app, agency_org()).await?;
         let count = sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*)::bigint FROM organizations WHERE parent_agency_id = $1"
+            "SELECT COUNT(*)::bigint FROM organizations WHERE parent_agency_id = $1",
         )
         .bind(agency_org())
         .fetch_one(tx.conn())

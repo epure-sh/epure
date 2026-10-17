@@ -353,7 +353,10 @@ async fn request_magic_link(
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let public_url = epure_storage::epure_public_url();
-    let link = format!("{}/api/v1/auth/magic-link/verify?token={}", public_url, token);
+    let link = format!(
+        "{}/api/v1/auth/magic-link/verify?token={}",
+        public_url, token
+    );
     tracing::info!("magic link requested for {}: {}", body.email, link);
 
     let dev_mode = epure_storage::allow_dev_db_fallback();

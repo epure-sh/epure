@@ -94,7 +94,9 @@ impl SpikeValve {
         let decision = entry.token_bucket.check();
         if decision == SpikeDecision::CounterOnly {
             entry.dropped_counter.fetch_add(1, Ordering::Relaxed);
-            entry.last_seen_epoch_sec.store(chrono::Utc::now().timestamp(), Ordering::Relaxed);
+            entry
+                .last_seen_epoch_sec
+                .store(chrono::Utc::now().timestamp(), Ordering::Relaxed);
         }
         decision
     }
@@ -105,8 +107,8 @@ impl SpikeValve {
             let count = entry.dropped_counter.swap(0, Ordering::Relaxed);
             if count > 0 {
                 let sec = entry.last_seen_epoch_sec.load(Ordering::Relaxed);
-                let last_seen = chrono::DateTime::from_timestamp(sec, 0)
-                    .unwrap_or_else(chrono::Utc::now);
+                let last_seen =
+                    chrono::DateTime::from_timestamp(sec, 0).unwrap_or_else(chrono::Utc::now);
                 deltas.push(PendingSpikeDelta {
                     project_id: entry.key().0,
                     org_id: entry.org_id,

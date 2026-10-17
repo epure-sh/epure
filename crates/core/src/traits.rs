@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::future::Future;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -38,15 +38,8 @@ impl PlanTier {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s.trim().to_lowercase().as_str() {
-            "oss" | "self_hosted" => Some(Self::Oss),
-            "builder_pro" | "pro" => Some(Self::BuilderPro),
-            "multi_app_studio" | "studio" => Some(Self::MultiAppStudio),
-            "boutique_agency" | "agency" => Some(Self::BoutiqueAgency),
-            "canary_sandbox" | "canary" => Some(Self::CanarySandbox),
-            _ => None,
-        }
+    pub fn parse_tier(s: &str) -> Option<Self> {
+        s.parse().ok()
     }
 
     pub fn default_limits(&self) -> TenantLimits {
@@ -101,6 +94,21 @@ impl fmt::Display for PlanTier {
     }
 }
 
+impl std::str::FromStr for PlanTier {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_lowercase().as_str() {
+            "oss" | "self_hosted" => Ok(Self::Oss),
+            "builder_pro" | "pro" => Ok(Self::BuilderPro),
+            "multi_app_studio" | "studio" => Ok(Self::MultiAppStudio),
+            "boutique_agency" | "agency" => Ok(Self::BoutiqueAgency),
+            "canary_sandbox" | "canary" => Ok(Self::CanarySandbox),
+            _ => Err(()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TenantLimits {
     pub plan_tier: PlanTier,
@@ -113,9 +121,20 @@ pub struct TenantLimits {
 
 /// Abstract tenancy gate interface for checking organization plan limits.
 pub trait TenancyGate: Send + Sync {
-    fn get_limits(&self, org_id: Uuid) -> impl Future<Output = Result<TenantLimits, CoreError>> + Send;
-    fn can_create_project(&self, org_id: Uuid, current_count: u32) -> impl Future<Output = Result<bool, CoreError>> + Send;
-    fn can_create_client_org(&self, parent_agency_id: Uuid, current_count: u32) -> impl Future<Output = Result<bool, CoreError>> + Send;
+    fn get_limits(
+        &self,
+        org_id: Uuid,
+    ) -> impl Future<Output = Result<TenantLimits, CoreError>> + Send;
+    fn can_create_project(
+        &self,
+        org_id: Uuid,
+        current_count: u32,
+    ) -> impl Future<Output = Result<bool, CoreError>> + Send;
+    fn can_create_client_org(
+        &self,
+        parent_agency_id: Uuid,
+        current_count: u32,
+    ) -> impl Future<Output = Result<bool, CoreError>> + Send;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -140,12 +159,19 @@ pub trait IngestionGate: Send + Sync {
 
 /// Abstract auth provider interface for pluggable authentication mechanisms.
 pub trait AuthProvider: Send + Sync {
-    fn authenticate_token(&self, token: &str) -> impl Future<Output = Result<Uuid, CoreError>> + Send;
+    fn authenticate_token(
+        &self,
+        token: &str,
+    ) -> impl Future<Output = Result<Uuid, CoreError>> + Send;
 }
 
 /// Abstract billing provider interface for webhook processing.
 pub trait BillingProvider: Send + Sync {
-    fn handle_webhook(&self, event_type: &str, payload: &[u8]) -> impl Future<Output = Result<(), CoreError>> + Send;
+    fn handle_webhook(
+        &self,
+        event_type: &str,
+        payload: &[u8],
+    ) -> impl Future<Output = Result<(), CoreError>> + Send;
 }
 
 /// Default open-source tenancy gate that places no artificial project caps on self-hosted instances.
@@ -157,11 +183,19 @@ impl TenancyGate for OpenSourceTenancyGate {
         Ok(PlanTier::Oss.default_limits())
     }
 
-    async fn can_create_project(&self, _org_id: Uuid, _current_count: u32) -> Result<bool, CoreError> {
+    async fn can_create_project(
+        &self,
+        _org_id: Uuid,
+        _current_count: u32,
+    ) -> Result<bool, CoreError> {
         Ok(true)
     }
 
-    async fn can_create_client_org(&self, _parent_agency_id: Uuid, _current_count: u32) -> Result<bool, CoreError> {
+    async fn can_create_client_org(
+        &self,
+        _parent_agency_id: Uuid,
+        _current_count: u32,
+    ) -> Result<bool, CoreError> {
         Ok(false)
     }
 }

@@ -494,7 +494,10 @@ async fn accept_payload(
     let client_ip = Some(client_ip_from_peer(peer, headers));
     let country_code_hint = country_code_from_headers(headers);
 
-    let job = match state.spike_valve.check_scoped(project_id, org_id, &fingerprint) {
+    let job = match state
+        .spike_valve
+        .check_scoped(project_id, org_id, &fingerprint)
+    {
         SpikeDecision::AllowStore => IngestJob::StoreEvent {
             event_id,
             project_id,

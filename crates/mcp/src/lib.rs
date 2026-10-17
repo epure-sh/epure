@@ -200,12 +200,23 @@ impl McpHandler {
                 lines.push("No unresolved issues in queue.".into());
             }
             for item in items {
-                let score = item.get("priority_score").and_then(Value::as_i64).unwrap_or(0);
+                let score = item
+                    .get("priority_score")
+                    .and_then(Value::as_i64)
+                    .unwrap_or(0);
                 if let Some(issue) = item.get("issue") {
                     let id = issue.get("id").and_then(Value::as_str).unwrap_or("?");
-                    let title = issue.get("title").and_then(Value::as_str).unwrap_or("Untitled");
-                    let count = issue.get("event_count").and_then(Value::as_i64).unwrap_or(0);
-                    lines.push(format!("- [{id}] (score: {score}, events: {count}) {title}"));
+                    let title = issue
+                        .get("title")
+                        .and_then(Value::as_str)
+                        .unwrap_or("Untitled");
+                    let count = issue
+                        .get("event_count")
+                        .and_then(Value::as_i64)
+                        .unwrap_or(0);
+                    lines.push(format!(
+                        "- [{id}] (score: {score}, events: {count}) {title}"
+                    ));
                 }
             }
         }
