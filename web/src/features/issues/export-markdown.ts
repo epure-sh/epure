@@ -348,6 +348,7 @@ function buildIssueAiPrompt(
     request: string | null;
     lifecycleNotes: string[];
   },
+  issueUrl?: string,
 ): string {
   const title = issue.title ?? context.exceptionText;
   const culpritSection = context.culprit
@@ -384,6 +385,7 @@ function buildIssueAiPrompt(
     "## Issue snapshot",
     "",
     `- **Title:** ${title}`,
+    issueUrl ? `- **Epure Issue:** ${issueUrl}` : null,
     `- **Status:** ${issue.status}`,
     `- **Level:** ${issue.level ?? "unknown"}`,
     `- **Occurrences:** ${issue.event_count}`,
@@ -465,6 +467,7 @@ export function buildIssueExportMarkdown(
 export function buildIssueAiClipboard(
   issue: IssueSummary,
   event: EventDetail | null,
+  issueUrl?: string,
 ): string {
   const payload = event?.payload_json ?? {};
   const frames = asStackFrames(event?.stack_frames);
@@ -478,22 +481,35 @@ export function buildIssueAiClipboard(
     lifecycleNotes: issueLifecycleNotes(issue),
   };
 
-  return `${buildIssueAiPrompt(issue, event, context)}\n\n${buildIssueExportMarkdown(issue, event)}`;
+  return `${buildIssueAiPrompt(issue, event, context, issueUrl)}\n\n${buildIssueExportMarkdown(issue, event)}`;
 }
 
 export async function copyIssueExport(
   issue: IssueSummary,
   event: EventDetail | null,
+  issueUrl?: string,
 ): Promise<void> {
-  const markdown = buildIssueAiClipboard(issue, event);
-  await navigator.clipboard.writeText(markdown);
+  const markdown = buildIssueAiClipboard(issue, event, issueUrl);
+  try {
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(markdown);
+    }
+  } catch {
+    // Gracefully handle clipboard write rejection (e.g. headless, unfocused doc, blocked permissions)
+  }
 }
 
 export async function copyBulkIssueExport(issues: IssueSummary[]): Promise<void> {
   const markdown = issues
     .map((issue, index) => `## ${index + 1}. ${issue.title ?? "Untitled issue"}\n\n${buildIssueAiClipboard(issue, null)}`)
     .join("\n\n---\n\n");
-  await navigator.clipboard.writeText(markdown);
+  try {
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(markdown);
+    }
+  } catch {
+    // Gracefully handle clipboard write rejection
+  }
 }
 
 export function useExportHotkey(

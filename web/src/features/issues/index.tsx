@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, EyeOff, RotateCcw, Sparkles } from "lucide-react";
+import { Check, ExternalLink, EyeOff, GitBranch, RotateCcw, Sparkles } from "lucide-react";
 import { Navigate, useParams } from "react-router-dom";
 import {
   bulkUpdateIssues,
@@ -33,7 +33,12 @@ import {
   canReopenIssue,
   canResolveIssue,
 } from "./issue-triage-utils";
-import { copyBulkIssueExport, copyIssueExport, useExportHotkey } from "./export-markdown";
+import {
+  buildIssueAiClipboard,
+  copyBulkIssueExport,
+  copyIssueExport,
+  useExportHotkey,
+} from "./export-markdown";
 import { IssueList } from "./issue-list";
 import { IssuesFeedHeader } from "./issues-feed-header";
 import {
@@ -211,10 +216,57 @@ export function IssuesPage() {
     if (!selectedIssue) {
       return;
     }
-    void copyIssueExport(selectedIssue, selectedEvent).then(() =>
+    const issueUrl = scopedProjectId
+      ? `${window.location.origin}/p/${scopedProjectId}/issues?issue=${selectedIssue.id}`
+      : `${window.location.origin}/issues?issue=${selectedIssue.id}`;
+    void copyIssueExport(selectedIssue, selectedEvent, issueUrl).then(() =>
       toast("Copied. Paste into Cursor or your AI assistant."),
     );
-  }, [selectedEvent, selectedIssue]);
+  }, [scopedProjectId, selectedEvent, selectedIssue]);
+
+  const handleCreateGitHubIssue = useCallback(async () => {
+    if (!selectedIssue) return;
+    const title = `[Bug] ${selectedIssue.title ?? "Production Exception"}`;
+    const issueUrl = scopedProjectId
+      ? `${window.location.origin}/p/${scopedProjectId}/issues?issue=${selectedIssue.id}`
+      : `${window.location.origin}/issues?issue=${selectedIssue.id}`;
+    const brief = buildIssueAiClipboard(selectedIssue, selectedEvent, issueUrl);
+    await copyIssueExport(selectedIssue, selectedEvent, issueUrl);
+
+    const storageKey = `epure:github_repo:${scopedProjectId ?? "default"}`;
+    let repo = localStorage.getItem(storageKey);
+    if (!repo) {
+      const input = window.prompt("Enter your GitHub repository (owner/repo):", "");
+      if (input && input.trim()) {
+        repo = input.trim().replace(/^https?:\/\/github\.com\//, "").replace(/\/+$/, "");
+        try {
+          localStorage.setItem(storageKey, repo);
+        } catch {}
+      }
+    }
+
+    if (repo) {
+      toast("Diagnostic brief copied to clipboard (⌘⇧C)! Opening GitHub Issue...");
+      const url = `https://github.com/${repo}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(brief.slice(0, 3000))}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    } else {
+      toast("Diagnostic brief copied to clipboard (⌘⇧C) — paste into your GitHub issue");
+      window.open("https://github.com", "_blank", "noopener,noreferrer");
+    }
+  }, [scopedProjectId, selectedEvent, selectedIssue, toast]);
+
+  const handleCreateLinearIssue = useCallback(async () => {
+    if (!selectedIssue) return;
+    const title = `[Bug] ${selectedIssue.title ?? "Production Exception"}`;
+    const issueUrl = scopedProjectId
+      ? `${window.location.origin}/p/${scopedProjectId}/issues?issue=${selectedIssue.id}`
+      : `${window.location.origin}/issues?issue=${selectedIssue.id}`;
+    const brief = buildIssueAiClipboard(selectedIssue, selectedEvent, issueUrl);
+    await copyIssueExport(selectedIssue, selectedEvent, issueUrl);
+    toast("Diagnostic brief copied to clipboard (⌘⇧C)! Opening Linear...");
+    const url = `https://linear.app/new?title=${encodeURIComponent(title)}&description=${encodeURIComponent(brief.slice(0, 3000))}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }, [scopedProjectId, selectedEvent, selectedIssue, toast]);
 
   useExportHotkey(
     Boolean(selectedIssue ?? focusedIssue),
@@ -398,6 +450,28 @@ export function IssuesPage() {
             >
               <Sparkles className="mr-1.5 h-3.5 w-3.5" />
               <span>Copy for AI (C)</span>
+            </ActionButton>
+            <ActionButton
+              variant="outline"
+              size="sm"
+              className="btn-tactile text-xs font-medium"
+              disabled={actionsDisabled}
+              tooltip="Create prefilled GitHub Issue with LLM diagnostic brief (⌘⇧C)"
+              onClick={() => void handleCreateGitHubIssue()}
+            >
+              <GitBranch className="mr-1.5 h-3.5 w-3.5" />
+              <span>GitHub Issue</span>
+            </ActionButton>
+            <ActionButton
+              variant="outline"
+              size="sm"
+              className="btn-tactile text-xs font-medium"
+              disabled={actionsDisabled}
+              tooltip="Create prefilled Linear Issue with LLM diagnostic brief"
+              onClick={() => void handleCreateLinearIssue()}
+            >
+              <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+              <span>Linear Issue</span>
             </ActionButton>
             <SnoozeMenu
               issue={selectedIssue}

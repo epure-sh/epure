@@ -129,24 +129,15 @@ function SelfHostedBilling() {
       <WorkspaceUsageStrip />
 
       <p className="text-sm text-ink-muted">
-        Epure Cloud is not available on this instance yet. Pro ($24/mo) and Plus ($79/mo) launch on{" "}
+        Want zero-maintenance PostgreSQL backups, multi-region uptime heartbeats, and managed upgrades?{" "}
         <a
           href={CLOUD_UPGRADE_URL}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-0.5 text-ink underline-offset-2 hover:underline"
+          className="inline-flex items-center gap-0.5 text-ink font-medium underline-offset-2 hover:underline"
         >
-          epure.sh
+          Explore Epure Cloud plans (Pro $49, Team Plus $99, Agency $249, Dedicated $399)
           <ExternalLink size={12} className="opacity-70" aria-hidden />
-        </a>
-        .{" "}
-        <a
-          href={CLOUD_UPGRADE_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="text-ink underline-offset-2 hover:underline"
-        >
-          Join the waitlist
         </a>
         .
       </p>

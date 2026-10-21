@@ -12,14 +12,14 @@ export function workspacePath(
 /** @deprecated use workspacePath */
 export const orgPath = workspacePath;
 
-export function workspaceSettingsPath(tab?: "general" | "security" | "agent" | "connected-apps"): string {
+export function workspaceSettingsPath(tab?: "general" | "security" | "agent" | "connected-apps" | "operations"): string {
   if (!tab || tab === "general") {
     return "/settings";
   }
   return `/settings/${tab}`;
 }
 
-export function settingsTabFromPath(pathname: string): "general" | "security" | "agent" | "connected-apps" {
+export function settingsTabFromPath(pathname: string): "general" | "security" | "agent" | "connected-apps" | "operations" {
   if (pathname.endsWith("/security")) {
     return "security";
   }
@@ -28,6 +28,9 @@ export function settingsTabFromPath(pathname: string): "general" | "security" | 
   }
   if (pathname.endsWith("/connected-apps")) {
     return "connected-apps";
+  }
+  if (pathname.endsWith("/operations")) {
+    return "operations";
   }
   return "general";
 }
@@ -41,6 +44,10 @@ export function usagePath(): string {
 
 export function billingPath(): string {
   return "/billing";
+}
+
+export function agencyMatrixPath(): string {
+  return "/agency/matrix";
 }
 
 export function isWorkspaceSettingsRoute(pathname: string): boolean {

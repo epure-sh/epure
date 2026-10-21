@@ -13,3 +13,5 @@ launch-docs/
 .specify/
 PUBLISH.md
 PROMPT_GITHUB_LAUNCH.md
+test-results/
+playwright-report/

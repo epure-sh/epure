@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Key, Laptop, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { Key, Laptop, Server, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { workspaceSettingsPath } from "../lib/paths";
 import { cn } from "../lib/cn";
 
@@ -31,6 +31,13 @@ const tabs = [
     description: "OAuth CLI & MCP sessions",
     icon: Laptop,
     path: workspaceSettingsPath("connected-apps"),
+  },
+  {
+    id: "operations",
+    label: "Operations & Backups",
+    description: "Postgres health, backups & cloud",
+    icon: Server,
+    path: workspaceSettingsPath("operations"),
   },
 ] as const;
 

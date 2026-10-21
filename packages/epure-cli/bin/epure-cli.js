@@ -36,9 +36,12 @@ Core Commands:
   triage resolve <issue_id>   Mark an issue resolved (optional: --release <rel>)
   triage ignore <issue_id>    Ignore an issue from alerting
   triage reopen <issue_id>    Reopen a resolved or ignored issue
-  triage snooze <issue_id>    Snooze an issue (optional: --mode hours|count)
   alerts                      List recent alerting events (optional: --view unread)
   api <METHOD> <PATH>         Execute raw authenticated API call against workspace
+
+Admin / Outbound Sales:
+  admin create-canary         Pre-provision an isolated Epure Cloud workspace with live DSN & Magic Link
+                              Flags: --domain <d>, --email <e>, [--name <n>], [--error <err>]
 
 Global Options:
   --token, -t <token>         Override Epure Personal Access Token
@@ -255,6 +258,69 @@ async function handleCommand() {
     }
     console.log('');
     return;
+  }
+
+  // Admin / Canary Provisioning command
+  if (cmd === 'admin') {
+    let domain = '';
+    let email = '';
+    let name = '';
+    let error = '';
+    let secret = process.env.EPURE_INTERNAL_SECRET || explicitToken || 'epure_dev_internal_secret';
+
+    for (let i = 1; i < filteredArgs.length; i++) {
+      const a = filteredArgs[i];
+      if (a === '--domain') domain = filteredArgs[++i];
+      else if (a === '--email') email = filteredArgs[++i];
+      else if (a === '--name') name = filteredArgs[++i];
+      else if (a === '--error') error = filteredArgs[++i];
+      else if (a === '--secret') secret = filteredArgs[++i];
+    }
+
+    if (subCmd === 'create-canary') {
+      if (!domain) {
+        throw new Error('Usage: epure admin create-canary --domain <domain> --email <email> [--name <name>] [--error <error>]');
+      }
+
+      if (secret) {
+        activeToken = secret;
+      }
+      if (!baseUrl || baseUrl === 'https://epure.sh') {
+        baseUrl = process.env.EPURE_CLOUD_URL || explicitUrl || 'https://cloud.epure.sh';
+      }
+      if (!activeToken) {
+        await resolveAuthentication();
+      }
+
+      const body = {
+        domain,
+        email: email || undefined,
+        app_name: name || domain.replace(/\./g, '-'),
+        seed_error: error || undefined,
+      };
+
+      const res = await request('POST', '/api/internal/canary', body);
+      const data = res.json();
+
+      printOutput(data, (info) => {
+        console.log('\n⚡ Epure Cloud Canary Provisioned Successfully!');
+        console.log('───────────────────────────────────────────────────────');
+        console.log(`  Domain:         ${info.domain || domain}`);
+        if (email) console.log(`  Prospect Email: ${email}`);
+        console.log(`  Live DSN:       ${info.dsn}`);
+        console.log(`  1-Click Magic:  ${info.magic_link}`);
+        console.log(`  MCP Command:    ${info.mcp_cmd}`);
+        console.log('  Validity:       14 Days (Zero password/signup prompt)');
+        console.log('───────────────────────────────────────────────────────');
+        console.log('  Seeded Exceptions:');
+        console.log(`    1. [Primary] ${error || 'TypeError: Cannot read properties of undefined (reading auth)'}`);
+        console.log('    2. [Timeout] DatabaseError: connection pool exhausted (timeout after 5000ms)');
+        console.log('    3. [Webhook] UnhandledPromiseRejection: failed to process webhook payment payload\n');
+      });
+      return;
+    } else {
+      throw new Error(`Unknown admin command: ${subCmd}. Usage: epure admin create-canary`);
+    }
   }
 
   // All other commands require authentication

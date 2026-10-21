@@ -1,8 +1,12 @@
 export type PlanId =
   | "oss"
   | "builder_pro"
+  | "pro"
   | "multi_app_studio"
+  | "team_plus"
   | "boutique_agency"
+  | "agency"
+  | "dedicated_sovereign"
   | "canary_sandbox";
 
 export interface PlanDefinition {
@@ -43,65 +47,90 @@ export const PLANS: PlanDefinition[] = [
   },
   {
     id: "builder_pro",
-    name: "Epure Pro",
-    price: "$24",
-    period: "/ mo flat · launch",
-    description: "Solo founders and indie SaaS. Flat Cloud — typically less than Sentry Team for comparable error volume.",
+    name: "Cloud Pro",
+    price: "$49",
+    period: "/ mo flat",
+    description: "Seed startups & small product teams needing predictable zero-maintenance cloud with $0 overage guarantee.",
     features: [
-      "Up to 3 Projects / Apps",
-      "30-day encrypted retention",
-      "Zero-DB-hit DSN caching on edge",
-      "Sub-600 token MCP (no $40/dev tax)",
-      "Agentjacking prompt-injection defense",
-      "Automated backups & zero maintenance",
+      "500,000 events / mo included",
+      "$0 overage guarantee (Spike Valve protection)",
+      "Unlimited team seats",
+      "Up to 5 projects",
+      "30-day event retention",
+      "Full Source Map demangling + epure-mcp",
+      "Slack, Discord, Telegram & Webhook alerts",
     ],
     limits: {
-      maxProjects: 3,
-      eventsPerMonth: 200_000,
+      maxProjects: 5,
+      eventsPerMonth: 500_000,
       retentionDays: 30,
+    },
+    highlighted: false,
+    cloudOnly: true,
+  },
+  {
+    id: "multi_app_studio",
+    name: "Cloud Team Plus",
+    price: "$99",
+    period: "/ mo flat",
+    description: "Fast-moving funded startups (5–30 engineers) with active release pipelines.",
+    features: [
+      "2,500,000 events / mo included",
+      "$0 overage guarantee (Spike Valve protection)",
+      "Unlimited projects & unlimited seats",
+      "90-day event retention",
+      "Two-way GitHub & Linear Issue Sync",
+      "Release commit tracking & regression alerts",
+      "Unlimited Cron / Heartbeat monitors",
+      "Priority email & Slack support",
+    ],
+    limits: {
+      maxProjects: null,
+      eventsPerMonth: 2_500_000,
+      retentionDays: 90,
     },
     highlighted: true,
     cloudOnly: true,
   },
   {
-    id: "multi_app_studio",
-    name: "Epure Plus",
-    price: "$79",
-    period: "/ mo flat · launch",
-    description: "Small teams and multi-app studios. One flat bill, no meter anxiety.",
+    id: "boutique_agency",
+    name: "Cloud Agency",
+    price: "$249",
+    period: "/ mo flat",
+    description: "Web/SaaS Dev Agencies & Fractional CTOs managing up to 25 isolated client apps.",
     features: [
-      "Up to 15 isolated Projects / Apps",
-      "Independent per-project Spike Valves",
-      "90-day retention & historical telemetry",
-      "Zero quota cross-contamination",
-      "Unlimited team members & agent tokens",
-      "Priority founder support",
+      "Up to 25 isolated client workspaces (PG16 RLS)",
+      "10,000,000 pooled events / mo",
+      "Per-client Spike Valve (zero cross-contamination)",
+      "White-label Automated Weekly Client Stability Reports",
+      "Role-based client view-only access",
+      "All Clients Health Matrix & fast ⌘K switching",
+      "Priority dedicated agency channel",
     ],
     limits: {
-      maxProjects: 15,
-      eventsPerMonth: 2_000_000,
+      maxProjects: 25,
+      eventsPerMonth: 10_000_000,
       retentionDays: 90,
     },
     cloudOnly: true,
   },
   {
-    id: "boutique_agency",
-    name: "Epure Agency",
-    price: "$149",
-    period: "/ mo flat · launch",
-    description: "Agencies and consultancies reselling client monitoring with strict tenant isolation.",
+    id: "dedicated_sovereign",
+    name: "Dedicated Sovereign",
+    price: "$399",
+    period: "/ mo flat",
+    description: "Fintech, Healthtech, and EU GDPR-strict teams demanding dedicated isolation or BYOC.",
     features: [
-      "Parent Agency managing up to 25 Workspaces",
-      "Strict PostgreSQL 16 RLS tenant isolation",
-      "Fast Cmd+K client workspace switcher",
-      "Read-only Client Viewer invites",
-      "Per-client Spike Valves & telemetry",
-      "Dedicated agency Slack/Discord channel",
+      "Dedicated single-tenant VM (Frankfurt, Paris, US-East) or BYOC VPC",
+      "25,000,000+ events / mo & 1-year retention",
+      "Signed GDPR DPA & Custom PII Scrubbing Rules",
+      "SAML/OIDC SSO & Enterprise Audit Logs",
+      "99.9% Uptime SLA + Dedicated Shared Slack Channel",
     ],
     limits: {
-      maxProjects: 25,
-      eventsPerMonth: 5_000_000,
-      retentionDays: 90,
+      maxProjects: null,
+      eventsPerMonth: 25_000_000,
+      retentionDays: 365,
     },
     cloudOnly: true,
   },
@@ -109,4 +138,4 @@ export const PLANS: PlanDefinition[] = [
 
 export const CLOUD_PLANS = PLANS.filter((plan) => plan.cloudOnly);
 
-export const CLOUD_UPGRADE_URL = "https://epure.sh/#pricing";
+export const CLOUD_UPGRADE_URL = "https://epure.sh/pricing";

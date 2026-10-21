@@ -23,6 +23,7 @@ import { Input } from "../../ui/input";
 import { SdkSnippetBlock } from "../../ui/sdk-snippet-block";
 import { useToast } from "../../ui/toast-provider";
 import { InfoCallout, MemberAccessNotice, SettingsTabHeader } from "./shared";
+import { DualSendingCard } from "../../ui/dual-sending-card";
 
 export function DsnKeysSettings() {
   const { projectId: paramId } = useParams<{ projectId: string }>();
@@ -200,6 +201,13 @@ export function DsnKeysSettings() {
             <CopyDsnBlock dsn={activeDsn} hint="One string — copy and paste into your SDK configuration." />
           </CardContent>
         </Card>
+      ) : null}
+
+      {(activeKey || revealed) && dsnSegment ? (
+        <DualSendingCard
+          publicKey={activeKey ? activeKey.public_key : revealed!.public_key}
+          dsnSegment={dsnSegment}
+        />
       ) : null}
 
       <Card>

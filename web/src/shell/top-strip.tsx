@@ -1,4 +1,4 @@
-import { GitBranch, LogOut, Menu } from "lucide-react";
+import { Activity, ArrowRight, Briefcase, ChevronDown, GitBranch, LogOut, Menu } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Badge } from "../ui/badge";
 import {
@@ -14,14 +14,18 @@ import {
 import {
   isProjectRoute,
   projectIdFromPath,
+  projectPath,
+  workspacePath,
   workspaceSettingsPath,
 } from "../lib/paths";
+import { cn } from "../lib/cn";
 import { useAppContext, type Environment } from "./app-context";
 import { useLogout } from "../lib/use-logout";
 
 const environments: Environment[] = ["production", "staging", "local"];
 
 function getPageName(pathname: string): string {
+  if (pathname.includes("/agency/matrix")) return "Agency Health Matrix";
   if (pathname.includes("/issues")) return "Issues Feed";
   if (pathname.includes("/releases")) return "Releases";
   if (pathname.includes("/alerts")) return "Alerts";
@@ -41,7 +45,7 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const inProject = isProjectRoute(pathname);
-  const { environment, setEnvironment, projects, user } = useAppContext();
+  const { environment, setEnvironment, projects, user, setProjectId } = useAppContext();
   const logout = useLogout();
 
   const routeProjectId = projectIdFromPath(pathname);
@@ -54,7 +58,7 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
 
   return (
     <header className="epure-top-strip flex h-11 shrink-0 items-center justify-between border-b border-border bg-bg px-4 select-none">
-      {/* Left zone: Mobile trigger & Current Route Breadcrumb */}
+      {/* Left zone: Mobile trigger & Fast Workspace / Org Switcher Dropdown */}
       <div className="flex min-w-0 items-center gap-2">
         {onOpenMobileSidebar ? (
           <button
@@ -66,15 +70,79 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
             <Menu size={16} />
           </button>
         ) : null}
-        {inProject && activeProject ? (
-          <>
-            <span className="text-xs font-semibold text-ink whitespace-nowrap">
-              {activeProject.name}
-            </span>
-            <span className="text-ink-subtle text-xs" aria-hidden>/</span>
-          </>
-        ) : null}
-        <span className="text-xs font-medium text-ink-muted">
+
+        {/* Fast Workspace / Client Org Switcher Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-ink hover:bg-state-hover focus-ring border border-transparent hover:border-border transition-colors cursor-pointer"
+            >
+              <Briefcase size={13} className="text-accent shrink-0" />
+              <span className="truncate max-w-[120px] sm:max-w-[180px]">
+                {activeProject ? activeProject.name : "All Workspaces"}
+              </span>
+              <ChevronDown size={11} className="text-ink-muted shrink-0" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64 shadow-lg border border-border">
+            <DropdownMenuLabel className="flex items-center justify-between text-2xs uppercase tracking-wider text-ink-muted">
+              <span>Client Workspaces</span>
+              <span className="font-mono text-2xs lowercase text-accent font-normal">PG16 RLS</span>
+            </DropdownMenuLabel>
+            <DropdownMenuItem
+              onSelect={() => navigate("/agency/matrix")}
+              className="flex items-center justify-between text-xs font-medium text-accent hover:text-accent cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Activity size={13} />
+                <span>All Clients Health Matrix</span>
+              </div>
+              <span className="font-mono text-2xs text-ink-muted">⌘K</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {projects.length === 0 ? (
+              <div className="px-2 py-2 text-2xs text-ink-muted">No client workspaces configured</div>
+            ) : (
+              <div className="max-h-56 overflow-y-auto divide-y divide-border/40">
+                {projects.slice(0, 25).map((p) => {
+                  const isActive = p.id === activeProject?.id;
+                  return (
+                    <DropdownMenuItem
+                      key={p.id}
+                      onSelect={() => {
+                        setProjectId(p.id);
+                        navigate(projectPath(p.id, "issues"));
+                      }}
+                      className={cn(
+                        "flex items-center justify-between text-xs py-2 cursor-pointer",
+                        isActive && "bg-accent/10 font-semibold text-accent",
+                      )}
+                    >
+                      <span className="truncate">{p.name}</span>
+                      {isActive ? (
+                        <span className="text-xs text-accent">✓</span>
+                      ) : (
+                        <span className="font-mono text-2xs text-ink-muted">/{p.slug}</span>
+                      )}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </div>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => navigate(workspacePath())}
+              className="text-2xs text-ink-muted flex items-center justify-between cursor-pointer"
+            >
+              <span>Manage all projects</span>
+              <ArrowRight size={11} />
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <span className="text-ink-subtle text-xs" aria-hidden>/</span>
+        <span className="text-xs font-medium text-ink-muted truncate">
           {pageName}
         </span>
       </div>

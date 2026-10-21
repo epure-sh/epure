@@ -158,4 +158,82 @@ mod tests {
         assert_eq!(deltas.len(), 1);
         assert_eq!(deltas[0].count_delta, 1);
     }
+
+    #[test]
+    fn exact_occurrence_counting_on_massive_flood() {
+        let valve = SpikeValve::default();
+        let fingerprint = "fp:infinite_loop";
+        let total_events = 10_000;
+
+        let mut stored_count = 0;
+        let mut suppressed_count = 0;
+
+        for _ in 0..total_events {
+            match valve.check(fingerprint) {
+                SpikeDecision::AllowStore => stored_count += 1,
+                SpikeDecision::CounterOnly => suppressed_count += 1,
+            }
+        }
+
+        // 100 diagnostic stack payloads stored in database
+        assert_eq!(stored_count, 100);
+        // 9,900 duplicate hits suppressed to prevent database overload & $0 overages
+        assert_eq!(suppressed_count, 9_900);
+
+        let deltas = valve.take_pending_deltas();
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].count_delta, 9_900);
+        assert_eq!(
+            stored_count as u64 + deltas[0].count_delta,
+            total_events as u64
+        );
+
+        // Taking deltas resets the in-memory counter
+        let second_take = valve.take_pending_deltas();
+        assert!(second_take.is_empty());
+    }
+
+    #[test]
+    fn fingerprint_isolation_under_flood() {
+        let valve = SpikeValve::default();
+        let flooded_fp = "fp:webhook_timeout";
+        let innocent_fp = "fp:auth_npe";
+
+        // Saturate flooded_fp with 250 events
+        for _ in 0..250 {
+            let _ = valve.check(flooded_fp);
+        }
+        assert_eq!(valve.check(flooded_fp), SpikeDecision::CounterOnly);
+
+        // Innocent fingerprint must NOT be choked by the neighbor's spike
+        assert_eq!(valve.check(innocent_fp), SpikeDecision::AllowStore);
+    }
+
+    #[test]
+    fn project_and_org_scoped_isolation() {
+        let valve = SpikeValve::default();
+        let org_a = Uuid::new_v4();
+        let org_b = Uuid::new_v4();
+        let proj_a = Uuid::new_v4();
+        let proj_b = Uuid::new_v4();
+        let common_fp = "fp:generic_type_error";
+
+        // Saturate proj_a in org_a
+        for _ in 0..100 {
+            assert_eq!(
+                valve.check_scoped(proj_a, org_a, common_fp),
+                SpikeDecision::AllowStore
+            );
+        }
+        assert_eq!(
+            valve.check_scoped(proj_a, org_a, common_fp),
+            SpikeDecision::CounterOnly
+        );
+
+        // proj_b in org_b sharing the same fingerprint string is completely isolated
+        assert_eq!(
+            valve.check_scoped(proj_b, org_b, common_fp),
+            SpikeDecision::AllowStore
+        );
+    }
 }

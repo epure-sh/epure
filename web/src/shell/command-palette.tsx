@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Bell,
+  Briefcase,
   CircleDot,
   CreditCard,
   FileDown,
@@ -62,7 +63,7 @@ export function useFocusQueryListener(callback: () => void) {
 export function CommandPalette() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { projectId, projects } = useAppContext();
+  const { projectId, projects, setProjectId } = useAppContext();
   const [open, setOpen] = useState(false);
   const [, setTriageVersion] = useState(0);
 
@@ -104,6 +105,10 @@ export function CommandPalette() {
             <LayoutGrid className="h-4 w-4 text-ink-muted" />
             Projects
           </CommandItem>
+          <CommandItem onSelect={() => run(() => navigate("/agency/matrix"))}>
+            <Briefcase className="h-4 w-4 text-accent" />
+            Agency Health Matrix
+          </CommandItem>
           <CommandItem onSelect={() => run(() => navigate(workspacePath("team")))}>
             <Users className="h-4 w-4 text-ink-muted" />
             Team
@@ -128,7 +133,12 @@ export function CommandPalette() {
               {projects.map((p) => (
                 <CommandItem
                   key={p.id}
-                  onSelect={() => run(() => navigate(projectPath(p.id, "issues")))}
+                  onSelect={() =>
+                    run(() => {
+                      setProjectId(p.id);
+                      navigate(projectPath(p.id, "issues"));
+                    })
+                  }
                 >
                   <CircleDot className="h-4 w-4 text-signal" />
                   {p.name}

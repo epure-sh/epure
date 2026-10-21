@@ -6,6 +6,7 @@ import { AgentTokensTab } from "./agent-tokens-tab";
 import { ConnectedAppsTab } from "./connected-apps-tab";
 import { GeneralTab } from "./general-tab";
 import { SecurityTab } from "./security-tab";
+import { OperationsTab } from "./operations-tab";
 import { useAccountSettings } from "./use-account-settings";
 
 export function AccountSettingsPage() {
@@ -31,6 +32,7 @@ export function AccountSettingsPage() {
                 <Route path="security" element={<SecurityTab settings={settings} />} />
                 <Route path="agent" element={<AgentTokensTab />} />
                 <Route path="connected-apps" element={<ConnectedAppsTab />} />
+                <Route path="operations" element={<OperationsTab />} />
                 <Route path="*" element={<Navigate to={workspaceSettingsPath()} replace />} />
               </Routes>
             )}

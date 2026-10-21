@@ -61,6 +61,17 @@ impl McpHandler {
                 }
             },
             {
+                "name": "epure_list_issues",
+                "description": "Alias for list_unresolved_issues: list unresolved production issues ranked by priority score",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "project": { "type": "string", "description": "Project ID or slug" },
+                        "limit": { "type": "integer", "description": "Max issues to return (default 10)", "default": 10 }
+                    }
+                }
+            },
+            {
                 "name": "get_crash_context",
                 "description": "Get sanitized stack frames, source lines, and crumbs for an issue (Agentjacking-safe)",
                 "inputSchema": {
@@ -72,8 +83,31 @@ impl McpHandler {
                 }
             },
             {
+                "name": "epure_get_issue_context",
+                "description": "Alias for get_crash_context: get sanitized stack frames and context for an issue",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "issue_id": { "type": "string", "description": "Issue UUID" }
+                    },
+                    "required": ["issue_id"]
+                }
+            },
+            {
                 "name": "mark_issue_resolved",
                 "description": "Mark an issue as resolved with optional commit SHA",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "issue_id": { "type": "string", "description": "Issue UUID" },
+                        "commit_sha": { "type": "string", "description": "Optional Git commit hash" }
+                    },
+                    "required": ["issue_id"]
+                }
+            },
+            {
+                "name": "epure_triage_issue",
+                "description": "Alias for mark_issue_resolved: mark an issue as resolved with optional commit SHA",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -164,9 +198,15 @@ impl McpHandler {
 
     async fn dispatch_tool(&self, name: &str, args: Value) -> Result<String, String> {
         match name {
-            "list_unresolved_issues" => self.tool_list_unresolved_issues(args).await,
-            "get_crash_context" => self.tool_get_crash_context(args).await,
-            "mark_issue_resolved" => self.tool_mark_issue_resolved(args).await,
+            "list_unresolved_issues" | "epure_list_issues" => {
+                self.tool_list_unresolved_issues(args).await
+            }
+            "get_crash_context" | "epure_get_issue_context" => {
+                self.tool_get_crash_context(args).await
+            }
+            "mark_issue_resolved" | "epure_triage_issue" => {
+                self.tool_mark_issue_resolved(args).await
+            }
             _ => Err(format!("Unknown tool: {name}")),
         }
     }
@@ -278,5 +318,69 @@ impl McpHandler {
         }
 
         Ok(format!("Issue {issue_id} marked as resolved."))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn handles_initialize_request() {
+        let handler = McpHandler::new("http://127.0.0.1:8080".into(), "dummy".into());
+        let req = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(1)),
+            method: "initialize".into(),
+            params: None,
+        };
+
+        let resp = handler.handle_request(req).await;
+        assert_eq!(resp.jsonrpc, "2.0");
+        assert_eq!(resp.id, Some(json!(1)));
+        assert!(resp.error.is_none());
+
+        let res = resp.result.unwrap();
+        assert_eq!(res["protocolVersion"], MCP_PROTOCOL_VERSION);
+        assert_eq!(res["serverInfo"]["name"], "epure-mcp");
+    }
+
+    #[tokio::test]
+    async fn handles_tools_list_including_aliases() {
+        let handler = McpHandler::new("http://127.0.0.1:8080".into(), "dummy".into());
+        let req = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(2)),
+            method: "tools/list".into(),
+            params: None,
+        };
+
+        let resp = handler.handle_request(req).await;
+        assert!(resp.error.is_none());
+        let tools = resp.result.unwrap()["tools"].as_array().unwrap().clone();
+        let tool_names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
+
+        assert!(tool_names.contains(&"list_unresolved_issues"));
+        assert!(tool_names.contains(&"epure_list_issues"));
+        assert!(tool_names.contains(&"get_crash_context"));
+        assert!(tool_names.contains(&"epure_get_issue_context"));
+        assert!(tool_names.contains(&"mark_issue_resolved"));
+        assert!(tool_names.contains(&"epure_triage_issue"));
+    }
+
+    #[tokio::test]
+    async fn handles_unknown_method() {
+        let handler = McpHandler::new("http://127.0.0.1:8080".into(), "dummy".into());
+        let req = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(json!(99)),
+            method: "unknown/method".into(),
+            params: None,
+        };
+
+        let resp = handler.handle_request(req).await;
+        assert!(resp.result.is_none());
+        let err = resp.error.unwrap();
+        assert_eq!(err.code, -32601);
     }
 }
