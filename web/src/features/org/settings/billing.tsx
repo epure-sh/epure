@@ -284,7 +284,7 @@ function PlanOptionCard({
             {isUpgrading ? (
               <span className="inline-flex items-center gap-1.5">
                 <Loader2 className="size-3.5 animate-spin" />
-                Connecting to Stripe…
+                Connecting to Polar…
               </span>
             ) : isOwner ? (
               `Upgrade to ${plan.name}`
@@ -364,7 +364,7 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
         throw new Error("No portal URL returned.");
       }
     } catch {
-      setError("Stripe customer portal is currently unavailable. Please reach out to billing@epure.sh.");
+      setError("Polar customer portal is currently unavailable. Please reach out to billing@epure.sh.");
       setPortalLoading(false);
     }
   }
@@ -494,7 +494,7 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-ink-muted">
-        <p>Subscriptions are billed securely via Stripe with automated EU VAT receipts and instant activation.</p>
+        <p>Subscriptions are billed securely via Polar with automated EU VAT receipts and instant activation.</p>
         <a
           href="mailto:sales@epure.sh?subject=Custom%20Enterprise%20Billing"
           className="inline-flex items-center gap-1 font-medium text-ink hover:underline"
