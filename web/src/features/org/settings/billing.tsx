@@ -1,4 +1,4 @@
-import { ArrowRight, Check, ExternalLink, Loader2, Receipt, Server, ShieldCheck } from "lucide-react";
+import { ArrowRight, Check, ExternalLink, Loader2, Receipt, Server, ShieldCheck, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -325,6 +325,16 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
 
   const activePlanId = normalizePlanId(billingStatus?.plan_tier ?? CLOUD_CURRENT_PLAN);
   const activePlan = planById(activePlanId);
+  const isTrial = Boolean(
+    activePlanId === "canary_sandbox" ||
+    billingStatus?.plan_tier === "canary_sandbox" ||
+    billingStatus?.canary_expires_at
+  );
+
+  const daysRemaining = billingStatus?.canary_expires_at
+    ? Math.max(0, Math.ceil((new Date(billingStatus.canary_expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 7;
+
   const monthlyLimit =
     billingStatus?.monthly_events_included && billingStatus.monthly_events_included > 0
       ? billingStatus.monthly_events_included
@@ -393,6 +403,52 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
         </div>
       )}
 
+      {/* 7-Day Pilot Trial Banner */}
+      {isTrial && (
+        <div className="relative overflow-hidden rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-5 shadow-xs">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Badge variant="env" className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold">
+                  <Zap size={11} className="mr-1 inline-block" />
+                  7-Day Pilot Trial
+                </Badge>
+                <span className="text-xs font-semibold text-ink">
+                  {daysRemaining > 0 ? `${daysRemaining} days remaining` : "Trial period ended"}
+                </span>
+              </div>
+              <h2 className="text-sm font-semibold text-ink">
+                Canary Sandbox Active — Zero-Overage Spike Valve & AI Triage Enabled
+              </h2>
+              <p className="text-xs text-ink-muted max-w-xl">
+                You are piloting Epure Cloud with 100,000 included events and native Claude Code / Cursor MCP triage. Upgrade now to preserve your data and unlock unlimited projects.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="signal"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => {
+                  const proPlan = CLOUD_PLANS.find((p) => p.tierCode === "pro") ?? CLOUD_PLANS[0];
+                  handleSelectPlan(proPlan);
+                }}
+                disabled={upgradingId !== null || !isOwner}
+              >
+                {upgradingId === "builder_pro" ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <>
+                    Upgrade to Cloud Pro
+                    <ArrowRight size={14} />
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Active Subscription Overview Card */}
       <Card className="border-border bg-surface shadow-xs">
         <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
@@ -400,7 +456,7 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-semibold text-ink">{activePlan.name}</h2>
               <Badge variant="env" className="border-accent/30 text-accent font-medium">
-                Official Epure Cloud
+                {isTrial ? "Pilot Trial" : "Official Epure Cloud"}
               </Badge>
               {billingStatus?.subscription_status && (
                 <Badge variant="secondary" className="capitalize text-2xs">
@@ -415,9 +471,13 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
 
           <div className="flex flex-wrap items-center gap-3">
             <p className="font-mono text-2xl font-semibold tabular-nums text-ink">
-              {annual ? (activePlan.priceAnnual ?? activePlan.price) : (activePlan.priceMonthly ?? activePlan.price)}
+              {isTrial
+                ? "$0"
+                : annual
+                  ? (activePlan.priceAnnual ?? activePlan.price)
+                  : (activePlan.priceMonthly ?? activePlan.price)}
               <span className="text-xs font-normal text-ink-muted ml-1">
-                {annual ? "/ mo (annual)" : "/ mo"}
+                {isTrial ? "pilot trial" : annual ? "/ mo (annual)" : "/ mo"}
               </span>
             </p>
             {isOwner && billingStatus?.subscription_id && (

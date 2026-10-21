@@ -1,6 +1,6 @@
-import { Pencil, Plus, Search } from "lucide-react";
+import { ArrowRight, Pencil, Plus, Search, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   createProject,
   deleteProject,
@@ -10,6 +10,7 @@ import {
   type TimelineBucket,
 } from "../../lib/api";
 import { useAppContext } from "../../shell/app-context";
+import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { PageChrome } from "../../ui/page-chrome";
@@ -297,6 +298,51 @@ export function OrgHomePage() {
 
       <div className="flex-1 overflow-auto bg-bg px-4 py-5 md:px-6">
         <div className="mx-auto max-w-7xl space-y-4">
+          {/* Canary Welcome Pilot Banner */}
+          {searchParams.get("welcome") === "canary" && (
+            <div className="relative overflow-hidden rounded-xl border border-accent/40 bg-gradient-to-r from-accent/15 via-accent/5 to-transparent p-5 shadow-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  const next = new URLSearchParams(searchParams);
+                  next.delete("welcome");
+                  setSearchParams(next, { replace: true });
+                }}
+                className="absolute top-3.5 right-3.5 flex h-6 w-6 items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-state-hover focus-ring"
+                aria-label="Dismiss banner"
+              >
+                <X size={14} />
+              </button>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pr-8">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="env" className="border-accent/40 text-accent font-semibold">
+                      <Sparkles size={11} className="mr-1 inline-block" />
+                      Canary Pilot Workspace
+                    </Badge>
+                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                      7-Day Trial Active · 0 Credentials Required
+                    </span>
+                  </div>
+                  <h2 className="text-sm font-semibold text-ink">
+                    Welcome to your pre-provisioned Epure Cloud sandbox!
+                  </h2>
+                  <p className="text-xs text-ink-muted max-w-2xl">
+                    Your environment is pre-loaded with sample exceptions, a dedicated DSN, and active Spike Valve crash-loop protection. Connect Claude Code or Cursor via <code className="rounded bg-bg-subtle px-1.5 py-0.5 text-ink font-mono text-2xs">epure-mcp</code> to auto-fix issues in seconds, or upgrade to keep your data beyond 7 days.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button variant="signal" size="sm" asChild>
+                    <Link to="/billing">
+                      View Plans & Upgrade
+                      <ArrowRight size={14} className="ml-1" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {projects.length > 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-3 pb-1 select-none">
               <div className="flex items-center gap-2">
