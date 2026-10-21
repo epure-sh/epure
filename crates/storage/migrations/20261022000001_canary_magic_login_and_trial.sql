@@ -8,7 +8,8 @@ RETURNS TABLE (
     r_email text,
     r_role text,
     r_canary_expires_at timestamptz,
-    r_plan_tier text
+    r_plan_tier text,
+    r_credential_generation bigint
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -22,7 +23,8 @@ BEGIN
         u.email::text AS r_email,
         om.role::text AS r_role,
         o.canary_expires_at AS r_canary_expires_at,
-        o.plan_tier::text AS r_plan_tier
+        o.plan_tier::text AS r_plan_tier,
+        COALESCE(u.credential_generation, 1::bigint) AS r_credential_generation
     FROM organizations o
     LEFT JOIN canary_meta cm ON cm.org_id = o.id
     LEFT JOIN org_members om ON om.org_id = o.id
