@@ -18,6 +18,7 @@ import {
   workspacePath,
   workspaceSettingsPath,
 } from "../lib/paths";
+import { isCloudDeployment } from "../lib/deployment";
 import { cn } from "../lib/cn";
 import { useAppContext, type Environment } from "./app-context";
 import { useLogout } from "../lib/use-logout";
@@ -186,13 +187,22 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
           </DropdownMenu>
         ) : null}
 
-        <button
-          type="button"
-          className="hidden h-7 items-center px-2 text-xs text-ink-muted transition-colors hover:text-ink lg:inline-flex"
-          onClick={() => window.open("https://github.com/epure-sh/epure/issues", "_blank")}
-        >
-          Feedback
-        </button>
+        {isCloudDeployment() ? (
+          <a
+            href="mailto:support@epure.sh?subject=Epure%20Cloud%20Feedback"
+            className="hidden h-7 items-center px-2 text-xs text-ink-muted transition-colors hover:text-ink lg:inline-flex"
+          >
+            Feedback
+          </a>
+        ) : (
+          <button
+            type="button"
+            className="hidden h-7 items-center px-2 text-xs text-ink-muted transition-colors hover:text-ink lg:inline-flex"
+            onClick={() => window.open("https://github.com/epure-sh/epure/issues", "_blank")}
+          >
+            Feedback
+          </button>
+        )}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

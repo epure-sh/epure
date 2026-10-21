@@ -1,14 +1,21 @@
-import { ArrowRight, Check, ExternalLink, Server } from "lucide-react";
+import { ArrowRight, Check, ExternalLink, Loader2, Receipt, Server, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   CLOUD_PLANS,
   CLOUD_UPGRADE_URL,
   PLANS,
+  normalizePlanId,
   type PlanDefinition,
   type PlanId,
 } from "../billing-data";
-import { fetchHeadlineStats } from "../../../lib/api";
+import {
+  createBillingPortalSession,
+  createCheckoutSession,
+  fetchBillingStatus,
+  fetchHeadlineStats,
+  type BillingStatus,
+} from "../../../lib/api";
 import { isCloudDeployment } from "../../../lib/deployment";
 import { usagePath } from "../../../lib/paths";
 import { useAppContext } from "../../../shell/app-context";
@@ -207,26 +214,39 @@ function CloudUsageMeter({ monthlyLimit }: { monthlyLimit: number }) {
 function PlanOptionCard({
   plan,
   isCurrent,
-  upgradeOnly,
+  isAnnual,
+  isOwner,
+  onSelectPlan,
+  isUpgrading,
 }: {
   plan: PlanDefinition;
   isCurrent?: boolean;
-  upgradeOnly?: boolean;
+  isAnnual: boolean;
+  isOwner: boolean;
+  onSelectPlan: (plan: PlanDefinition) => void;
+  isUpgrading?: boolean;
 }) {
+  const displayPrice = isAnnual ? (plan.priceAnnual ?? plan.price) : (plan.priceMonthly ?? plan.price);
+  const displayPeriod = isAnnual ? "/ mo flat (billed annually)" : (plan.period ?? "/ mo flat");
+
   return (
     <Card
       className={
         plan.highlighted && !isCurrent
-          ? "border-accent/30"
+          ? "border-accent/40 shadow-sm"
           : isCurrent
-            ? "border-accent/40 bg-accent-muted/5"
+            ? "border-emerald-500/40 bg-emerald-500/5 shadow-sm"
             : undefined
       }
     >
       <CardContent className="flex h-full flex-col p-4">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-base font-medium text-ink">{plan.name}</h3>
-          {isCurrent ? <Badge variant="env">Current</Badge> : null}
+          <h3 className="text-base font-semibold text-ink">{plan.name}</h3>
+          {isCurrent ? (
+            <Badge variant="env" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+              Active Plan
+            </Badge>
+          ) : null}
           {plan.highlighted && !isCurrent ? (
             <Badge variant="secondary" className="text-2xs uppercase">
               Popular
@@ -235,35 +255,42 @@ function PlanOptionCard({
         </div>
 
         <p className="mt-3 font-mono text-2xl font-medium tabular-nums text-ink">
-          {plan.price}
-          {plan.period ? (
-            <span className="text-sm font-normal text-ink-muted">{plan.period}</span>
-          ) : null}
+          {displayPrice}
+          <span className="text-xs font-normal text-ink-muted ml-1.5">{displayPeriod}</span>
         </p>
 
-        <ul className="mt-4 flex-1 space-y-2 text-sm text-ink-muted">
+        <p className="mt-1 text-xs text-ink-muted">{plan.description}</p>
+
+        <ul className="mt-4 flex-1 space-y-2 text-xs text-ink-muted">
           {plan.features.map((feature) => (
             <li key={feature} className="flex items-start gap-2">
-              <Check size={14} className="mt-0.5 shrink-0 text-signal" aria-hidden />
+              <Check size={13} className="mt-0.5 shrink-0 text-emerald-500" aria-hidden />
               <span>{feature}</span>
             </li>
           ))}
         </ul>
 
-        {upgradeOnly ? (
-          <Button variant={plan.highlighted ? "signal" : "secondary"} className="mt-4 w-full" asChild>
-            <a href={CLOUD_UPGRADE_URL} target="_blank" rel="noreferrer" className="gap-1.5">
-              Upgrade to {plan.name}
-              <ExternalLink size={14} />
-            </a>
-          </Button>
-        ) : isCurrent ? (
-          <Button variant="secondary" className="mt-4 w-full" disabled>
-            Current plan
+        {isCurrent ? (
+          <Button variant="outline" className="mt-4 w-full cursor-default opacity-85" disabled>
+            Current active tier
           </Button>
         ) : (
-          <Button variant="secondary" className="mt-4 w-full" disabled>
-            Switch to {plan.name}
+          <Button
+            variant={plan.highlighted ? "signal" : "secondary"}
+            className="mt-4 w-full"
+            disabled={isUpgrading || !isOwner}
+            onClick={() => onSelectPlan(plan)}
+          >
+            {isUpgrading ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Loader2 className="size-3.5 animate-spin" />
+                Connecting to Stripe…
+              </span>
+            ) : isOwner ? (
+              `Upgrade to ${plan.name}`
+            ) : (
+              "Ask owner to upgrade"
+            )}
           </Button>
         )}
       </CardContent>
@@ -272,50 +299,210 @@ function PlanOptionCard({
 }
 
 function CloudBilling({ isOwner }: { isOwner: boolean }) {
-  const currentPlan = planById(CLOUD_CURRENT_PLAN);
-  const plan = planById(CLOUD_CURRENT_PLAN);
+  const [searchParams] = useSearchParams();
+  const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
+  const [annual, setAnnual] = useState(true);
+  const [upgradingId, setUpgradingId] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const checkoutParam = searchParams.get("checkout");
+  const isMockCheckout = searchParams.get("mock_checkout") === "1";
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchBillingStatus()
+      .then((status) => {
+        if (!cancelled && status) {
+          setBillingStatus(status);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const activePlanId = normalizePlanId(billingStatus?.plan_tier ?? CLOUD_CURRENT_PLAN);
+  const activePlan = planById(activePlanId);
+  const monthlyLimit =
+    billingStatus?.monthly_events_included && billingStatus.monthly_events_included > 0
+      ? billingStatus.monthly_events_included
+      : (activePlan.limits.eventsPerMonth ?? 500_000);
+
+  async function handleSelectPlan(targetPlan: PlanDefinition) {
+    if (!isOwner) return;
+    setUpgradingId(targetPlan.id);
+    setError(null);
+    try {
+      const res = await createCheckoutSession({
+        plan_tier: targetPlan.tierCode ?? "pro",
+        interval: annual ? "annual" : "monthly",
+        success_url: `${window.location.origin}/billing?checkout=success`,
+        cancel_url: `${window.location.origin}/billing?checkout=canceled`,
+      });
+      if (res?.url) {
+        window.location.href = res.url;
+      } else {
+        throw new Error("No checkout URL returned.");
+      }
+    } catch (err: any) {
+      setError(err?.message ?? "Could not initiate checkout session. Please try again.");
+      setUpgradingId(null);
+    }
+  }
+
+  async function handleOpenPortal() {
+    if (!isOwner) return;
+    setPortalLoading(true);
+    setError(null);
+    try {
+      const res = await createBillingPortalSession(`${window.location.origin}/billing`);
+      if (res?.url) {
+        window.location.href = res.url;
+      } else {
+        throw new Error("No portal URL returned.");
+      }
+    } catch {
+      setError("Stripe customer portal is currently unavailable. Please reach out to billing@epure.sh.");
+      setPortalLoading(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-sm font-medium text-ink">{plan.name}</h2>
-              <Badge variant="env">Cloud</Badge>
-            </div>
-            <p className="text-xs text-ink-muted">{plan.description}</p>
+      {/* Checkout Feedback Alerts */}
+      {(checkoutParam === "success" || isMockCheckout) && (
+        <div className="flex items-center gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-700 dark:text-emerald-300">
+          <ShieldCheck size={16} className="shrink-0 text-emerald-500" />
+          <div className="flex-1">
+            <span className="font-semibold">Subscription upgraded successfully!</span> Your new monthly event volume and capabilities are active immediately.
           </div>
-          <p className="font-mono text-lg font-medium tabular-nums text-ink">
-            {plan.price}
-            {plan.period ? (
-              <span className="text-sm font-normal text-ink-muted">{plan.period}</span>
-            ) : null}
-          </p>
+        </div>
+      )}
+
+      {checkoutParam === "canceled" && (
+        <div className="flex items-center gap-2.5 rounded-lg border border-border bg-bg-subtle p-3.5 text-xs text-ink-muted">
+          <span>Checkout was canceled. Your current plan remains active without modifications.</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-lg border border-semantic-danger/30 bg-semantic-danger/10 p-3.5 text-xs text-semantic-danger">
+          {error}
+        </div>
+      )}
+
+      {/* Active Subscription Overview Card */}
+      <Card className="border-border bg-surface shadow-xs">
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-semibold text-ink">{activePlan.name}</h2>
+              <Badge variant="env" className="border-accent/30 text-accent font-medium">
+                Official Epure Cloud
+              </Badge>
+              {billingStatus?.subscription_status && (
+                <Badge variant="secondary" className="capitalize text-2xs">
+                  {billingStatus.subscription_status}
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs text-ink-muted">
+              {formatEvents(monthlyLimit)} events / mo included with automatic Spike Valve overage immunity.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="font-mono text-2xl font-semibold tabular-nums text-ink">
+              {annual ? (activePlan.priceAnnual ?? activePlan.price) : (activePlan.priceMonthly ?? activePlan.price)}
+              <span className="text-xs font-normal text-ink-muted ml-1">
+                {annual ? "/ mo (annual)" : "/ mo"}
+              </span>
+            </p>
+            {isOwner && billingStatus?.subscription_id && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpenPortal}
+                disabled={portalLoading}
+                className="gap-1.5 text-xs"
+              >
+                {portalLoading ? <Loader2 className="size-3.5 animate-spin" /> : <Receipt size={14} />}
+                Manage Invoices
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      <CloudUsageMeter monthlyLimit={currentPlan.limits.eventsPerMonth ?? 200_000} />
+      {/* Real-time Usage Projection Meter */}
+      <CloudUsageMeter monthlyLimit={monthlyLimit} />
 
-      <div className="space-y-3">
-        <SectionHeader
-          title="Plans"
-          description={
-            isOwner ? "Flat monthly rate." : "Workspace owners manage plan changes."
-          }
-        />
+      {/* Plan Selection Section */}
+      <div className="space-y-3 pt-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SectionHeader
+            title="Available Plans"
+            description={
+              isOwner
+                ? "Select a tier to upgrade. All plans include $0 overage protection via the Spike Valve."
+                : "Workspace owners manage plan upgrades and invoicing."
+            }
+          />
+
+          {/* Annual vs Monthly Toggle */}
+          <div className="inline-flex items-center rounded-lg border border-border bg-bg-subtle p-0.5 text-xs">
+            <button
+              type="button"
+              onClick={() => setAnnual(true)}
+              className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
+                annual
+                  ? "bg-surface text-ink shadow-xs"
+                  : "text-ink-muted hover:text-ink"
+              }`}
+            >
+              Annual <span className="text-emerald-600 dark:text-emerald-400 font-semibold">(2 Mo Free)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAnnual(false)}
+              className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
+                !annual
+                  ? "bg-surface text-ink shadow-xs"
+                  : "text-ink-muted hover:text-ink"
+              }`}
+            >
+              Monthly
+            </button>
+          </div>
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-2">
           {CLOUD_PLANS.map((p) => (
-            <PlanOptionCard key={p.id} plan={p} isCurrent={p.id === CLOUD_CURRENT_PLAN} />
+            <PlanOptionCard
+              key={p.id}
+              plan={p}
+              isCurrent={p.id === activePlanId}
+              isAnnual={annual}
+              isOwner={isOwner}
+              onSelectPlan={handleSelectPlan}
+              isUpgrading={upgradingId === p.id}
+            />
           ))}
         </div>
       </div>
 
-      {isOwner ? (
-        <p className="text-xs text-ink-muted">Stripe checkout and invoices coming soon.</p>
-      ) : (
-        <p className="text-xs text-ink-muted">Ask your workspace owner to manage billing.</p>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-ink-muted">
+        <p>Subscriptions are billed securely via Stripe with automated EU VAT receipts and instant activation.</p>
+        <a
+          href="mailto:sales@epure.sh?subject=Custom%20Enterprise%20Billing"
+          className="inline-flex items-center gap-1 font-medium text-ink hover:underline"
+        >
+          <span>Need custom invoicing or BYOC? Talk to sales</span>
+          <ExternalLink size={12} />
+        </a>
+      </div>
     </div>
   );
 }

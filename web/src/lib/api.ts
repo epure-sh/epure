@@ -930,3 +930,50 @@ export async function approveDeviceCode(userCode: string, orgId: string): Promis
   });
 }
 
+export interface BillingStatus {
+  plan_tier: string;
+  project_count: number;
+  max_projects: number;
+  monthly_events_included: number;
+  subscription_id: string | null;
+  subscription_status: string;
+  canary_expires_at: string | null;
+}
+
+export async function fetchBillingStatus(): Promise<BillingStatus | null> {
+  try {
+    return await apiFetch<BillingStatus>("/api/v1/billing/status");
+  } catch {
+    return null;
+  }
+}
+
+export interface CreateCheckoutParams {
+  plan_tier: string;
+  interval?: "monthly" | "annual";
+  success_url?: string;
+  cancel_url?: string;
+}
+
+export interface CheckoutSessionResponse {
+  url: string;
+  session_id: string;
+}
+
+export async function createCheckoutSession(
+  params: CreateCheckoutParams,
+): Promise<CheckoutSessionResponse> {
+  return await apiFetch<CheckoutSessionResponse>("/api/v1/billing/checkout", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+}
+
+export async function createBillingPortalSession(returnUrl?: string): Promise<{ url: string }> {
+  return await apiFetch<{ url: string }>("/api/v1/billing/portal", {
+    method: "POST",
+    body: JSON.stringify({ return_url: returnUrl }),
+  });
+}
+
+

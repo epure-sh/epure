@@ -13,6 +13,8 @@ export interface PlanDefinition {
   id: PlanId;
   name: string;
   price: string | null;
+  priceMonthly?: string;
+  priceAnnual?: string;
   period: string | null;
   description: string;
   features: string[];
@@ -23,6 +25,19 @@ export interface PlanDefinition {
   };
   highlighted?: boolean;
   cloudOnly?: boolean;
+  tierCode?: "pro" | "team_plus" | "agency" | "dedicated";
+}
+
+export function normalizePlanId(id: string | null | undefined): PlanId {
+  if (!id) return "builder_pro";
+  const lower = id.toLowerCase();
+  if (lower === "pro" || lower === "builder_pro") return "builder_pro";
+  if (lower === "team_plus" || lower === "multi_app_studio" || lower === "plus") return "multi_app_studio";
+  if (lower === "agency" || lower === "boutique_agency") return "boutique_agency";
+  if (lower === "dedicated" || lower === "dedicated_sovereign" || lower === "enterprise") return "dedicated_sovereign";
+  if (lower === "canary_sandbox") return "canary_sandbox";
+  if (lower === "oss" || lower === "self_hosted") return "oss";
+  return "builder_pro";
 }
 
 export const PLANS: PlanDefinition[] = [
@@ -49,7 +64,10 @@ export const PLANS: PlanDefinition[] = [
     id: "builder_pro",
     name: "Cloud Pro",
     price: "$49",
-    period: "/ mo flat",
+    priceMonthly: "$49",
+    priceAnnual: "$39",
+    period: "/ mo",
+    tierCode: "pro",
     description: "Seed startups & small product teams needing predictable zero-maintenance cloud with $0 overage guarantee.",
     features: [
       "500,000 events / mo included",
@@ -72,7 +90,10 @@ export const PLANS: PlanDefinition[] = [
     id: "multi_app_studio",
     name: "Cloud Team Plus",
     price: "$99",
-    period: "/ mo flat",
+    priceMonthly: "$99",
+    priceAnnual: "$79",
+    period: "/ mo",
+    tierCode: "team_plus",
     description: "Fast-moving funded startups (5–30 engineers) with active release pipelines.",
     features: [
       "2,500,000 events / mo included",
@@ -96,7 +117,10 @@ export const PLANS: PlanDefinition[] = [
     id: "boutique_agency",
     name: "Cloud Agency",
     price: "$249",
-    period: "/ mo flat",
+    priceMonthly: "$249",
+    priceAnnual: "$199",
+    period: "/ mo",
+    tierCode: "agency",
     description: "Web/SaaS Dev Agencies & Fractional CTOs managing up to 25 isolated client apps.",
     features: [
       "Up to 25 isolated client workspaces (PG16 RLS)",
@@ -118,7 +142,10 @@ export const PLANS: PlanDefinition[] = [
     id: "dedicated_sovereign",
     name: "Dedicated Sovereign",
     price: "$399",
-    period: "/ mo flat",
+    priceMonthly: "$399",
+    priceAnnual: "$399",
+    period: "/ mo",
+    tierCode: "dedicated",
     description: "Fintech, Healthtech, and EU GDPR-strict teams demanding dedicated isolation or BYOC.",
     features: [
       "Dedicated single-tenant VM (Frankfurt, Paris, US-East) or BYOC VPC",

@@ -5,6 +5,7 @@ import {
   type ConnectedAppRow,
 } from "../../../lib/api";
 import { formatRelativeTime } from "../../../lib/format-time";
+import { isCloudDeployment } from "../../../lib/deployment";
 import { Badge } from "../../../ui/badge";
 import { Button } from "../../../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../ui/card";
@@ -80,15 +81,15 @@ export function ConnectedAppsTab() {
                 Model Context Protocol server for Cursor, Claude Code, and autonomous AI agents.
               </CardDescription>
             </div>
-            <Badge variant={mcpEnabled ? "default" : "secondary"} className="text-[10px]">
-              {mcpEnabled ? "Active" : "Deactivated (Default)"}
+            <Badge variant={mcpEnabled || isCloudDeployment() ? "default" : "secondary"} className="text-[10px]">
+              {mcpEnabled || isCloudDeployment() ? "Active" : "Deactivated (Default)"}
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="text-xs text-ink-muted space-y-2">
-          {mcpEnabled ? (
+          {mcpEnabled || isCloudDeployment() ? (
             <p>
-              The embedded MCP server is active on this instance. Point Cursor or Claude Code to:
+              The embedded MCP server is active on this workspace. Point Cursor, Windsurf, or Claude Code to:
               <br />
               <code className="mt-1.5 inline-block rounded border border-border bg-surface-muted px-2 py-1 font-mono text-[11px] text-ink">
                 {window.location.origin}/mcp
@@ -97,7 +98,7 @@ export function ConnectedAppsTab() {
           ) : (
             <div>
               <p>
-                On open-source installations, the embedded MCP server is deactivated by default.
+                On self-hosted installations, the embedded MCP server is deactivated by default.
                 To activate it, set the environment variable in your <code className="font-mono text-ink">.env</code>:
               </p>
               <pre className="mt-2 rounded border border-border bg-surface-muted p-2 font-mono text-[11px] text-ink overflow-x-auto">

@@ -440,7 +440,7 @@ export function InboundFiltersSettings() {
           <InfoCallout>
             <strong>Soft-Sampling Policy:</strong> When traffic spikes exceed your cap, Épure does
             not blind you to error volume. The occurrence counter records 100% of the volume for
-            metric integrity, while detailed stack frames are sampled to protect VPS storage.
+            metric integrity, while detailed stack frames are sampled to protect database storage.
           </InfoCallout>
         </CardContent>
       </Card>

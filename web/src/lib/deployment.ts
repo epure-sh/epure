@@ -1,6 +1,21 @@
-/** Cloud vs self-hosted — set `VITE_EPURE_CLOUD=1` on Epure Cloud builds. */
+/** Cloud vs self-hosted — set `VITE_EPURE_CLOUD=1` on Epure Cloud builds or detected via hostname. */
 export function isCloudDeployment(): boolean {
-  return import.meta.env.VITE_EPURE_CLOUD === "1";
+  if (import.meta.env.VITE_EPURE_CLOUD === "1" || import.meta.env.VITE_EPURE_CLOUD === "true") {
+    return true;
+  }
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname.toLowerCase();
+    if (
+      host === "app.epure.sh" ||
+      host === "cloud.epure.sh" ||
+      host === "burst.epure.sh" ||
+      host.endsWith(".epure.sh") ||
+      host.includes("epure-cloud")
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /** Cloud OAuth buttons — hidden on OSS builds even if env vars leak at runtime. */

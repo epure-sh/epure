@@ -5,12 +5,15 @@ import {
   Cloud,
   Database,
   ExternalLink,
+  Globe2,
   HardDrive,
+  Lock,
   RefreshCw,
   Server,
   ShieldCheck,
   X,
 } from "lucide-react";
+import { isCloudDeployment } from "../../../lib/deployment";
 import { Badge } from "../../../ui/badge";
 import { Button } from "../../../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../ui/card";
@@ -20,6 +23,7 @@ import { useToast } from "../../../ui/toast-provider";
 import { CLOUD_UPGRADE_URL } from "../billing-data";
 
 export function OperationsTab() {
+  const cloud = isCloudDeployment();
   const { toast } = useToast();
   const [bannerDismissed, setBannerDismissed] = useState(() => {
     try {
@@ -52,6 +56,94 @@ export function OperationsTab() {
   function handleSaveS3() {
     setS3Configured(true);
     toast("Off-box backup configuration saved. Scheduled nightly at 03:00 UTC.");
+  }
+
+  if (cloud) {
+    return (
+      <div className="space-y-4 text-ink">
+        <Card className="border-border bg-surface">
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Database className="size-4 text-accent" />
+                <span>Managed Cloud Infrastructure</span>
+              </CardTitle>
+              <div className="flex items-center gap-1.5">
+                <Badge variant="env" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                  99.9% SLA Active
+                </Badge>
+                <Badge variant="secondary">Frankfurt (EU)</Badge>
+              </div>
+            </div>
+            <CardDescription className="text-xs text-ink-muted">
+              Fully managed multi-region ingestion, automated PostgreSQL continuous archiving, and encrypted isolation.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="rounded-md border border-border bg-bg-subtle p-3 space-y-1">
+                <span className="text-2xs text-ink-muted uppercase tracking-wider">Database Engine</span>
+                <p className="font-mono text-sm font-semibold text-ink">PostgreSQL 16 Cluster</p>
+                <p className="text-2xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="size-3" />
+                  <span>RLS Cryptographic Isolation</span>
+                </p>
+              </div>
+
+              <div className="rounded-md border border-border bg-bg-subtle p-3 space-y-1">
+                <span className="text-2xs text-ink-muted uppercase tracking-wider">Spike Valve Layer</span>
+                <p className="font-mono text-sm font-semibold text-ink">Zero Overage Protection</p>
+                <p className="text-2xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <ShieldCheck className="size-3" />
+                  <span>100% Counter Accuracy Active</span>
+                </p>
+              </div>
+
+              <div className="rounded-md border border-border bg-bg-subtle p-3 space-y-1">
+                <span className="text-2xs text-ink-muted uppercase tracking-wider">Data Sovereignty</span>
+                <p className="font-mono text-sm font-semibold text-ink">GDPR Compliant (EU)</p>
+                <p className="text-2xs text-ink-muted flex items-center gap-1">
+                  <Globe2 className="size-3" />
+                  <span>ISO 27001 Datacenter</span>
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-surface">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Lock className="size-4 text-accent" />
+              <span>Backups & Disaster Recovery</span>
+            </CardTitle>
+            <CardDescription className="text-xs text-ink-muted">
+              Automated continuous WAL archiving and point-in-time recovery (PITR) across redundant availability zones.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-bg-subtle p-3 text-xs">
+              <div className="space-y-0.5">
+                <p className="font-medium text-ink">Point-in-Time Recovery (PITR)</p>
+                <p className="text-ink-muted">Continuous delta sync with 30-day restore capability.</p>
+              </div>
+              <Badge variant="env" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                Operational
+              </Badge>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-bg-subtle p-3 text-xs">
+              <div className="space-y-0.5">
+                <p className="font-medium text-ink">Encryption at Rest & In Transit</p>
+                <p className="text-ink-muted">AES-256 encrypted volumes and enforced TLS 1.3 endpoints.</p>
+              </div>
+              <Badge variant="env" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                Enforced
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (

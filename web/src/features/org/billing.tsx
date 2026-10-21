@@ -10,7 +10,9 @@ export function BillingPage() {
       <PageChrome
         title="Billing"
         description={
-          cloud ? "Plan and included volume." : "Self-hosted OSS. Cloud waitlist on epure.sh."
+          cloud
+            ? "Manage your Epure Cloud subscription, active tier, and included volume."
+            : "Self-hosted OSS instance. Explore Epure Cloud plans for zero-maintenance hosting."
         }
       />
       <div className="min-w-0 flex-1 overflow-auto bg-bg p-4">

@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
 import type { AccountSettingsContext } from "./use-account-settings";
-import { isGoogleSignInVisible } from "../../../lib/deployment";
+import { isCloudDeployment, isGoogleSignInVisible } from "../../../lib/deployment";
 import { Badge } from "../../../ui/badge";
 import { Button } from "../../../ui/button";
 import {
@@ -183,12 +183,22 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
         />
       </div>
 
-      <p className="px-1 text-xs text-ink-muted">
-        Self-hosted instances do not send password-reset emails. Ask your workspace owner for help.{" "}
-        <Link to="/login" className="text-ink underline-offset-2 hover:underline">
-          Sign in
-        </Link>
-      </p>
+      {isCloudDeployment() ? (
+        <p className="px-1 text-xs text-ink-muted">
+          Need to reset your credentials or change SSO settings? Use Google or GitHub sign-in, or contact{" "}
+          <a href="mailto:support@epure.sh" className="text-ink underline-offset-2 hover:underline">
+            support@epure.sh
+          </a>
+          .
+        </p>
+      ) : (
+        <p className="px-1 text-xs text-ink-muted">
+          Self-hosted instances do not send password-reset emails. Ask your workspace owner for help.{" "}
+          <Link to="/login" className="text-ink underline-offset-2 hover:underline">
+            Sign in
+          </Link>
+        </p>
+      )}
 
       <Dialog open={passwordOpen} onOpenChange={setPasswordOpen}>
         <DialogContent>

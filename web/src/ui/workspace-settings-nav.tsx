@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { Key, Laptop, Server, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { workspaceSettingsPath } from "../lib/paths";
 import { cn } from "../lib/cn";
+import { isCloudDeployment } from "../lib/deployment";
 
 const tabs = [
   {
@@ -35,13 +36,16 @@ const tabs = [
   {
     id: "operations",
     label: "Operations & Backups",
-    description: "Postgres health, backups & cloud",
+    description: "Postgres health, backups & storage",
     icon: Server,
     path: workspaceSettingsPath("operations"),
   },
 ] as const;
 
 export function WorkspaceSettingsNav() {
+  const cloud = isCloudDeployment();
+  const visibleTabs = cloud ? tabs.filter((tab) => tab.id !== "operations") : tabs;
+
   return (
     <nav
       aria-label="Workspace settings"
@@ -52,7 +56,7 @@ export function WorkspaceSettingsNav() {
           Workspace Settings
         </h3>
         <div className="space-y-0.5">
-          {tabs.map((tab) => {
+          {visibleTabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <NavLink

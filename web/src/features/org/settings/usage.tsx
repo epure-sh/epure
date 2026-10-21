@@ -453,11 +453,16 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
               </li>
             </ul>
             {!cloud ? (
-              <p className="text-xs">
-                OSS has no hard billing limits. Cloud plans (Pro $24 / Plus $79) add managed hosting
-                and usage-based quotas when you migrate.
+              <p className="text-xs text-ink-muted">
+                Self-hosted instances have no metered billing limits. Epure Cloud plans add managed hosting,
+                multi-region failover, and automated continuous backups.
               </p>
-            ) : null}
+            ) : (
+              <p className="text-xs text-ink-muted">
+                Epure Cloud includes zero-overage Spike Valve protection. If event velocity spikes, full
+                diagnostic samples are captured while exact occurrence counters stay 100% accurate.
+              </p>
+            )}
           </CardContent>
         </Card>
       </section>

@@ -288,7 +288,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
             </div>
             <p className="text-ink-muted leading-relaxed">
               Accurate event count kept (100%) with automated soft-sampling during traffic spikes.
-              Zero bill overages, zero VPS disk depletion. Click to inspect telemetry.
+              Zero bill overages, zero storage depletion. Click to inspect telemetry.
             </p>
           </TooltipContent>
         </Tooltip>
