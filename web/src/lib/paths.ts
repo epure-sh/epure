@@ -46,10 +46,6 @@ export function billingPath(): string {
   return "/billing";
 }
 
-export function agencyMatrixPath(): string {
-  return "/agency/matrix";
-}
-
 export function isWorkspaceSettingsRoute(pathname: string): boolean {
   return (
     pathname === "/settings" ||

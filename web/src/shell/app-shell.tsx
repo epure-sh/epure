@@ -12,7 +12,6 @@ import { SetupPage } from "../features/setup";
 import { ReleasesPage } from "../features/releases";
 import { MonitorsPage } from "../features/monitors";
 import { SettingsPage } from "../features/settings";
-import { AgencyHealthMatrixPage } from "../features/agency/health-matrix";
 import { projectPath } from "../lib/paths";
 import { RouteErrorBoundary } from "../ui/route-error-boundary";
 import { AppProvider, useAppContext } from "./app-context";
@@ -126,14 +125,6 @@ export function AppShell() {
                   element={
                     <BoundedRoute title="Billing page crashed">
                       <BillingPage />
-                    </BoundedRoute>
-                  }
-                />
-                <Route
-                  path="/agency/matrix"
-                  element={
-                    <BoundedRoute title="Agency Health Matrix crashed">
-                      <AgencyHealthMatrixPage />
                     </BoundedRoute>
                   }
                 />

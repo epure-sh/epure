@@ -1,4 +1,4 @@
-import { Activity, ArrowRight, Briefcase, ChevronDown, GitBranch, LogOut, Menu } from "lucide-react";
+import { ArrowRight, ChevronDown, FolderKanban, GitBranch, LogOut, Menu } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Badge } from "../ui/badge";
 import {
@@ -26,7 +26,6 @@ import { useLogout } from "../lib/use-logout";
 const environments: Environment[] = ["production", "staging", "local"];
 
 function getPageName(pathname: string): string {
-  if (pathname.includes("/agency/matrix")) return "Agency Health Matrix";
   if (pathname.includes("/issues")) return "Issues Feed";
   if (pathname.includes("/releases")) return "Releases";
   if (pathname.includes("/alerts")) return "Alerts";
@@ -72,38 +71,26 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
           </button>
         ) : null}
 
-        {/* Fast Workspace / Client Org Switcher Dropdown */}
+        {/* Project Switcher Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
               className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-ink hover:bg-state-hover focus-ring border border-transparent hover:border-border transition-colors cursor-pointer"
             >
-              <Briefcase size={13} className="text-accent shrink-0" />
+              <FolderKanban size={13} className="text-accent shrink-0" />
               <span className="truncate max-w-[120px] sm:max-w-[180px]">
-                {activeProject ? activeProject.name : "All Workspaces"}
+                {activeProject ? activeProject.name : "All Projects"}
               </span>
               <ChevronDown size={11} className="text-ink-muted shrink-0" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64 shadow-lg border border-border">
             <DropdownMenuLabel className="flex items-center justify-between text-2xs uppercase tracking-wider text-ink-muted">
-              <span>Client Workspaces</span>
-              <span className="font-mono text-2xs lowercase text-accent font-normal">PG16 RLS</span>
+              <span>Projects</span>
             </DropdownMenuLabel>
-            <DropdownMenuItem
-              onSelect={() => navigate("/agency/matrix")}
-              className="flex items-center justify-between text-xs font-medium text-accent hover:text-accent cursor-pointer"
-            >
-              <div className="flex items-center gap-2">
-                <Activity size={13} />
-                <span>All Clients Health Matrix</span>
-              </div>
-              <span className="font-mono text-2xs text-ink-muted">⌘K</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
             {projects.length === 0 ? (
-              <div className="px-2 py-2 text-2xs text-ink-muted">No client workspaces configured</div>
+              <div className="px-2 py-2 text-2xs text-ink-muted">No projects configured</div>
             ) : (
               <div className="max-h-56 overflow-y-auto divide-y divide-border/40">
                 {projects.slice(0, 25).map((p) => {

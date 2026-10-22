@@ -10,7 +10,6 @@ import {
   Settings,
   Users,
   Activity,
-  Briefcase,
   ChevronDown,
   ShieldCheck,
   X,
@@ -79,7 +78,6 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
 
   const workspaceNavItems = [
     { to: workspacePath(), label: "Projects", icon: Layers, end: true },
-    { to: "/agency/matrix", label: "Agency Matrix", icon: Briefcase, end: true },
     { to: "/team", label: "Team", icon: Users, end: true },
     { to: "/usage", label: "Usage", icon: Activity, end: true },
     { to: "/billing", label: "Billing", icon: CreditCard, end: true },

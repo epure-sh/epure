@@ -111,8 +111,8 @@ test.describe("Web UI: Issue Inbox & Keyboard Navigation", () => {
     await expect(cmdInput).toBeVisible({ timeout: 5000 });
 
     // Type in command palette
-    await cmdInput.fill("health");
-    await expect(page.getByText(/Agency Health Matrix|health|fleet/i).first()).toBeVisible();
+    await cmdInput.fill("team");
+    await expect(page.getByText(/Team/i).first()).toBeVisible();
 
     // Close with Escape
     await page.keyboard.press("Escape");

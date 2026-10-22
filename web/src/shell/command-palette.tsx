@@ -1,7 +1,6 @@
 import {
   BarChart3,
   Bell,
-  Briefcase,
   CircleDot,
   CreditCard,
   FileDown,
@@ -104,10 +103,6 @@ export function CommandPalette() {
           <CommandItem onSelect={() => run(() => navigate(workspacePath()))}>
             <LayoutGrid className="h-4 w-4 text-ink-muted" />
             Projects
-          </CommandItem>
-          <CommandItem onSelect={() => run(() => navigate("/agency/matrix"))}>
-            <Briefcase className="h-4 w-4 text-accent" />
-            Agency Health Matrix
           </CommandItem>
           <CommandItem onSelect={() => run(() => navigate(workspacePath("team")))}>
             <Users className="h-4 w-4 text-ink-muted" />
