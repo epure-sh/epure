@@ -1,10 +1,14 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { Mail, Send } from "lucide-react";
 import {
   createAlertRule,
   deleteAlertRule,
   fetchAlertRules,
+  fetchProjectEmailAlertSettings,
+  sendTestEmailAlert,
   updateAlertRule,
+  updateProjectEmailAlertSettings,
   type AlertRuleRow,
 } from "../../lib/api";
 import { projectPath } from "../../lib/paths";
@@ -92,9 +96,40 @@ export function AlertRulesSettings() {
   const [environment, setEnvironment] = useState("production");
   const [threshold, setThreshold] = useState("300");
 
+  const [emailAlertsLoading, setEmailAlertsLoading] = useState(true);
+  const [emailAlertsEnabled, setEmailAlertsEnabled] = useState(true);
+  const [emailOnRegression, setEmailOnRegression] = useState(true);
+  const [emailOnSpike, setEmailOnSpike] = useState(true);
+  const [customRecipientsMode, setCustomRecipientsMode] = useState(false);
+  const [customRecipientsInput, setCustomRecipientsInput] = useState("");
+  const [savingEmailAlerts, setSavingEmailAlerts] = useState(false);
+  const [testingEmail, setTestingEmail] = useState(false);
+  const [testEmailRecipient, setTestEmailRecipient] = useState("");
+
   const activeProjectId = paramId ?? null;
   const canManage = user?.role === "owner" || user?.role === "admin";
   const selectedKind = RULE_KINDS.find((item) => item.id === kind) ?? RULE_KINDS[0];
+
+  const loadEmailAlertSettings = useCallback(async () => {
+    if (!activeProjectId) return;
+    try {
+      const settings = await fetchProjectEmailAlertSettings(activeProjectId);
+      setEmailAlertsEnabled(settings.email_alerts_enabled);
+      setEmailOnRegression(settings.email_alert_on_regression);
+      setEmailOnSpike(settings.email_alert_on_spike);
+      if (settings.email_alert_recipients && settings.email_alert_recipients.length > 0) {
+        setCustomRecipientsMode(true);
+        setCustomRecipientsInput(settings.email_alert_recipients.join(", "));
+      } else {
+        setCustomRecipientsMode(false);
+        setCustomRecipientsInput("");
+      }
+    } catch {
+      // Defaults to true
+    } finally {
+      setEmailAlertsLoading(false);
+    }
+  }, [activeProjectId]);
 
   const loadRules = useCallback(async () => {
     if (!activeProjectId || !canManage) {
@@ -114,7 +149,51 @@ export function AlertRulesSettings() {
 
   useEffect(() => {
     void loadRules();
-  }, [loadRules]);
+    void loadEmailAlertSettings();
+  }, [loadRules, loadEmailAlertSettings]);
+
+  const handleSaveEmailAlerts = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!activeProjectId) return;
+    setSavingEmailAlerts(true);
+    try {
+      const recipients = customRecipientsMode
+        ? customRecipientsInput
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s.includes("@"))
+        : [];
+      await updateProjectEmailAlertSettings(activeProjectId, {
+        email_alerts_enabled: emailAlertsEnabled,
+        email_alert_on_regression: emailOnRegression,
+        email_alert_on_spike: emailOnSpike,
+        email_alert_recipients: recipients,
+      });
+      toast("Email alert settings saved successfully");
+    } catch {
+      toast("Failed to save email alert settings");
+    } finally {
+      setSavingEmailAlerts(false);
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!activeProjectId) return;
+    setTestingEmail(true);
+    try {
+      const target = testEmailRecipient.trim() || undefined;
+      const res = await sendTestEmailAlert(activeProjectId, target);
+      if (res.sent) {
+        toast(`Test email sent via Resend to ${res.recipient}! Check inbox.`);
+      } else {
+        toast(res.error ? `Failed to send test email: ${res.error}` : "Failed to send test email");
+      }
+    } catch {
+      toast("Error sending test email");
+    } finally {
+      setTestingEmail(false);
+    }
+  };
 
   function applyTemplate(template: RuleTemplate) {
     setName(template.name);
@@ -206,6 +285,136 @@ export function AlertRulesSettings() {
           </Button>
         }
       />
+
+      {/* Email Alerting Settings (Resend) */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-accent" />
+              <CardTitle>Email Alert Notifications</CardTitle>
+            </div>
+            <Badge variant="env">Resend · alert.epure.sh</Badge>
+          </div>
+          <CardDescription>
+            Configure automated email notifications dispatched when critical production issues or velocity spikes occur.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {emailAlertsLoading ? (
+            <p className="text-xs text-ink-muted">Loading email settings…</p>
+          ) : (
+            <form onSubmit={(e) => void handleSaveEmailAlerts(e)} className="space-y-4">
+              <div className="flex items-center justify-between rounded-lg border border-border bg-surface p-3">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-semibold text-ink">Enable Email Alerts</span>
+                  <p className="text-2xs text-ink-muted">
+                    Send real-time alert emails from alerts@alert.epure.sh
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 text-xs font-medium text-ink cursor-pointer">
+                  <Checkbox
+                    checked={emailAlertsEnabled}
+                    onCheckedChange={(checked) => setEmailAlertsEnabled(checked === true)}
+                  />
+                  <span>Active</span>
+                </label>
+              </div>
+
+              {emailAlertsEnabled && (
+                <div className="space-y-3 rounded-lg border border-border bg-bg/50 p-3.5">
+                  <span className="text-2xs font-semibold uppercase tracking-wider text-ink-muted">
+                    Trigger Conditions
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label className="flex items-center gap-2 text-xs text-ink cursor-pointer">
+                      <Checkbox
+                        checked={emailOnRegression}
+                        onCheckedChange={(checked) => setEmailOnRegression(checked === true)}
+                      />
+                      <span>Issue Regressions (reopened)</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-ink cursor-pointer">
+                      <Checkbox
+                        checked={emailOnSpike}
+                        onCheckedChange={(checked) => setEmailOnSpike(checked === true)}
+                      />
+                      <span>Velocity Spikes (&gt;300%)</span>
+                    </label>
+                  </div>
+
+                  <div className="pt-2 border-t border-border/60 space-y-2">
+                    <span className="text-2xs font-semibold uppercase tracking-wider text-ink-muted">
+                      Recipients
+                    </span>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-xs text-ink cursor-pointer">
+                        <input
+                          type="radio"
+                          name="recipient-mode"
+                          className="text-accent focus:ring-accent"
+                          checked={!customRecipientsMode}
+                          onChange={() => setCustomRecipientsMode(false)}
+                        />
+                        <span>All workspace team members</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-ink cursor-pointer">
+                        <input
+                          type="radio"
+                          name="recipient-mode"
+                          className="text-accent focus:ring-accent"
+                          checked={customRecipientsMode}
+                          onChange={() => setCustomRecipientsMode(true)}
+                        />
+                        <span>Custom email list</span>
+                      </label>
+                    </div>
+
+                    {customRecipientsMode && (
+                      <Field
+                        label="Recipient Emails"
+                        hint="Comma-separated list of email addresses."
+                        className="mt-2"
+                      >
+                        <Input
+                          value={customRecipientsInput}
+                          onChange={(e) => setCustomRecipientsInput(e.target.value)}
+                          placeholder="eng-alerts@company.com, oncall@company.com"
+                        />
+                      </Field>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <Button type="submit" variant="primary" size="sm" disabled={savingEmailAlerts}>
+                  {savingEmailAlerts ? "Saving…" : "Save Email Settings"}
+                </Button>
+
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={testEmailRecipient}
+                    onChange={(e) => setTestEmailRecipient(e.target.value)}
+                    placeholder={user?.email ?? "recipient@example.com"}
+                    className="w-48 text-xs h-8"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={testingEmail}
+                    onClick={() => void handleSendTestEmail()}
+                  >
+                    <Send className="mr-1.5 h-3.5 w-3.5" />
+                    {testingEmail ? "Sending…" : "Send Test"}
+                  </Button>
+                </div>
+              </div>
+            </form>
+          )}
+        </CardContent>
+      </Card>
 
       <InfoCallout>
         Built-in rules already fire for velocity spikes, new issues, and regressions. A custom rule

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { acceptInvitation, fetchMe } from "../../lib/api";
 import { HTTP_SESSION_COOKIE_MESSAGE, httpSecureCookieTrap } from "../../lib/session-cookie";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
@@ -65,8 +66,28 @@ export function LoginPage() {
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite")?.trim() || null;
   const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
+  const [acceptingInvite, setAcceptingInvite] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   useEffect(() => {
+    // If the user already has a valid session and clicks an invite link, automatically accept and join
+    if (inviteToken) {
+      void fetchMe()
+        .then(async (me) => {
+          if (me && me.user_id) {
+            setAcceptingInvite(true);
+            try {
+              await acceptInvitation(inviteToken);
+              window.location.href = "/";
+            } catch {
+              setAcceptingInvite(false);
+              setInviteError("Failed to accept invitation. The invitation may be expired or for a different email.");
+            }
+          }
+        })
+        .catch(() => {});
+    }
+
     fetch("/api/v1/auth/config", { credentials: "include" })
       .then((response) => (response.ok ? response.json() : null))
       .then((body: AuthConfig | null) => {
@@ -127,7 +148,17 @@ export function LoginPage() {
           {inviteToken && (
             <div className="flex items-center justify-center gap-2 rounded-lg border border-border bg-bg-subtle px-3 py-2 text-xs text-ink-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-              <span>Workspace invitation link active</span>
+              <span>
+                {acceptingInvite
+                  ? "Accepting invitation and switching workspace…"
+                  : "Workspace invitation link active"}
+              </span>
+            </div>
+          )}
+
+          {inviteError && (
+            <div className="rounded-lg border border-semantic-danger/40 bg-surface p-3 text-xs text-semantic-danger">
+              {inviteError}
             </div>
           )}
 

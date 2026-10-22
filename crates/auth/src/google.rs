@@ -180,6 +180,12 @@ impl GoogleAuth {
     ) -> Result<DashboardSession, GoogleAuthError> {
         let normalized = email.trim().to_lowercase();
 
+        if let Some(token) = invite_token {
+            return self
+                .join_user_with_invitation(google_sub, &normalized, token)
+                .await;
+        }
+
         if let Some(session) = self.session_by_google_sub(google_sub).await? {
             return Ok(session);
         }
@@ -189,12 +195,6 @@ impl GoogleAuth {
             .await?
         {
             return Ok(session);
-        }
-
-        if let Some(token) = invite_token {
-            return self
-                .create_user_with_invitation(google_sub, &normalized, token)
-                .await;
         }
 
         if !crate::registration_enabled() {
@@ -269,7 +269,7 @@ impl GoogleAuth {
         }))
     }
 
-    async fn create_user_with_invitation(
+    async fn join_user_with_invitation(
         &self,
         google_sub: &str,
         email: &str,
@@ -281,13 +281,30 @@ impl GoogleAuth {
                 .filter(|invitation| invitation.email == email)
                 .ok_or(GoogleAuthError::InvalidInviteToken)?;
 
-        let user_id = Uuid::new_v4();
-        sqlx::query("SELECT auth_insert_user($1, $2, NULL, $3)")
-            .bind(user_id)
-            .bind(email)
-            .bind(google_sub)
-            .execute(&self.pool)
-            .await?;
+        let existing_user = sqlx::query_as::<_, (Uuid, String)>(
+            "SELECT id, email FROM auth_lookup_user_by_email($1)",
+        )
+        .bind(email)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        let user_id = if let Some((uid, _)) = existing_user {
+            let _ = sqlx::query("SELECT auth_link_google_sub($1, $2)")
+                .bind(uid)
+                .bind(google_sub)
+                .execute(&self.pool)
+                .await;
+            uid
+        } else {
+            let uid = Uuid::new_v4();
+            sqlx::query("SELECT auth_insert_user($1, $2, NULL, $3)")
+                .bind(uid)
+                .bind(email)
+                .bind(google_sub)
+                .execute(&self.pool)
+                .await?;
+            uid
+        };
 
         epure_storage::members::accept_invitation(
             &self.pool,

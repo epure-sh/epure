@@ -13,6 +13,7 @@ pub struct CredentialAuth {
 pub struct AccountProfile {
     pub user_id: Uuid,
     pub org_id: Uuid,
+    pub org_name: Option<String>,
     pub email: String,
     pub display_name: Option<String>,
     pub role: String,
@@ -214,6 +215,7 @@ impl CredentialAuth {
                     u.password_hash,
                     u.google_sub,
                     om.role,
+                    o.name AS org_name,
                     o.plan_tier
                 FROM users u
                 INNER JOIN org_members om ON om.user_id = u.id
@@ -230,6 +232,7 @@ impl CredentialAuth {
             Ok(AccountProfile {
                 user_id: row.id,
                 org_id,
+                org_name: row.org_name,
                 email: row.email,
                 display_name: row.display_name,
                 role: row.role,
@@ -446,6 +449,7 @@ struct AccountProfileRow {
     password_hash: Option<Vec<u8>>,
     google_sub: Option<String>,
     role: String,
+    org_name: Option<String>,
     plan_tier: Option<String>,
 }
 

@@ -1,4 +1,14 @@
-import { ArrowRight, ChevronDown, FolderKanban, GitBranch, LogOut, Menu } from "lucide-react";
+import {
+  ArrowRight,
+  Building2,
+  Check,
+  ChevronDown,
+  FolderKanban,
+  GitBranch,
+  LogOut,
+  Menu,
+  Users,
+} from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Badge } from "../ui/badge";
 import {
@@ -45,7 +55,16 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const inProject = isProjectRoute(pathname);
-  const { environment, setEnvironment, projects, user, setProjectId } = useAppContext();
+  const {
+    environment,
+    setEnvironment,
+    projects,
+    user,
+    setProjectId,
+    organizations,
+    currentOrg,
+    switchOrg,
+  } = useAppContext();
   const logout = useLogout();
 
   const routeProjectId = projectIdFromPath(pathname);
@@ -70,6 +89,70 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
             <Menu size={16} />
           </button>
         ) : null}
+
+        {/* Organization / Workspace Switcher Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-ink hover:bg-state-hover focus-ring border border-transparent hover:border-border transition-colors cursor-pointer"
+              title="Switch Organization / Workspace"
+            >
+              <Building2 size={13} className="text-accent shrink-0" />
+              <span className="truncate max-w-[120px] sm:max-w-[160px]">
+                {currentOrg ? currentOrg.name : user?.org_name || "Workspace"}
+              </span>
+              {currentOrg && (
+                <span className="hidden sm:inline-flex rounded bg-accent/10 px-1.5 py-0.5 text-[9px] font-mono font-medium text-accent uppercase">
+                  {currentOrg.role}
+                </span>
+              )}
+              <ChevronDown size={11} className="text-ink-muted shrink-0" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64 shadow-lg border border-border">
+            <DropdownMenuLabel className="flex items-center justify-between text-2xs uppercase tracking-wider text-ink-muted">
+              <span>Workspaces</span>
+              <span className="text-[10px] text-ink-subtle">{organizations.length} joined</span>
+            </DropdownMenuLabel>
+            <div className="max-h-56 overflow-y-auto divide-y divide-border/40">
+              {organizations.map((org) => {
+                const isSelected = org.is_current || org.id === user?.org_id;
+                return (
+                  <DropdownMenuItem
+                    key={org.id}
+                    onSelect={() => void switchOrg(org.id)}
+                    className={cn(
+                      "flex items-center justify-between text-xs py-2 cursor-pointer",
+                      isSelected && "bg-accent/10 font-semibold text-accent",
+                    )}
+                  >
+                    <div className="flex flex-col min-w-0 pr-2">
+                      <span className="truncate">{org.name}</span>
+                      <span className="text-2xs font-mono text-ink-muted capitalize">
+                        {org.role} · {org.member_count} member{org.member_count === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    {isSelected ? <Check size={13} className="text-accent shrink-0" /> : null}
+                  </DropdownMenuItem>
+                );
+              })}
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => navigate("/team")}
+              className="text-2xs text-ink-muted flex items-center justify-between cursor-pointer"
+            >
+              <div className="flex items-center gap-1.5">
+                <Users size={12} />
+                <span>Manage Team & Invitations</span>
+              </div>
+              <ArrowRight size={11} />
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <span className="text-ink-subtle text-xs" aria-hidden>/</span>
 
         {/* Project Switcher Dropdown */}
         <DropdownMenu>

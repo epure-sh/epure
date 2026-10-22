@@ -223,6 +223,13 @@ impl GitHubAuth {
     ) -> Result<DashboardSession, GitHubAuthError> {
         let normalized = email.trim().to_lowercase();
 
+        // If an invitation token is supplied, handle it first (for both new and existing users)
+        if let Some(token) = invite_token {
+            return self
+                .join_user_with_invitation(github_id, github_login, &normalized, token)
+                .await;
+        }
+
         // 1. Existing user by github_id
         if let Some(session) = self.session_by_github_id(github_id).await? {
             return Ok(session);
@@ -236,19 +243,12 @@ impl GitHubAuth {
             return Ok(session);
         }
 
-        // 3. User with pending invite
-        if let Some(token) = invite_token {
-            return self
-                .create_user_with_invitation(github_id, github_login, &normalized, token)
-                .await;
-        }
-
-        // 4. Registration closed check
+        // 3. Registration closed check
         if !crate::registration_enabled() {
             return Err(GitHubAuthError::RegistrationClosed);
         }
 
-        // 5. Create new user with workspace
+        // 4. Create new user with workspace
         self.create_user_with_org(github_id, github_login, &normalized)
             .await
     }
@@ -320,7 +320,7 @@ impl GitHubAuth {
         }))
     }
 
-    async fn create_user_with_invitation(
+    async fn join_user_with_invitation(
         &self,
         github_id: &str,
         github_login: &str,
@@ -333,15 +333,32 @@ impl GitHubAuth {
                 .filter(|inv| inv.email == email)
                 .ok_or(GitHubAuthError::InvalidInviteToken)?;
 
-        let user_id = Uuid::new_v4();
+        let existing_user = sqlx::query_as::<_, (Uuid, String)>(
+            "SELECT id, email FROM auth_lookup_user_by_email($1)",
+        )
+        .bind(email)
+        .fetch_optional(&self.pool)
+        .await?;
 
-        sqlx::query("SELECT auth_insert_user_github($1, $2, $3, $4)")
-            .bind(user_id)
-            .bind(email)
-            .bind(github_id)
-            .bind(github_login)
-            .execute(&self.pool)
-            .await?;
+        let user_id = if let Some((uid, _)) = existing_user {
+            let _ = sqlx::query("SELECT auth_link_github_identity($1, $2, $3)")
+                .bind(uid)
+                .bind(github_id)
+                .bind(github_login)
+                .execute(&self.pool)
+                .await;
+            uid
+        } else {
+            let uid = Uuid::new_v4();
+            sqlx::query("SELECT auth_insert_user_github($1, $2, $3, $4)")
+                .bind(uid)
+                .bind(email)
+                .bind(github_id)
+                .bind(github_login)
+                .execute(&self.pool)
+                .await?;
+            uid
+        };
 
         epure_storage::members::accept_invitation(
             &self.pool,

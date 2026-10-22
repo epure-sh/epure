@@ -12,6 +12,7 @@ use epure_storage::alerts::{self, AlertListFilter};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::routes::api::rbac::{require_min_role, Role};
 use crate::state::AppState;
 
 pub fn router(state: Arc<AppState>) -> Router {
@@ -19,6 +20,14 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/alerts", get(list_alerts))
         .route("/alerts/{id}", patch(patch_alert))
         .route("/alerts/test-email", post(test_email_alert))
+        .route(
+            "/projects/{project_id}/email-alerts",
+            get(get_email_alert_settings).patch(update_email_alert_settings),
+        )
+        .route(
+            "/projects/{project_id}/alerts/test-email",
+            post(test_email_alert),
+        )
         .with_state(state)
 }
 
@@ -141,4 +150,119 @@ async fn test_email_alert(
             error: Some(err),
         })),
     }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ProjectEmailAlertSettings {
+    pub email_alerts_enabled: bool,
+    pub email_alert_recipients: Vec<String>,
+    pub email_alert_on_regression: bool,
+    pub email_alert_on_spike: bool,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateProjectEmailAlertSettings {
+    pub email_alerts_enabled: Option<bool>,
+    pub email_alert_recipients: Option<Vec<String>>,
+    pub email_alert_on_regression: Option<bool>,
+    pub email_alert_on_spike: Option<bool>,
+}
+
+async fn get_email_alert_settings(
+    State(state): State<Arc<AppState>>,
+    Extension(dashboard): Extension<DashboardSession>,
+    Path(project_id): Path<Uuid>,
+) -> Result<impl IntoResponse, StatusCode> {
+    require_min_role(&dashboard, Role::Member)?;
+
+    let mut tx = epure_storage::rls::begin_org_transaction(&state.pools.app, dashboard.org_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let row = sqlx::query_as::<_, (bool, Option<Vec<String>>, bool, bool)>(
+        r#"
+        SELECT email_alerts_enabled, email_alert_recipients, email_alert_on_regression, email_alert_on_spike
+        FROM projects
+        WHERE id = $1
+        "#,
+    )
+    .bind(project_id)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .ok_or(StatusCode::NOT_FOUND)?;
+
+    tx.commit()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(ProjectEmailAlertSettings {
+        email_alerts_enabled: row.0,
+        email_alert_recipients: row.1.unwrap_or_default(),
+        email_alert_on_regression: row.2,
+        email_alert_on_spike: row.3,
+    }))
+}
+
+async fn update_email_alert_settings(
+    State(state): State<Arc<AppState>>,
+    Extension(dashboard): Extension<DashboardSession>,
+    Path(project_id): Path<Uuid>,
+    Json(body): Json<UpdateProjectEmailAlertSettings>,
+) -> Result<impl IntoResponse, StatusCode> {
+    require_min_role(&dashboard, Role::Admin)?;
+
+    let mut tx = epure_storage::rls::begin_org_transaction(&state.pools.app, dashboard.org_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let existing = sqlx::query_as::<_, (bool, Option<Vec<String>>, bool, bool)>(
+        r#"
+        SELECT email_alerts_enabled, email_alert_recipients, email_alert_on_regression, email_alert_on_spike
+        FROM projects
+        WHERE id = $1
+        FOR UPDATE
+        "#,
+    )
+    .bind(project_id)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .ok_or(StatusCode::NOT_FOUND)?;
+
+    let new_enabled = body.email_alerts_enabled.unwrap_or(existing.0);
+    let new_recipients = body.email_alert_recipients.or(existing.1);
+    let new_on_regression = body.email_alert_on_regression.unwrap_or(existing.2);
+    let new_on_spike = body.email_alert_on_spike.unwrap_or(existing.3);
+
+    sqlx::query(
+        r#"
+        UPDATE projects
+        SET
+            email_alerts_enabled = $2,
+            email_alert_recipients = $3,
+            email_alert_on_regression = $4,
+            email_alert_on_spike = $5
+        WHERE id = $1
+        "#,
+    )
+    .bind(project_id)
+    .bind(new_enabled)
+    .bind(&new_recipients)
+    .bind(new_on_regression)
+    .bind(new_on_spike)
+    .execute(&mut *tx)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    tx.commit()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(ProjectEmailAlertSettings {
+        email_alerts_enabled: new_enabled,
+        email_alert_recipients: new_recipients.unwrap_or_default(),
+        email_alert_on_regression: new_on_regression,
+        email_alert_on_spike: new_on_spike,
+    }))
 }

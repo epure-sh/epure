@@ -38,6 +38,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/magic-link", post(request_magic_link))
         .route("/magic-link/verify", get(verify_magic_link_handler))
         .route("/me", get(current_session))
+        .route("/organizations", get(list_user_organizations))
+        .route("/switch-org", post(switch_organization))
         .route("/profile", axum::routing::patch(update_profile))
         .route("/password", axum::routing::patch(change_password))
         .route("/account", axum::routing::delete(delete_account))
@@ -72,12 +74,33 @@ struct AuthConfigResponse {
 struct MeResponse {
     user_id: String,
     org_id: String,
+    org_name: Option<String>,
     email: String,
     display_name: Option<String>,
     role: String,
     has_password: bool,
     google_linked: bool,
     plan_tier: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct SwitchOrgBody {
+    org_id: uuid::Uuid,
+}
+
+#[derive(Serialize)]
+struct UserOrganizationItem {
+    id: uuid::Uuid,
+    name: String,
+    role: String,
+    plan_tier: String,
+    member_count: i64,
+    is_current: bool,
+}
+
+#[derive(Serialize)]
+struct UserOrganizationsResponse {
+    organizations: Vec<UserOrganizationItem>,
 }
 
 #[derive(Deserialize)]
@@ -472,6 +495,7 @@ async fn current_session(
     Ok(Json(MeResponse {
         user_id: profile.user_id.to_string(),
         org_id: profile.org_id.to_string(),
+        org_name: profile.org_name,
         email: profile.email,
         display_name: profile.display_name,
         role: profile.role,
@@ -479,6 +503,79 @@ async fn current_session(
         google_linked: profile.google_linked,
         plan_tier: profile.plan_tier,
     }))
+}
+
+async fn list_user_organizations(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Json<UserOrganizationsResponse>, StatusCode> {
+    let dashboard = fresh_session(&state, &session).await?;
+
+    let rows = sqlx::query_as::<_, (uuid::Uuid, String, String, String, i64, chrono::DateTime<chrono::Utc>)>(
+        "SELECT org_id, name, role, plan_tier, member_count, created_at FROM auth_list_user_organizations($1)",
+    )
+    .bind(dashboard.user_id)
+    .fetch_all(&state.pools.app)
+    .await
+    .map_err(|err| {
+        tracing::error!("failed to fetch user organizations: {err}");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let items = rows
+        .into_iter()
+        .map(
+            |(id, name, role, plan_tier, member_count, _)| UserOrganizationItem {
+                is_current: id == dashboard.org_id,
+                id,
+                name,
+                role,
+                plan_tier,
+                member_count,
+            },
+        )
+        .collect();
+
+    Ok(Json(UserOrganizationsResponse {
+        organizations: items,
+    }))
+}
+
+async fn switch_organization(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Json(body): Json<SwitchOrgBody>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let mut dashboard = fresh_session(&state, &session).await?;
+
+    let verified = sqlx::query_as::<_, (uuid::Uuid, String, String, String)>(
+        "SELECT org_id, name, role, plan_tier FROM auth_verify_org_membership($1, $2)",
+    )
+    .bind(dashboard.user_id)
+    .bind(body.org_id)
+    .fetch_optional(&state.pools.app)
+    .await
+    .map_err(|err| {
+        tracing::error!("failed to verify org membership: {err}");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?
+    .ok_or(StatusCode::FORBIDDEN)?;
+
+    dashboard.org_id = verified.0;
+    dashboard.role = verified.2;
+
+    let generation = credential_generation(&state, dashboard.user_id).await?;
+    establish_dashboard_session(&session, &dashboard, generation)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "org_id": verified.0,
+        "org_name": verified.1,
+        "role": dashboard.role,
+        "plan_tier": verified.3,
+    })))
 }
 
 async fn update_profile(

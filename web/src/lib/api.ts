@@ -477,11 +477,82 @@ export async function deleteWebhook(id: string): Promise<void> {
 export interface MeResponse {
   user_id: string;
   org_id: string;
+  org_name?: string | null;
   email: string;
   display_name: string | null;
   role: string;
   has_password: boolean;
   google_linked: boolean;
+  plan_tier?: string | null;
+}
+
+export interface UserOrganization {
+  id: string;
+  name: string;
+  role: string;
+  plan_tier: string;
+  member_count: number;
+  is_current: boolean;
+}
+
+export interface ProjectEmailAlertSettings {
+  email_alerts_enabled: boolean;
+  email_alert_recipients: string[];
+  email_alert_on_regression: boolean;
+  email_alert_on_spike: boolean;
+}
+
+export async function fetchUserOrganizations(): Promise<UserOrganization[]> {
+  const res = await apiFetch<{ organizations: UserOrganization[] }>("/api/v1/auth/organizations");
+  return res.organizations;
+}
+
+export async function switchOrganization(orgId: string): Promise<{
+  success: boolean;
+  org_id: string;
+  org_name: string;
+  role: string;
+}> {
+  return apiFetch<{ success: boolean; org_id: string; org_name: string; role: string }>(
+    "/api/v1/auth/switch-org",
+    {
+      method: "POST",
+      body: JSON.stringify({ org_id: orgId }),
+    },
+  );
+}
+
+export async function acceptInvitation(inviteToken: string): Promise<void> {
+  await apiFetch<void>("/api/v1/auth/accept-invitation", {
+    method: "POST",
+    body: JSON.stringify({ invite_token: inviteToken }),
+  });
+}
+
+export async function fetchProjectEmailAlertSettings(
+  projectId: string,
+): Promise<ProjectEmailAlertSettings> {
+  return apiFetch<ProjectEmailAlertSettings>(`/api/v1/projects/${projectId}/email-alerts`);
+}
+
+export async function updateProjectEmailAlertSettings(
+  projectId: string,
+  settings: Partial<ProjectEmailAlertSettings>,
+): Promise<ProjectEmailAlertSettings> {
+  return apiFetch<ProjectEmailAlertSettings>(`/api/v1/projects/${projectId}/email-alerts`, {
+    method: "PATCH",
+    body: JSON.stringify(settings),
+  });
+}
+
+export async function sendTestEmailAlert(
+  projectId: string,
+  recipient?: string,
+): Promise<{ sent: boolean; recipient: string; resend_id?: string; error?: string }> {
+  return apiFetch(`/api/v1/projects/${projectId}/alerts/test-email`, {
+    method: "POST",
+    body: JSON.stringify({ recipient }),
+  });
 }
 
 export interface AuthConfig {

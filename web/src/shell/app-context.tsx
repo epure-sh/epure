@@ -10,8 +10,11 @@ import {
 import {
   fetchMe,
   fetchProjects,
+  fetchUserOrganizations,
+  switchOrganization,
   type MeResponse,
   type ProjectRow,
+  type UserOrganization,
 } from "../lib/api";
 
 export type Environment = "production" | "staging" | "local";
@@ -29,6 +32,10 @@ interface AppContextValue {
   projectsError: string | null;
   refreshProjects: () => Promise<void>;
   user: MeResponse | null;
+  organizations: UserOrganization[];
+  currentOrg: UserOrganization | null;
+  refreshOrganizations: () => Promise<void>;
+  switchOrg: (orgId: string) => Promise<void>;
   buildQuery: (query: string) => string;
 }
 
@@ -51,6 +58,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [projectsError, setProjectsError] = useState<string | null>(null);
   const [user, setUser] = useState<MeResponse | null>(null);
+  const [organizations, setOrganizations] = useState<UserOrganization[]>([]);
 
   const refreshProjects = useCallback(async () => {
     setProjectsLoading(true);
@@ -78,12 +86,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshOrganizations = useCallback(async () => {
+    try {
+      const list = await fetchUserOrganizations();
+      setOrganizations(list);
+    } catch {
+      setOrganizations([]);
+    }
+  }, []);
+
   useEffect(() => {
     void fetchMe()
       .then(setUser)
       .catch(() => setUser(null));
+    void refreshOrganizations();
     void refreshProjects();
-  }, [refreshProjects]);
+  }, [refreshProjects, refreshOrganizations]);
+
+  const switchOrg = useCallback(
+    async (orgId: string) => {
+      await switchOrganization(orgId);
+      const me = await fetchMe();
+      setUser(me);
+      await refreshOrganizations();
+      await refreshProjects();
+    },
+    [refreshProjects, refreshOrganizations],
+  );
+
+  const currentOrg = useMemo(() => {
+    return organizations.find((o) => o.is_current) ?? organizations[0] ?? null;
+  }, [organizations]);
 
   const setEnvironment = useCallback((env: Environment) => {
     setEnvironmentState(env);
@@ -119,6 +152,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       projectsError,
       refreshProjects,
       user,
+      organizations,
+      currentOrg,
+      refreshOrganizations,
+      switchOrg,
       buildQuery,
     }),
     [
@@ -131,6 +168,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       projectsError,
       refreshProjects,
       user,
+      organizations,
+      currentOrg,
+      refreshOrganizations,
+      switchOrg,
       buildQuery,
     ],
   );

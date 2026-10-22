@@ -224,7 +224,7 @@ pub fn build_alert_text(
     )
 }
 
-/// Dispatch alert email to all active organization members for critical events/regressions.
+/// Dispatch alert email according to project settings (defaults to org members).
 pub async fn dispatch_alert_email(
     pool: &PgPool,
     org_id: Uuid,
@@ -237,8 +237,48 @@ pub async fn dispatch_alert_email(
         return;
     }
 
-    // Query distinct member emails for this organization via SECURITY DEFINER function
-    let member_emails: Vec<String> =
+    // Check project-specific email alert settings
+    let settings = sqlx::query_as::<_, (bool, Option<Vec<String>>, bool, bool)>(
+        "SELECT email_alerts_enabled, email_alert_recipients, email_alert_on_regression, email_alert_on_spike FROM ingest_get_project_email_alert_settings($1, $2)",
+    )
+    .bind(issue.project_id)
+    .bind(org_id)
+    .fetch_optional(pool)
+    .await;
+
+    let (enabled, custom_recipients, on_regression, on_spike) = match settings {
+        Ok(Some((enabled, rec, on_reg, on_spk))) => (enabled, rec, on_reg, on_spk),
+        _ => (true, None, true, true),
+    };
+
+    if !enabled {
+        tracing::debug!(
+            "Email alerts disabled for project {}; skipping",
+            issue.project_id
+        );
+        return;
+    }
+
+    if kind == "regression" && !on_regression {
+        tracing::debug!(
+            "Regression email alerts disabled for project {}; skipping",
+            issue.project_id
+        );
+        return;
+    }
+
+    if kind == "velocity_spike" && !on_spike {
+        tracing::debug!(
+            "Spike email alerts disabled for project {}; skipping",
+            issue.project_id
+        );
+        return;
+    }
+
+    let recipients: Vec<String> = if let Some(custom) = custom_recipients.filter(|c| !c.is_empty())
+    {
+        custom
+    } else {
         match sqlx::query_scalar::<_, String>("SELECT email FROM ingest_get_org_member_emails($1)")
             .bind(org_id)
             .fetch_all(pool)
@@ -249,10 +289,11 @@ pub async fn dispatch_alert_email(
                 tracing::warn!("Failed to query organization member emails for alert: {err}");
                 return;
             }
-        };
+        }
+    };
 
-    if member_emails.is_empty() {
-        tracing::debug!("No member emails found for org {org_id}; skipping alert email");
+    if recipients.is_empty() {
+        tracing::debug!("No recipients found for alert in org {org_id}; skipping email");
         return;
     }
 
@@ -286,11 +327,11 @@ pub async fn dispatch_alert_email(
 
     // Asynchronous non-blocking dispatch via tokio::spawn
     tokio::spawn(async move {
-        match send_resend_email(member_emails.clone(), subject, html, text).await {
+        match send_resend_email(recipients.clone(), subject, html, text).await {
             Ok(id) => {
                 tracing::info!(
                     "Dispatched Resend email alert {id} to {} recipients for org {org_id}",
-                    member_emails.len()
+                    recipients.len()
                 );
             }
             Err(err) => {
