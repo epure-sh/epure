@@ -14,6 +14,7 @@ import {
   createCheckoutSession,
   fetchBillingStatus,
   fetchHeadlineStats,
+  syncCheckout,
   type BillingStatus,
 } from "../../../lib/api";
 import { isCloudDeployment } from "../../../lib/deployment";
@@ -307,21 +308,43 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
   const [error, setError] = useState<string | null>(null);
 
   const checkoutParam = searchParams.get("checkout");
+  const checkoutId = searchParams.get("checkout_id");
   const isMockCheckout = searchParams.get("mock_checkout") === "1";
 
   useEffect(() => {
     let cancelled = false;
-    void fetchBillingStatus()
-      .then((status) => {
-        if (!cancelled && status) {
-          setBillingStatus(status);
-        }
-      })
-      .catch(() => {});
+
+    if (checkoutId) {
+      void syncCheckout(checkoutId)
+        .then((status) => {
+          if (!cancelled && status) {
+            setBillingStatus(status);
+            const nextUrl = new URL(window.location.href);
+            nextUrl.searchParams.delete("checkout_id");
+            nextUrl.searchParams.set("checkout", "success");
+            window.history.replaceState({}, "", nextUrl.toString());
+          }
+        })
+        .catch((e) => {
+          console.error("Failed to sync checkout:", e);
+          void fetchBillingStatus().then((status) => {
+            if (!cancelled && status) setBillingStatus(status);
+          });
+        });
+    } else {
+      void fetchBillingStatus()
+        .then((status) => {
+          if (!cancelled && status) {
+            setBillingStatus(status);
+          }
+        })
+        .catch(() => {});
+    }
+
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [checkoutId]);
 
   const activePlanId = normalizePlanId(billingStatus?.plan_tier ?? CLOUD_CURRENT_PLAN);
   const activePlan = planById(activePlanId);
@@ -329,6 +352,11 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
     activePlanId === "canary_sandbox" ||
     billingStatus?.plan_tier === "canary_sandbox" ||
     billingStatus?.canary_expires_at
+  );
+
+  const isPaused = Boolean(
+    billingStatus?.subscription_status === "paused" ||
+    (billingStatus?.canary_expires_at && new Date(billingStatus.canary_expires_at).getTime() <= Date.now())
   );
 
   const daysRemaining = billingStatus?.canary_expires_at
@@ -403,8 +431,49 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
         </div>
       )}
 
-      {/* 7-Day Pilot Trial Banner */}
-      {isTrial && (
+      {/* Paused Trial Alert Banner */}
+      {isPaused ? (
+        <div className="relative overflow-hidden rounded-xl border border-rose-500/50 bg-gradient-to-r from-rose-500/15 via-rose-500/5 to-transparent p-5 shadow-xs">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Badge variant="error" className="font-semibold text-2xs uppercase tracking-wide">
+                  Project Paused
+                </Badge>
+                <span className="text-xs font-semibold text-ink">7-Day Pilot Trial Ended</span>
+              </div>
+              <h2 className="text-sm font-semibold text-ink">
+                Production Error Ingestion is Paused
+              </h2>
+              <p className="text-xs text-ink-muted max-w-xl">
+                Your 7-day canary sandbox trial has expired and incoming production errors are currently rejected. Upgrade to Cloud Pro or Team Plus to unpause ingestion and resume live tracking immediately.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="danger"
+                size="sm"
+                className="gap-1.5 shadow-xs"
+                onClick={() => {
+                  const proPlan = CLOUD_PLANS.find((p) => p.tierCode === "pro") ?? CLOUD_PLANS[0];
+                  handleSelectPlan(proPlan);
+                }}
+                disabled={upgradingId !== null || !isOwner}
+              >
+                {upgradingId === "builder_pro" ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <>
+                    <Zap size={13} className="fill-current" />
+                    Upgrade & Unpause Ingestion
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : isTrial ? (
+        /* 7-Day Pilot Trial Banner */
         <div className="relative overflow-hidden rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-5 shadow-xs">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
@@ -447,7 +516,7 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Active Subscription Overview Card */}
       <Card className="border-border bg-surface shadow-xs">

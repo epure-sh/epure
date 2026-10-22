@@ -976,4 +976,11 @@ export async function createBillingPortalSession(returnUrl?: string): Promise<{ 
   });
 }
 
+export async function syncCheckout(checkoutId: string): Promise<BillingStatus> {
+  return await apiFetch<BillingStatus>("/api/v1/billing/sync-checkout", {
+    method: "POST",
+    body: JSON.stringify({ checkout_id: checkoutId }),
+  });
+}
+
 

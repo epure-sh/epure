@@ -1,14 +1,17 @@
-import { ArrowRight, Pencil, Plus, Search, Sparkles, X } from "lucide-react";
+import { ArrowRight, Pencil, Plus, Search, Sparkles, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   createProject,
   deleteProject,
+  fetchBillingStatus,
   fetchHeadlineStats,
   patchSetupProgress,
+  type BillingStatus,
   type HeadlineStats,
   type TimelineBucket,
 } from "../../lib/api";
+import { isCloudDeployment } from "../../lib/deployment";
 import { useAppContext } from "../../shell/app-context";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
@@ -38,7 +41,19 @@ export function OrgHomePage() {
   const [editMode, setEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (isCloudDeployment()) {
+      fetchBillingStatus().then(setBillingStatus).catch(() => {});
+    }
+  }, []);
+
+  const isPaused = Boolean(
+    billingStatus?.subscription_status === "paused" ||
+    (billingStatus?.canary_expires_at && new Date(billingStatus.canary_expires_at).getTime() <= Date.now())
+  );
 
   const canManage = user?.role === "owner" || user?.role === "admin";
   const canDeleteProjects = user?.role === "owner";
@@ -298,6 +313,38 @@ export function OrgHomePage() {
 
       <div className="flex-1 overflow-auto bg-bg px-4 py-5 md:px-6">
         <div className="mx-auto max-w-7xl space-y-4">
+          {/* Paused Canary Alert Banner */}
+          {isPaused && (
+            <div className="relative overflow-hidden rounded-xl border border-rose-500/50 bg-gradient-to-r from-rose-500/15 via-rose-500/5 to-transparent p-5 shadow-xs">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="error" className="font-semibold text-2xs uppercase tracking-wide">
+                      Project Paused
+                    </Badge>
+                    <span className="text-xs font-semibold text-ink">
+                      7-Day Pilot Trial Ended
+                    </span>
+                  </div>
+                  <h2 className="text-sm font-semibold text-ink">
+                    Production Error Ingestion is Currently Paused
+                  </h2>
+                  <p className="text-xs text-ink-muted max-w-2xl">
+                    Your 7-day trial has expired and incoming production errors are no longer processed. Upgrade to Cloud Pro ($49/mo) or Team Plus to unpause ingestion and restore live tracking immediately.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button variant="danger" size="sm" asChild className="gap-1.5 shadow-xs">
+                    <Link to="/billing">
+                      <Zap size={13} className="fill-current" />
+                      Upgrade to Unpause
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Canary Welcome Pilot Banner */}
           {searchParams.get("welcome") === "canary" && (
             <div className="relative overflow-hidden rounded-xl border border-accent/40 bg-gradient-to-r from-accent/15 via-accent/5 to-transparent p-5 shadow-xs">
