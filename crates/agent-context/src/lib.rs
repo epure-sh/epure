@@ -46,16 +46,20 @@ pub struct EventSnapshot {
     pub user_email: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct StackFrame {
     pub filename: Option<String>,
     pub function: Option<String>,
+    pub module: Option<String>,
+    pub package: Option<String>,
+    pub symbol: Option<String>,
     pub lineno: Option<i64>,
     pub colno: Option<i64>,
     pub context_line: Option<String>,
     pub pre_context: Option<Vec<String>>,
     pub post_context: Option<Vec<String>>,
     pub in_app: Option<bool>,
+    pub instruction_addr: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -348,7 +352,7 @@ fn format_app_stack(frames: &[StackFrame]) -> String {
         .iter()
         .enumerate()
         .map(|(index, frame)| {
-            let fn_name = frame.function.as_deref().unwrap_or("<anonymous>");
+            let fn_name = frame_display_function(frame);
             let location = frame_location(frame);
             let source = format_source_block(frame);
             let has_context = source != "_No source context captured_";
@@ -422,9 +426,61 @@ fn is_vendor_frame(frame: &StackFrame) -> bool {
         return true;
     }
     let filename = frame.filename.as_deref().unwrap_or("").to_lowercase();
-    if filename.contains("node_modules") {
+    let module = frame.module.as_deref().unwrap_or("");
+    let package = frame.package.as_deref().unwrap_or("");
+    let function = frame.function.as_deref().unwrap_or("");
+
+    if filename.contains("node_modules")
+        || filename.contains("webpack-internal://")
+        || (filename.contains("webpack") && !filename.contains("/src/"))
+        || (filename.contains("vite") && filename.contains("deps"))
+        || filename.contains(".cargo/registry")
+        || filename.contains("/rustc/")
+        || filename.contains("/site-packages/")
+        || filename.contains("/dist-packages/")
+        || filename.contains("/src/runtime/")
+    {
         return true;
     }
+
+    for prefix in [
+        "java.",
+        "javax.",
+        "jdk.",
+        "sun.",
+        "org.springframework.",
+        "org.apache.",
+        "org.hibernate.",
+        "com.zaxxer.hikari.",
+        "kotlin.",
+        "System.",
+        "Microsoft.",
+        "Newtonsoft.Json",
+        "Npgsql",
+        "Swashbuckle",
+        "MediatR",
+        "std::",
+        "core::",
+        "alloc::",
+        "tokio::",
+        "hyper::",
+        "tower::",
+        "actix_",
+        "axum::",
+        "django.",
+        "flask.",
+        "fastapi.",
+        "starlette.",
+        "celery.",
+        "runtime.",
+        "net/http.",
+    ] {
+        if module.starts_with(prefix) || package.starts_with(prefix) || function.starts_with(prefix)
+        {
+            return true;
+        }
+    }
+
     let looks_like_app = filename.contains("/src/")
         || filename.contains("/app/")
         || filename.contains("/lib/")
@@ -433,9 +489,8 @@ fn is_vendor_frame(frame: &StackFrame) -> bool {
     if looks_like_app {
         return false;
     }
-    filename.contains("webpack-internal://")
-        || (filename.contains("webpack") && !looks_like_app)
-        || (filename.contains("vite") && filename.contains("deps"))
+
+    false
 }
 
 fn has_source_context(frame: &StackFrame) -> bool {
@@ -496,10 +551,34 @@ fn exception_summary(payload: &Value) -> String {
         .to_string()
 }
 
+fn frame_display_function(frame: &StackFrame) -> String {
+    if let Some(func) = &frame.function {
+        if let Some(module) = &frame.module {
+            if !func.starts_with(module) && !func.contains("::") {
+                return format!("{module}.{func}");
+            }
+        }
+        return func.clone();
+    }
+    if let Some(sym) = &frame.symbol {
+        return sym.clone();
+    }
+    if let Some(module) = &frame.module {
+        return module.clone();
+    }
+    "<anonymous>".to_string()
+}
+
 fn frame_location(frame: &StackFrame) -> String {
+    let file = frame.filename.as_deref().unwrap_or("");
+    let display_file = if file.is_empty() || file == "?" {
+        frame.module.as_deref().unwrap_or("?")
+    } else {
+        file
+    };
     format!(
         "{}:{}:{}",
-        frame.filename.as_deref().unwrap_or("?"),
+        display_file,
         frame.lineno.unwrap_or(0),
         frame.colno.unwrap_or(0)
     )
@@ -524,7 +603,7 @@ fn format_source_block(frame: &StackFrame) -> String {
 }
 
 fn format_culprit_frame(frame: &StackFrame) -> String {
-    let fn_name = frame.function.as_deref().unwrap_or("<anonymous>");
+    let fn_name = frame_display_function(frame);
     format!(
         "**Function:** `{fn_name}`\n**Location:** `{}`\n\n```\n{}\n```",
         frame_location(frame),
@@ -794,7 +873,40 @@ mod tests {
             context_line: None,
             pre_context: None,
             post_context: None,
+            ..Default::default()
         };
         assert!(is_vendor_frame(&frame));
+
+        let spring_frame = StackFrame {
+            module: Some("org.springframework.web.servlet.FrameworkServlet".into()),
+            function: Some("processRequest".into()),
+            filename: Some("FrameworkServlet.java".into()),
+            ..Default::default()
+        };
+        assert!(is_vendor_frame(&spring_frame));
+
+        let app_frame = StackFrame {
+            module: Some("com.acme.shop.service.OrderService".into()),
+            function: Some("processOrder".into()),
+            filename: Some("OrderService.java".into()),
+            lineno: Some(42),
+            ..Default::default()
+        };
+        assert!(!is_vendor_frame(&app_frame));
+        assert_eq!(
+            frame_display_function(&app_frame),
+            "com.acme.shop.service.OrderService.processOrder"
+        );
+        assert_eq!(frame_location(&app_frame), "OrderService.java:42:0");
+
+        let dotnet_frame = StackFrame {
+            module: Some("Acme.Shop.Api".into()),
+            function: Some("OrderController.Checkout".into()),
+            filename: None,
+            lineno: None,
+            ..Default::default()
+        };
+        assert!(!is_vendor_frame(&dotnet_frame));
+        assert_eq!(frame_location(&dotnet_frame), "Acme.Shop.Api:0:0");
     }
 }

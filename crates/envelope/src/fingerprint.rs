@@ -57,20 +57,27 @@ fn top_in_app_frame_key(event: &Value) -> String {
         return "no-frame".to_string();
     }
 
+    let platform = event.get("platform").and_then(Value::as_str);
+
+    // Prefer innermost in-app frame (closer to the fault location)
     let frame = frames
         .iter()
-        .find(|frame| frame.get("in_app").and_then(Value::as_bool) == Some(true))
-        .or_else(|| frames.first())
+        .rev()
+        .find(|frame| is_frame_in_app(frame, platform))
+        .or_else(|| frames.last())
         .expect("frames not empty");
 
     let file = frame
         .get("filename")
         .or_else(|| frame.get("abs_path"))
+        .or_else(|| frame.get("module"))
+        .or_else(|| frame.get("package"))
         .and_then(Value::as_str)
         .map(normalize_path)
         .unwrap_or_else(|| "unknown".to_string());
     let function = frame
         .get("function")
+        .or_else(|| frame.get("symbol"))
         .and_then(Value::as_str)
         .map(normalize_token)
         .unwrap_or_else(|| "unknown".to_string());
@@ -81,6 +88,24 @@ fn top_in_app_frame_key(event: &Value) -> String {
         .unwrap_or_else(|| "0".to_string());
 
     format!("{file}:{function}:{line}")
+}
+
+fn is_frame_in_app(frame: &Value, platform: Option<&str>) -> bool {
+    if let Some(in_app) = frame.get("in_app").and_then(Value::as_bool) {
+        return in_app;
+    }
+    let filename = frame
+        .get("filename")
+        .or_else(|| frame.get("abs_path"))
+        .and_then(Value::as_str);
+    let module = frame.get("module").and_then(Value::as_str);
+    let package = frame.get("package").and_then(Value::as_str);
+    let function = frame
+        .get("function")
+        .or_else(|| frame.get("symbol"))
+        .and_then(Value::as_str);
+
+    !crate::frames::is_framework_frame(filename, module, package, function, platform)
 }
 
 fn exception_frames(event: &Value) -> Vec<Value> {
@@ -106,18 +131,12 @@ fn exception_frames(event: &Value) -> Vec<Value> {
 }
 
 fn normalize_path(path: &str) -> String {
-    let trimmed = path.trim();
-    let without_query = trimmed.split('?').next().unwrap_or(trimmed);
-    let normalized = without_query
-        .trim_start_matches("webpack:///")
-        .trim_start_matches("app://")
-        .trim_start_matches("~/")
-        .trim_start_matches("./");
-    normalized.replace('\\', "/")
+    crate::frames::clean_frame_filename(path)
 }
 
 fn normalize_token(token: &str) -> String {
-    token.trim().to_lowercase()
+    let cleaned = crate::frames::demangle_rust_symbol(token);
+    cleaned.trim().to_lowercase()
 }
 
 fn hash_string(input: &str) -> String {
@@ -205,6 +224,98 @@ mod tests {
         });
         let fp = compute_fingerprint(&event);
         let expected = hash_string(&format!("error\0{}", "app.js:main:4"));
+        assert_eq!(fp, expected);
+    }
+
+    #[test]
+    fn nextjs_ssr_and_client_paths_produce_same_fingerprint() {
+        let event_client = json!({
+            "exception": {
+                "values": [{
+                    "type": "Error",
+                    "stacktrace": {
+                        "frames": [
+                            { "filename": "webpack:///./src/app/page.tsx", "function": "HomePage", "lineno": 15, "in_app": true }
+                        ]
+                    }
+                }]
+            }
+        });
+        let event_ssr = json!({
+            "exception": {
+                "values": [{
+                    "type": "Error",
+                    "stacktrace": {
+                        "frames": [
+                            { "filename": "webpack-internal:///(rsc)/./src/app/page.tsx", "function": "HomePage", "lineno": 15, "in_app": true }
+                        ]
+                    }
+                }]
+            }
+        });
+        assert_eq!(
+            compute_fingerprint(&event_client),
+            compute_fingerprint(&event_ssr)
+        );
+    }
+
+    #[test]
+    fn rust_hash_recompilation_produces_same_fingerprint() {
+        let event_build_1 = json!({
+            "platform": "native",
+            "exception": {
+                "values": [{
+                    "type": "Panic",
+                    "stacktrace": {
+                        "frames": [
+                            { "filename": "crates/server/src/worker.rs", "function": "epure_server::worker::run::h1111222233334444", "lineno": 40, "in_app": true }
+                        ]
+                    }
+                }]
+            }
+        });
+        let event_build_2 = json!({
+            "platform": "native",
+            "exception": {
+                "values": [{
+                    "type": "Panic",
+                    "stacktrace": {
+                        "frames": [
+                            { "filename": "crates/server/src/worker.rs", "function": "epure_server::worker::run::h5555666677778888", "lineno": 40, "in_app": true }
+                        ]
+                    }
+                }]
+            }
+        });
+        assert_eq!(
+            compute_fingerprint(&event_build_1),
+            compute_fingerprint(&event_build_2)
+        );
+    }
+
+    #[test]
+    fn dotnet_fallback_to_module_without_pdb_filename() {
+        let event = json!({
+            "platform": "csharp",
+            "exception": {
+                "values": [{
+                    "type": "System.NullReferenceException",
+                    "stacktrace": {
+                        "frames": [
+                            { "module": "Microsoft.AspNetCore.Mvc.Core", "function": "Execute", "lineno": 0 },
+                            { "module": "Acme.Shop.Api", "function": "OrderController.Checkout", "lineno": 0 }
+                        ]
+                    }
+                }]
+            }
+        });
+        let fp = compute_fingerprint(&event);
+        assert!(!fp.is_empty());
+        // Should use Acme.Shop.Api as module since Microsoft frame is framework
+        let expected = hash_string(&format!(
+            "{}\0{}",
+            "system.nullreferenceexception", "Acme.Shop.Api:ordercontroller.checkout:0"
+        ));
         assert_eq!(fp, expected);
     }
 }

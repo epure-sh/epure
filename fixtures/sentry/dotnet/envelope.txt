@@ -1,3 +1,3 @@
 {"event_id":"cc0e8400-e29b-41d4-a716-446655440007","sdk":{"name":"sentry.dotnet","version":"4.9.0"}}
-{"type":"event","length":138}
-{"exception":{"values":[{"type":"System.NullReferenceException","value":"Object reference not set"}]},"platform":"csharp","level":"error"}
+{"type":"event"}
+{"event_id":"cc0e8400-e29b-41d4-a716-446655440007","platform":"csharp","level":"error","exception":{"values":[{"type":"System.NullReferenceException","value":"Object reference not set","stacktrace":{"frames":[{"function":"Microsoft.AspNetCore.Mvc.Infrastructure.ActionMethodExecutor.Execute","module":"Microsoft.AspNetCore.Mvc.Core","package":"Microsoft.AspNetCore.Mvc.Core, Version=7.0.0.0","lineno":0,"in_app":false},{"function":"Acme.Shop.Api.Controllers.OrderController.Checkout","module":"Acme.Shop.Api","package":"Acme.Shop.Api, Version=1.0.0.0","lineno":0,"in_app":true}]}}],"environment":"production"}

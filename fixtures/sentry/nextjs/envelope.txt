@@ -1,0 +1,3 @@
+{"event_id":"ee0e8400-e29b-41d4-a716-446655440011","sdk":{"name":"@sentry/nextjs","version":"8.30.0"}}
+{"type":"event"}
+{"event_id":"ee0e8400-e29b-41d4-a716-446655440011","platform":"javascript","level":"error","exception":{"values":[{"type":"Error","value":"Hydration failed because the initial UI does not match what was rendered on the server","stacktrace":{"frames":[{"filename":"node_modules/react-dom/cjs/react-dom.production.min.js","function":"throwOnHydrationMismatch","lineno":12501,"colno":9,"in_app":false},{"filename":"webpack-internal:///(rsc)/./src/app/page.tsx","function":"HomePage","lineno":24,"colno":7,"in_app":true,"context_line":"      <DashboardMetrics user={user} />"}]}}],"environment":"production"}

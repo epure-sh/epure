@@ -2,6 +2,7 @@ pub mod auth_header;
 pub mod envelope;
 pub mod extract;
 pub mod fingerprint;
+pub mod frames;
 pub mod metadata;
 pub mod scrub;
 pub mod store;
@@ -12,6 +13,9 @@ pub use envelope::{
 };
 pub use extract::{breadcrumbs_to_json, extract_breadcrumbs, Breadcrumb};
 pub use fingerprint::{compute_fingerprint, preview_fingerprint};
+pub use frames::{
+    clean_frame_filename, demangle_rust_symbol, is_framework_frame, normalize_stack_frames,
+};
 pub use metadata::{normalize_metadata, EventMetadata};
 pub use scrub::{scrub_event, scrub_string};
 pub use store::{decompress_store_payload, parse_store_payload, StoreError};

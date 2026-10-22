@@ -314,7 +314,7 @@ async fn demangle_event_frames(
 
     let artifacts_dir = artifacts_dir.to_path_buf();
     let release = release.to_string();
-    let demangled = tokio::task::spawn_blocking(move || {
+    let mut demangled = tokio::task::spawn_blocking(move || {
         demangle_stack_frames(
             &raw_frames,
             &artifacts_dir,
@@ -325,11 +325,17 @@ async fn demangle_event_frames(
     })
     .await?;
 
+    for frame in &mut demangled {
+        if let Some(file) = &frame.filename {
+            frame.filename = Some(epure_envelope::clean_frame_filename(file));
+        }
+    }
+
     Ok(serde_json::to_value(demangled)?)
 }
 
 fn raw_stack_frames(event: &Value) -> Value {
-    Value::Array(exception_frames(event))
+    Value::Array(epure_envelope::normalize_stack_frames(event))
 }
 
 fn exception_frames(event: &Value) -> Vec<Value> {

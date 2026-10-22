@@ -11,6 +11,8 @@ import {
   sortAlerts,
 } from "./alert-utils";
 
+const baseDate = new Date("2026-10-22T14:00:00.000Z");
+
 function sampleAlert(overrides: Partial<AlertRow> = {}): AlertRow {
   return {
     id: "alert-1",
@@ -18,7 +20,7 @@ function sampleAlert(overrides: Partial<AlertRow> = {}): AlertRow {
     project_id: "project-1",
     issue_id: "issue-1",
     kind: "velocity_spike",
-    fired_at: new Date().toISOString(),
+    fired_at: baseDate.toISOString(),
     payload_json: {
       title: "Checkout failed",
       current_window: 20,
@@ -35,7 +37,7 @@ const velocity = sampleAlert();
 const regression = sampleAlert({
   id: "alert-2",
   kind: "regression",
-  fired_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  fired_at: new Date(baseDate.getTime() - 2 * 60 * 60 * 1000).toISOString(),
   payload_json: {
     title: "Hydration mismatch",
     release: "web@2.1.0",
@@ -46,7 +48,7 @@ const ignored = sampleAlert({
   id: "alert-3",
   kind: "new_issue",
   ignored: true,
-  read_at: new Date().toISOString(),
+  read_at: baseDate.toISOString(),
 });
 
 assert.equal(filterAlerts([velocity, regression], { kind: "regression" }).length, 1);

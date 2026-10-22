@@ -9,8 +9,13 @@ import { useToast } from "./toast-provider";
 interface StackFrame {
   filename?: string;
   function?: string;
+  module?: string;
+  package?: string;
+  symbol?: string;
+  instruction_addr?: string;
   lineno?: number;
   colno?: number;
+  context?: string;
   context_line?: string;
   pre_context?: string[];
   post_context?: string[];
@@ -71,17 +76,74 @@ function isVendorFrame(frame: StackFrame): boolean {
   if (frame.in_app === false) {
     return true;
   }
+  if (frame.in_app === true) {
+    return false;
+  }
   const filename = (frame.filename ?? "").toLowerCase();
-  return (
+  const module = frame.module ?? "";
+  const pkg = frame.package ?? "";
+  const fn = frame.function ?? "";
+
+  if (
     filename.includes("node_modules") ||
     filename.includes("webpack") ||
-    filename.includes("vite")
-  );
+    filename.includes("vite") ||
+    filename.includes("next/dist") ||
+    filename.includes(".cargo/registry") ||
+    filename.includes("/rustc/") ||
+    filename.includes("/site-packages/") ||
+    filename.includes("/dist-packages/") ||
+    filename.includes("/src/runtime/")
+  ) {
+    return true;
+  }
+
+  const frameworkPrefixes = [
+    "java.",
+    "javax.",
+    "jdk.",
+    "sun.",
+    "org.springframework.",
+    "org.apache.",
+    "org.hibernate.",
+    "com.zaxxer.hikari.",
+    "kotlin.",
+    "System.",
+    "Microsoft.",
+    "Newtonsoft.Json",
+    "Npgsql",
+    "Swashbuckle",
+    "MediatR",
+    "std::",
+    "core::",
+    "alloc::",
+    "tokio::",
+    "hyper::",
+    "tower::",
+    "actix_",
+    "axum::",
+    "django.",
+    "flask.",
+    "fastapi.",
+    "starlette.",
+    "celery.",
+    "runtime.",
+    "net/http.",
+  ];
+
+  for (const prefix of frameworkPrefixes) {
+    if (module.startsWith(prefix) || pkg.startsWith(prefix) || fn.startsWith(prefix)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function hasSourceContext(frame: StackFrame): boolean {
+  const line = (frame.context_line ?? frame.context)?.trim();
   return Boolean(
-    frame.context_line?.trim() ||
+    line ||
       (frame.pre_context && frame.pre_context.length > 0) ||
       (frame.post_context && frame.post_context.length > 0),
   );
@@ -212,9 +274,38 @@ function frameSourceLines(frame: StackFrame): SourceCodeLine[] {
 }
 
 function shortFilename(filename?: string): string {
-  return (filename ?? "?")
+  if (!filename) return "?";
+  return filename
+    .replace(/^webpack-internal:\/\/\/\(rsc\)\/\.\//, "")
+    .replace(/^webpack-internal:\/\/\/\(ssr\)\/\.\//, "")
+    .replace(/^webpack-internal:\/\/\/\(app-pages-browser\)\/\.\//, "")
+    .replace(/^webpack-internal:\/\/\/\.\//, "")
+    .replace(/^webpack-internal:\/\/\//, "")
+    .replace(/^turbopack:\/\/\/\[project\]\//, "")
+    .replace(/^turbopack:\/\/\//, "")
+    .replace(/^webpack:\/\/_N_E\/\.\//, "")
+    .replace(/^webpack:\/\/_N_E\//, "")
     .replace(/^webpack:\/\/\.\//, "")
-    .replace(/^app:\/\//, "");
+    .replace(/^webpack:\/\/\//, "")
+    .replace(/^app:\/\/\//, "")
+    .replace(/^app:\/\//, "")
+    .replace(/^\.\//, "");
+}
+
+function frameFunctionName(frame: StackFrame): string {
+  if (frame.function) {
+    if (frame.module && !frame.function.startsWith(frame.module) && !frame.function.includes("::")) {
+      return `${frame.module}.${frame.function}`;
+    }
+    return frame.function;
+  }
+  if (frame.symbol) {
+    return frame.symbol;
+  }
+  if (frame.module) {
+    return frame.module;
+  }
+  return "<anonymous>";
 }
 
 function frameBasename(filename?: string): string {
@@ -235,23 +326,24 @@ function frameDirectory(filename?: string): string | null {
 
 function frameLocationLabel(frame: StackFrame): string {
   const base = frameBasename(frame.filename);
-  if (frame.lineno != null) {
-    return `${base}:${frame.lineno}${frame.colno != null ? `:${frame.colno}` : ""}`;
+  const displayFile = base === "?" && frame.module ? frame.module : base;
+  if (frame.lineno != null && frame.lineno > 0) {
+    return `${displayFile}:${frame.lineno}${frame.colno != null && frame.colno > 0 ? `:${frame.colno}` : ""}`;
   }
-  return base;
+  return displayFile;
 }
 
 function frameContextPreview(frame: StackFrame): string | null {
-  const line = frame.context_line?.trim();
+  const line = (frame.context_line ?? frame.context)?.trim();
   return line || null;
 }
 
 function formatFrameCopy(frame: StackFrame): string {
-  const fn = frame.function ?? "<anonymous>";
+  const fn = frameFunctionName(frame);
   const file = shortFilename(frame.filename);
   const line = frame.lineno != null ? `:${frame.lineno}` : "";
   const col = frame.colno != null ? `:${frame.colno}` : "";
-  const context = frame.context_line?.trim();
+  const context = (frame.context_line ?? frame.context)?.trim();
   return context
     ? `${fn} at ${file}${line}${col}\n${context}`
     : `${fn} at ${file}${line}${col}`;
@@ -263,7 +355,7 @@ function formatFullStackTrace(
 ): string {
   const header = exception ? `${exception.type}: ${exception.message}` : "Error";
   const frameLines = frames.map(({ frame }) => {
-    const fn = frame.function ?? "<anonymous>";
+    const fn = frameFunctionName(frame);
     const file = shortFilename(frame.filename);
     const line = frame.lineno != null ? `:${frame.lineno}` : "";
     const col = frame.colno != null ? `:${frame.colno}` : "";
@@ -378,7 +470,7 @@ function CallStackRow({
                     : "font-medium text-ink-muted",
               )}
             >
-              {frame.function ?? "<anonymous>"}()
+              {frameFunctionName(frame)}()
             </span>
             {isCulprit ? (
               <span className="rounded px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/25 shadow-2xs">
@@ -414,7 +506,7 @@ function CallStackRow({
       {expanded ? (
         <SourceCodeBlock
           filename={frame.filename ?? "unknown"}
-          functionName={frame.function}
+          functionName={frameFunctionName(frame)}
           lineno={frame.lineno}
           colno={frame.colno}
           lines={frameSourceLines(frame)}

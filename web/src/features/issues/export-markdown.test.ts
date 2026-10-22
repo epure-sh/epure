@@ -99,4 +99,83 @@ const regressed = buildIssueAiClipboard(
 );
 assert.match(regressed, /Regression: previously resolved in `web@2\.13\.0`/);
 
+// JVM event test
+const jvmEvent: EventDetail = {
+  id: "ev-jvm",
+  issue_id: "issue-jvm",
+  occurred_at: "2026-10-22T12:00:00Z",
+  environment: "production",
+  release: "backend@1.0.0",
+  platform: "java",
+  runtime_name: "jvm",
+  runtime_version: "21",
+  browser_name: null,
+  os_name: "linux",
+  user_id: null,
+  user_email: null,
+  payload_json: {
+    exception: {
+      values: [{ type: "java.lang.NullPointerException", value: "Cannot invoke method on null" }],
+    },
+  },
+  stack_frames: [
+    {
+      module: "org.springframework.web.servlet.FrameworkServlet",
+      function: "processRequest",
+      filename: "FrameworkServlet.java",
+      lineno: 1014,
+    },
+    {
+      module: "com.acme.shop.service.OrderService",
+      function: "processOrder",
+      filename: "OrderService.java",
+      lineno: 42,
+      context_line: "order.processPayment(req);",
+    },
+  ],
+  breadcrumbs: null,
+};
+const jvmExport = buildIssueExportMarkdown(sampleIssue({ id: "issue-jvm", title: "NullPointerException" }), jvmEvent);
+assert.match(jvmExport, /com\.acme\.shop\.service\.OrderService\.processOrder/);
+assert.match(jvmExport, /OrderService\.java:42/);
+assert.doesNotMatch(jvmExport, /FrameworkServlet\.processRequest/);
+
+// .NET event test (no PDB filename)
+const dotnetEvent: EventDetail = {
+  id: "ev-dotnet",
+  issue_id: "issue-dotnet",
+  occurred_at: "2026-10-22T12:00:00Z",
+  environment: "production",
+  release: "api@1.0.0",
+  platform: "csharp",
+  runtime_name: ".net",
+  runtime_version: "8.0",
+  browser_name: null,
+  os_name: "linux",
+  user_id: null,
+  user_email: null,
+  payload_json: {
+    exception: {
+      values: [{ type: "System.NullReferenceException", value: "Object reference not set" }],
+    },
+  },
+  stack_frames: [
+    {
+      module: "Microsoft.AspNetCore.Mvc.Core",
+      function: "ActionMethodExecutor.Execute",
+      lineno: 0,
+    },
+    {
+      module: "Acme.Shop.Api",
+      function: "OrderController.Checkout",
+      lineno: 0,
+    },
+  ],
+  breadcrumbs: null,
+};
+const dotnetExport = buildIssueExportMarkdown(sampleIssue({ id: "issue-dotnet", title: "NullReferenceException" }), dotnetEvent);
+assert.match(dotnetExport, /Acme\.Shop\.Api/);
+assert.match(dotnetExport, /OrderController\.Checkout/);
+assert.doesNotMatch(dotnetExport, /ActionMethodExecutor\.Execute/);
+
 console.log("export-markdown.test.ts passed");

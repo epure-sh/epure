@@ -304,7 +304,7 @@ mod tests {
     use std::path::PathBuf;
 
     const ENVELOPE_LANGUAGES: &[&str] = &[
-        "browser", "node", "go", "ruby", "php", "java", "dotnet", "python",
+        "browser", "node", "go", "ruby", "php", "java", "dotnet", "python", "rust", "nextjs",
     ];
 
     fn fixture_path(language: &str, name: &str) -> PathBuf {

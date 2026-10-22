@@ -4,8 +4,13 @@ import type { EventDetail, IssueSummary } from "../../lib/api";
 interface StackFrame {
   filename?: string;
   function?: string;
+  module?: string;
+  package?: string;
+  symbol?: string;
+  instruction_addr?: string;
   lineno?: number;
   colno?: number;
+  context?: string;
   context_line?: string;
   pre_context?: string[];
   post_context?: string[];
@@ -60,6 +65,41 @@ function formatIso(value: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? value : date.toISOString();
 }
 
+function cleanFilename(filename?: string): string {
+  if (!filename) return "?";
+  return filename
+    .replace(/^webpack-internal:\/\/\/\(rsc\)\/\.\//, "")
+    .replace(/^webpack-internal:\/\/\/\(ssr\)\/\.\//, "")
+    .replace(/^webpack-internal:\/\/\/\(app-pages-browser\)\/\.\//, "")
+    .replace(/^webpack-internal:\/\/\/\.\//, "")
+    .replace(/^webpack-internal:\/\/\//, "")
+    .replace(/^turbopack:\/\/\/\[project\]\//, "")
+    .replace(/^turbopack:\/\/\//, "")
+    .replace(/^webpack:\/\/_N_E\/\.\//, "")
+    .replace(/^webpack:\/\/_N_E\//, "")
+    .replace(/^webpack:\/\/\.\//, "")
+    .replace(/^webpack:\/\/\//, "")
+    .replace(/^app:\/\/\//, "")
+    .replace(/^app:\/\//, "")
+    .replace(/^\.\//, "");
+}
+
+function frameFunctionName(frame: StackFrame): string {
+  if (frame.function) {
+    if (frame.module && !frame.function.startsWith(frame.module) && !frame.function.includes("::")) {
+      return `${frame.module}.${frame.function}`;
+    }
+    return frame.function;
+  }
+  if (frame.symbol) {
+    return frame.symbol;
+  }
+  if (frame.module) {
+    return frame.module;
+  }
+  return "<anonymous>";
+}
+
 function isVendorFrame(frame: StackFrame): boolean {
   if (frame.in_app === true) {
     return false;
@@ -69,8 +109,62 @@ function isVendorFrame(frame: StackFrame): boolean {
   }
 
   const filename = (frame.filename ?? "").toLowerCase();
-  if (filename.includes("node_modules")) {
+  const module = frame.module ?? "";
+  const pkg = frame.package ?? "";
+  const fn = frame.function ?? "";
+
+  if (
+    filename.includes("node_modules") ||
+    filename.includes("webpack-internal://") ||
+    (filename.includes("webpack") && !filename.includes("/src/")) ||
+    (filename.includes("vite") && filename.includes("deps")) ||
+    filename.includes("next/dist") ||
+    filename.includes(".cargo/registry") ||
+    filename.includes("/rustc/") ||
+    filename.includes("/site-packages/") ||
+    filename.includes("/dist-packages/") ||
+    filename.includes("/src/runtime/")
+  ) {
     return true;
+  }
+
+  const frameworkPrefixes = [
+    "java.",
+    "javax.",
+    "jdk.",
+    "sun.",
+    "org.springframework.",
+    "org.apache.",
+    "org.hibernate.",
+    "com.zaxxer.hikari.",
+    "kotlin.",
+    "System.",
+    "Microsoft.",
+    "Newtonsoft.Json",
+    "Npgsql",
+    "Swashbuckle",
+    "MediatR",
+    "std::",
+    "core::",
+    "alloc::",
+    "tokio::",
+    "hyper::",
+    "tower::",
+    "actix_",
+    "axum::",
+    "django.",
+    "flask.",
+    "fastapi.",
+    "starlette.",
+    "celery.",
+    "runtime.",
+    "net/http.",
+  ];
+
+  for (const prefix of frameworkPrefixes) {
+    if (module.startsWith(prefix) || pkg.startsWith(prefix) || fn.startsWith(prefix)) {
+      return true;
+    }
   }
 
   const looksLikeAppSource =
@@ -84,16 +178,13 @@ function isVendorFrame(frame: StackFrame): boolean {
     return false;
   }
 
-  return (
-    filename.includes("webpack-internal://") ||
-    (filename.includes("webpack") && !looksLikeAppSource) ||
-    (filename.includes("vite") && filename.includes("deps"))
-  );
+  return false;
 }
 
 function hasSourceContext(frame: StackFrame): boolean {
+  const line = (frame.context_line ?? frame.context)?.trim();
   return Boolean(
-    frame.context_line?.trim() ||
+    line ||
       (frame.pre_context && frame.pre_context.length > 0) ||
       (frame.post_context && frame.post_context.length > 0),
   );
@@ -136,10 +227,11 @@ function exceptionSummary(payload: Record<string, unknown>): string {
 }
 
 function frameLocation(frame: StackFrame): string {
-  const filename = frame.filename ?? "?";
+  const rawFile = frame.filename ?? "";
+  const displayFile = rawFile && rawFile !== "?" ? cleanFilename(rawFile) : (frame.module ?? "?");
   const line = frame.lineno ?? "?";
   const column = frame.colno ?? "?";
-  return `${filename}:${line}:${column}`;
+  return `${displayFile}:${line}:${column}`;
 }
 
 function formatSourceBlock(frame: StackFrame): string {
@@ -147,20 +239,21 @@ function formatSourceBlock(frame: StackFrame): string {
   for (const line of frame.pre_context ?? []) {
     lines.push(`  ${line}`);
   }
-  if (frame.context_line) {
-    lines.push(`> ${frame.context_line}`);
+  const mainLine = frame.context_line ?? frame.context;
+  if (mainLine) {
+    lines.push(`> ${mainLine}`);
   }
   for (const line of frame.post_context ?? []) {
     lines.push(`  ${line}`);
   }
-  if (lines.length === 0 && frame.context_line) {
-    lines.push(`> ${frame.context_line}`);
+  if (lines.length === 0 && mainLine) {
+    lines.push(`> ${mainLine}`);
   }
   return lines.length > 0 ? lines.join("\n") : "_No source context captured_";
 }
 
 function formatCulpritFrame(frame: StackFrame): string {
-  const fn = frame.function ?? "<anonymous>";
+  const fn = frameFunctionName(frame);
   return [
     `**Function:** \`${fn}\``,
     `**Location:** \`${frameLocation(frame)}\``,
@@ -179,7 +272,7 @@ function formatAppStack(frames: StackFrame[]): string {
 
   return appFrames
     .map((frame, index) => {
-      const fn = frame.function ?? "<anonymous>";
+      const fn = frameFunctionName(frame);
       const location = frameLocation(frame);
       const source = formatSourceBlock(frame);
       const hasContext = source !== "_No source context captured_";
