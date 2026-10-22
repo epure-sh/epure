@@ -21,6 +21,8 @@ pub enum CoreError {
 pub enum PlanTier {
     #[default]
     Oss,
+    Pro,
+    Scale,
     BuilderPro,
     MultiAppStudio,
     BoutiqueAgency,
@@ -31,6 +33,8 @@ impl PlanTier {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Oss => "oss",
+            Self::Pro => "pro",
+            Self::Scale => "scale",
             Self::BuilderPro => "builder_pro",
             Self::MultiAppStudio => "multi_app_studio",
             Self::BoutiqueAgency => "boutique_agency",
@@ -50,6 +54,22 @@ impl PlanTier {
                 retention_days: 30,
                 allows_sub_tenants: false,
                 max_sub_tenants: 0,
+                spike_valve_rate_per_min: 100.0,
+            },
+            Self::Pro => TenantLimits {
+                plan_tier: *self,
+                max_projects: u32::MAX,
+                retention_days: 35,
+                allows_sub_tenants: false,
+                max_sub_tenants: 0,
+                spike_valve_rate_per_min: 100.0,
+            },
+            Self::Scale => TenantLimits {
+                plan_tier: *self,
+                max_projects: u32::MAX,
+                retention_days: 90,
+                allows_sub_tenants: true,
+                max_sub_tenants: u32::MAX,
                 spike_valve_rate_per_min: 100.0,
             },
             Self::BuilderPro => TenantLimits {
@@ -86,6 +106,42 @@ impl PlanTier {
             },
         }
     }
+
+    pub fn monthly_events(&self) -> u64 {
+        match self {
+            Self::Oss => u64::MAX,
+            Self::Pro => 200_000,
+            Self::Scale => 1_500_000,
+            Self::BuilderPro => 500_000,
+            Self::MultiAppStudio => 2_500_000,
+            Self::BoutiqueAgency => 10_000_000,
+            Self::CanarySandbox => 100_000,
+        }
+    }
+
+    pub fn max_cron_monitors(&self) -> u32 {
+        match self {
+            Self::Oss => u32::MAX,
+            Self::Pro => 5,
+            Self::Scale => u32::MAX,
+            Self::BuilderPro => 5,
+            Self::MultiAppStudio => u32::MAX,
+            Self::BoutiqueAgency => u32::MAX,
+            Self::CanarySandbox => 3,
+        }
+    }
+
+    pub fn max_orgs(&self) -> u32 {
+        match self {
+            Self::Oss => u32::MAX,
+            Self::Pro => 1,
+            Self::Scale => u32::MAX,
+            Self::BuilderPro => 1,
+            Self::MultiAppStudio => 5,
+            Self::BoutiqueAgency => 25,
+            Self::CanarySandbox => 1,
+        }
+    }
 }
 
 impl fmt::Display for PlanTier {
@@ -100,7 +156,9 @@ impl std::str::FromStr for PlanTier {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim().to_lowercase().as_str() {
             "oss" | "self_hosted" => Ok(Self::Oss),
-            "builder_pro" | "pro" => Ok(Self::BuilderPro),
+            "pro" => Ok(Self::Pro),
+            "scale" => Ok(Self::Scale),
+            "builder_pro" => Ok(Self::BuilderPro),
             "multi_app_studio" | "studio" => Ok(Self::MultiAppStudio),
             "boutique_agency" | "agency" => Ok(Self::BoutiqueAgency),
             "canary_sandbox" | "canary" => Ok(Self::CanarySandbox),
@@ -197,5 +255,40 @@ impl TenancyGate for OpenSourceTenancyGate {
         _current_count: u32,
     ) -> Result<bool, CoreError> {
         Ok(false)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_plan_tier_quotas_v2() {
+        let pro = PlanTier::Pro;
+        assert_eq!(pro.as_str(), "pro");
+        assert_eq!(pro.monthly_events(), 200_000);
+        assert_eq!(pro.max_cron_monitors(), 5);
+        assert_eq!(pro.max_orgs(), 1);
+        let pro_limits = pro.default_limits();
+        assert_eq!(pro_limits.retention_days, 35);
+        assert_eq!(pro_limits.max_projects, u32::MAX);
+
+        let scale = PlanTier::Scale;
+        assert_eq!(scale.as_str(), "scale");
+        assert_eq!(scale.monthly_events(), 1_500_000);
+        assert_eq!(scale.max_cron_monitors(), u32::MAX);
+        assert_eq!(scale.max_orgs(), u32::MAX);
+        let scale_limits = scale.default_limits();
+        assert_eq!(scale_limits.retention_days, 90);
+        assert_eq!(scale_limits.max_projects, u32::MAX);
+        assert!(scale_limits.allows_sub_tenants);
+    }
+
+    #[test]
+    fn test_plan_tier_parsing() {
+        assert_eq!("pro".parse::<PlanTier>(), Ok(PlanTier::Pro));
+        assert_eq!("scale".parse::<PlanTier>(), Ok(PlanTier::Scale));
+        assert_eq!("oss".parse::<PlanTier>(), Ok(PlanTier::Oss));
+        assert_eq!("builder_pro".parse::<PlanTier>(), Ok(PlanTier::BuilderPro));
     }
 }

@@ -29,6 +29,8 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/api/{project_id}/envelope/", options(cors_preflight))
         .route("/api/{project_id}/envelope/", post(post_envelope))
+        .route("/api/{project_id}/envelope", options(cors_preflight))
+        .route("/api/{project_id}/envelope", post(post_envelope))
         .route("/api/{project_id}/store/", options(cors_preflight))
         .route("/api/{project_id}/store/", post(post_store))
         .route(
@@ -145,6 +147,58 @@ async fn post_envelope(
             )
         }
     };
+
+    if !parsed.check_ins.is_empty() {
+        let mut first_check_in_id = None;
+        for ci in &parsed.check_ins {
+            let duration_ms = ci
+                .duration
+                .filter(|d| d.is_finite() && *d >= 0.0 && *d < 31_536_000.0)
+                .map(|d| d * 1000.0);
+            let check_in_id = ci
+                .check_in_id
+                .clone()
+                .unwrap_or_else(|| Uuid::new_v4().to_string());
+            if first_check_in_id.is_none() {
+                first_check_in_id = Some(check_in_id.clone());
+            }
+
+            if let Err(err) = epure_storage::monitors::record_check_in(
+                &state.pools.ingest,
+                record.org_id,
+                project_id,
+                epure_storage::monitors::RecordCheckInParams {
+                    slug: ci.monitor_slug.clone(),
+                    check_in_id: Some(check_in_id),
+                    status: ci.status.clone(),
+                    duration_ms,
+                    schedule: ci.schedule.clone(),
+                    environment: ci.environment.clone(),
+                },
+            )
+            .await
+            {
+                tracing::warn!("Failed to record monitor check-in: {err}");
+            }
+        }
+
+        if parsed.event_payload.is_empty() {
+            let returned_id = first_check_in_id.unwrap_or_else(|| Uuid::new_v4().to_string());
+            let json_body =
+                serde_json::to_vec(&serde_json::json!({ "id": returned_id })).unwrap_or_default();
+            let mut response = Response::builder()
+                .status(StatusCode::OK)
+                .header("Content-Type", "application/json")
+                .body(axum::body::Body::from(json_body))
+                .unwrap();
+            apply_cors_headers(&state, &headers, response.headers_mut());
+            return response;
+        }
+    }
+
+    if parsed.event_payload.is_empty() {
+        return cors_response(&state, &headers, StatusCode::ACCEPTED);
+    }
 
     accept_payload(
         &state,

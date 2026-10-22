@@ -7,7 +7,9 @@ pub mod scrub;
 pub mod store;
 
 pub use auth_header::{parse_auth, AuthCredentials, AuthError};
-pub use envelope::{parse_envelope, EnvelopeError, ParsedEnvelope};
+pub use envelope::{
+    parse_check_in_payload, parse_envelope, CheckInItem, EnvelopeError, ParsedEnvelope,
+};
 pub use extract::{breadcrumbs_to_json, extract_breadcrumbs, Breadcrumb};
 pub use fingerprint::{compute_fingerprint, preview_fingerprint};
 pub use metadata::{normalize_metadata, EventMetadata};

@@ -983,4 +983,64 @@ export async function syncCheckout(checkoutId: string): Promise<BillingStatus> {
   });
 }
 
+export interface MonitorItem {
+  id: string;
+  org_id: string;
+  project_id: string;
+  slug: string;
+  schedule: string | null;
+  status: "ok" | "in_progress" | "error" | "missed";
+  last_check_in_at: string | null;
+  last_duration_ms: number | null;
+  environment: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MonitorCheckIn {
+  id: string;
+  monitor_id: string;
+  project_id: string;
+  org_id: string;
+  check_in_id: string | null;
+  status: string;
+  duration_ms: number | null;
+  environment: string | null;
+  created_at: string;
+}
+
+export interface MonitorDetails {
+  monitor: MonitorItem;
+  check_ins: MonitorCheckIn[];
+}
+
+export async function fetchMonitors(projectId: string): Promise<MonitorItem[]> {
+  const res = await apiFetch<{ monitors: MonitorItem[] }>(
+    `/api/v1/monitors?project_id=${encodeURIComponent(projectId)}`,
+  );
+  return res.monitors;
+}
+
+export async function fetchMonitorDetails(monitorId: string): Promise<MonitorDetails> {
+  return await apiFetch<MonitorDetails>(`/api/v1/monitors/${encodeURIComponent(monitorId)}`);
+}
+
+export async function createMonitor(input: {
+  project_id: string;
+  slug: string;
+  schedule?: string;
+  environment?: string;
+}): Promise<MonitorItem> {
+  return await apiFetch<MonitorItem>("/api/v1/monitors", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteMonitor(monitorId: string): Promise<void> {
+  await apiFetch<{ deleted: boolean }>(`/api/v1/monitors/${encodeURIComponent(monitorId)}`, {
+    method: "DELETE",
+  });
+}
+
 

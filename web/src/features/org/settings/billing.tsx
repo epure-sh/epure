@@ -26,7 +26,7 @@ import { Card, CardContent } from "../../../ui/card";
 import { SectionHeader } from "../../../ui/section";
 import { StatBar } from "../../../ui/stat-bar";
 
-const CLOUD_CURRENT_PLAN: PlanId = "builder_pro";
+const CLOUD_CURRENT_PLAN: PlanId = "pro";
 
 function formatEvents(value: number | null): string {
   if (value === null) {
@@ -144,7 +144,7 @@ function SelfHostedBilling() {
           rel="noreferrer"
           className="inline-flex items-center gap-0.5 text-ink font-medium underline-offset-2 hover:underline"
         >
-          Explore Epure Cloud plans (Pro $49, Team Plus $99, Agency $249, Dedicated $399)
+          Explore Epure Cloud plans (Pro $29, Scale $89)
           <ExternalLink size={12} className="opacity-70" aria-hidden />
         </a>
         .
@@ -248,7 +248,11 @@ function PlanOptionCard({
               Active Plan
             </Badge>
           ) : null}
-          {plan.highlighted && !isCurrent ? (
+          {plan.comingSoon ? (
+            <Badge variant="secondary" className="text-2xs uppercase text-ink-muted">
+              Coming Soon
+            </Badge>
+          ) : plan.highlighted && !isCurrent ? (
             <Badge variant="secondary" className="text-2xs uppercase">
               Popular
             </Badge>
@@ -274,6 +278,10 @@ function PlanOptionCard({
         {isCurrent ? (
           <Button variant="outline" className="mt-4 w-full cursor-default opacity-85" disabled>
             Current active tier
+          </Button>
+        ) : plan.comingSoon ? (
+          <Button variant="outline" className="mt-4 w-full cursor-not-allowed opacity-60" disabled>
+            Coming Soon
           </Button>
         ) : (
           <Button
@@ -366,7 +374,7 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
   const monthlyLimit =
     billingStatus?.monthly_events_included && billingStatus.monthly_events_included > 0
       ? billingStatus.monthly_events_included
-      : (activePlan.limits.eventsPerMonth ?? 500_000);
+      : (activePlan.limits.eventsPerMonth ?? 200_000);
 
   async function handleSelectPlan(targetPlan: PlanDefinition) {
     if (!isOwner) return;
@@ -460,7 +468,7 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
                 }}
                 disabled={upgradingId !== null || !isOwner}
               >
-                {upgradingId === "builder_pro" ? (
+                {upgradingId === "pro" || upgradingId === "builder_pro" ? (
                   <Loader2 className="size-3.5 animate-spin" />
                 ) : (
                   <>
@@ -504,7 +512,7 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
                 }}
                 disabled={upgradingId !== null || !isOwner}
               >
-                {upgradingId === "builder_pro" ? (
+                {upgradingId === "pro" || upgradingId === "builder_pro" ? (
                   <Loader2 className="size-3.5 animate-spin" />
                 ) : (
                   <>

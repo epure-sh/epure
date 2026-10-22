@@ -1,4 +1,5 @@
 use memchr::memchr;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::borrow::Cow;
 use thiserror::Error;
@@ -21,9 +22,20 @@ pub enum EnvelopeError {
     DecompressFailed,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CheckInItem {
+    pub check_in_id: Option<String>,
+    pub monitor_slug: String,
+    pub status: String,
+    pub duration: Option<f64>,
+    pub schedule: Option<String>,
+    pub environment: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct ParsedEnvelope {
     pub event_payload: Vec<u8>,
+    pub check_ins: Vec<CheckInItem>,
 }
 
 /// Zero-copy scan of a Sentry envelope; discards transaction items.
@@ -79,11 +91,82 @@ fn normalize_newlines(body: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
     Cow::Owned(out)
 }
 
+pub fn parse_check_in_payload(payload: &[u8]) -> Option<CheckInItem> {
+    let val: Value = serde_json::from_slice(payload).ok()?;
+    let monitor_slug = val
+        .get("monitor_slug")
+        .or_else(|| val.get("slug"))
+        .and_then(Value::as_str)?
+        .trim()
+        .to_string();
+
+    if monitor_slug.is_empty() {
+        return None;
+    }
+
+    let check_in_id = val
+        .get("check_in_id")
+        .or_else(|| val.get("id"))
+        .and_then(Value::as_str)
+        .map(|s| s.to_string());
+
+    let status = val
+        .get("status")
+        .and_then(Value::as_str)
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| "ok".to_string());
+
+    let duration = val
+        .get("duration")
+        .and_then(Value::as_f64)
+        .filter(|d| d.is_finite() && *d >= 0.0);
+
+    let schedule = val
+        .get("monitor_config")
+        .and_then(|c| {
+            if let Some(s) = c.get("schedule") {
+                if let Some(sched_str) = s.as_str() {
+                    return Some(sched_str.to_string());
+                }
+                if let Some(val_str) = s.get("value").and_then(Value::as_str) {
+                    return Some(val_str.to_string());
+                }
+                if let (Some(val_num), Some(unit)) = (
+                    s.get("value").and_then(Value::as_i64),
+                    s.get("unit").and_then(Value::as_str),
+                ) {
+                    return Some(format!("every {val_num} {unit}"));
+                }
+            }
+            None
+        })
+        .or_else(|| {
+            val.get("schedule")
+                .and_then(Value::as_str)
+                .map(|s| s.to_string())
+        });
+
+    let environment = val
+        .get("environment")
+        .and_then(Value::as_str)
+        .map(|s| s.to_string());
+
+    Some(CheckInItem {
+        check_in_id,
+        monitor_slug,
+        status,
+        duration,
+        schedule,
+        environment,
+    })
+}
+
 fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> {
     let mut offset = next_line_end(body, 0)
         .map(|end| end + 1)
         .unwrap_or(body.len());
     let mut event_payload = None;
+    let mut check_ins = Vec::new();
     let mut has_non_error_items = false;
 
     while offset < body.len() {
@@ -119,11 +202,17 @@ fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> 
 
         match item_type.as_deref() {
             Some("event") => event_payload = Some(payload),
+            Some("check_in") => {
+                if let Some(ci) = parse_check_in_payload(&payload) {
+                    check_ins.push(ci);
+                } else {
+                    has_non_error_items = true;
+                }
+            }
             Some("transaction")
             | Some("session")
             | Some("client_report")
             | Some("replay_event")
-            | Some("check_in")
             | Some("statsd") => {
                 has_non_error_items = true;
             }
@@ -134,7 +223,15 @@ fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> 
     }
 
     if let Some(event_payload) = event_payload {
-        Ok(ParsedEnvelope { event_payload })
+        Ok(ParsedEnvelope {
+            event_payload,
+            check_ins,
+        })
+    } else if !check_ins.is_empty() {
+        Ok(ParsedEnvelope {
+            event_payload: Vec::new(),
+            check_ins,
+        })
     } else if has_non_error_items {
         Err(EnvelopeError::NonErrorAbsorbed)
     } else {
@@ -415,5 +512,36 @@ mod tests {
             parse_envelope(body.as_bytes()),
             Err(EnvelopeError::NonErrorAbsorbed)
         ));
+    }
+
+    #[test]
+    fn parses_check_in_envelope() {
+        let check_in = r#"{"check_in_id":"c123","monitor_slug":"nightly-backup","status":"ok","duration":14.5,"monitor_config":{"schedule":{"type":"crontab","value":"0 0 * * *"}},"environment":"production"}"#;
+        let check_in_header = format!(r#"{{"type":"check_in","length":{}}}"#, check_in.len());
+        let body = format!(
+            "{}\n{}\n{}\n",
+            r#"{"event_id":"550e8400-e29b-41d4-a716-446655440099"}"#, check_in_header, check_in,
+        );
+
+        let parsed = parse_envelope(body.as_bytes()).expect("parse check_in envelope");
+        assert_eq!(parsed.check_ins.len(), 1);
+        let item = &parsed.check_ins[0];
+        assert_eq!(item.monitor_slug, "nightly-backup");
+        assert_eq!(item.check_in_id.as_deref(), Some("c123"));
+        assert_eq!(item.status, "ok");
+        assert_eq!(item.duration, Some(14.5));
+        assert_eq!(item.schedule.as_deref(), Some("0 0 * * *"));
+        assert_eq!(item.environment.as_deref(), Some("production"));
+    }
+
+    #[test]
+    fn parses_check_in_interval_schedule_and_duration_filter() {
+        let payload = br#"{"slug":"worker-heartbeat","status":"in_progress","duration":-5.0,"monitor_config":{"schedule":{"type":"interval","value":10,"unit":"minute"}}}"#;
+        let item = parse_check_in_payload(payload).expect("parsed check in");
+        assert_eq!(item.monitor_slug, "worker-heartbeat");
+        assert_eq!(item.check_in_id, None);
+        assert_eq!(item.status, "in_progress");
+        assert_eq!(item.duration, None); // Negative duration rejected
+        assert_eq!(item.schedule.as_deref(), Some("every 10 minute"));
     }
 }

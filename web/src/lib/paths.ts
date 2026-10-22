@@ -64,7 +64,7 @@ export const isOrgSettingsRoute = isWorkspaceSettingsRoute;
 
 export function projectPath(
   projectId: string,
-  segment: "issues" | "releases" | "alerts" | "setup" = "issues",
+  segment: "issues" | "releases" | "alerts" | "monitors" | "setup" = "issues",
 ): string {
   return `/p/${projectId}/${segment}`;
 }

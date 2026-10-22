@@ -28,6 +28,7 @@ mod events;
 mod issues;
 pub mod mcp;
 mod members;
+mod monitors;
 pub mod oauth;
 mod pat_scopes;
 mod projects;
@@ -53,6 +54,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .merge(alert_rules::router(state.clone()))
         .merge(webhooks::router(state.clone()))
         .merge(projects::router(state.clone()))
+        .merge(monitors::router(state.clone()))
         .merge(dsn_keys::router(state.clone()))
         .merge(members::router(state.clone()))
         .merge(setup::router(state.clone()))

@@ -1,4 +1,4 @@
-import { ArrowLeft, Bell, CircleDot, Package, Settings } from "lucide-react";
+import { ArrowLeft, Bell, CircleDot, Package, Settings, Timer } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { projectIdFromPath, projectPath, projectSettingsPath, workspacePath } from "../lib/paths";
 import { useAppContext } from "./app-context";
@@ -18,6 +18,7 @@ export function ProjectRail() {
   const navItems: RailNavItem[] = [
     { to: projectPath(projectId, "issues"), label: "Issues", end: true, icon: CircleDot },
     { to: projectPath(projectId, "releases"), label: "Releases", end: true, icon: Package },
+    { to: projectPath(projectId, "monitors"), label: "Monitors", end: true, icon: Timer },
     { to: projectPath(projectId, "alerts"), label: "Alerts", end: true, icon: Bell },
     { to: projectSettingsPath(projectId), label: "Settings", end: false, icon: Settings },
   ];

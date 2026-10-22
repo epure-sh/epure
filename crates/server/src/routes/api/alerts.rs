@@ -4,7 +4,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, patch},
+    routing::{get, patch, post},
     Extension, Json, Router,
 };
 use epure_auth::DashboardSession;
@@ -18,6 +18,7 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/alerts", get(list_alerts))
         .route("/alerts/{id}", patch(patch_alert))
+        .route("/alerts/test-email", post(test_email_alert))
         .with_state(state)
 }
 
@@ -86,4 +87,58 @@ async fn patch_alert(
     .ok_or(StatusCode::NOT_FOUND)?;
 
     Ok(Json(row))
+}
+
+#[derive(Deserialize)]
+struct TestEmailBody {
+    recipient: Option<String>,
+}
+
+#[derive(Serialize)]
+struct TestEmailResponse {
+    sent: bool,
+    recipient: String,
+    resend_id: Option<String>,
+    error: Option<String>,
+}
+
+async fn test_email_alert(
+    State(_state): State<Arc<AppState>>,
+    Extension(dashboard): Extension<DashboardSession>,
+    Json(body): Json<Option<TestEmailBody>>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let to_email = body
+        .and_then(|b| b.recipient)
+        .filter(|e| !e.trim().is_empty())
+        .unwrap_or_else(|| dashboard.email.clone());
+
+    if to_email.trim().is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let subject = "[Test Alert] Epure Email Alerting via Resend (alert.epure.sh)".to_string();
+    let html = r#"<!DOCTYPE html><html><body style="font-family: sans-serif; background: #0c0d0e; color: #fff; padding: 24px;">
+        <div style="max-width: 500px; margin: 0 auto; background: #18181b; border: 1px solid #27272a; border-radius: 8px; padding: 24px;">
+            <h2 style="margin: 0 0 12px 0; color: #fff;">Epure Email Alert Verification</h2>
+            <p style="color: #a1a1aa; font-size: 14px;">Your Resend alerting integration is working correctly. You will receive notifications here for issue regressions and critical spikes.</p>
+            <p style="color: #71717a; font-size: 12px;">Sent from alerts@alert.epure.sh</p>
+        </div></body></html>"#.to_string();
+    let text = "Epure Email Alert Verification: Resend alerting is working correctly.".to_string();
+
+    match crate::lifecycle::resend::send_resend_email(vec![to_email.clone()], subject, html, text)
+        .await
+    {
+        Ok(id) => Ok(Json(TestEmailResponse {
+            sent: true,
+            recipient: to_email,
+            resend_id: Some(id),
+            error: None,
+        })),
+        Err(err) => Ok(Json(TestEmailResponse {
+            sent: false,
+            recipient: to_email,
+            resend_id: None,
+            error: Some(err),
+        })),
+    }
 }

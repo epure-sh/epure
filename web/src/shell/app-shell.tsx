@@ -10,6 +10,7 @@ import { OrgTeamPage } from "../features/org/team";
 import { UsagePage } from "../features/org/usage";
 import { SetupPage } from "../features/setup";
 import { ReleasesPage } from "../features/releases";
+import { MonitorsPage } from "../features/monitors";
 import { SettingsPage } from "../features/settings";
 import { AgencyHealthMatrixPage } from "../features/agency/health-matrix";
 import { projectPath } from "../lib/paths";
@@ -57,7 +58,7 @@ function ProjectBoundedRoute({
   );
 }
 
-function LegacyProjectRedirect({ segment }: { segment: "issues" | "releases" | "alerts" | "setup" | "settings" }) {
+function LegacyProjectRedirect({ segment }: { segment: "issues" | "releases" | "alerts" | "setup" | "settings" | "monitors" }) {
   const { projectId, projects } = useAppContext();
   const id = projectId ?? projects[0]?.id;
   if (!id) {
@@ -173,6 +174,14 @@ export function AppShell() {
                     }
                   />
                   <Route
+                    path="monitors"
+                    element={
+                      <ProjectBoundedRoute title="Monitors crashed">
+                        <MonitorsPage />
+                      </ProjectBoundedRoute>
+                    }
+                  />
+                  <Route
                     path="settings/*"
                     element={
                       <ProjectBoundedRoute title="Project settings crashed">
@@ -187,6 +196,7 @@ export function AppShell() {
                 <Route path="/issues" element={<LegacyProjectRedirect segment="issues" />} />
                 <Route path="/releases" element={<LegacyProjectRedirect segment="releases" />} />
                 <Route path="/alerts" element={<LegacyProjectRedirect segment="alerts" />} />
+                <Route path="/monitors" element={<LegacyProjectRedirect segment="monitors" />} />
                 <Route path="/setup" element={<LegacyProjectRedirect segment="setup" />} />
 
                 <Route path="*" element={<NotFoundPage />} />

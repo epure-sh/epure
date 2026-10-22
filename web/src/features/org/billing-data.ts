@@ -1,13 +1,14 @@
 export type PlanId =
   | "oss"
-  | "builder_pro"
   | "pro"
+  | "scale"
+  | "canary_sandbox"
+  | "builder_pro"
   | "multi_app_studio"
   | "team_plus"
   | "boutique_agency"
   | "agency"
-  | "dedicated_sovereign"
-  | "canary_sandbox";
+  | "dedicated_sovereign";
 
 export interface PlanDefinition {
   id: PlanId;
@@ -22,22 +23,35 @@ export interface PlanDefinition {
     maxProjects: number | null;
     eventsPerMonth: number | null;
     retentionDays: number | null;
+    maxOrgs?: number | null;
+    cronMonitors?: number | null;
   };
   highlighted?: boolean;
   cloudOnly?: boolean;
-  tierCode?: "pro" | "team_plus" | "agency" | "dedicated";
+  tierCode?: "pro" | "scale" | "team_plus" | "agency" | "dedicated";
+  comingSoon?: boolean;
 }
 
 export function normalizePlanId(id: string | null | undefined): PlanId {
-  if (!id) return "builder_pro";
+  if (!id) return "pro";
   const lower = id.toLowerCase();
-  if (lower === "pro" || lower === "builder_pro") return "builder_pro";
-  if (lower === "team_plus" || lower === "multi_app_studio" || lower === "plus") return "multi_app_studio";
-  if (lower === "agency" || lower === "boutique_agency") return "boutique_agency";
-  if (lower === "dedicated" || lower === "dedicated_sovereign" || lower === "enterprise") return "dedicated_sovereign";
+  if (lower === "pro" || lower === "builder_pro") return "pro";
+  if (
+    lower === "scale" ||
+    lower === "team_plus" ||
+    lower === "multi_app_studio" ||
+    lower === "plus" ||
+    lower === "agency" ||
+    lower === "boutique_agency" ||
+    lower === "dedicated" ||
+    lower === "dedicated_sovereign" ||
+    lower === "enterprise"
+  ) {
+    return "scale";
+  }
   if (lower === "canary_sandbox") return "canary_sandbox";
   if (lower === "oss" || lower === "self_hosted") return "oss";
-  return "builder_pro";
+  return "pro";
 }
 
 export const PLANS: PlanDefinition[] = [
@@ -75,7 +89,7 @@ export const PLANS: PlanDefinition[] = [
       "Full Source Map demangling + epure-mcp",
       "Native Claude Code & Cursor MCP triage",
       "Pre-seeded production error context & breadcrumbs",
-      "Instant 1-click upgrade to Pro or Team Plus",
+      "Instant 1-click upgrade to Pro",
     ],
     limits: {
       maxProjects: 1,
@@ -85,105 +99,63 @@ export const PLANS: PlanDefinition[] = [
     cloudOnly: false,
   },
   {
-    id: "builder_pro",
+    id: "pro",
     name: "Cloud Pro",
-    price: "$49",
-    priceMonthly: "$49",
-    priceAnnual: "$39",
+    price: "$29",
+    priceMonthly: "$29",
+    priceAnnual: "$24",
     period: "/ mo",
     tierCode: "pro",
-    description: "Seed startups & small product teams needing predictable zero-maintenance cloud with $0 overage guarantee.",
+    description: "Production-ready error tracking with zero-maintenance hosting, guaranteed $0 overage protection, and surgical AI triage.",
     features: [
-      "500,000 events / mo included",
+      "200,000 events / mo included",
       "$0 overage guarantee (Spike Valve protection)",
-      "Unlimited team seats",
-      "Up to 5 projects",
-      "30-day event retention",
-      "Full Source Map demangling + epure-mcp",
-      "Slack, Discord, Telegram & Webhook alerts",
-    ],
-    limits: {
-      maxProjects: 5,
-      eventsPerMonth: 500_000,
-      retentionDays: 30,
-    },
-    highlighted: false,
-    cloudOnly: true,
-  },
-  {
-    id: "multi_app_studio",
-    name: "Cloud Team Plus",
-    price: "$99",
-    priceMonthly: "$99",
-    priceAnnual: "$79",
-    period: "/ mo",
-    tierCode: "team_plus",
-    description: "Fast-moving funded startups (5–30 engineers) with active release pipelines.",
-    features: [
-      "2,500,000 events / mo included",
-      "$0 overage guarantee (Spike Valve protection)",
+      "1 organization enforced",
       "Unlimited projects & unlimited seats",
-      "90-day event retention",
-      "Two-way GitHub & Linear Issue Sync",
-      "Release commit tracking & regression alerts",
-      "Unlimited Cron / Heartbeat monitors",
-      "Priority email & Slack support",
+      "35-day event retention",
+      "5 cron / heartbeat monitors",
+      "Full Source Map demangling + epure-mcp",
+      "Email, Slack, Discord & Webhook alerts",
     ],
     limits: {
       maxProjects: null,
-      eventsPerMonth: 2_500_000,
-      retentionDays: 90,
+      eventsPerMonth: 200_000,
+      retentionDays: 35,
+      maxOrgs: 1,
+      cronMonitors: 5,
     },
     highlighted: true,
     cloudOnly: true,
   },
   {
-    id: "boutique_agency",
-    name: "Cloud Agency",
-    price: "$249",
-    priceMonthly: "$249",
-    priceAnnual: "$199",
+    id: "scale",
+    name: "Cloud Scale",
+    price: "$89",
+    priceMonthly: "$89",
+    priceAnnual: "$74",
     period: "/ mo",
-    tierCode: "agency",
-    description: "Web/SaaS Dev Agencies & Fractional CTOs managing up to 25 isolated client apps.",
+    tierCode: "scale",
+    description: "High-volume systems and growing engineering organizations needing expanded retention, multi-org isolation, and unlimited scale.",
     features: [
-      "Up to 25 isolated client workspaces (PG16 RLS)",
-      "10,000,000 pooled events / mo",
-      "Per-client Spike Valve (zero cross-contamination)",
-      "White-label Automated Weekly Client Stability Reports",
-      "Role-based client view-only access",
-      "All Clients Health Matrix & fast ⌘K switching",
-      "Priority dedicated agency channel",
-    ],
-    limits: {
-      maxProjects: 25,
-      eventsPerMonth: 10_000_000,
-      retentionDays: 90,
-    },
-    cloudOnly: true,
-  },
-  {
-    id: "dedicated_sovereign",
-    name: "Dedicated Sovereign",
-    price: "$399",
-    priceMonthly: "$399",
-    priceAnnual: "$399",
-    period: "/ mo",
-    tierCode: "dedicated",
-    description: "Fintech, Healthtech, and EU GDPR-strict teams demanding dedicated isolation or BYOC.",
-    features: [
-      "Dedicated single-tenant VM (Frankfurt, Paris, US-East) or BYOC VPC",
-      "25,000,000+ events / mo & 1-year retention",
-      "Signed GDPR DPA & Custom PII Scrubbing Rules",
-      "SAML/OIDC SSO & Enterprise Audit Logs",
-      "99.9% Uptime SLA + Dedicated Shared Slack Channel",
+      "1,500,000 events / mo included",
+      "$0 overage guarantee (Spike Valve protection)",
+      "Unlimited organizations",
+      "Unlimited projects & unlimited seats",
+      "90-day event retention",
+      "Unlimited cron / heartbeat monitors",
+      "Two-way GitHub & Linear issue sync",
+      "Priority email & Slack support",
     ],
     limits: {
       maxProjects: null,
-      eventsPerMonth: 25_000_000,
-      retentionDays: 365,
+      eventsPerMonth: 1_500_000,
+      retentionDays: 90,
+      maxOrgs: null,
+      cronMonitors: null,
     },
+    highlighted: false,
     cloudOnly: true,
+    comingSoon: true,
   },
 ];
 

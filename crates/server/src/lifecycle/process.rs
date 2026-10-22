@@ -214,6 +214,17 @@ async fn emit_built_in_alert(
     .await?;
 
     if inserted.is_some() {
+        if kind == "regression" || kind == "velocity_spike" {
+            super::resend::dispatch_alert_email(
+                pool,
+                issue.org_id,
+                issue,
+                kind,
+                release.as_deref(),
+            )
+            .await;
+        }
+
         if let Some(event) = webhook_event {
             dispatch_event(
                 pool,
