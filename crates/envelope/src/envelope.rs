@@ -333,6 +333,9 @@ mod tests {
             parsed.event_payload.starts_with(b"{"),
             "{language} event payload should be JSON object"
         );
+        serde_json::from_slice::<serde_json::Value>(&parsed.event_payload).unwrap_or_else(|err| {
+            panic!("{language} event payload must be valid JSON: {err}");
+        });
         assert_eq!(
             preview_fingerprint(&parsed.event_payload).len(),
             64,

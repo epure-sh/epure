@@ -11,7 +11,7 @@ use support::{fixture_path, project_id, spawn_test_server, PUBLIC_KEY};
 
 /// Every language folder under fixtures/sentry that ships an envelope.
 const ENVELOPE_LANGUAGES: &[&str] = &[
-    "browser", "node", "go", "ruby", "php", "java", "dotnet", "python",
+    "browser", "node", "go", "ruby", "php", "java", "dotnet", "python", "rust", "nextjs",
 ];
 
 fn gzip_bytes(raw: &[u8]) -> Vec<u8> {
