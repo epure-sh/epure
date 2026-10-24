@@ -19,14 +19,14 @@ export function IssueImpactMetrics({ issue, className }: IssueImpactMetricsProps
       value: issue.event_count.toLocaleString(),
       subvalue: `${absorbedEvents.toLocaleString()} absorbed by Valve`,
       icon: Activity,
-      color: "text-signal",
+      color: "text-escalating",
     },
     {
       label: "Impacted Users",
       value: issue.unique_user_count > 0 ? issue.unique_user_count.toLocaleString() : "None",
       subvalue: issue.affected_users_count ? `${issue.affected_users_count} peak 24h` : undefined,
       icon: Users,
-      color: "text-accent",
+      color: "text-primary",
     },
     {
       label: "Release Introduced",
@@ -46,13 +46,13 @@ export function IssueImpactMetrics({ issue, className }: IssueImpactMetricsProps
       label: "Last Occurrence",
       value: issue.last_seen_at ? formatRelativeTime(issue.last_seen_at) : "N/A",
       icon: Clock,
-      color: "text-ink-muted",
+      color: "text-fg-muted",
     },
     {
       label: "First Detected",
       value: issue.first_seen_at ? formatRelativeTime(issue.first_seen_at) : "N/A",
       icon: History,
-      color: "text-ink-muted",
+      color: "text-fg-muted",
     },
   ];
 

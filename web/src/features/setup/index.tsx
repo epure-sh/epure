@@ -5,6 +5,7 @@ import { SectionCard } from "@/components/kit/section-card";
 import { AskAgentCard } from "@/components/kit/ask-agent-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { copyText } from "@/lib/copy-text";
 import { useAppContext } from "@/shell/app-context";
@@ -249,9 +250,9 @@ sentry.Init(sentry.ClientOptions{
           <div className="space-y-4">
             {/* DSN Copy Field */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-fg-primary">
+              <Label className="text-xs font-medium text-fg-primary">
                 Project DSN (Data Source Name)
-              </label>
+              </Label>
               <div className="flex items-center gap-2">
                 <div className="flex-1 rounded-md border border-border-subtle bg-surface-2 p-2 font-mono text-xs text-fg-primary truncate select-all">
                   {loadingKeys ? "Loading DSN key…" : dsnString}
@@ -274,9 +275,9 @@ sentry.Init(sentry.ClientOptions{
             {/* Platform Selector Tabs */}
             <div className="pt-2 space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-fg-primary">
+                <Label className="text-xs font-medium text-fg-primary">
                   Quickstart SDK Snippet
-                </label>
+                </Label>
                 <div className="flex items-center gap-1">
                   {(["nextjs", "node", "python", "go"] as const).map((plat) => (
                     <Button
