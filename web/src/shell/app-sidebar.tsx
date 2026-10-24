@@ -25,6 +25,7 @@ import {
   workspaceSettingsPath,
 } from "../lib/paths";
 import { EpureBrandMark } from "../ui/logo";
+import { Button } from "../ui/button";
 import { useAppContext } from "./app-context";
 import { dispatchOpenCommandPalette } from "./command-palette";
 import {
@@ -97,7 +98,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
           <div className="flex flex-col">
             <span className="font-semibold text-xs tracking-tight text-ink flex items-center gap-1.5">
               <span>Épure</span>
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="h-1.5 w-1.5 rounded-full bg-healthy animate-pulse" />
             </span>
             <span className="font-mono text-[10px] text-ink-subtle leading-tight">
               cockpit
@@ -105,14 +106,16 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
           </div>
         </Link>
         {onMobileClose ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
             onClick={onMobileClose}
-            className="md:hidden flex h-7 w-7 items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-state-hover focus-ring"
+            className="md:hidden text-ink-muted hover:text-ink"
             aria-label="Close navigation"
           >
             <X size={16} />
-          </button>
+          </Button>
         ) : null}
       </div>
 
@@ -120,9 +123,11 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
       <div className="p-2.5 pb-1.5 border-b border-border/60">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
+            <Button
               type="button"
-              className="btn-tactile flex w-full items-center justify-between rounded-md border border-border bg-bg/80 px-2.5 py-1.5 text-xs font-medium text-ink shadow-2xs hover:border-border-strong hover:bg-bg focus-ring"
+              variant="outline"
+              size="sm"
+              className="btn-tactile flex w-full items-center justify-between h-8 px-2.5 text-xs font-medium text-ink shadow-2xs"
               title={activeProject?.name ?? "Select project"}
             >
               <div className="flex min-w-0 items-center gap-2">
@@ -130,7 +135,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
                 <span className="truncate">{activeProject?.name ?? "Select project"}</span>
               </div>
               <ChevronDown className="h-3 w-3 text-ink-muted shrink-0" />
-            </button>
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64 max-w-[calc(100vw-2rem)] shadow-lg border border-border">
             <DropdownMenuLabel className="text-2xs font-semibold text-ink-muted uppercase tracking-wider">
@@ -142,8 +147,12 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
             >
               {projects.map((project) => (
                 <DropdownMenuRadioItem key={project.id} value={project.id} className="text-xs">
-                  <span className="flex min-w-0 flex-1 items-center gap-2">
-                    <span className="truncate font-medium">{project.name}</span>
+                  <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className="size-1.5 rounded-full bg-healthy shrink-0" />
+                      <span className="truncate font-medium">{project.name}</span>
+                    </span>
+                    <span className="font-mono text-[11px] text-fg-muted shrink-0">/{project.slug}</span>
                     {isSharedProjectRole(project.role ?? viewerRole) ? (
                       <SharedProjectBadge />
                     ) : null}
@@ -166,13 +175,15 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
         </DropdownMenu>
 
         {/* Quick Search Shortcut Trigger */}
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={() => {
             onMobileClose?.();
             dispatchOpenCommandPalette();
           }}
-          className="btn-tactile mt-2 flex w-full items-center justify-between rounded-md border border-border/80 bg-bg px-2.5 py-1.2 text-2xs text-ink-muted transition-colors hover:border-border-strong hover:text-ink focus-ring"
+          className="btn-tactile mt-2 flex w-full items-center justify-between h-7 px-2.5 text-2xs text-ink-muted transition-colors hover:text-ink font-normal"
         >
           <span className="flex items-center gap-1.5">
             <Search size={12} className="text-ink-subtle" />
@@ -181,7 +192,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
           <kbd className="font-mono text-[10px] text-ink-subtle border border-border px-1 py-0.5 rounded">
             ⌘K
           </kbd>
-        </button>
+        </Button>
       </div>
 
       {/* 3. Navigation Links List */}
@@ -265,12 +276,12 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
               <div className="flex items-center justify-between font-medium text-ink">
                 <span className="flex items-center gap-1.5">
                   <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-healthy/60 opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-healthy" />
                   </span>
                   <span className="font-semibold">Spike Valve</span>
                 </span>
-                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                <span className="text-[10px] font-mono text-healthy font-semibold">
                   0 Overages
                 </span>
               </div>
@@ -281,7 +292,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
           </TooltipTrigger>
           <TooltipContent side="right" align="center" className="max-w-xs space-y-1 p-3 text-xs shadow-lg">
             <div className="flex items-center gap-1.5 font-medium text-ink">
-              <ShieldCheck size={14} className="text-emerald-500" />
+              <ShieldCheck size={14} className="text-healthy" />
               <span>Spike Valve Protection Active</span>
             </div>
             <p className="text-ink-muted leading-relaxed">
@@ -294,9 +305,11 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
         {/* User Account Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
+            <Button
               type="button"
-              className="btn-tactile flex w-full items-center justify-between rounded-md border border-border/60 bg-surface px-2 py-1.5 text-xs transition-colors hover:border-border-strong hover:bg-state-hover focus-ring"
+              variant="ghost"
+              size="sm"
+              className="btn-tactile flex w-full items-center justify-between border border-border/60 bg-surface px-2 h-8 text-xs transition-colors hover:bg-state-hover"
             >
               <div className="flex min-w-0 items-center gap-2">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-muted text-[10px] font-semibold text-accent">
@@ -307,7 +320,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
                 </span>
               </div>
               <ChevronDown className="h-3 w-3 text-ink-muted shrink-0" />
-            </button>
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52 shadow-lg border border-border">
             <DropdownMenuLabel className="font-normal">

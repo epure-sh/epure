@@ -88,31 +88,32 @@ export function IssueFeedRow({
   ...props
 }: IssueFeedRowProps) {
   const rowVariant = getIssueRowVariant(useStyleTheme());
+  const isEscalating = trendStatus === "escalating";
   const statusIndicator = unhandled ? (
     <span
-      className="mt-1 h-2 w-2 shrink-0 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.65)] ring-[3px] ring-rose-500/25 animate-pulse"
+      className="mt-1 h-2 w-2 shrink-0 rounded-full bg-escalating shadow-[0_0_8px_rgba(244,63,94,0.65)] ring-[3px] ring-escalating/25 animate-pulse"
       title="Fatal unhandled crash"
       aria-hidden
     />
   ) : unread ? (
     <span
-      className="mt-1 h-2 w-2 shrink-0 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(56,189,248,0.55)] ring-[3px] ring-sky-500/25"
+      className="mt-1 h-2 w-2 shrink-0 rounded-full bg-info shadow-[0_0_8px_rgba(56,189,248,0.55)] ring-[3px] ring-info/25"
       title="Unread issue"
       aria-hidden
     />
   ) : (
     <span
-      className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-ink-muted/30"
+      className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-fg-muted/30"
       title="Viewed issue"
       aria-hidden
     />
   );
 
   const rowClass = selected
-    ? "bg-accent-muted/50 dark:bg-accent-muted/30 border-l-[3px] border-l-accent shadow-xs"
+    ? "bg-surface-2/80 border-l-[3px] border-l-primary shadow-tactile"
     : bulkSelected
-      ? "bg-accent-muted/30 hover:bg-state-hover border-l-[3px] border-l-accent/50"
-      : "hover:bg-state-hover border-l-[3px] border-l-transparent";
+      ? "bg-surface-2/40 hover:bg-surface-2/70 border-l-[3px] border-l-primary/50"
+      : "hover:bg-surface-2/50 border-l-[3px] border-l-transparent";
 
   const keyHandler = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter" || event.key === " ") {
@@ -129,7 +130,7 @@ export function IssueFeedRow({
       onClick={onClick}
       onKeyDown={keyHandler}
       className={cn(
-        "epure-issue-row epure-feed-row grid items-center border-b border-border/80 text-left transition-colors duration-fast focus-ring",
+        "epure-issue-row epure-feed-row relative grid items-center border-b border-border/80 text-left transition-colors duration-fast focus-ring select-none",
         `epure-issue-row--${rowVariant}`,
         unread && "epure-issue-row--unread",
         compact ? FEED_GRID_COMPACT : FEED_GRID_FULL,
@@ -138,6 +139,14 @@ export function IssueFeedRow({
       )}
       {...props}
     >
+      {/* 2px Escalating Left Indicator Bar */}
+      {isEscalating && (
+        <span
+          data-slot="escalating-indicator"
+          className="absolute inset-y-0 left-0 w-0.5 bg-escalating"
+        />
+      )}
+
       <div
         className={cn("hidden lg:flex", FEED_CELL_CHECKBOX)}
         onClick={(event) => event.stopPropagation()}
@@ -151,7 +160,10 @@ export function IssueFeedRow({
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-1.5">
               <span
-                className="epure-issue-row-title truncate text-sm font-semibold leading-tight tracking-ui text-ink"
+                className={cn(
+                  "epure-issue-row-title truncate text-xs leading-tight tracking-ui",
+                  isEscalating ? "font-semibold text-fg-primary" : "text-fg-primary"
+                )}
               >
                 {shortTitle}
               </span>
@@ -217,7 +229,7 @@ export function IssueFeedRow({
           <span
             className={cn(
               "mt-0 block text-2xs leading-none",
-              trendStatus === "escalating" ? "text-semantic-danger" : "text-ink-muted",
+              trendStatus === "escalating" ? "text-escalating font-semibold" : "text-fg-muted",
             )}
           >
             {TREND_STATUS_LABEL[trendStatus]}

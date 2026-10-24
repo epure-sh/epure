@@ -9,6 +9,14 @@ import {
 } from "../../lib/api";
 import { Button } from "../../ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EpureBrandMark } from "../../ui/logo";
 import { Badge } from "../../ui/badge";
 import { AlertTriangle, CheckCircle2, Terminal } from "lucide-react";
@@ -128,7 +136,7 @@ export function DeviceActivateView() {
 
               {/* Code input */}
               <div className="space-y-1.5 text-center">
-                <input
+                <Input
                   type="text"
                   value={code}
                   onChange={handleCodeChange}
@@ -136,7 +144,7 @@ export function DeviceActivateView() {
                   maxLength={9}
                   autoFocus
                   disabled={Boolean(deviceInfo) || verifying}
-                  className="w-full text-center font-mono text-2xl font-bold tracking-widest rounded-lg border-2 border-border bg-bg py-3 px-4 text-ink uppercase focus:border-accent focus:outline-none"
+                  className="text-center font-mono text-xl font-bold tracking-widest uppercase h-10"
                 />
                 {verifying && (
                   <p className="text-xs text-ink-muted animate-pulse">Verifying code with server…</p>
@@ -167,17 +175,18 @@ export function DeviceActivateView() {
                     <label className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
                       Authorize for Workspace
                     </label>
-                    <select
-                      value={selectedOrgId}
-                      onChange={(e) => setSelectedOrgId(e.target.value)}
-                      className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                    >
-                      {orgs.map((org) => (
-                        <option key={org.id} value={org.id}>
-                          {org.name} ({org.role})
-                        </option>
-                      ))}
-                    </select>
+                    <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
+                      <SelectTrigger size="sm" className="w-full">
+                        <SelectValue placeholder="Select workspace" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {orgs.map((org) => (
+                          <SelectItem key={org.id} value={org.id}>
+                            {org.name} ({org.role})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               )}

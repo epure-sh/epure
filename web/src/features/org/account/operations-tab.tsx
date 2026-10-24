@@ -69,7 +69,7 @@ export function OperationsTab() {
                 <span>Managed Cloud Infrastructure</span>
               </CardTitle>
               <div className="flex items-center gap-1.5">
-                <Badge variant="env" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                <Badge variant="env" className="border-healthy/30 text-healthy">
                   99.9% SLA Active
                 </Badge>
                 <Badge variant="secondary">Frankfurt (EU)</Badge>
@@ -84,7 +84,7 @@ export function OperationsTab() {
               <div className="rounded-md border border-border bg-bg-subtle p-3 space-y-1">
                 <span className="text-2xs text-ink-muted uppercase tracking-wider">Database Engine</span>
                 <p className="font-mono text-sm font-semibold text-ink">PostgreSQL 16 Cluster</p>
-                <p className="text-2xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <p className="text-2xs text-healthy flex items-center gap-1">
                   <CheckCircle2 className="size-3" />
                   <span>RLS Cryptographic Isolation</span>
                 </p>
@@ -93,7 +93,7 @@ export function OperationsTab() {
               <div className="rounded-md border border-border bg-bg-subtle p-3 space-y-1">
                 <span className="text-2xs text-ink-muted uppercase tracking-wider">Spike Valve Layer</span>
                 <p className="font-mono text-sm font-semibold text-ink">Zero Overage Protection</p>
-                <p className="text-2xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <p className="text-2xs text-healthy flex items-center gap-1">
                   <ShieldCheck className="size-3" />
                   <span>100% Counter Accuracy Active</span>
                 </p>
@@ -127,7 +127,7 @@ export function OperationsTab() {
                 <p className="font-medium text-ink">Point-in-Time Recovery (PITR)</p>
                 <p className="text-ink-muted">Continuous delta sync with 30-day restore capability.</p>
               </div>
-              <Badge variant="env" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+              <Badge variant="env" className="border-healthy/30 text-healthy">
                 Operational
               </Badge>
             </div>
@@ -136,7 +136,7 @@ export function OperationsTab() {
                 <p className="font-medium text-ink">Encryption at Rest & In Transit</p>
                 <p className="text-ink-muted">AES-256 encrypted volumes and enforced TLS 1.3 endpoints.</p>
               </div>
-              <Badge variant="env" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+              <Badge variant="env" className="border-healthy/30 text-healthy">
                 Enforced
               </Badge>
             </div>
@@ -151,14 +151,16 @@ export function OperationsTab() {
       {/* Clean Dismissible Monetization Status Banner */}
       {!bannerDismissed && (
         <div className="relative rounded-lg border border-accent/40 bg-accent-muted/20 p-4 shadow-sm transition-all">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
             onClick={handleDismissBanner}
-            className="absolute right-3 top-3 rounded p-1 text-ink-muted hover:text-ink transition-colors focus-ring"
+            className="absolute right-3 top-3 text-ink-muted hover:text-ink"
             aria-label="Dismiss banner"
           >
             <X size={15} />
-          </button>
+          </Button>
 
           <div className="flex items-start gap-3 pr-6">
             <Server className="size-5 shrink-0 text-accent mt-0.5" />
@@ -211,7 +213,7 @@ export function OperationsTab() {
             <div className="rounded-md border border-border bg-bg-subtle p-3 space-y-1">
               <span className="text-2xs text-ink-muted uppercase tracking-wider">Database Version</span>
               <p className="font-mono text-sm font-semibold text-ink">PostgreSQL 16.3</p>
-              <p className="text-2xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              <p className="text-2xs text-healthy flex items-center gap-1">
                 <CheckCircle2 className="size-3" />
                 <span>Zero write locks · RLS OK</span>
               </p>
@@ -220,7 +222,7 @@ export function OperationsTab() {
             <div className="rounded-md border border-border bg-bg-subtle p-3 space-y-1">
               <span className="text-2xs text-ink-muted uppercase tracking-wider">Spike Valve Layer</span>
               <p className="font-mono text-sm font-semibold text-ink">SHA-256 In-Memory</p>
-              <p className="text-2xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              <p className="text-2xs text-healthy flex items-center gap-1">
                 <ShieldCheck className="size-3" />
                 <span>Flood immunity active</span>
               </p>

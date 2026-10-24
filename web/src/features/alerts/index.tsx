@@ -7,7 +7,7 @@ import { ActionButton } from "../../ui/action-button";
 import { Button } from "../../ui/button";
 import { Empty } from "../../ui/empty";
 import { FeedListBody, StackedCardList } from "../../ui/feed-list-shell";
-import { SimpleFeedHeader } from "../../ui/simple-feed-header";
+import { PageShell } from "@/components/kit/page-shell";
 import { CardRowSkeleton } from "../../ui/skeleton";
 import { useToast } from "../../ui/toast-provider";
 import { AlertListRow } from "./alert-row";
@@ -252,30 +252,29 @@ export function AlertsPage() {
         : null;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <SimpleFeedHeader
-        title="Alerts"
-        description="Triage spikes, regressions, and thresholds. Ignore mutes that rule for the issue."
-        actions={
-          activeProjectId ? (
-            canManageWebhooks ? (
-              <Button variant="secondary" size="sm" asChild>
-                <Link to={projectSettingsPath(activeProjectId, "alerts")}>Alert rules</Link>
-              </Button>
-            ) : (
-              <ActionButton
-                variant="secondary"
-                size="sm"
-                disabled
-                tooltip="Admin or owner required to manage alert rules"
-              >
-                Alert rules
-              </ActionButton>
-            )
-          ) : null
-        }
-      />
-
+    <PageShell
+      title="Alerts"
+      description="Triage spikes, regressions, and thresholds. Ignore mutes that rule for the issue."
+      actions={
+        activeProjectId ? (
+          canManageWebhooks ? (
+            <Button variant="secondary" size="sm" asChild>
+              <Link to={projectSettingsPath(activeProjectId, "alerts")}>Alert rules</Link>
+            </Button>
+          ) : (
+            <ActionButton
+              variant="secondary"
+              size="sm"
+              disabled
+              tooltip="Admin or owner required to manage alert rules"
+            >
+              Alert rules
+            </ActionButton>
+          )
+        ) : null
+      }
+      density="full-bleed"
+    >
       {!activeProjectId ? (
         <FeedListBody>
           <Empty title="No project selected" description="Choose a project to view alerts." />
@@ -391,6 +390,6 @@ export function AlertsPage() {
           />
         </>
       )}
-    </div>
+    </PageShell>
   );
 }

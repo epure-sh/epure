@@ -14,7 +14,7 @@ import { Badge } from "../../../ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../ui/card";
 import { OccurrenceLineChart } from "../../../ui/occurrence-line-chart";
 import { Skeleton } from "../../../ui/skeleton";
-import { cn } from "../../../lib/cn";
+import { Progress } from "../../../components/ui/progress";
 import { CLOUD_PLANS, type PlanId } from "../billing-data";
 import {
   buildActivityBuckets,
@@ -73,19 +73,17 @@ function QuotaMeter({
           {formatValue(used)} / {formatValue(limit)}
         </p>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-bg-subtle">
-        <div
-          className={cn(
-            "h-full rounded-full transition-[width] duration-normal",
-            tone === "danger"
-              ? "bg-semantic-danger"
-              : tone === "warn"
-                ? "bg-semantic-warning"
-                : "bg-accent",
-          )}
-          style={{ width: `${percent}%` }}
-        />
-      </div>
+      <Progress
+        value={percent}
+        className="h-1.5"
+        indicatorClassName={
+          tone === "danger"
+            ? "bg-semantic-danger"
+            : tone === "warn"
+              ? "bg-semantic-warning"
+              : "bg-accent"
+        }
+      />
       <div className="flex items-center justify-between text-2xs text-ink-muted">
         <span>{percent.toFixed(1)}% of limit</span>
         {tone !== "ok" ? (

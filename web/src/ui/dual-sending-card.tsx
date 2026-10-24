@@ -189,8 +189,8 @@ sentry_sdk.init(
           </TabsContent>
         </Tabs>
 
-        <div className="flex items-start gap-2 rounded-md border border-emerald-500/20 bg-emerald-500/5 p-2.5 text-2xs text-ink-muted">
-          <ShieldCheck className="size-4 shrink-0 text-emerald-500 mt-0.5" />
+        <div className="flex items-start gap-2 rounded-md border border-healthy/20 bg-healthy/5 p-2.5 text-2xs text-ink-muted">
+          <ShieldCheck className="size-4 shrink-0 text-healthy mt-0.5" />
           <span>
             Once verified in your Epure dashboard, you can remove the custom transport and simply swap{" "}
             <code className="font-mono text-ink">SENTRY_DSN</code> for a 60-second complete cutover.

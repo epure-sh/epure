@@ -66,7 +66,7 @@ function StatusBadge({
       return (
         <span
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400",
+            "inline-flex items-center gap-1.5 rounded-control border border-healthy/30 bg-healthy/15 px-2 py-0.5 text-xs font-medium text-healthy",
             className,
           )}
         >
@@ -78,7 +78,7 @@ function StatusBadge({
       return (
         <span
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400",
+            "inline-flex items-center gap-1.5 rounded-control border border-info/30 bg-info/15 px-2 py-0.5 text-xs font-medium text-info",
             className,
           )}
         >
@@ -486,19 +486,14 @@ try {
                   { key: "missed", label: "Missed" },
                 ] as const
               ).map((tab) => (
-                <button
+                <Button
                   key={tab.key}
-                  type="button"
+                  variant={statusFilter === tab.key ? "secondary" : "ghost"}
+                  size="xs"
                   onClick={() => setStatusFilter(tab.key)}
-                  className={cn(
-                    "rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus-ring",
-                    statusFilter === tab.key
-                      ? "bg-surface border border-border text-ink shadow-2xs"
-                      : "text-ink-muted hover:text-ink hover:bg-surface/50",
-                  )}
                 >
                   {tab.label}
-                </button>
+                </Button>
               ))}
               <Button
                 type="button"
@@ -592,13 +587,14 @@ try {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <StatusBadge status={m.status} />
-                      <button
-                        type="button"
+                      <Button
+                        variant="link"
+                        size="xs"
                         onClick={() => void handleOpenDetails(m)}
-                        className="truncate font-mono text-sm font-semibold text-ink hover:underline text-left focus-ring rounded-sm"
+                        className="truncate font-mono text-sm font-semibold text-fg-primary hover:underline text-left p-0 h-auto"
                       >
                         {m.slug}
-                      </button>
+                      </Button>
                       {m.environment && (
                         <span className="rounded border border-border bg-bg-subtle px-1.5 py-0.5 text-2xs font-mono text-ink-muted">
                           {m.environment}

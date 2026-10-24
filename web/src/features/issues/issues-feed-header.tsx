@@ -15,6 +15,7 @@ import type { HeadlineStats } from "../../lib/api";
 import { formatCompactCount } from "../../lib/format-count";
 import { cn } from "../../lib/cn";
 import { ActionButton } from "../../ui/action-button";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -145,96 +146,76 @@ export function IssuesFeedHeader({
         {/* Triage Mode Tabs */}
         <div className="flex items-center gap-1 overflow-x-auto py-0.5">
           {/* Unresolved Tab */}
-          <button
-            type="button"
+          <Button
+            variant={isUnresolvedActive ? "secondary" : "ghost"}
+            size="sm"
             onClick={() => setDirectStateFilter(isUnresolvedActive ? null : "is:unresolved")}
-            className={cn(
-              "btn-tactile inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all focus-ring",
-              isUnresolvedActive
-                ? "bg-surface text-ink shadow-xs border border-border"
-                : "text-ink-muted hover:bg-state-hover/60 hover:text-ink",
-            )}
           >
             <span
               className={cn(
                 "h-1.5 w-1.5 rounded-full shrink-0",
-                (stats?.unresolved ?? 0) > 0 ? "bg-signal animate-pulse" : "bg-ink-muted/40",
+                (stats?.unresolved ?? 0) > 0 ? "bg-signal animate-pulse" : "bg-fg-muted/40",
               )}
             />
             <span>Unresolved</span>
             <span
               className={cn(
-                "ml-1 font-mono text-2xs font-semibold tabular-nums px-1.5 py-0.2 rounded-full",
+                "ml-1 font-mono text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-full",
                 isUnresolvedActive
-                  ? "bg-signal-muted text-signal"
-                  : "bg-bg-subtle text-ink-muted",
+                  ? "bg-signal/20 text-signal"
+                  : "bg-surface-2 text-fg-muted",
               )}
             >
               {unresolvedCount}
             </span>
-          </button>
+          </Button>
 
           {/* Regressions Tab */}
-          <button
-            type="button"
+          <Button
+            variant={isRegressionActive ? "secondary" : "ghost"}
+            size="sm"
             onClick={() => setDirectStateFilter(isRegressionActive ? null : "is:regression")}
-            className={cn(
-              "btn-tactile inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all focus-ring",
-              isRegressionActive
-                ? "bg-surface text-ink shadow-xs border border-border"
-                : "text-ink-muted hover:bg-state-hover/60 hover:text-ink",
-            )}
           >
             <AlertTriangle
               className={cn(
                 "h-3 w-3 shrink-0",
-                (stats?.regressions ?? 0) > 0 ? "text-amber-500" : "text-ink-muted/60",
+                (stats?.regressions ?? 0) > 0 ? "text-regression" : "text-fg-muted/60",
               )}
             />
             <span>Regressions</span>
             <span
               className={cn(
-                "ml-0.5 font-mono text-2xs font-semibold tabular-nums px-1.5 py-0.2 rounded-full",
+                "ml-0.5 font-mono text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-full",
                 (stats?.regressions ?? 0) > 0
-                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                  : "bg-bg-subtle text-ink-muted",
+                  ? "bg-regression/20 text-regression"
+                  : "bg-surface-2 text-fg-muted",
               )}
             >
               {regressionCount}
             </span>
-          </button>
+          </Button>
 
           {/* Snoozed Tab */}
-          <button
-            type="button"
+          <Button
+            variant={isSnoozedActive ? "secondary" : "ghost"}
+            size="sm"
             onClick={() => setDirectStateFilter(isSnoozedActive ? null : "is:snoozed")}
-            className={cn(
-              "btn-tactile inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all focus-ring",
-              isSnoozedActive
-                ? "bg-surface text-ink shadow-xs border border-border"
-                : "text-ink-muted hover:bg-state-hover/60 hover:text-ink",
-            )}
           >
-            <Moon className="h-3 w-3 shrink-0 text-ink-muted/70" />
+            <Moon className="h-3 w-3 shrink-0 text-fg-muted/70" />
             <span>Snoozed</span>
-            <span className="ml-0.5 font-mono text-2xs font-semibold tabular-nums px-1.5 py-0.2 rounded-full bg-bg-subtle text-ink-muted">
+            <span className="ml-0.5 font-mono text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-full bg-surface-2 text-fg-muted">
               {snoozedCount}
             </span>
-          </button>
+          </Button>
 
           {/* All Issues Tab */}
-          <button
-            type="button"
+          <Button
+            variant={isAllActive ? "secondary" : "ghost"}
+            size="sm"
             onClick={() => setDirectStateFilter(null)}
-            className={cn(
-              "btn-tactile inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-all focus-ring",
-              isAllActive
-                ? "bg-surface text-ink shadow-xs border border-border"
-                : "text-ink-muted hover:bg-state-hover/60 hover:text-ink",
-            )}
           >
             All
-          </button>
+          </Button>
         </div>
 
         {/* View Controls: Sort, Time Window, Export */}
@@ -388,29 +369,24 @@ export function IssuesFeedHeader({
                       {LEVEL_FILTER_PRESETS.map((preset) => {
                         const active = queryHasToken(query, preset.token);
                         return (
-                          <button
+                          <Button
                             key={preset.token}
-                            type="button"
+                            variant={active ? "secondary" : "outline"}
+                            size="xs"
                             onClick={() => applyPreset(preset.token)}
-                            className={cn(
-                              "btn-tactile inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all focus-ring border",
-                              active
-                                ? "bg-accent-muted border-accent text-accent font-semibold"
-                                : "bg-bg-subtle/80 border-border text-ink hover:border-border-strong hover:bg-bg-subtle",
-                            )}
                           >
                             <span
                               className={cn(
                                 "h-1.5 w-1.5 rounded-full shrink-0",
-                                preset.token === "level:fatal" && "bg-rose-500",
-                                preset.token === "level:error" && "bg-signal",
-                                preset.token === "level:warning" && "bg-amber-500",
-                                preset.token === "level:info" && "bg-sky-500",
+                                preset.token === "level:fatal" && "bg-escalating",
+                                preset.token === "level:error" && "bg-escalating",
+                                preset.token === "level:warning" && "bg-regression",
+                                preset.token === "level:info" && "bg-info",
                               )}
                             />
                             <span>{preset.label}</span>
-                            {active ? <Check size={11} className="ml-0.5 text-accent" /> : null}
-                          </button>
+                            {active ? <Check size={11} className="ml-0.5 text-primary" /> : null}
+                          </Button>
                         );
                       })}
                     </div>
@@ -418,36 +394,31 @@ export function IssuesFeedHeader({
 
                   {/* Category 2: Environment */}
                   <div>
-                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-muted mb-1.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted mb-1.5">
                       Environment
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {ENVIRONMENT_FILTER_PRESETS.map((preset) => {
                         const active = queryHasToken(query, preset.token);
                         return (
-                          <button
+                          <Button
                             key={preset.token}
-                            type="button"
+                            variant={active ? "secondary" : "outline"}
+                            size="xs"
                             onClick={() => applyPreset(preset.token)}
-                            className={cn(
-                              "btn-tactile inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all focus-ring border",
-                              active
-                                ? "bg-accent-muted border-accent text-accent font-semibold"
-                                : "bg-bg-subtle/80 border-border text-ink hover:border-border-strong hover:bg-bg-subtle",
-                            )}
                           >
                             <span
                               className={cn(
                                 "h-1.5 w-1.5 rounded-full shrink-0",
-                                preset.token === "env:production" && "bg-emerald-500",
-                                preset.token === "env:staging" && "bg-indigo-500",
-                                preset.token === "env:development" && "bg-amber-400",
-                                preset.token === "env:preview" && "bg-sky-400",
+                                preset.token === "env:production" && "bg-healthy",
+                                preset.token === "env:staging" && "bg-info",
+                                preset.token === "env:development" && "bg-regression",
+                                preset.token === "env:preview" && "bg-info",
                               )}
                             />
                             <span>{preset.label}</span>
-                            {active ? <Check size={11} className="ml-0.5 text-accent" /> : null}
-                          </button>
+                            {active ? <Check size={11} className="ml-0.5 text-primary" /> : null}
+                          </Button>
                         );
                       })}
                     </div>
@@ -455,27 +426,22 @@ export function IssuesFeedHeader({
 
                   {/* Category 3: Lifecycle State */}
                   <div>
-                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-muted mb-1.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted mb-1.5">
                       Lifecycle State
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {STATUS_FILTER_PRESETS.map((preset) => {
                         const active = queryHasToken(query, preset.token);
                         return (
-                          <button
+                          <Button
                             key={preset.token}
-                            type="button"
+                            variant={active ? "secondary" : "outline"}
+                            size="xs"
                             onClick={() => applyPreset(preset.token)}
-                            className={cn(
-                              "btn-tactile inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all focus-ring border",
-                              active
-                                ? "bg-accent-muted border-accent text-accent font-semibold"
-                                : "bg-bg-subtle/80 border-border text-ink hover:border-border-strong hover:bg-bg-subtle",
-                            )}
                           >
                             <span>{preset.label}</span>
-                            {active ? <Check size={11} className="ml-0.5 text-accent" /> : null}
-                          </button>
+                            {active ? <Check size={11} className="ml-0.5 text-primary" /> : null}
+                          </Button>
                         );
                       })}
                     </div>
@@ -483,28 +449,23 @@ export function IssuesFeedHeader({
 
                   {/* Category 4: Impact & Telemetry */}
                   <div>
-                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-muted mb-1.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-fg-muted mb-1.5">
                       Impact & Telemetry
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {IMPACT_FILTER_PRESETS.map((preset) => {
                         const active = queryHasToken(query, preset.token);
                         return (
-                          <button
+                          <Button
                             key={preset.token}
-                            type="button"
+                            variant={active ? "secondary" : "outline"}
+                            size="xs"
                             onClick={() => applyPreset(preset.token)}
-                            className={cn(
-                              "btn-tactile inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all focus-ring border",
-                              active
-                                ? "bg-accent-muted border-accent text-accent font-semibold"
-                                : "bg-bg-subtle/80 border-border text-ink hover:border-border-strong hover:bg-bg-subtle",
-                            )}
                           >
-                            <Users size={12} className="text-ink-muted" />
+                            <Users size={12} className="text-fg-muted" />
                             <span>{preset.label}</span>
-                            {active ? <Check size={11} className="ml-0.5 text-accent" /> : null}
-                          </button>
+                            {active ? <Check size={11} className="ml-0.5 text-primary" /> : null}
+                          </Button>
                         );
                       })}
                     </div>
@@ -512,12 +473,12 @@ export function IssuesFeedHeader({
                 </div>
 
                 {/* Syntax Helper Footer */}
-                <div className="border-t border-border/80 pt-2.5 flex items-center justify-between text-2xs text-ink-muted">
+                <div className="border-t border-border-subtle pt-2.5 flex items-center justify-between text-[10px] text-fg-muted">
                   <span>
-                    Combine: <code className="font-mono text-ink">level:error env:production</code>
+                    Combine: <code className="font-mono text-fg-primary">level:error env:production</code>
                   </span>
                   <span>
-                    Press <kbd className="font-mono text-ink border border-border px-1 rounded">Enter</kbd> to search
+                    Press <kbd className="font-mono text-fg-primary border border-border-subtle px-1 rounded">Enter</kbd> to search
                   </span>
                 </div>
               </PopoverContent>
@@ -526,15 +487,15 @@ export function IssuesFeedHeader({
 
           {/* Only ONE Reset Button (visible when query is customized) */}
           {isCustomized ? (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={handleResetAll}
               title="Reset all filters to default (Esc)"
-              className="btn-tactile inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 text-xs font-medium text-ink-muted hover:border-border-strong hover:text-ink transition-colors focus-ring shrink-0"
             >
               <RotateCcw size={12} />
               <span>Reset</span>
-            </button>
+            </Button>
           ) : null}
         </div>
 
@@ -546,7 +507,7 @@ export function IssuesFeedHeader({
             <span>{getEventsStatLabel(timeWindow).toLowerCase()}</span>
           </span>
           <span className="inline-flex items-center gap-1 text-ink-subtle">
-            <Sparkles className="h-3 w-3 text-emerald-500" />
+            <Sparkles className="h-3 w-3 text-healthy" />
             <span>0 overages</span>
           </span>
         </div>

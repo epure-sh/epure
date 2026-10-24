@@ -10,6 +10,7 @@ import { formatRelativeTime } from "../../../lib/format-time";
 import { useAppContext } from "../../../shell/app-context";
 import { Badge } from "../../../ui/badge";
 import { Button } from "../../../ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../ui/card";
 import { CopyButton } from "../../../ui/copy-button";
 import { Field } from "../../../ui/field";
@@ -114,20 +115,18 @@ export function AgentTokensTab() {
             <Field label="Label" className="min-w-[12rem] flex-1">
               <Input value={label} onChange={(e) => setLabel(e.target.value)} disabled={busy} />
             </Field>
-            <label className="flex items-center gap-2 text-sm text-ink-muted">
-              <input
-                type="checkbox"
+            <label className="flex items-center gap-2 text-sm text-ink-muted cursor-pointer">
+              <Checkbox
                 checked={writeTriage}
-                onChange={(e) => setWriteTriage(e.target.checked)}
+                onCheckedChange={(checked) => setWriteTriage(Boolean(checked))}
                 disabled={busy}
               />
               write:triage
             </label>
-            <label className="flex items-center gap-2 text-sm text-ink-muted">
-              <input
-                type="checkbox"
+            <label className="flex items-center gap-2 text-sm text-ink-muted cursor-pointer">
+              <Checkbox
                 checked={writeAdmin}
-                onChange={(e) => setWriteAdmin(e.target.checked)}
+                onCheckedChange={(checked) => setWriteAdmin(Boolean(checked))}
                 disabled={busy}
               />
               write:admin (full settings)

@@ -418,7 +418,7 @@ export function IssuesPage() {
               <ActionButton
                 variant="primary"
                 size="sm"
-                className="btn-tactile bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs"
+                className="btn-tactile bg-healthy hover:bg-healthy/90 text-primary-fg font-medium shadow-xs"
                 disabled={actionsDisabled}
                 tooltip={actionsDisabled ? "Saving changes…" : undefined}
                 onClick={() => void handleResolve(selectedIssue.id)}

@@ -19,6 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Checkbox } from "../../ui/checkbox";
 import { Field } from "../../ui/field";
 import { Input } from "../../ui/input";
+import { RadioGroup, RadioGroupItem } from "../../ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -347,28 +348,20 @@ export function AlertRulesSettings() {
                     <span className="text-2xs font-semibold uppercase tracking-wider text-ink-muted">
                       Recipients
                     </span>
-                    <div className="space-y-2">
+                    <RadioGroup
+                      value={customRecipientsMode ? "custom" : "all"}
+                      onValueChange={(val) => setCustomRecipientsMode(val === "custom")}
+                      className="space-y-2"
+                    >
                       <label className="flex items-center gap-2 text-xs text-ink cursor-pointer">
-                        <input
-                          type="radio"
-                          name="recipient-mode"
-                          className="text-accent focus:ring-accent"
-                          checked={!customRecipientsMode}
-                          onChange={() => setCustomRecipientsMode(false)}
-                        />
+                        <RadioGroupItem value="all" id="mode-all" />
                         <span>All workspace team members</span>
                       </label>
                       <label className="flex items-center gap-2 text-xs text-ink cursor-pointer">
-                        <input
-                          type="radio"
-                          name="recipient-mode"
-                          className="text-accent focus:ring-accent"
-                          checked={customRecipientsMode}
-                          onChange={() => setCustomRecipientsMode(true)}
-                        />
+                        <RadioGroupItem value="custom" id="mode-custom" />
                         <span>Custom email list</span>
                       </label>
-                    </div>
+                    </RadioGroup>
 
                     {customRecipientsMode && (
                       <Field

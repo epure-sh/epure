@@ -13,7 +13,6 @@ import {
 import { formatRelativeTime } from "../../lib/format-time";
 import { projectPath, projectSettingsPath } from "../../lib/paths";
 import { useAppContext } from "../../shell/app-context";
-import { cn } from "../../lib/cn";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
@@ -385,19 +384,14 @@ export function WebhooksSettings() {
               <p className="text-sm font-medium text-ink">Destination</p>
               <div className="flex flex-wrap gap-2">
                 {destinations.map((item) => (
-                  <button
+                  <Button
                     key={item.id}
-                    type="button"
+                    variant={destination === item.id ? "secondary" : "outline"}
+                    size="sm"
                     onClick={() => selectDestination(item.id)}
-                    className={cn(
-                      "rounded-md border px-3 py-1.5 text-sm transition-colors focus-ring",
-                      destination === item.id
-                        ? "border-accent bg-state-selected text-ink"
-                        : "border-border bg-surface text-ink-muted hover:border-border-strong hover:text-ink",
-                    )}
                   >
                     {item.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>

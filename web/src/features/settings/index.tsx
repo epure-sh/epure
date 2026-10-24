@@ -2,7 +2,7 @@ import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { projectSettingsPath } from "../../lib/paths";
 import { useAppContext } from "../../shell/app-context";
 import { NotFoundState } from "../../ui/error-state";
-import { PageChrome } from "../../ui/page-chrome";
+import { PageShell } from "@/components/kit/page-shell";
 import { SettingsNav } from "../../ui/settings-nav";
 import { DsnKeysSettings } from "./dsn-keys";
 import { ProjectGeneralSettings } from "./project-general";
@@ -16,17 +16,16 @@ export function SettingsPage() {
   const project = projects.find((row) => row.id === projectId) ?? null;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <PageChrome
-        title={project ? `${project.name} settings` : "Project settings"}
-        description="SDK connection, notification endpoints, retention, and ingest limits."
-      />
-
+    <PageShell
+      title={project ? `${project.name} settings` : "Project settings"}
+      description="SDK connection, notification endpoints, retention, and ingest limits."
+      density="full-bleed"
+    >
       <div className="flex min-h-0 flex-1">
         <SettingsNav />
 
-        <div className="min-w-0 flex-1 overflow-auto bg-bg p-4">
-          <div className="mx-auto max-w-default space-y-4">
+        <div className="min-w-0 flex-1 overflow-auto bg-canvas p-6">
+          <div className="mx-auto max-w-5xl space-y-4">
             <Routes>
               <Route index element={<ProjectGeneralSettings />} />
               <Route path="filters" element={<InboundFiltersSettings />} />
@@ -51,6 +50,6 @@ export function SettingsPage() {
           </div>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

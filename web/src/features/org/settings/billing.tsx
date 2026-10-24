@@ -23,6 +23,7 @@ import { useAppContext } from "../../../shell/app-context";
 import { Badge } from "../../../ui/badge";
 import { Button } from "../../../ui/button";
 import { Card, CardContent } from "../../../ui/card";
+import { Progress } from "../../../components/ui/progress";
 import { SectionHeader } from "../../../ui/section";
 import { StatBar } from "../../../ui/stat-bar";
 
@@ -192,19 +193,7 @@ function CloudUsageMeter({ monthlyLimit }: { monthlyLimit: number }) {
               </p>
               <span className="text-xs text-ink-muted">{percent}%</span>
             </div>
-            <div
-              className="h-1.5 overflow-hidden rounded-full bg-bg-subtle"
-              role="progressbar"
-              aria-valuenow={percent}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="Projected monthly event usage"
-            >
-              <div
-                className="h-full rounded-full bg-accent transition-all"
-                style={{ width: `${percent}%` }}
-              />
-            </div>
+            <Progress value={percent} className="h-1.5" aria-label="Projected monthly event usage" />
           </>
         )}
       </CardContent>
@@ -236,7 +225,7 @@ function PlanOptionCard({
         plan.highlighted && !isCurrent
           ? "border-accent/40 shadow-sm"
           : isCurrent
-            ? "border-emerald-500/40 bg-emerald-500/5 shadow-sm"
+            ? "border-healthy/40 bg-healthy/5 shadow-sm"
             : undefined
       }
     >
@@ -244,7 +233,7 @@ function PlanOptionCard({
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-base font-semibold text-ink">{plan.name}</h3>
           {isCurrent ? (
-            <Badge variant="env" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+            <Badge variant="env" className="border-healthy/30 text-healthy">
               Active Plan
             </Badge>
           ) : null}
@@ -269,7 +258,7 @@ function PlanOptionCard({
         <ul className="mt-4 flex-1 space-y-2 text-xs text-ink-muted">
           {plan.features.map((feature) => (
             <li key={feature} className="flex items-start gap-2">
-              <Check size={13} className="mt-0.5 shrink-0 text-emerald-500" aria-hidden />
+              <Check size={13} className="mt-0.5 shrink-0 text-healthy" aria-hidden />
               <span>{feature}</span>
             </li>
           ))}
@@ -419,8 +408,8 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
     <div className="space-y-4">
       {/* Checkout Feedback Alerts */}
       {(checkoutParam === "success" || isMockCheckout) && (
-        <div className="flex items-center gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-700 dark:text-emerald-300">
-          <ShieldCheck size={16} className="shrink-0 text-emerald-500" />
+        <div className="flex items-center gap-2.5 rounded-lg border border-healthy/30 bg-healthy/10 p-3.5 text-xs text-healthy">
+          <ShieldCheck size={16} className="shrink-0 text-healthy" />
           <div className="flex-1">
             <span className="font-semibold">Subscription upgraded successfully!</span> Your new monthly event volume and capabilities are active immediately.
           </div>
@@ -441,7 +430,7 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
 
       {/* Paused Trial Alert Banner */}
       {isPaused ? (
-        <div className="relative overflow-hidden rounded-xl border border-rose-500/50 bg-gradient-to-r from-rose-500/15 via-rose-500/5 to-transparent p-5 shadow-xs">
+        <div className="relative overflow-hidden rounded-xl border border-escalating/50 bg-gradient-to-r from-escalating/15 via-escalating/5 to-transparent p-5 shadow-xs">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -482,11 +471,11 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
         </div>
       ) : isTrial ? (
         /* 7-Day Pilot Trial Banner */
-        <div className="relative overflow-hidden rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-5 shadow-xs">
+        <div className="relative overflow-hidden rounded-xl border border-regression/40 bg-gradient-to-r from-regression/10 via-regression/5 to-transparent p-5 shadow-xs">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <Badge variant="env" className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold">
+                <Badge variant="env" className="border-regression/40 bg-regression/10 text-regression font-semibold">
                   <Zap size={11} className="mr-1 inline-block" />
                   7-Day Pilot Trial
                 </Badge>
@@ -590,28 +579,24 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
 
           {/* Annual vs Monthly Toggle */}
           <div className="inline-flex items-center rounded-lg border border-border bg-bg-subtle p-0.5 text-xs">
-            <button
+            <Button
               type="button"
+              variant={annual ? "secondary" : "ghost"}
+              size="xs"
               onClick={() => setAnnual(true)}
-              className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
-                annual
-                  ? "bg-surface text-ink shadow-xs"
-                  : "text-ink-muted hover:text-ink"
-              }`}
+              className={annual ? "bg-surface text-ink shadow-xs" : "text-ink-muted hover:text-ink"}
             >
-              Annual <span className="text-emerald-600 dark:text-emerald-400 font-semibold">(2 Mo Free)</span>
-            </button>
-            <button
+              Annual <span className="text-healthy font-semibold ml-1">(2 Mo Free)</span>
+            </Button>
+            <Button
               type="button"
+              variant={!annual ? "secondary" : "ghost"}
+              size="xs"
               onClick={() => setAnnual(false)}
-              className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
-                !annual
-                  ? "bg-surface text-ink shadow-xs"
-                  : "text-ink-muted hover:text-ink"
-              }`}
+              className={!annual ? "bg-surface text-ink shadow-xs" : "text-ink-muted hover:text-ink"}
             >
               Monthly
-            </button>
+            </Button>
           </div>
         </div>
 

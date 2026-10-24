@@ -1,10 +1,11 @@
 import { ChevronDown, Search, type LucideIcon } from "lucide-react";
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { forwardRef, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { Button, type ButtonProps } from "@/components/ui/button";
 
 /** Shared chrome control — compact, no shadow, subtle hover */
 const navControl =
-  "rounded-md transition-colors focus-ring data-[state=open]:bg-bg-subtle/80";
+  "rounded-md transition-colors data-[state=open]:bg-bg-subtle/80";
 
 export function NavSeparator() {
   return (
@@ -14,7 +15,7 @@ export function NavSeparator() {
   );
 }
 
-export interface NavCrumbProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface NavCrumbProps extends ButtonProps {
   icon: LucideIcon;
   label: string;
   badge?: ReactNode;
@@ -24,9 +25,11 @@ export interface NavCrumbProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export const NavCrumb = forwardRef<HTMLButtonElement, NavCrumbProps>(
   ({ icon: Icon, label, badge, truncate = true, className, ...props }, ref) => (
-    <button
+    <Button
       ref={ref}
       type="button"
+      variant="ghost"
+      size="sm"
       className={cn(
         "epure-navbar-crumb",
         navControl,
@@ -40,24 +43,26 @@ export const NavCrumb = forwardRef<HTMLButtonElement, NavCrumbProps>(
       <span className={truncate ? "truncate" : "whitespace-nowrap"}>{label}</span>
       {badge}
       <ChevronDown size={12} className="shrink-0 text-ink-muted/80" />
-    </button>
+    </Button>
   ),
 );
 NavCrumb.displayName = "NavCrumb";
 
-export interface NavSearchPillProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface NavSearchPillProps extends ButtonProps {
   shortcut?: ReactNode;
 }
 
 export const NavSearchPill = forwardRef<HTMLButtonElement, NavSearchPillProps>(
   ({ className, shortcut, ...props }, ref) => (
-    <button
+    <Button
       ref={ref}
       type="button"
+      variant="outline"
+      size="sm"
       className={cn(
         "epure-navbar-search",
         navControl,
-        "inline-flex h-8 w-[9rem] items-center gap-1.5 border border-border-strong bg-transparent px-2 text-xs text-ink-muted hover:border-border-strong hover:bg-bg-subtle/40",
+        "inline-flex h-8 w-[9rem] items-center gap-1.5 border-border-strong bg-transparent px-2 text-xs text-ink-muted hover:border-border-strong hover:bg-bg-subtle/40",
         className,
       )}
       {...props}
@@ -65,21 +70,23 @@ export const NavSearchPill = forwardRef<HTMLButtonElement, NavSearchPillProps>(
       <Search size={12} strokeWidth={2} className="shrink-0 opacity-70" />
       <span className="flex-1 truncate text-left">Search…</span>
       {shortcut}
-    </button>
+    </Button>
   ),
 );
 NavSearchPill.displayName = "NavSearchPill";
 
-export interface NavIconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface NavIconButtonProps extends ButtonProps {
   label: string;
   children: ReactNode;
 }
 
 export const NavIconButton = forwardRef<HTMLButtonElement, NavIconButtonProps>(
   ({ label, children, className, ...props }, ref) => (
-    <button
+    <Button
       ref={ref}
       type="button"
+      variant="ghost"
+      size="icon-xs"
       aria-label={label}
       className={cn(
         "epure-navbar-icon-button",
@@ -90,7 +97,7 @@ export const NavIconButton = forwardRef<HTMLButtonElement, NavIconButtonProps>(
       {...props}
     >
       {children}
-    </button>
+    </Button>
   ),
 );
 NavIconButton.displayName = "NavIconButton";

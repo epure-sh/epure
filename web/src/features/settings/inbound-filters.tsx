@@ -262,7 +262,7 @@ export function InboundFiltersSettings() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <ShieldCheck size={16} className="text-emerald-500" />
+                <ShieldCheck size={16} className="text-healthy" />
                 <span>Noise Suppression Rules</span>
               </CardTitle>
               <CardDescription className="text-xs">
@@ -291,8 +291,8 @@ export function InboundFiltersSettings() {
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-ink">{filter.name}</span>
                       {enabled ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        <span className="inline-flex items-center gap-1 text-[10px] text-healthy font-medium">
+                          <span className="h-1.5 w-1.5 rounded-full bg-healthy" />
                           Filtering active
                         </span>
                       ) : (
@@ -362,14 +362,14 @@ export function InboundFiltersSettings() {
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="font-mono text-2xs text-ink truncate">{pattern}</span>
                 </div>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
                   onClick={() => handleRemovePattern(pattern)}
-                  className="text-ink-subtle hover:text-semantic-danger transition-colors p-1"
                   aria-label={`Remove rule for ${pattern}`}
                 >
-                  <Trash2 size={13} />
-                </button>
+                  <Trash2 size={13} className="text-fg-muted hover:text-escalating" />
+                </Button>
               </div>
             ))}
           </div>
@@ -382,7 +382,7 @@ export function InboundFiltersSettings() {
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Zap size={16} className="text-amber-500" />
+                <Zap size={16} className="text-regression" />
                 <span>Spike Valve Burst Protection</span>
               </CardTitle>
               <CardDescription className="text-xs">
@@ -421,17 +421,17 @@ export function InboundFiltersSettings() {
               <div className="flex items-center gap-1.5 pl-2 border-l border-border/60">
                 <span className="text-2xs text-ink-subtle">Presets:</span>
                 {[1000, 5000, 25000, 100000].map((preset) => (
-                  <button
+                  <Button
                     key={preset}
-                    type="button"
+                    variant="outline"
+                    size="xs"
                     onClick={() => {
                       setIngestCap(preset);
                       void handleSaveCap(preset);
                     }}
-                    className="btn-tactile rounded border border-border bg-surface px-1.5 py-0.5 font-mono text-[10px] text-ink-muted hover:border-border-strong hover:text-ink shadow-2xs"
                   >
-                    {preset.toLocaleString()}
-                  </button>
+                    {(preset / 1000).toFixed(0)}k/h
+                  </Button>
                 ))}
               </div>
             </div>
@@ -484,14 +484,14 @@ export function InboundFiltersSettings() {
             <div
               className={`flex items-start gap-2.5 rounded-md border p-3 text-xs ${
                 simResult.dropped
-                  ? "border-amber-500/30 bg-amber-500/5 text-amber-900 dark:text-amber-200"
-                  : "border-emerald-500/30 bg-emerald-500/5 text-emerald-900 dark:text-emerald-200"
+                  ? "border-regression/30 bg-regression/10 text-regression"
+                  : "border-healthy/30 bg-healthy/10 text-healthy"
               }`}
             >
               {simResult.dropped ? (
-                <XCircle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+                <XCircle size={16} className="text-regression shrink-0 mt-0.5" />
               ) : (
-                <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mt-0.5" />
+                <CheckCircle2 size={16} className="text-healthy shrink-0 mt-0.5" />
               )}
               <div className="space-y-0.5">
                 <span className="font-semibold">

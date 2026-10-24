@@ -7,6 +7,13 @@ import {
 } from "../../lib/api";
 import { Button } from "../../ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EpureBrandMark } from "../../ui/logo";
 import { Bot, Check, ShieldCheck, Terminal, AlertTriangle } from "lucide-react";
 
@@ -139,17 +146,18 @@ export function AuthorizeView() {
                 <label className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
                   Select Workspace / Organization
                 </label>
-                <select
-                  value={selectedOrgId}
-                  onChange={(e) => setSelectedOrgId(e.target.value)}
-                  className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                >
-                  {orgs.map((org) => (
-                    <option key={org.id} value={org.id}>
-                      {org.name} ({org.role})
-                    </option>
-                  ))}
-                </select>
+                <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
+                  <SelectTrigger size="sm" className="w-full">
+                    <SelectValue placeholder="Select workspace" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {orgs.map((org) => (
+                      <SelectItem key={org.id} value={org.id}>
+                        {org.name} ({org.role})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Scopes requested */}

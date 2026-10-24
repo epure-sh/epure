@@ -34,11 +34,11 @@ export function Empty({
         {...props}
       >
         {/* Serene concentric radar pulse icon */}
-        <div className="relative mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/5">
-          <div className="absolute inset-0 rounded-full animate-ping opacity-25 bg-emerald-400" style={{ animationDuration: "3.5s" }} />
-          <div className="flex h-14 w-14 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_24px_rgba(16,185,129,0.2)]">
-            <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-emerald-400 animate-pulse ring-2 ring-emerald-500/40" />
-            <ShieldCheck className="h-7 w-7 relative z-10 stroke-[1.8] text-emerald-500 dark:text-emerald-400" />
+        <div className="relative mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-healthy/20 bg-healthy/5">
+          <div className="absolute inset-0 rounded-full animate-ping opacity-25 bg-healthy" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-full border border-healthy/30 bg-healthy/10 shadow-[0_0_24px_rgba(34,197,94,0.2)]">
+            <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-healthy animate-pulse ring-2 ring-healthy/40" />
+            <ShieldCheck className="h-7 w-7 relative z-10 stroke-[1.8] text-healthy" />
           </div>
         </div>
 
@@ -53,11 +53,11 @@ export function Empty({
         {/* Live telemetry tags */}
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-2xs">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 font-medium text-ink shadow-2xs">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="h-1.5 w-1.5 rounded-full bg-healthy animate-pulse" />
             <span>Ingestion: 100% Nominal</span>
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 font-medium text-ink-muted shadow-2xs">
-            <Sparkles className="h-3 w-3 text-emerald-500" />
+            <Sparkles className="h-3 w-3 text-healthy" />
             <span>Spike Valve: Active · 0 Overages</span>
           </span>
         </div>

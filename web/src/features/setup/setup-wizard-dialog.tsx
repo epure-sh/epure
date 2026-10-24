@@ -486,20 +486,16 @@ export function SetupWizardDialog({
                 </div>
                 <div className="grid gap-1.5">
                   {PATH_OPTIONS.map((option) => (
-                    <button
+                    <Button
                       key={option.id}
-                      type="button"
+                      variant={setupPath === option.id ? "secondary" : "outline"}
                       disabled={busy}
                       onClick={() => void handlePathSelect(option.id)}
-                      className={cn(
-                        "rounded-lg border border-border bg-surface px-2.5 py-2 text-left transition-colors",
-                        "hover:border-border-strong hover:bg-state-hover focus-ring",
-                        setupPath === option.id && "border-accent bg-accent-muted",
-                      )}
+                      className="h-auto flex-col items-start px-3 py-2 text-left justify-start"
                     >
-                      <p className="text-sm font-medium tracking-ui text-ink">{option.title}</p>
-                      <p className="mt-0.5 text-xs text-ink-muted">{option.description}</p>
-                    </button>
+                      <p className="text-xs font-semibold text-fg-primary">{option.title}</p>
+                      <p className="text-[11px] text-fg-muted font-normal">{option.description}</p>
+                    </Button>
                   ))}
                 </div>
                 <p className="text-2xs text-ink-muted">
@@ -535,19 +531,15 @@ export function SetupWizardDialog({
               <div className="min-h-0 flex-1 overflow-auto">
                 <div className="grid grid-cols-3 gap-1.5">
                   {platforms.map((platform) => (
-                    <button
+                    <Button
                       key={platform.id}
-                      type="button"
+                      variant={platformId === platform.id ? "secondary" : "outline"}
                       disabled={busy}
                       onClick={() => void handleLanguageSelect(platform.id)}
-                      className={cn(
-                        "flex flex-col items-center gap-1.5 rounded-lg border border-border bg-surface px-1.5 py-2 text-center transition-colors",
-                        "hover:border-border-strong hover:bg-state-hover focus-ring",
-                        platformId === platform.id && "border-accent bg-accent-muted",
-                      )}
+                      className="h-auto flex-col items-center gap-1.5 px-1.5 py-2 text-center"
                     >
                       <span
-                        className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-bg-subtle"
+                        className="flex h-8 w-8 items-center justify-center rounded-md border border-border-subtle bg-surface-2"
                         aria-hidden
                       >
                         <img
@@ -556,10 +548,10 @@ export function SetupWizardDialog({
                           className="h-5 w-5 object-contain"
                         />
                       </span>
-                      <span className="text-xs font-medium tracking-ui text-ink">
+                      <span className="text-xs font-medium tracking-tight text-fg-primary">
                         {platform.label}
                       </span>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>

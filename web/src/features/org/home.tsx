@@ -315,7 +315,7 @@ export function OrgHomePage() {
         <div className="mx-auto max-w-7xl space-y-4">
           {/* Paused Canary Alert Banner */}
           {isPaused && (
-            <div className="relative overflow-hidden rounded-xl border border-rose-500/50 bg-gradient-to-r from-rose-500/15 via-rose-500/5 to-transparent p-5 shadow-xs">
+            <div className="relative overflow-hidden rounded-xl border border-escalating/50 bg-gradient-to-r from-escalating/15 via-escalating/5 to-transparent p-5 shadow-xs">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -348,18 +348,20 @@ export function OrgHomePage() {
           {/* Canary Welcome Pilot Banner */}
           {searchParams.get("welcome") === "canary" && (
             <div className="relative overflow-hidden rounded-xl border border-accent/40 bg-gradient-to-r from-accent/15 via-accent/5 to-transparent p-5 shadow-xs">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 onClick={() => {
                   const next = new URLSearchParams(searchParams);
                   next.delete("welcome");
                   setSearchParams(next, { replace: true });
                 }}
-                className="absolute top-3.5 right-3.5 flex h-6 w-6 items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-state-hover focus-ring"
+                className="absolute top-3.5 right-3.5 text-ink-muted hover:text-ink"
                 aria-label="Dismiss banner"
               >
                 <X size={14} />
-              </button>
+              </Button>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pr-8">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -367,7 +369,7 @@ export function OrgHomePage() {
                       <Sparkles size={11} className="mr-1 inline-block" />
                       Canary Pilot Workspace
                     </Badge>
-                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                    <span className="text-xs font-semibold text-healthy">
                       7-Day Trial Active · 0 Credentials Required
                     </span>
                   </div>

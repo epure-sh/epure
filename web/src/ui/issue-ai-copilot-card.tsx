@@ -117,7 +117,7 @@ export function IssueAiCopilotCard({ issue, event }: IssueAiCopilotCardProps) {
         >
           {copied ? (
             <>
-              <Check className="h-3 w-3 text-emerald-500 stroke-[2.5]" />
+              <Check className="h-3 w-3 text-healthy stroke-[2.5]" />
               <span>Copied Prompt</span>
             </>
           ) : (

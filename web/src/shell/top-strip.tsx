@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,22 +81,26 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
       {/* Left zone: Mobile trigger & Fast Workspace / Org Switcher Dropdown */}
       <div className="flex min-w-0 items-center gap-2">
         {onOpenMobileSidebar ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
             onClick={onOpenMobileSidebar}
-            className="md:hidden -ml-1 flex h-7 w-7 items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-state-hover focus-ring"
+            className="md:hidden -ml-1 text-ink-muted hover:text-ink"
             aria-label="Open navigation menu"
           >
             <Menu size={16} />
-          </button>
+          </Button>
         ) : null}
 
         {/* Organization / Workspace Switcher Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
+            <Button
               type="button"
-              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-ink hover:bg-state-hover focus-ring border border-transparent hover:border-border transition-colors cursor-pointer"
+              variant="ghost"
+              size="sm"
+              className="flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-ink h-7"
               title="Switch Organization / Workspace"
             >
               <Building2 size={13} className="text-accent shrink-0" />
@@ -108,7 +113,7 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
                 </span>
               )}
               <ChevronDown size={11} className="text-ink-muted shrink-0" />
-            </button>
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64 shadow-lg border border-border">
             <DropdownMenuLabel className="flex items-center justify-between text-2xs uppercase tracking-wider text-ink-muted">
@@ -157,16 +162,18 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
         {/* Project Switcher Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
+            <Button
               type="button"
-              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-ink hover:bg-state-hover focus-ring border border-transparent hover:border-border transition-colors cursor-pointer"
+              variant="ghost"
+              size="sm"
+              className="flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-ink h-7"
             >
               <FolderKanban size={13} className="text-accent shrink-0" />
               <span className="truncate max-w-[120px] sm:max-w-[180px]">
                 {activeProject ? activeProject.name : "All Projects"}
               </span>
               <ChevronDown size={11} className="text-ink-muted shrink-0" />
-            </button>
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64 shadow-lg border border-border">
             <DropdownMenuLabel className="flex items-center justify-between text-2xs uppercase tracking-wider text-ink-muted">
@@ -187,15 +194,14 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
                       }}
                       className={cn(
                         "flex items-center justify-between text-xs py-2 cursor-pointer",
-                        isActive && "bg-accent/10 font-semibold text-accent",
+                        isActive && "bg-primary/10 font-semibold text-fg-primary",
                       )}
                     >
-                      <span className="truncate">{p.name}</span>
-                      {isActive ? (
-                        <span className="text-xs text-accent">✓</span>
-                      ) : (
-                        <span className="font-mono text-2xs text-ink-muted">/{p.slug}</span>
-                      )}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="size-1.5 rounded-full bg-healthy shrink-0" />
+                        <span className="truncate">{p.name}</span>
+                      </div>
+                      <span className="font-mono text-[11px] text-fg-muted shrink-0 ml-2">/{p.slug}</span>
                     </DropdownMenuItem>
                   );
                 })}
@@ -223,9 +229,11 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
         {inProject ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
+              <Button
                 type="button"
-                className="btn-tactile flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-xs text-ink hover:border-border-strong focus-ring shadow-2xs"
+                variant="outline"
+                size="xs"
+                className="btn-tactile flex items-center gap-1.5 px-2.5 text-xs text-ink shadow-2xs font-normal"
               >
                 <GitBranch size={13} className="text-ink-muted shrink-0" />
                 <span className="font-mono text-2xs font-medium">{environment}</span>
@@ -237,7 +245,7 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
                     prod
                   </Badge>
                 ) : null}
-              </button>
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44 shadow-md border border-border">
               <DropdownMenuLabel className="text-2xs font-semibold text-ink-muted uppercase">
@@ -265,26 +273,30 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
             Feedback
           </a>
         ) : (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="xs"
             className="hidden h-7 items-center px-2 text-xs text-ink-muted transition-colors hover:text-ink lg:inline-flex"
             onClick={() => window.open("https://github.com/epure-sh/epure/issues", "_blank")}
           >
             Feedback
-          </button>
+          </Button>
         )}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-xs"
               aria-label="Account"
-              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-85 focus-ring"
+              className="rounded-full"
             >
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent-muted text-2xs font-semibold text-accent">
                 {(user?.email ?? "?").slice(0, 1).toUpperCase()}
               </span>
-            </button>
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52 shadow-md border border-border">
             <DropdownMenuLabel className="font-normal">

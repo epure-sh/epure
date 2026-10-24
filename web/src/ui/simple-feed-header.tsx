@@ -1,28 +1,30 @@
 import { type ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 export interface SimpleFeedHeaderProps {
   title: string;
   description?: string;
   actions?: ReactNode;
   stats?: ReactNode;
+  className?: string;
 }
 
 /** Page chrome for secondary feeds (alerts, releases) — matches Issues feed header rhythm. */
-export function SimpleFeedHeader({ title, description, actions, stats }: SimpleFeedHeaderProps) {
+export function SimpleFeedHeader({ title, description, actions, stats, className }: SimpleFeedHeaderProps) {
   return (
-    <header className="epure-issues-feed-header shrink-0 border-b border-border bg-bg">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2.5 md:px-6">
-        <div className="min-w-0">
-          <h1 className="epure-page-title font-medium tracking-ui text-ink">{title}</h1>
+    <header className={cn("epure-issues-feed-header shrink-0 border-b border-border-subtle bg-surface-1/60", className)}>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-6 h-12">
+        <div className="min-w-0 flex items-baseline gap-3">
+          <h1 className="text-sm font-semibold tracking-tight text-fg-primary truncate">{title}</h1>
           {description ? (
-            <p className="mt-0.5 max-w-prose text-xs leading-relaxed text-ink-muted">{description}</p>
+            <p className="text-xs text-fg-muted truncate hidden sm:inline">{description}</p>
           ) : null}
         </div>
-        {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+        {actions ? <div className="flex items-center gap-2 shrink-0">{actions}</div> : null}
       </div>
       {stats ? (
         <div
-          className="flex flex-wrap items-center gap-x-0.5 border-t border-border px-4 py-2 text-xs leading-snug md:px-6"
+          className="flex flex-wrap items-center gap-x-1 border-t border-border-subtle px-6 py-1.5 text-[11px] text-fg-muted leading-snug"
           aria-live="polite"
         >
           {stats}
@@ -33,7 +35,7 @@ export function SimpleFeedHeader({ title, description, actions, stats }: SimpleF
 }
 
 export function FeedHeaderStatDot() {
-  return <span className="px-1.5 text-ink-muted/40" aria-hidden>·</span>;
+  return <span className="px-1 text-fg-muted/40" aria-hidden>·</span>;
 }
 
 export interface FeedHeaderStatProps {
@@ -46,8 +48,8 @@ export function FeedHeaderStat({ label, value, loading = false }: FeedHeaderStat
   const display = loading ? "—" : value;
 
   return (
-    <span className="text-ink-muted">
-      <span className="font-mono tabular-nums text-ink">{display}</span> {label}
+    <span className="text-fg-muted">
+      <span className="font-mono tabular-nums text-fg-primary font-medium">{display}</span> {label}
     </span>
   );
 }

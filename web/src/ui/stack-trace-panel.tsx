@@ -390,7 +390,7 @@ function StackToolbarButton({
       className={cn(
         "text-2xs font-medium focus-ring disabled:pointer-events-none disabled:text-ink-muted/50 disabled:no-underline transition-colors",
         emphasis
-          ? "text-rose-600 dark:text-rose-400 hover:underline"
+          ? "text-escalating hover:underline"
           : "text-ink-muted hover:text-ink hover:underline",
         disabled && "no-underline",
       )}
@@ -429,7 +429,7 @@ function CallStackRow({
       className={cn(
         "epure-call-stack-entry transition-colors",
         isCulprit
-          ? "border-l-[3px] border-l-rose-500 bg-rose-500/[0.04]"
+          ? "border-l-[3px] border-l-escalating bg-escalating/[0.04]"
           : !vendor
             ? "border-l-[3px] border-l-accent/40 bg-surface"
             : "border-l-[3px] border-l-transparent bg-surface/50",
@@ -447,7 +447,7 @@ function CallStackRow({
             ? "text-ink"
             : "text-ink-muted hover:bg-state-hover/80 hover:text-ink",
           vendor && !expanded && "opacity-75 hover:opacity-100",
-          isCulprit && !expanded && "hover:bg-rose-500/10",
+          isCulprit && !expanded && "hover:bg-escalating/10",
         )}
       >
         <span className="mt-0.5 w-3.5 shrink-0 text-ink-muted">
@@ -464,7 +464,7 @@ function CallStackRow({
               className={cn(
                 "text-xs",
                 isCulprit
-                  ? "font-bold text-rose-600 dark:text-rose-400"
+                  ? "font-bold text-escalating"
                   : !vendor
                     ? "font-semibold text-ink"
                     : "font-medium text-ink-muted",
@@ -473,7 +473,7 @@ function CallStackRow({
               {frameFunctionName(frame)}()
             </span>
             {isCulprit ? (
-              <span className="rounded px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/25 shadow-2xs">
+              <span className="rounded px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider bg-escalating/10 text-escalating border border-escalating/25 shadow-2xs">
                 Suspect
               </span>
             ) : null}
@@ -497,7 +497,7 @@ function CallStackRow({
 
           {preview ? (
             <div className="mt-1.5 flex items-center gap-1.5 rounded bg-bg-subtle/80 px-2.5 py-1 font-mono text-2xs text-ink-muted border border-border/60 truncate">
-              <span className="text-rose-500 font-bold select-none">→</span>
+              <span className="text-escalating font-bold select-none">→</span>
               <span className="truncate">{preview}</span>
             </div>
           ) : null}
@@ -720,7 +720,7 @@ export function StackTracePanel({
               {exception ? (
                 <>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-escalating/10 text-escalating border border-escalating/20">
                       {exception.type}
                     </span>
                   </div>
@@ -742,7 +742,7 @@ export function StackTracePanel({
             >
               {copiedAll ? (
                 <>
-                  <Check className="h-3 w-3 text-emerald-500 stroke-[2.5]" />
+                  <Check className="h-3 w-3 text-healthy stroke-[2.5]" />
                   <span>Copied All</span>
                 </>
               ) : (
