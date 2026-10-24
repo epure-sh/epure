@@ -1,6 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { fetchReleases, type ReleaseSummary } from "../../lib/api";
 import { issuesFilterPath, projectSettingsPath } from "../../lib/paths";
 import { useAppContext } from "../../shell/app-context";
@@ -51,12 +51,13 @@ function ReleaseRow({
 }
 
 export function ReleasesPage() {
-  const { projects, projectId } = useAppContext();
+  const { projectId: routeProjectId } = useParams<{ projectId: string }>();
+  const { projects, projectId, projectsLoading } = useAppContext();
   const [releases, setReleases] = useState<ReleaseSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const activeProjectId = projectId ?? projects[0]?.id ?? null;
+  const activeProjectId = routeProjectId ?? projectId ?? projects[0]?.id ?? null;
   const activeProject = useMemo(
     () => projects.find((row) => row.id === activeProjectId) ?? null,
     [activeProjectId, projects],
@@ -128,10 +129,18 @@ export function ReleasesPage() {
 
       <FeedListBody>
         {!activeProjectId ? (
-          <Empty
-            title="No project selected"
-            description="Choose a project to view its releases."
-          />
+          projectsLoading ? (
+            <StackedCardList>
+              {Array.from({ length: 5 }).map((_, index) => (
+                <CardRowSkeleton key={index} />
+              ))}
+            </StackedCardList>
+          ) : (
+            <Empty
+              title="No project selected"
+              description="Choose a project to view its releases."
+            />
+          )
         ) : loading ? (
           <StackedCardList>
             {Array.from({ length: 5 }).map((_, index) => (

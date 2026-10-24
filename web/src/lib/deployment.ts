@@ -1,6 +1,10 @@
 /** Cloud vs self-hosted — set `VITE_EPURE_CLOUD=1` on Epure Cloud builds or detected via hostname. */
 export function isCloudDeployment(): boolean {
-  if (import.meta.env.VITE_EPURE_CLOUD === "1" || import.meta.env.VITE_EPURE_CLOUD === "true") {
+  const cloudEnv =
+    typeof import.meta !== "undefined" && import.meta.env
+      ? import.meta.env.VITE_EPURE_CLOUD
+      : undefined;
+  if (cloudEnv === "1" || cloudEnv === "true") {
     return true;
   }
   if (typeof window !== "undefined") {

@@ -154,6 +154,23 @@ pub async fn upsert_issue_in_tx(
     tx: &mut Transaction<'_, Postgres>,
     params: UpsertIssueParams,
 ) -> Result<Uuid, sqlx::Error> {
+    if let Some(ref version) = params.release {
+        let trimmed = version.trim();
+        if !trimmed.is_empty() {
+            sqlx::query(
+                r#"
+                INSERT INTO releases (project_id, version)
+                VALUES ($1, $2)
+                ON CONFLICT (project_id, version) DO NOTHING
+                "#,
+            )
+            .bind(params.project_id)
+            .bind(trimmed)
+            .execute(&mut **tx)
+            .await?;
+        }
+    }
+
     sqlx::query_scalar(
         r#"
         INSERT INTO issues (
@@ -219,6 +236,23 @@ async fn insert_event_in_tx(
     tx: &mut Transaction<'_, Postgres>,
     params: &InsertEventParams,
 ) -> Result<(), sqlx::Error> {
+    if let Some(ref version) = params.release {
+        let trimmed = version.trim();
+        if !trimmed.is_empty() {
+            sqlx::query(
+                r#"
+                INSERT INTO releases (project_id, version)
+                VALUES ($1, $2)
+                ON CONFLICT (project_id, version) DO NOTHING
+                "#,
+            )
+            .bind(params.project_id)
+            .bind(trimmed)
+            .execute(&mut **tx)
+            .await?;
+        }
+    }
+
     sqlx::query(
         r#"
         INSERT INTO events (

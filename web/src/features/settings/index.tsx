@@ -32,6 +32,7 @@ export function SettingsPage() {
               <Route path="dsn" element={<DsnKeysSettings />} />
               <Route path="webhooks" element={<WebhooksSettings />} />
               <Route path="alerts" element={<AlertRulesSettings />} />
+              <Route path="security" element={<Navigate to="/settings/security" replace />} />
               <Route
                 path="*"
                 element={

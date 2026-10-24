@@ -4,6 +4,7 @@ import { Badge } from "../../../ui/badge";
 import { Button } from "../../../ui/button";
 import { Field } from "../../../ui/field";
 import { Input } from "../../../ui/input";
+import { Skeleton } from "../../../ui/skeleton";
 
 export function GeneralTab({ settings }: { settings: AccountSettingsContext }) {
   const { profile, saveDisplayName } = settings;
@@ -17,6 +18,27 @@ export function GeneralTab({ settings }: { settings: AccountSettingsContext }) {
 
   const dirty =
     displayName.trim() !== (profile?.display_name?.trim() ?? "");
+
+  if (settings.loading) {
+    return (
+      <div className="overflow-hidden rounded-lg border border-border bg-surface p-6 space-y-4">
+        <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-16 w-full" />
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="overflow-hidden rounded-lg border border-border bg-surface p-6 text-center space-y-3">
+        <p className="text-sm text-semantic-danger">Could not load profile details.</p>
+        <Button variant="secondary" size="sm" onClick={() => void settings.load()}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

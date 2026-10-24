@@ -13,6 +13,7 @@ import {
 } from "../../../ui/dialog";
 import { Field } from "../../../ui/field";
 import { Input } from "../../../ui/input";
+import { Skeleton } from "../../../ui/skeleton";
 import { cn } from "../../../lib/cn";
 
 function SettingsRow({
@@ -65,6 +66,30 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  if (settings.loading) {
+    return (
+      <div className="space-y-3">
+        <div className="overflow-hidden rounded-lg border border-border bg-surface p-6 space-y-4">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-72" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="overflow-hidden rounded-lg border border-border bg-surface p-6 text-center space-y-3">
+        <p className="text-sm text-semantic-danger">Could not load account details.</p>
+        <Button variant="secondary" size="sm" onClick={() => void settings.load()}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
 
   async function handlePasswordSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

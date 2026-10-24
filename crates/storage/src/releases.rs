@@ -24,6 +24,23 @@ pub async fn list_releases_for_project(
     project_id: Uuid,
 ) -> Result<Vec<ReleaseSummary>, sqlx::Error> {
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO releases (project_id, version)
+        SELECT DISTINCT project_id, release
+        FROM (
+            SELECT project_id, release FROM events WHERE project_id = $1 AND release IS NOT NULL AND release <> ''
+            UNION
+            SELECT project_id, release FROM issues WHERE project_id = $1 AND release IS NOT NULL AND release <> ''
+        ) distinct_releases
+        ON CONFLICT (project_id, version) DO NOTHING
+        "#,
+    )
+    .bind(project_id)
+    .execute(&mut *tx)
+    .await?;
+
     let rows = sqlx::query_as::<_, ReleaseSummary>(
         r#"
         SELECT
@@ -266,6 +283,16 @@ mod tests {
         assert_eq!(
             artifact_basename("https://cdn.example.com/static/app.min.js.map"),
             "app.min.js.map"
+        );
+    }
+
+    #[test]
+    fn artifact_basename_handles_edge_cases() {
+        assert_eq!(artifact_basename(""), "");
+        assert_eq!(artifact_basename("  ~/foo.js.map  "), "foo.js.map");
+        assert_eq!(
+            artifact_basename("http://localhost:8080/static/bundle.js.map"),
+            "bundle.js.map"
         );
     }
 }

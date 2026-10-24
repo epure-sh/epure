@@ -24,18 +24,14 @@ export function AccountSettingsPage() {
 
         <div className="min-w-0 flex-1 overflow-auto bg-canvas p-4 md:p-6">
           <div className="mx-auto max-w-default space-y-4">
-            {settings.loading ? (
-              <p className="text-sm text-fg-muted">Loading settings…</p>
-            ) : (
-              <Routes>
-                <Route index element={<GeneralTab settings={settings} />} />
-                <Route path="security" element={<SecurityTab settings={settings} />} />
-                <Route path="agent" element={<AgentTokensTab />} />
-                <Route path="connected-apps" element={<ConnectedAppsTab />} />
-                <Route path="operations" element={<OperationsTab />} />
-                <Route path="*" element={<Navigate to={workspaceSettingsPath()} replace />} />
-              </Routes>
-            )}
+            <Routes>
+              <Route index element={<GeneralTab settings={settings} />} />
+              <Route path="security" element={<SecurityTab settings={settings} />} />
+              <Route path="agent" element={<AgentTokensTab />} />
+              <Route path="connected-apps" element={<ConnectedAppsTab />} />
+              <Route path="operations" element={<OperationsTab />} />
+              <Route path="*" element={<Navigate to={workspaceSettingsPath()} replace />} />
+            </Routes>
           </div>
         </div>
       </div>

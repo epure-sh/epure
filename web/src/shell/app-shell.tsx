@@ -22,6 +22,7 @@ import { TopStrip } from "./top-strip";
 import { AppSidebar } from "./app-sidebar";
 import { ToastProvider } from "../ui/toast-provider";
 import { TooltipProvider } from "../ui/tooltip";
+import { Skeleton } from "../ui/skeleton";
 
 function BoundedRoute({
   children,
@@ -58,9 +59,17 @@ function ProjectBoundedRoute({
 }
 
 function LegacyProjectRedirect({ segment }: { segment: "issues" | "releases" | "alerts" | "setup" | "settings" | "monitors" }) {
-  const { projectId, projects } = useAppContext();
+  const { projectId, projects, projectsLoading } = useAppContext();
   const id = projectId ?? projects[0]?.id;
   if (!id) {
+    if (projectsLoading) {
+      return (
+        <div className="epure-shell-loading flex h-full flex-col items-center justify-center gap-3 p-6">
+          <Skeleton className="h-4 w-36" />
+          <p className="text-sm text-fg-muted">Loading…</p>
+        </div>
+      );
+    }
     return <Navigate to="/" replace />;
   }
   if (segment === "settings") {
