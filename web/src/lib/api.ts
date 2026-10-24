@@ -179,6 +179,13 @@ export async function snoozeIssue(id: string, mode: SnoozeMode): Promise<IssueSu
   });
 }
 
+export async function unsnoozeIssue(id: string): Promise<IssueSummary> {
+  return apiFetch<IssueSummary>(`/api/v1/issues/${id}/unsnooze`, {
+    method: "POST",
+  });
+}
+
+
 export interface AlertRow {
   id: string;
   org_id: string;
@@ -209,10 +216,13 @@ export async function fetchAlerts(
     params.set("view", view);
   }
   const suffix = params.toString();
-  const body = await apiFetch<{ alerts: AlertRow[] }>(
+  const body = await apiFetch<{ alerts?: AlertRow[] } | AlertRow[]>(
     `/api/v1/alerts${suffix ? `?${suffix}` : ""}`,
   );
-  return body.alerts;
+  if (Array.isArray(body)) {
+    return body;
+  }
+  return Array.isArray(body?.alerts) ? body.alerts : [];
 }
 
 export async function patchAlert(
@@ -238,10 +248,13 @@ export interface AlertRuleRow {
 }
 
 export async function fetchAlertRules(projectId: string): Promise<AlertRuleRow[]> {
-  const body = await apiFetch<{ rules: AlertRuleRow[] }>(
+  const body = await apiFetch<{ rules?: AlertRuleRow[] } | AlertRuleRow[]>(
     `/api/v1/alert-rules?project_id=${encodeURIComponent(projectId)}`,
   );
-  return body.rules;
+  if (Array.isArray(body)) {
+    return body;
+  }
+  return Array.isArray(body?.rules) ? body.rules : [];
 }
 
 export async function createAlertRule(input: {
@@ -294,10 +307,13 @@ export interface CreatedWebhook extends WebhookRow {
 }
 
 export async function fetchWebhooks(projectId: string): Promise<WebhookRow[]> {
-  const body = await apiFetch<{ webhooks: WebhookRow[] }>(
+  const body = await apiFetch<{ webhooks?: WebhookRow[] } | WebhookRow[]>(
     `/api/v1/webhooks?project_id=${encodeURIComponent(projectId)}`,
   );
-  return body.webhooks;
+  if (Array.isArray(body)) {
+    return body;
+  }
+  return Array.isArray(body?.webhooks) ? body.webhooks : [];
 }
 
 export async function createWebhook(input: {
@@ -417,10 +433,13 @@ export async function fetchEvents(
 }
 
 export async function fetchIssueReleases(issueId: string): Promise<string[]> {
-  const body = await apiFetch<{ releases: string[] }>(
+  const body = await apiFetch<{ releases?: string[] } | string[]>(
     `/api/v1/issues/${issueId}/releases`,
   );
-  return body.releases;
+  if (Array.isArray(body)) {
+    return body;
+  }
+  return Array.isArray(body?.releases) ? body.releases : [];
 }
 
 export async function fetchIssueTimeline(
@@ -467,10 +486,13 @@ export interface ReleaseSummary {
 }
 
 export async function fetchReleases(projectId: string): Promise<ReleaseSummary[]> {
-  const body = await apiFetch<{ releases: ReleaseSummary[] }>(
+  const body = await apiFetch<{ releases?: ReleaseSummary[] } | ReleaseSummary[]>(
     `/api/v1/releases?project_id=${encodeURIComponent(projectId)}`,
   );
-  return body.releases;
+  if (Array.isArray(body)) {
+    return body;
+  }
+  return Array.isArray(body?.releases) ? body.releases : [];
 }
 
 export async function deleteWebhook(id: string): Promise<void> {

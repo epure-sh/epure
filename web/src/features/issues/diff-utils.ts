@@ -4,7 +4,9 @@ export function flattenJson(value: unknown, prefix = ""): Record<string, string>
   const out: Record<string, string> = {};
 
   if (value === null || value === undefined) {
-    out[prefix || "value"] = String(value);
+    if (prefix) {
+      out[prefix] = String(value);
+    }
     return out;
   }
 
@@ -28,9 +30,10 @@ export function flattenJson(value: unknown, prefix = ""): Record<string, string>
   return out;
 }
 
-function eventMetadata(event: EventDetail): Record<string, string> {
+function eventMetadata(event?: EventDetail | null): Record<string, string> {
+  if (!event) return {};
   return {
-    "event.occurred_at": event.occurred_at,
+    "event.occurred_at": event.occurred_at ?? "",
     "event.environment": event.environment ?? "",
     "event.release": event.release ?? "",
     "event.platform": event.platform ?? "",
@@ -46,9 +49,12 @@ export interface DiffRow {
   right: string;
 }
 
-export function diffEvents(left: EventDetail, right: EventDetail): DiffRow[] {
-  const leftFlat = { ...eventMetadata(left), ...flattenJson(left.payload_json) };
-  const rightFlat = { ...eventMetadata(right), ...flattenJson(right.payload_json) };
+export function diffEvents(left?: EventDetail | null, right?: EventDetail | null): DiffRow[] {
+  if (!left || !right) {
+    return [];
+  }
+  const leftFlat = { ...eventMetadata(left), ...flattenJson(left?.payload_json) };
+  const rightFlat = { ...eventMetadata(right), ...flattenJson(right?.payload_json) };
   const keys = Array.from(new Set([...Object.keys(leftFlat), ...Object.keys(rightFlat)])).sort();
 
   return keys

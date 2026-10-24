@@ -37,4 +37,12 @@ assert.ok(rows.some((row) => row.key === "event.user"));
 assert.ok(rows.some((row) => row.key === "transaction"));
 assert.equal(flattenJson({ a: { b: 1 } })["a.b"], "1");
 
+// Edge cases: null or undefined events
+assert.deepEqual(diffEvents(null as any, null as any), []);
+assert.deepEqual(diffEvents(undefined as any, undefined as any), []);
+assert.deepEqual(diffEvents(left, null as any), []);
+assert.deepEqual(diffEvents(null as any, right), []);
+assert.deepEqual(flattenJson(null), {});
+assert.deepEqual(flattenJson(undefined), {});
+
 console.log("diff-utils.test.ts passed");

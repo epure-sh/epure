@@ -81,4 +81,27 @@ describe("format-release", () => {
     };
     assert.equal(formatReleaseDeltas(withRegressions), "+2 came back · +3 new");
   });
+
+  it("handles null, undefined, and partial release summaries without throwing", () => {
+    assert.equal(formatReleaseMeta(null), "No events yet");
+    assert.equal(formatReleaseMeta(undefined), "No events yet");
+    assert.equal(formatReleaseDeltas(null), null);
+    assert.equal(formatReleaseDeltas(undefined), null);
+
+    // Partial empty object
+    const emptyRel = {} as unknown as ReleaseSummary;
+    assert.equal(formatReleaseMeta(emptyRel), "No events yet");
+    assert.equal(formatReleaseDeltas(emptyRel), null);
+
+    // String numeric counts from API
+    const stringCounts: ReleaseSummary = {
+      ...baseRelease,
+      issue_count: "5" as any,
+      event_count: "12" as any,
+      regression_count: "2" as any,
+    };
+    assert.ok(formatReleaseMeta(stringCounts).includes("5 issues"));
+    assert.ok(formatReleaseMeta(stringCounts).includes("12 events"));
+    assert.equal(formatReleaseDeltas(stringCounts), "+2 came back");
+  });
 });

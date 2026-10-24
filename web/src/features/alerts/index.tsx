@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { fetchAlerts, fetchWebhooks, patchAlert, type AlertRow } from "../../lib/api";
 import { projectPath, projectSettingsPath } from "../../lib/paths";
 import { useAppContext } from "../../shell/app-context";
@@ -49,7 +49,8 @@ function AlertsDayGroup({
 }
 
 export function AlertsPage() {
-  const { environment, projectId, projects, user } = useAppContext();
+  const { projectId: routeProjectId } = useParams<{ projectId: string }>();
+  const { environment, projectId, projects, projectsLoading, user } = useAppContext();
   const { toast } = useToast();
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,10 +64,23 @@ export function AlertsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [isCreatingRule, setIsCreatingRule] = useState(false);
 
-  const activeProjectId = projectId ?? projects[0]?.id ?? null;
+  const safeProjects = Array.isArray(projects) ? projects : [];
+  const activeProject = useMemo(() => {
+    const candidate = routeProjectId ?? projectId;
+    if (candidate) {
+      const match = safeProjects.find((row) => row && (row.id === candidate || row.slug === candidate));
+      if (match) return match;
+    }
+    return safeProjects[0] ?? null;
+  }, [routeProjectId, projectId, safeProjects]);
+
+  const activeProjectId = activeProject?.id ?? null;
   const canManageWebhooks = user?.role === "owner" || user?.role === "admin";
 
   const loadAlerts = useCallback(async () => {
+    if (projectsLoading) {
+      return;
+    }
     if (!activeProjectId) {
       setAlerts([]);
       setLoading(false);
@@ -78,21 +92,21 @@ export function AlertsPage() {
 
     try {
       const rows = await fetchAlerts(activeProjectId, environment);
-      setAlerts(rows);
+      setAlerts(Array.isArray(rows) ? rows : []);
     } catch {
       setAlerts([]);
       setError("Failed to load alerts");
     } finally {
       setLoading(false);
     }
-  }, [activeProjectId, environment]);
+  }, [projectsLoading, activeProjectId, environment]);
 
   useEffect(() => {
     void loadAlerts();
   }, [loadAlerts]);
 
   useEffect(() => {
-    if (!activeProjectId || !canManageWebhooks) {
+    if (projectsLoading || !activeProjectId || !canManageWebhooks) {
       setWebhookCount(canManageWebhooks ? 0 : null);
       return;
     }
@@ -101,7 +115,7 @@ export function AlertsPage() {
     void fetchWebhooks(activeProjectId)
       .then((rows) => {
         if (!cancelled) {
-          setWebhookCount(rows.length);
+          setWebhookCount(Array.isArray(rows) ? rows.length : 0);
         }
       })
       .catch(() => {
@@ -113,7 +127,7 @@ export function AlertsPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeProjectId, canManageWebhooks]);
+  }, [projectsLoading, activeProjectId, canManageWebhooks]);
 
   const handleViewModeChange = (nextViewMode: AlertViewMode) => {
     setViewMode(nextViewMode);
@@ -129,14 +143,16 @@ export function AlertsPage() {
     saveAlertsPreferences(next);
   };
 
+  const safeAlerts = Array.isArray(alerts) ? alerts : [];
+
   const viewModeCounts = useMemo(
-    () => countAlertsForViewModes(alerts, timeWindow),
-    [alerts, timeWindow],
+    () => countAlertsForViewModes(safeAlerts, timeWindow),
+    [safeAlerts, timeWindow],
   );
 
   const timeScopedAlerts = useMemo(
-    () => filterAlerts(alerts, { kind: "all", timeWindow }),
-    [alerts, timeWindow],
+    () => filterAlerts(safeAlerts, { kind: "all", timeWindow }),
+    [safeAlerts, timeWindow],
   );
 
   const filteredAlerts = useMemo(
@@ -161,7 +177,7 @@ export function AlertsPage() {
       const previous = alerts;
       setBusyId(alertId);
       setAlerts((rows) =>
-        rows.map((row) => {
+        (Array.isArray(rows) ? rows : []).map((row) => {
           if (row.id !== alertId) {
             return row;
           }
@@ -286,7 +302,15 @@ export function AlertsPage() {
       }
       density="full-bleed"
     >
-      {!activeProjectId ? (
+      {projectsLoading ? (
+        <FeedListBody>
+          <StackedCardList>
+            {Array.from({ length: 5 }).map((_, index) => (
+              <CardRowSkeleton key={index} />
+            ))}
+          </StackedCardList>
+        </FeedListBody>
+      ) : !activeProjectId ? (
         <FeedListBody>
           <Empty title="No project selected" description="Choose a project to view alerts." />
         </FeedListBody>
@@ -386,20 +410,20 @@ export function AlertsPage() {
               </Empty>
             ) : (
               <div className="space-y-5">
-                {groupedAlerts.map((group) => (
-                  <AlertsDayGroup key={group.key} label={group.label} count={group.alerts.length}>
+                {(groupedAlerts ?? []).map((group) => (
+                  <AlertsDayGroup key={group.key} label={group.label} count={group.alerts?.length ?? 0}>
                     <StackedCardList>
-                      {group.alerts.map((alert) => (
+                      {(group.alerts ?? []).map((alert, alertIdx) => alert ? (
                         <AlertListRow
-                          key={alert.id}
+                          key={alert.id || `alert-${alertIdx}`}
                           alert={alert}
-                          projectId={activeProjectId}
+                          projectId={activeProjectId ?? ""}
                           selected={alert.id === focusedId}
                           onMarkRead={() => void applyAlertPatch(alert.id, { read: true })}
                           onIgnore={() => void applyAlertPatch(alert.id, { ignored: true })}
                           onUnignore={() => void applyAlertPatch(alert.id, { ignored: false })}
                         />
-                      ))}
+                      ) : null)}
                     </StackedCardList>
                   </AlertsDayGroup>
                 ))}
@@ -408,7 +432,7 @@ export function AlertsPage() {
           </FeedListBody>
 
           <AlertsRulesPanel
-            projectId={activeProjectId}
+            projectId={activeProjectId ?? ""}
             webhookCount={webhookCount}
             canManageWebhooks={canManageWebhooks}
           />

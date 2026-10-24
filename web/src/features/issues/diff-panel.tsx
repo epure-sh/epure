@@ -3,6 +3,7 @@ import type { EventDetail } from "../../lib/api";
 import { fetchEvents } from "../../lib/api";
 import { ActionButton } from "../../ui/action-button";
 import { Button } from "../../ui/button";
+import { RouteErrorBoundary } from "../../ui/route-error-boundary";
 import {
   Select,
   SelectContent,
@@ -12,8 +13,11 @@ import {
 } from "../../ui/select";
 import { diffEvents } from "./diff-utils";
 
-function formatOccurrenceLabel(event: EventDetail): string {
-  const when = new Date(event.occurred_at).toLocaleString();
+function formatOccurrenceLabel(event?: EventDetail | null): string {
+  if (!event) {
+    return "—";
+  }
+  const when = event.occurred_at ? new Date(event.occurred_at).toLocaleString() : "Unknown date";
   const release = event.release ? ` · ${event.release}` : "";
   return `${when}${release}`;
 }
@@ -26,9 +30,12 @@ function DiffTable({
 }: {
   leftLabel: string;
   rightLabel: string;
-  left: EventDetail;
-  right: EventDetail;
+  left?: EventDetail | null;
+  right?: EventDetail | null;
 }) {
+  if (!left || !right) {
+    return null;
+  }
   const rows = diffEvents(left, right);
 
   if (rows.length === 0) {
@@ -110,20 +117,34 @@ export function DiffPanel({
   const [releaseRight, setReleaseRight] = useState<EventDetail | null>(null);
   const [loadingReleases, setLoadingReleases] = useState(false);
 
+  const safeEvents = Array.isArray(events) ? events.filter((e): e is EventDetail => Boolean(e)) : [];
+  const safeReleases = Array.isArray(releases)
+    ? Array.from(new Set(releases.filter((r): r is string => Boolean(r && typeof r === "string" && r.trim()))))
+    : [];
+
   const leftEvent = useMemo(
-    () => events.find((event) => event.id === leftEventId) ?? events[0] ?? null,
-    [events, leftEventId],
+    () => safeEvents.find((event) => event.id === leftEventId) ?? safeEvents[0] ?? null,
+    [safeEvents, leftEventId],
   );
 
   const rightEvent = useMemo(
-    () => events.find((event) => event.id === rightEventId) ?? null,
-    [events, rightEventId],
+    () => safeEvents.find((event) => event.id === rightEventId) ?? null,
+    [safeEvents, rightEventId],
   );
 
-  const compareCandidates = useMemo(
-    () => events.filter((event) => event.id !== leftEvent?.id),
-    [events, leftEvent?.id],
-  );
+  const compareCandidates = useMemo(() => {
+    const seen = new Set<string>();
+    return safeEvents.filter((event) => {
+      if (!event?.id || !event.id.trim() || event.id === leftEvent?.id) {
+        return false;
+      }
+      if (seen.has(event.id)) {
+        return false;
+      }
+      seen.add(event.id);
+      return true;
+    });
+  }, [safeEvents, leftEvent?.id]);
 
   useEffect(() => {
     if (rightEventId && rightEventId === leftEvent?.id) {
@@ -149,8 +170,8 @@ export function DiffPanel({
         if (cancelled) {
           return;
         }
-        setReleaseLeft(leftPage.events[0] ?? null);
-        setReleaseRight(rightPage.events[0] ?? null);
+        setReleaseLeft(leftPage?.events?.[0] ?? null);
+        setReleaseRight(rightPage?.events?.[0] ?? null);
       })
       .catch(() => {
         if (!cancelled) {
@@ -172,6 +193,7 @@ export function DiffPanel({
   const occurrenceReady = Boolean(leftEvent && rightEvent);
 
   return (
+    <RouteErrorBoundary title="Diff panel crashed">
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
         <Button
@@ -185,9 +207,9 @@ export function DiffPanel({
           variant={mode === "release" ? "primary" : "secondary"}
           size="toolbar"
           onClick={() => onModeChange("release")}
-          disabled={releases.length < 2}
+          disabled={safeReleases.length < 2}
           tooltip={
-            releases.length < 2
+            safeReleases.length < 2
               ? "Need events from at least two releases to compare"
               : undefined
           }
@@ -214,7 +236,7 @@ export function DiffPanel({
               <p className="text-xs text-ink-muted">Need another occurrence to compare.</p>
             ) : (
               <Select
-                value={rightEventId ?? undefined}
+                value={rightEventId || undefined}
                 onValueChange={(value) => onRightEventChange(value)}
               >
                 <SelectTrigger className="h-control-sm w-full text-xs">
@@ -234,7 +256,7 @@ export function DiffPanel({
       ) : null}
 
       {mode === "release" ? (
-        releases.length < 2 ? (
+        safeReleases.length < 2 ? (
           <p className="text-sm text-ink-muted">
             Need events from at least two releases to compare.
           </p>
@@ -245,14 +267,14 @@ export function DiffPanel({
                 A — Earlier release
               </p>
               <Select
-                value={leftRelease ?? undefined}
+                value={leftRelease || undefined}
                 onValueChange={onLeftReleaseChange}
               >
                 <SelectTrigger className="h-control-sm w-full text-xs">
                   <SelectValue placeholder="Select release" />
                 </SelectTrigger>
                 <SelectContent>
-                  {releases.map((release) => (
+                  {safeReleases.map((release) => (
                     <SelectItem key={release} value={release} className="font-mono text-xs">
                       {release}
                     </SelectItem>
@@ -265,14 +287,14 @@ export function DiffPanel({
                 B — Later release
               </p>
               <Select
-                value={rightRelease ?? undefined}
+                value={rightRelease || undefined}
                 onValueChange={onRightReleaseChange}
               >
                 <SelectTrigger className="h-control-sm w-full text-xs">
                   <SelectValue placeholder="Select release" />
                 </SelectTrigger>
                 <SelectContent>
-                  {releases.map((release) => (
+                  {safeReleases.map((release) => (
                     <SelectItem key={release} value={release} className="font-mono text-xs">
                       {release}
                     </SelectItem>
@@ -316,5 +338,6 @@ export function DiffPanel({
         )
       ) : null}
     </div>
+    </RouteErrorBoundary>
   );
 }

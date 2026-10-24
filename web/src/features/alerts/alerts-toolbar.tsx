@@ -29,11 +29,13 @@ export function AlertsToolbar({
   timeWindow,
   onTimeWindowChange,
 }: AlertsToolbarProps) {
+  const counts = viewModeCounts ?? { all: 0, unread: 0, ignored: 0 };
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-surface-1 px-4 py-2 md:px-6">
       <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Alert views">
         {ALERT_VIEW_MODES.map((option) => {
-          const count = viewModeCounts[option.value];
+          const count = counts[option.value] ?? 0;
           const active = viewMode === option.value;
 
           return (

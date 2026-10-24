@@ -77,17 +77,17 @@ export function AlertBuilder({
   const [threshold, setThreshold] = useState<number>(300);
   const [customName, setCustomName] = useState<string>("");
   const [selectedChannelIds, setSelectedChannelIds] = useState<Set<string>>(() => {
-    const channels = getStoredChannels();
-    return new Set(channels.slice(0, 2).map((c) => c.id));
+    const channels = getStoredChannels() ?? [];
+    return new Set((channels || []).slice(0, 2).map((c) => c.id));
   });
   const [submitting, setSubmitting] = useState(false);
 
   const availableChannels: OutputChannel[] = useMemo(() => {
-    return getStoredChannels();
+    return getStoredChannels() ?? [];
   }, []);
 
-  const activePreset = TRIGGER_PRESETS.find((p) => p.id === selectedTrigger)!;
-  const computedName = customName.trim() || activePreset.defaultName;
+  const activePreset = TRIGGER_PRESETS.find((p) => p.id === selectedTrigger) ?? TRIGGER_PRESETS[0];
+  const computedName = customName.trim() || activePreset?.defaultName || "Alert Rule";
 
   const handleToggleChannel = (id: string) => {
     setSelectedChannelIds((prev) => {
@@ -99,6 +99,10 @@ export function AlertBuilder({
   };
 
   const handleSaveRule = async () => {
+    if (!projectId) {
+      toast.error("Please select a valid project first");
+      return;
+    }
     if (selectedChannelIds.size === 0) {
       toast.error("Please select at least one output notification destination");
       return;

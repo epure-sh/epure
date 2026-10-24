@@ -608,7 +608,11 @@ pub async fn update_issue(
         UPDATE issues
         SET
             status = COALESCE($2, status),
-            resolved_in_release = COALESCE($3, resolved_in_release)
+            resolved_in_release = COALESCE($3, resolved_in_release),
+            snooze_until = CASE WHEN $2 IS NOT NULL THEN NULL ELSE snooze_until END,
+            snooze_until_count = CASE WHEN $2 IS NOT NULL THEN NULL ELSE snooze_until_count END,
+            snooze_until_users = CASE WHEN $2 IS NOT NULL THEN NULL ELSE snooze_until_users END,
+            pre_snooze_status = CASE WHEN $2 IS NOT NULL THEN NULL ELSE pre_snooze_status END
         WHERE id = $1 AND merge_parent_id IS NULL
         RETURNING
             {ISSUE_SUMMARY_COLUMNS}
@@ -617,6 +621,36 @@ pub async fn update_issue(
     .bind(issue_id)
     .bind(&params.status)
     .bind(&params.resolved_in_release)
+    .fetch_optional(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
+pub async fn unsnooze_issue(
+    pool: &PgPool,
+    org_id: Uuid,
+    issue_id: Uuid,
+) -> Result<Option<IssueSummary>, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let row = sqlx::query_as::<_, IssueSummary>(&format!(
+        r#"
+        UPDATE issues
+        SET
+            status = CASE
+                WHEN status = 'regression' THEN 'regression'
+                ELSE COALESCE(pre_snooze_status, 'unresolved')
+            END,
+            snooze_until = NULL,
+            snooze_until_count = NULL,
+            snooze_until_users = NULL,
+            pre_snooze_status = NULL
+        WHERE id = $1 AND merge_parent_id IS NULL
+        RETURNING
+            {ISSUE_SUMMARY_COLUMNS}
+        "#,
+    ))
+    .bind(issue_id)
     .fetch_optional(&mut *tx)
     .await?;
     tx.commit().await?;

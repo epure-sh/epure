@@ -72,9 +72,10 @@ function LegacyProjectRedirect({ segment }: { segment: "issues" | "releases" | "
     );
   }
 
+  const safeProjects = Array.isArray(projects) ? projects : [];
   const activeProject =
-    (projectId ? projects.find((p) => p.id === projectId || p.slug === projectId) : null) ??
-    projects[0];
+    (projectId ? safeProjects.find((p) => p && (p.id === projectId || p.slug === projectId)) : null) ??
+    safeProjects[0];
   const id = activeProject?.id;
   if (!id) {
     return <Navigate to="/" replace />;
@@ -235,12 +236,46 @@ export function AppShell() {
                   <Route path="*" element={<NotFoundPage />} />
                 </Route>
 
-                {/* Legacy paths → active project */}
-                <Route path="/issues" element={<LegacyProjectRedirect segment="issues" />} />
-                <Route path="/releases" element={<LegacyProjectRedirect segment="releases" />} />
-                <Route path="/alerts" element={<LegacyProjectRedirect segment="alerts" />} />
-                <Route path="/monitors" element={<LegacyProjectRedirect segment="monitors" />} />
-                <Route path="/setup" element={<LegacyProjectRedirect segment="setup" />} />
+                <Route
+                  path="/issues"
+                  element={
+                    <BoundedRoute title="Issues crashed">
+                      <LegacyProjectRedirect segment="issues" />
+                    </BoundedRoute>
+                  }
+                />
+                <Route
+                  path="/releases"
+                  element={
+                    <BoundedRoute title="Releases crashed">
+                      <LegacyProjectRedirect segment="releases" />
+                    </BoundedRoute>
+                  }
+                />
+                <Route
+                  path="/alerts"
+                  element={
+                    <BoundedRoute title="Alerts crashed">
+                      <LegacyProjectRedirect segment="alerts" />
+                    </BoundedRoute>
+                  }
+                />
+                <Route
+                  path="/monitors"
+                  element={
+                    <BoundedRoute title="Monitors crashed">
+                      <LegacyProjectRedirect segment="monitors" />
+                    </BoundedRoute>
+                  }
+                />
+                <Route
+                  path="/setup"
+                  element={
+                    <BoundedRoute title="Setup crashed">
+                      <LegacyProjectRedirect segment="setup" />
+                    </BoundedRoute>
+                  }
+                />
 
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>

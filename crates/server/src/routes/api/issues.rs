@@ -26,6 +26,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/issues/{id}/merged", get(list_merged_children_handler))
         .route("/issues/{id}", patch(patch_issue))
         .route("/issues/{id}/snooze", post(snooze_issue))
+        .route("/issues/{id}/unsnooze", post(unsnooze_issue))
         .with_state(state)
 }
 
@@ -221,6 +222,19 @@ async fn snooze_issue(
     };
 
     let row = issues::apply_snooze(&state.pools.app, dashboard.org_id, id, mode)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    Ok(Json(row))
+}
+
+async fn unsnooze_issue(
+    State(state): State<Arc<AppState>>,
+    Extension(dashboard): Extension<DashboardSession>,
+    Path(id): Path<Uuid>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let row = issues::unsnooze_issue(&state.pools.app, dashboard.org_id, id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;

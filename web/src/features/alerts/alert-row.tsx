@@ -32,6 +32,10 @@ export function AlertListRow({
   onIgnore,
   onUnignore,
 }: AlertListRowProps) {
+  if (!alert) {
+    return null;
+  }
+
   const title = getAlertTitle(alert);
   const detail = getAlertDetail(alert);
   const ruleName = getAlertRuleName(alert.kind);
@@ -39,6 +43,7 @@ export function AlertListRow({
   const firedAt = formatAlertListTime(alert.fired_at);
   const to = getIssueLink(alert, projectId);
   const unread = isAlertUnread(alert);
+  const isIgnored = Boolean(alert.ignored);
 
   return (
     <li className="border-b border-border-subtle last:border-b-0">
@@ -50,7 +55,7 @@ export function AlertListRow({
           "group items-center gap-3 px-4 py-2.5",
           selected ? "bg-surface-2" : "bg-surface-1 hover:bg-surface-2/60",
           unread && "font-medium",
-          alert.ignored && "opacity-60",
+          isIgnored && "opacity-60",
         )}
       >
         <Link to={to} className="flex min-w-0 flex-1 items-center gap-3 focus-ring rounded-md">

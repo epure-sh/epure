@@ -4,7 +4,6 @@ import {
   Check,
   ChevronDown,
   FolderKanban,
-  GitBranch,
   LogOut,
   Menu,
   Moon,
@@ -13,15 +12,12 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useThemeMode } from "../lib/style-theme";
-import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
@@ -34,10 +30,8 @@ import {
 } from "../lib/paths";
 import { isCloudDeployment } from "../lib/deployment";
 import { cn } from "../lib/cn";
-import { useAppContext, type Environment } from "./app-context";
+import { useAppContext } from "./app-context";
 import { useLogout } from "../lib/use-logout";
-
-const environments: Environment[] = ["production", "staging", "local"];
 
 function getPageName(pathname: string): string {
   if (pathname.includes("/issues")) return "Issues Feed";
@@ -60,8 +54,6 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
   const { pathname } = useLocation();
   const inProject = isProjectRoute(pathname);
   const {
-    environment,
-    setEnvironment,
     projects,
     user,
     setProjectId,
@@ -73,9 +65,10 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
   const [themeMode, toggleTheme] = useThemeMode();
 
   const routeProjectId = projectIdFromPath(pathname);
+  const safeProjects = Array.isArray(projects) ? projects : [];
   const activeProject =
     inProject && routeProjectId
-      ? projects.find((project) => project.id === routeProjectId) ?? null
+      ? safeProjects.find((project) => project && (project.id === routeProjectId || project.slug === routeProjectId)) ?? null
       : null;
 
   const pageName = getPageName(pathname);
@@ -228,46 +221,8 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
         </span>
       </div>
 
-      {/* Right zone: Environment Switcher & Profile */}
+      {/* Right zone: Feedback, Theme & Profile (Environment is stripped out and lives in FilterBar) */}
       <div className="flex shrink-0 items-center gap-2.5">
-        {inProject ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="xs"
-                className="btn-tactile flex items-center gap-1.5 px-2.5 text-xs text-fg-primary shadow-2xs font-normal"
-              >
-                <GitBranch size={13} className="text-fg-muted shrink-0" />
-                <span className="font-mono text-2xs font-medium">{environment}</span>
-                {environment === "production" ? (
-                  <Badge
-                    variant="warning"
-                    className="ml-0.5 px-1 py-0 text-[10px] font-semibold uppercase leading-none"
-                  >
-                    prod
-                  </Badge>
-                ) : null}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44 shadow-md border border-border-subtle bg-surface-1">
-              <DropdownMenuLabel className="text-2xs font-semibold text-fg-muted uppercase">
-                Active Environment
-              </DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={environment}
-                onValueChange={(value) => setEnvironment(value as Environment)}
-              >
-                {environments.map((env) => (
-                  <DropdownMenuRadioItem key={env} value={env} className="text-xs font-mono">
-                    {env}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
 
         {isCloudDeployment() ? (
           <a

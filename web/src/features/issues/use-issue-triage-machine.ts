@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   bulkUpdateIssues,
   EVENTS_PAGE_SIZE,
@@ -14,6 +14,7 @@ import {
   mergeIssues,
   patchIssue,
   snoozeIssue,
+  unsnoozeIssue,
   splitIssues,
   setupOnboardingDone,
   type SnoozeMode,
@@ -27,7 +28,7 @@ import {
 import { apiErrorMessage, isApiError } from "../../lib/api-error";
 import { useAppContext } from "../../shell/app-context";
 import { toast } from "@/components/ui/sonner";
-import { ACME_SEED_ISSUES, ACME_SEED_EVENT_001 } from "./acme-seed";
+import { ACME_SEED_ISSUES, getAcmeSeedEvent } from "./acme-seed";
 import type { DiffMode } from "./diff-panel";
 import {
   applyOptimisticSnooze,
@@ -58,6 +59,7 @@ export interface UseIssueTriageMachineOptions {
 }
 
 export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}) {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { buildQuery, projectId: contextProjectId, environment } = useAppContext();
   const scopedProjectId = options.routeProjectId ?? contextProjectId;
@@ -440,8 +442,8 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
         const eventList =
           page.events.length > 0
             ? page.events
-            : selectedId === "acme-issue-001"
-              ? [ACME_SEED_EVENT_001]
+            : selectedId.startsWith("acme-issue-")
+              ? [getAcmeSeedEvent(selectedId)]
               : [];
         setEvents(eventList);
         setSelectedEventId((current) => {
@@ -460,6 +462,14 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
       })
       .catch(() => {
         if (!cancelled) {
+          if (selectedId.startsWith("acme-issue-")) {
+            const seedEvent = getAcmeSeedEvent(selectedId);
+            setEvents([seedEvent]);
+            setSelectedEventId(seedEvent.id);
+            setSelectedEventRecord(seedEvent);
+            setDiffEventId(null);
+            return;
+          }
           toast("Failed to load events");
         }
       });
@@ -659,6 +669,62 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
     [actionsDisabled, issues, selectedId, focusedId],
   );
 
+  const handleUnsnooze = useCallback(
+    async (explicitId?: string) => {
+      const targetId = explicitId ?? selectedId ?? focusedId;
+      if (!targetId || actionsDisabled) {
+        return;
+      }
+      const current = issues.find((row) => row.id === targetId);
+      if (!current) {
+        return;
+      }
+
+      const previous = issues;
+      const optimistic: IssueSummary = {
+        ...current,
+        status: "unresolved",
+        snoozed: false,
+        snooze_until: null,
+        snooze_until_count: null,
+        snooze_until_users: null,
+      };
+      setSnoozingId(targetId);
+      setIssues((rows) =>
+        rows.map((row) => (row.id === targetId ? optimistic : row)),
+      );
+
+      toast.success("Issue unsnoozed", {
+        action: {
+          label: "Undo",
+          onClick: () => {
+            setIssues(previous);
+            if (current.snooze_until_count) {
+              void snoozeIssue(targetId, "occurrences");
+            } else if (current.snooze_until_users) {
+              void snoozeIssue(targetId, "users");
+            } else {
+              void snoozeIssue(targetId, "hours");
+            }
+          },
+        },
+      });
+
+      try {
+        const updated = await unsnoozeIssue(targetId);
+        setIssues((rows) =>
+          rows.map((row) => (row.id === targetId ? updated : row)),
+        );
+      } catch {
+        setIssues(previous);
+        toast.error("Failed to unsnooze issue");
+      } finally {
+        setSnoozingId(null);
+      }
+    },
+    [actionsDisabled, issues, selectedId, focusedId],
+  );
+
   const handleMoveSelection = useCallback(
     (direction: "up" | "down") => {
       if (issues.length === 0) {
@@ -675,26 +741,34 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
       // If detail drawer is already open, move selectedId fluidly along with focusedId
       if (selectedId && nextId) {
         setSelectedId(nextId);
+        if (scopedProjectId && routeIssueId) {
+          const search = searchParams.toString();
+          navigate(`/p/${scopedProjectId}/issues/${nextId}${search ? `?${search}` : ""}`, { replace: true });
+        }
       }
     },
-    [issues, focusedId, selectedId],
+    [issues, focusedId, selectedId, scopedProjectId, routeIssueId, searchParams, navigate],
   );
 
   const handleOpenDetail = useCallback(() => {
-    if (focusedId) {
-      setSelectedId(focusedId);
-      return;
+    const target = focusedId ?? issues[0]?.id ?? null;
+    if (target) {
+      setFocusedId(target);
+      setSelectedId(target);
+      if (scopedProjectId && routeIssueId !== target) {
+        const search = searchParams.toString();
+        navigate(`/p/${scopedProjectId}/issues/${target}${search ? `?${search}` : ""}`, { replace: true });
+      }
     }
-    if (issues.length > 0) {
-      const firstId = issues[0].id;
-      setFocusedId(firstId);
-      setSelectedId(firstId);
-    }
-  }, [focusedId, issues]);
+  }, [focusedId, issues, scopedProjectId, routeIssueId, searchParams, navigate]);
 
   const handleSelect = useCallback((id: string, extend = false) => {
     setFocusedId(id);
     setSelectedId(id);
+    if (scopedProjectId && routeIssueId !== id) {
+      const search = searchParams.toString();
+      navigate(`/p/${scopedProjectId}/issues/${id}${search ? `?${search}` : ""}`, { replace: true });
+    }
     if (extend) {
       setSelectedIds((current) => {
         const next = new Set(current);
@@ -702,7 +776,7 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
         return next;
       });
     }
-  }, []);
+  }, [scopedProjectId, routeIssueId, searchParams, navigate]);
 
   const handleToggleSelect = useCallback((id: string) => {
     setSelectedIds((current) => {
@@ -801,7 +875,11 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
 
   const handleCloseDetail = useCallback(() => {
     setSelectedId(null);
-  }, []);
+    if (routeIssueId && scopedProjectId) {
+      const search = searchParams.toString();
+      navigate(`/p/${scopedProjectId}/issues${search ? `?${search}` : ""}`, { replace: true });
+    }
+  }, [routeIssueId, scopedProjectId, searchParams, navigate]);
 
   const handleMerge = useCallback(async () => {
     if (!selectedId || actionsDisabled) {
@@ -923,6 +1001,7 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
     handleIgnore,
     handleReopen,
     handleSnooze,
+    handleUnsnooze,
     handleBulk,
     handleBulkSnooze,
     handleClearSelection,

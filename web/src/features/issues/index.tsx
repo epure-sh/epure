@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, ExternalLink, EyeOff, GitBranch, RotateCcw, Sparkles } from "lucide-react";
+import { BellRing, Check, ExternalLink, EyeOff, GitBranch, RotateCcw, Sparkles } from "lucide-react";
 import { Navigate, useParams } from "react-router-dom";
 import {
   bulkUpdateIssues,
@@ -127,6 +127,7 @@ export function IssuesPage() {
     handleIgnore,
     handleReopen,
     handleSnooze,
+    handleUnsnooze,
     handleBulk,
     handleBulkSnooze,
     handleClearSelection,
@@ -351,7 +352,7 @@ export function IssuesPage() {
       }
       if (selectedId) {
         event.preventDefault();
-        setSelectedId(null);
+        handleCloseDetail();
         return;
       }
       if (selectedIds.size > 0) {
@@ -451,15 +452,29 @@ export function IssuesPage() {
                 <span>{patchingId === selectedIssue.id ? "Saving…" : "Unresolve"}</span>
               </ActionButton>
             ) : null}
-            <SnoozeMenu
-              issue={selectedIssue}
-              disabled={actionsDisabled}
-              buttonSize="sm"
-              variant="outline"
-              showShortcutHint
-              className="btn-tactile text-xs font-medium"
-              onSnooze={handleSnooze}
-            />
+            {selectedIssue.snoozed || selectedIssue.status === "snoozed" ? (
+              <ActionButton
+                variant="outline"
+                size="sm"
+                className="btn-tactile text-xs font-medium text-accent hover:text-accent"
+                disabled={actionsDisabled}
+                tooltip={actionsDisabled ? "Saving changes…" : undefined}
+                onClick={() => void handleUnsnooze(selectedIssue.id)}
+              >
+                <BellRing className="mr-1.5 h-3.5 w-3.5" />
+                <span>Unsnooze (S)</span>
+              </ActionButton>
+            ) : (
+              <SnoozeMenu
+                issue={selectedIssue}
+                disabled={actionsDisabled}
+                buttonSize="sm"
+                variant="outline"
+                showShortcutHint
+                className="btn-tactile text-xs font-medium"
+                onSnooze={handleSnooze}
+              />
+            )}
             <ActionButton
               variant="outline"
               size="sm"
@@ -662,8 +677,10 @@ export function IssuesPage() {
               onSelect={handleSelect}
               onToggleSelect={handleToggleSelect}
               onResolve={handleResolve}
+              onReopen={handleReopen}
               onIgnore={handleIgnore}
               onSnooze={(id) => void handleSnooze("hours", id)}
+              onUnsnooze={(id) => void handleUnsnooze(id)}
               actionsDisabled={actionsDisabled}
               onMoveSelection={handleMoveSelection}
               onOpenDetail={handleOpenDetail}

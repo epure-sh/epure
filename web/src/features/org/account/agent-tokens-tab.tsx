@@ -1,33 +1,26 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  createAgentToken,
   fetchAgentTokens,
   revokeAgentToken,
   type AgentTokenRow,
-  type CreatedAgentToken,
 } from "../../../lib/api";
 import { formatRelativeTime } from "../../../lib/format-time";
+import { workspaceSettingsPath } from "../../../lib/paths";
 import { useAppContext } from "../../../shell/app-context";
 import { Badge } from "../../../ui/badge";
 import { Button } from "../../../ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../ui/card";
-import { CopyButton } from "../../../ui/copy-button";
-import { Field } from "../../../ui/field";
-import { Input } from "../../../ui/input";
 import { useToast } from "../../../ui/toast-provider";
 import { MemberAccessNotice } from "../../settings/shared";
 
 export function AgentTokensTab() {
+  const navigate = useNavigate();
   const { user } = useAppContext();
   const { toast } = useToast();
   const [tokens, setTokens] = useState<AgentTokenRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [label, setLabel] = useState("cursor");
-  const [writeTriage, setWriteTriage] = useState(false);
-  const [writeAdmin, setWriteAdmin] = useState(false);
-  const [revealed, setRevealed] = useState<CreatedAgentToken | null>(null);
 
   const canManage = user?.role === "owner" || user?.role === "admin";
 
@@ -51,30 +44,6 @@ export function AgentTokensTab() {
     void load();
   }, [load]);
 
-  async function handleCreate() {
-    setBusy(true);
-    try {
-      const scopes = ["read:agent"];
-      if (writeTriage) {
-        scopes.push("write:triage");
-      }
-      if (writeAdmin) {
-        scopes.push("write:admin");
-      }
-      const created = await createAgentToken({
-        label: label.trim() || "agent",
-        scopes,
-      });
-      setRevealed(created);
-      await load();
-      toast("Agent token created. Copy it now.");
-    } catch {
-      toast("Failed to create agent token");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function handleRevoke(id: string) {
     if (!window.confirm("Revoke this token? MCP and CLI using it will stop working.")) {
       return;
@@ -82,9 +51,6 @@ export function AgentTokensTab() {
     setBusy(true);
     try {
       await revokeAgentToken(id);
-      if (revealed?.id === id) {
-        setRevealed(null);
-      }
       await load();
       toast("Agent token revoked");
     } catch {
@@ -104,47 +70,33 @@ export function AgentTokensTab() {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Agent tokens</CardTitle>
-          <CardDescription>
-            Personal access tokens for Cursor MCP and <code className="text-xs">epure-cli</code>.
-            Scopes: read (all GET APIs), write:triage (issues/alerts/snooze), write:admin (projects, DSN, webhooks, team).
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>OAuth-Only Authentication</CardTitle>
+              <CardDescription className="mt-1">
+                Manual API token generation has been removed. Epure now enforces 100% OAuth 2.0 Device Flow &amp; PKCE consent.
+              </CardDescription>
+            </div>
+            <Badge variant="healthy" size="sm" dot>
+              100% OAuth-Only
+            </Badge>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-end gap-3">
-            <Field label="Label" className="min-w-[12rem] flex-1">
-              <Input value={label} onChange={(e) => setLabel(e.target.value)} disabled={busy} />
-            </Field>
-            <label className="flex items-center gap-2 text-sm text-ink-muted cursor-pointer">
-              <Checkbox
-                checked={writeTriage}
-                onCheckedChange={(checked) => setWriteTriage(Boolean(checked))}
-                disabled={busy}
-              />
-              write:triage
-            </label>
-            <label className="flex items-center gap-2 text-sm text-ink-muted cursor-pointer">
-              <Checkbox
-                checked={writeAdmin}
-                onCheckedChange={(checked) => setWriteAdmin(Boolean(checked))}
-                disabled={busy}
-              />
-              write:admin (full settings)
-            </label>
-            <Button type="button" disabled={busy} onClick={() => void handleCreate()}>
-              Create token
+        <CardContent className="space-y-3">
+          <p className="text-xs text-ink-muted leading-relaxed">
+            AI assistants (Cursor MCP, Claude Code) and the Epure CLI connect via instant cryptographic PKCE authorization.
+            Static API keys are no longer issued to guarantee zero credential leakage and automatic token rotation.
+          </p>
+          <div className="pt-1 flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(workspaceSettingsPath("connected-apps"))}
+            >
+              View Connected OAuth Apps
             </Button>
           </div>
-
-          {revealed ? (
-            <div className="rounded-sm border border-border bg-bg-subtle/40 p-3 text-sm">
-              <p className="font-medium text-ink">Copy this token now. It will not be shown again.</p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <code className="break-all text-xs">{revealed.token}</code>
-                <CopyButton value={revealed.token} label="Copy token" />
-              </div>
-            </div>
-          ) : null}
         </CardContent>
       </Card>
 

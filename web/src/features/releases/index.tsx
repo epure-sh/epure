@@ -25,16 +25,21 @@ function ReleaseRow({
   release: ReleaseSummary;
   projectId: string;
 }) {
+  if (!release) {
+    return null;
+  }
+
   const deltas = formatReleaseDeltas(release);
   const meta = formatReleaseMeta(release);
-  const issuesPath = issuesFilterPath(projectId, `release:${release.version}`);
+  const version = release.version || "unknown";
+  const issuesPath = projectId ? issuesFilterPath(projectId, `release:${version}`) : "/issues";
 
   return (
     <li className="border-b border-border-subtle last:border-b-0">
       <ListRow asChild variant="flat" className="group items-center gap-3 px-4 py-2.5">
         <Link to={issuesPath}>
           <div className="min-w-0 flex-1">
-            <p className="truncate font-mono text-sm font-medium text-fg-primary">{release.version}</p>
+            <p className="truncate font-mono text-sm font-medium text-fg-primary">{version}</p>
             <p className="mt-0.5 text-xs text-fg-muted">{meta}</p>
             {deltas ? <p className="mt-1 text-xs text-fg-secondary">{deltas}</p> : null}
           </div>
@@ -57,14 +62,16 @@ export function ReleasesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const safeProjects = Array.isArray(projects) ? projects : [];
+
   const activeProject = useMemo(() => {
     const candidate = routeProjectId ?? projectId;
     if (candidate) {
-      const match = projects.find((row) => row.id === candidate || row.slug === candidate);
+      const match = safeProjects.find((row) => row.id === candidate || row.slug === candidate);
       if (match) return match;
     }
-    return projects[0] ?? null;
-  }, [routeProjectId, projectId, projects]);
+    return safeProjects[0] ?? null;
+  }, [routeProjectId, projectId, safeProjects]);
 
   const activeProjectId = activeProject?.id ?? null;
 
@@ -81,7 +88,7 @@ export function ReleasesPage() {
     setError(null);
     try {
       const rows = await fetchReleases(activeProjectId);
-      setReleases(rows);
+      setReleases(Array.isArray(rows) ? rows : []);
     } catch {
       setReleases([]);
       setError("Failed to load releases");
@@ -94,9 +101,12 @@ export function ReleasesPage() {
     void loadReleases();
   }, [loadReleases]);
 
-  const totalIssues = releases.reduce((sum, release) => sum + release.issue_count, 0);
-  const totalEvents = releases.reduce((sum, release) => sum + release.event_count, 0);
-  const regressionTotal = releases.reduce((sum, release) => sum + release.regression_count, 0);
+  const safeReleases = Array.isArray(releases)
+    ? releases.filter((r): r is ReleaseSummary => Boolean(r))
+    : [];
+  const totalIssues = safeReleases.reduce((sum, release) => sum + Number(release?.issue_count ?? 0), 0);
+  const totalEvents = safeReleases.reduce((sum, release) => sum + Number(release?.event_count ?? 0), 0);
+  const regressionTotal = safeReleases.reduce((sum, release) => sum + Number(release?.regression_count ?? 0), 0);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -106,11 +116,11 @@ export function ReleasesPage() {
           activeProjectId ? (
             <>
               <FeedHeaderStat
-                label={releases.length === 1 ? "release" : "releases"}
-                value={releases.length}
+                label={safeReleases.length === 1 ? "release" : "releases"}
+                value={safeReleases.length}
                 loading={loading}
               />
-              {!loading && releases.length > 0 ? (
+              {!loading && safeReleases.length > 0 ? (
                 <>
                   <FeedHeaderStatDot />
                   <FeedHeaderStat label="issues" value={totalIssues} />
@@ -154,7 +164,7 @@ export function ReleasesPage() {
               Try again
             </Button>
           </div>
-        ) : releases.length === 0 ? (
+        ) : safeReleases.length === 0 ? (
           <Empty
             title="No releases yet"
             description="Set a release when you initialize your SDK. Epure groups exceptions by version so you can spot what changed after each deploy."
@@ -185,9 +195,9 @@ export function ReleasesPage() {
           </Empty>
         ) : (
           <StackedCardList>
-            {releases.map((release) => (
-              <ReleaseRow key={release.id} release={release} projectId={activeProjectId} />
-            ))}
+            {safeReleases.map((release, idx) => release ? (
+              <ReleaseRow key={release.id || release.version || `release-${idx}`} release={release} projectId={activeProjectId ?? ""} />
+            ) : null)}
           </StackedCardList>
         )}
       </FeedListBody>

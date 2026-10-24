@@ -180,7 +180,10 @@ export const ALERT_TIME_WINDOW_OPTIONS: { value: AlertTimeWindow; label: string 
   { value: "all", label: "All time" },
 ];
 
-export function getAlertRuleName(kind: string): string {
+export function getAlertRuleName(kind?: string | null): string {
+  if (!kind) {
+    return "Unknown alert";
+  }
   const rule = ALERT_RULES.find((entry) => entry.id === kind);
   if (rule) {
     return rule.name;
@@ -188,35 +191,59 @@ export function getAlertRuleName(kind: string): string {
   return kind.replace(/_/g, " ");
 }
 
-export function getAlertSeverity(kind: string): AlertSeverity {
-  const normalizedKind = kind === "velocity" ? "velocity_spike" : kind;
+export function getAlertSeverity(kind?: string | null): AlertSeverity {
+  const normalizedKind = kind === "velocity" ? "velocity_spike" : (kind ?? "");
   if (normalizedKind === "regression" || normalizedKind === "ingest_cap_hit") {
     return "danger";
   }
   return "warning";
 }
 
-export function getAlertSeverityForAlert(alert: AlertRow): AlertSeverity {
+function parsePayload(payloadJson: unknown): Record<string, unknown> {
+  if (!payloadJson) return {};
+  if (typeof payloadJson === "string") {
+    try {
+      const parsed = JSON.parse(payloadJson);
+      return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  }
+  if (typeof payloadJson === "object") {
+    return payloadJson as Record<string, unknown>;
+  }
+  return {};
+}
+
+export function getAlertSeverityForAlert(alert?: AlertRow | null): AlertSeverity {
+  if (!alert) {
+    return "warning";
+  }
+  const payload = parsePayload(alert.payload_json);
   if (alert.kind === "users_affected") {
     const threshold =
-      typeof alert.payload_json.threshold === "number" ? alert.payload_json.threshold : 0;
+      typeof payload.threshold === "number" ? payload.threshold : 0;
     return threshold >= 100 ? "danger" : "warning";
   }
   return getAlertSeverity(alert.kind);
 }
 
-export function getAlertTitle(alert: AlertRow): string {
+export function getAlertTitle(alert?: AlertRow | null): string {
+  if (!alert) {
+    return "Unknown alert";
+  }
+  const payload = parsePayload(alert.payload_json);
   if (alert.kind === "ingest_cap_hit") {
     const projectName =
-      typeof alert.payload_json.project_name === "string"
-        ? alert.payload_json.project_name
+      typeof payload.project_name === "string"
+        ? payload.project_name
         : null;
     return projectName ? `${projectName} ingest cap reached` : "Ingest cap reached";
   }
   if (alert.kind === "custom") {
     const ruleName =
-      typeof alert.payload_json.rule_name === "string" ? alert.payload_json.rule_name : null;
-    const title = alert.payload_json.title;
+      typeof payload.rule_name === "string" ? payload.rule_name : null;
+    const title = payload.title;
     if (ruleName && typeof title === "string" && title.trim()) {
       return `${ruleName}: ${title}`;
     }
@@ -224,19 +251,20 @@ export function getAlertTitle(alert: AlertRow): string {
       return ruleName;
     }
   }
-  const title = alert.payload_json.title;
+  const title = payload.title;
   if (typeof title === "string" && title.trim()) {
     return title;
   }
   return getAlertRuleName(alert.kind);
 }
 
-export function formatVelocityDetail(payload: Record<string, unknown>): string {
-  const ratio = typeof payload.ratio === "number" ? payload.ratio : null;
+export function formatVelocityDetail(payload?: Record<string, unknown> | null): string {
+  const p = payload && typeof payload === "object" ? payload : {};
+  const ratio = typeof p.ratio === "number" ? p.ratio : null;
   const current =
-    typeof payload.current_window === "number" ? payload.current_window : null;
+    typeof p.current_window === "number" ? p.current_window : null;
   const previous =
-    typeof payload.previous_window === "number" ? payload.previous_window : null;
+    typeof p.previous_window === "number" ? p.previous_window : null;
 
   if (ratio !== null && current !== null && previous !== null) {
     const pct = Math.round((ratio - 1) * 100);
@@ -247,11 +275,12 @@ export function formatVelocityDetail(payload: Record<string, unknown>): string {
   return `Event rate jumped more than ${Math.round((VELOCITY_SPIKE_RATIO - 1) * 100)}% in ${VELOCITY_WINDOW_MINUTES} minutes`;
 }
 
-export function formatRegressionDetail(payload: Record<string, unknown>): string {
-  const release = typeof payload.release === "string" ? payload.release : null;
+export function formatRegressionDetail(payload?: Record<string, unknown> | null): string {
+  const p = payload && typeof payload === "object" ? payload : {};
+  const release = typeof p.release === "string" ? p.release : null;
   const resolvedIn =
-    typeof payload.resolved_in_release === "string"
-      ? payload.resolved_in_release
+    typeof p.resolved_in_release === "string"
+      ? p.resolved_in_release
       : null;
 
   if (release && resolvedIn) {
@@ -263,17 +292,19 @@ export function formatRegressionDetail(payload: Record<string, unknown>): string
   return "Exception came back after you marked it resolved";
 }
 
-export function formatNewIssueDetail(payload: Record<string, unknown>): string {
-  const release = typeof payload.release === "string" ? payload.release : null;
+export function formatNewIssueDetail(payload?: Record<string, unknown> | null): string {
+  const p = payload && typeof payload === "object" ? payload : {};
+  const release = typeof p.release === "string" ? p.release : null;
   if (release) {
     return `First seen in release ${release}`;
   }
   return "New exception group created";
 }
 
-export function formatEventMilestoneDetail(payload: Record<string, unknown>): string {
-  const threshold = typeof payload.threshold === "number" ? payload.threshold : null;
-  const eventCount = typeof payload.event_count === "number" ? payload.event_count : null;
+export function formatEventMilestoneDetail(payload?: Record<string, unknown> | null): string {
+  const p = payload && typeof payload === "object" ? payload : {};
+  const threshold = typeof p.threshold === "number" ? p.threshold : null;
+  const eventCount = typeof p.event_count === "number" ? p.event_count : null;
   if (threshold !== null && eventCount !== null) {
     return `Crossed ${threshold.toLocaleString()} events (${eventCount.toLocaleString()} total)`;
   }
@@ -283,70 +314,82 @@ export function formatEventMilestoneDetail(payload: Record<string, unknown>): st
   return "Issue crossed a high-volume milestone";
 }
 
-export function formatUsersAffectedDetail(payload: Record<string, unknown>): string {
-  const threshold = typeof payload.threshold === "number" ? payload.threshold : null;
+export function formatUsersAffectedDetail(payload?: Record<string, unknown> | null): string {
+  const p = payload && typeof payload === "object" ? payload : {};
+  const threshold = typeof p.threshold === "number" ? p.threshold : null;
   const userCount =
-    typeof payload.unique_user_count === "number" ? payload.unique_user_count : null;
+    typeof p.unique_user_count === "number" ? p.unique_user_count : null;
   if (threshold !== null && userCount !== null) {
     return `${userCount.toLocaleString()} distinct users affected (milestone: ${threshold})`;
   }
   return "More distinct users are hitting this issue";
 }
 
-export function getAlertDetail(alert: AlertRow): string {
+export function getAlertDetail(alert?: AlertRow | null): string {
+  if (!alert) {
+    return "";
+  }
+  const payload = parsePayload(alert.payload_json);
   if (alert.kind === "velocity_spike" || alert.kind === "velocity") {
-    return formatVelocityDetail(alert.payload_json);
+    return formatVelocityDetail(payload);
   }
   if (alert.kind === "regression") {
-    return formatRegressionDetail(alert.payload_json);
+    return formatRegressionDetail(payload);
   }
   if (alert.kind === "new_issue") {
-    return formatNewIssueDetail(alert.payload_json);
+    return formatNewIssueDetail(payload);
   }
   if (alert.kind === "event_milestone") {
-    return formatEventMilestoneDetail(alert.payload_json);
+    return formatEventMilestoneDetail(payload);
   }
   if (alert.kind === "users_affected") {
-    return formatUsersAffectedDetail(alert.payload_json);
+    return formatUsersAffectedDetail(payload);
   }
   if (alert.kind === "custom") {
     const ruleName =
-      typeof alert.payload_json.rule_name === "string"
-        ? alert.payload_json.rule_name
+      typeof payload.rule_name === "string"
+        ? payload.rule_name
         : "Custom rule";
     const env =
-      typeof alert.payload_json.environment === "string"
-        ? alert.payload_json.environment
+      typeof payload.environment === "string"
+        ? payload.environment
         : null;
     return env ? `${ruleName} matched in ${env}` : `${ruleName} matched`;
   }
-  const message = alert.payload_json.message;
+  const message = payload.message;
   if (typeof message === "string" && message.trim()) {
     return message;
   }
   return getAlertRuleName(alert.kind);
 }
 
-export function getIssueLink(alert: AlertRow, projectId: string): string {
-  if (alert.kind === "ingest_cap_hit") {
-    return projectSettingsPath(projectId, "general");
+export function getIssueLink(alert?: AlertRow | null, projectId?: string | null): string {
+  const pid = projectId ?? alert?.project_id ?? "";
+  if (!pid) {
+    return "/";
+  }
+  if (alert?.kind === "ingest_cap_hit") {
+    return projectSettingsPath(pid, "general");
   }
   const params = new URLSearchParams();
-  if (alert.kind === "regression") {
+  if (alert?.kind === "regression") {
     params.set("q", "is:regression");
   }
-  if (alert.kind === "new_issue") {
+  if (alert?.kind === "new_issue") {
     params.set("q", "is:unresolved");
   }
-  if (alert.issue_id) {
+  if (alert?.issue_id) {
     params.set("issue", alert.issue_id);
   }
   const suffix = params.toString();
-  const base = projectPath(projectId, "issues");
+  const base = projectPath(pid, "issues");
   return suffix ? `${base}?${suffix}` : base;
 }
 
-export function getAlertRule(alert: AlertRow): AlertRuleDefinition | undefined {
+export function getAlertRule(alert?: AlertRow | null): AlertRuleDefinition | undefined {
+  if (!alert) {
+    return undefined;
+  }
   const normalizedKind = alert.kind === "velocity" ? "velocity_spike" : alert.kind;
   return ALERT_RULES.find((rule) => rule.id === normalizedKind);
 }
@@ -368,29 +411,37 @@ export function normalizeAlertKind(kind: string): string {
   return kind === "velocity" ? "velocity_spike" : kind;
 }
 
-export function isAlertUnread(alert: AlertRow): boolean {
+export function isAlertUnread(alert?: AlertRow | null): boolean {
+  if (!alert) {
+    return false;
+  }
   return !alert.read_at && !alert.ignored;
 }
 
-export function filterAlertsByViewMode(alerts: AlertRow[], mode: AlertViewMode): AlertRow[] {
+export function filterAlertsByViewMode(
+  alerts?: AlertRow[] | null,
+  mode: AlertViewMode = "unread",
+): AlertRow[] {
+  const safe = Array.isArray(alerts) ? alerts.filter((a): a is AlertRow => Boolean(a)) : [];
   if (mode === "all") {
-    return alerts;
+    return safe;
   }
   if (mode === "unread") {
-    return alerts.filter((alert) => isAlertUnread(alert));
+    return safe.filter((alert) => isAlertUnread(alert));
   }
-  return alerts.filter((alert) => alert.ignored);
+  return safe.filter((alert) => Boolean(alert?.ignored));
 }
 
 export function countAlertsForViewModes(
-  alerts: AlertRow[],
+  alerts?: AlertRow[] | null,
   timeWindow: AlertTimeWindow = "7d",
 ): Record<AlertViewMode, number> {
-  const scoped = filterAlerts(alerts, { kind: "all", timeWindow });
+  const safe = Array.isArray(alerts) ? alerts : [];
+  const scoped = filterAlerts(safe, { kind: "all", timeWindow });
   return {
     all: scoped.length,
     unread: scoped.filter((alert) => isAlertUnread(alert)).length,
-    ignored: scoped.filter((alert) => alert.ignored).length,
+    ignored: scoped.filter((alert) => Boolean(alert?.ignored)).length,
   };
 }
 
@@ -399,7 +450,10 @@ function startOfLocalDay(timestamp: number): number {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
 
-export function getAlertDayGroupLabel(firedAt: string, now = Date.now()): string {
+export function getAlertDayGroupLabel(firedAt?: string | null, now = Date.now()): string {
+  if (!firedAt) {
+    return "Unknown date";
+  }
   const timestamp = new Date(firedAt).getTime();
   if (Number.isNaN(timestamp)) {
     return "Unknown date";
@@ -426,7 +480,10 @@ export function getAlertDayGroupLabel(firedAt: string, now = Date.now()): string
   });
 }
 
-function getAlertDayGroupKey(firedAt: string): string {
+function getAlertDayGroupKey(firedAt?: string | null): string {
+  if (!firedAt) {
+    return "unknown";
+  }
   const timestamp = new Date(firedAt).getTime();
   if (Number.isNaN(timestamp)) {
     return "unknown";
@@ -434,7 +491,10 @@ function getAlertDayGroupKey(firedAt: string): string {
   return String(startOfLocalDay(timestamp));
 }
 
-export function formatAlertListTime(iso: string, now = Date.now()): string {
+export function formatAlertListTime(iso?: string | null, now = Date.now()): string {
+  if (!iso) {
+    return "—";
+  }
   const timestamp = new Date(iso).getTime();
   if (Number.isNaN(timestamp)) {
     return "—";
@@ -454,11 +514,13 @@ export function formatAlertListTime(iso: string, now = Date.now()): string {
   return formatAge(iso, now);
 }
 
-export function groupAlertsByDay(alerts: AlertRow[], now = Date.now()): AlertDayGroup[] {
-  const sorted = sortAlerts(alerts, "newest");
+export function groupAlertsByDay(alerts?: AlertRow[] | null, now = Date.now()): AlertDayGroup[] {
+  const safe = Array.isArray(alerts) ? alerts.filter((a): a is AlertRow => Boolean(a)) : [];
+  const sorted = sortAlerts(safe, "newest");
   const groups = new Map<string, AlertDayGroup>();
 
   for (const alert of sorted) {
+    if (!alert) continue;
     const key = getAlertDayGroupKey(alert.fired_at);
     const existing = groups.get(key);
     if (existing) {
@@ -477,16 +539,18 @@ export function groupAlertsByDay(alerts: AlertRow[], now = Date.now()): AlertDay
 }
 
 export function filterAlerts(
-  alerts: AlertRow[],
+  alerts?: AlertRow[] | null,
   options: {
     kind?: AlertKindFilter;
     timeWindow?: AlertTimeWindow;
-  },
+  } = {},
 ): AlertRow[] {
+  const safe = Array.isArray(alerts) ? alerts.filter((a): a is AlertRow => Boolean(a)) : [];
   const kind = options.kind ?? "all";
   const cutoff = timeWindowCutoff(options.timeWindow ?? "7d");
 
-  return alerts.filter((alert) => {
+  return safe.filter((alert) => {
+    if (!alert) return false;
     const normalizedKind = alert.kind === "velocity" ? "velocity_spike" : alert.kind;
     if (kind !== "all" && normalizedKind !== kind) {
       return false;
@@ -498,13 +562,18 @@ export function filterAlerts(
   });
 }
 
-export function sortAlerts(alerts: AlertRow[], sort: AlertSort): AlertRow[] {
-  const rows = [...alerts];
+export function sortAlerts(alerts?: AlertRow[] | null, sort: AlertSort = "newest"): AlertRow[] {
+  const safe = Array.isArray(alerts) ? alerts.filter((a): a is AlertRow => Boolean(a)) : [];
+  const rows = [...safe];
+  const toTime = (iso?: string | null): number => {
+    if (!iso) return 0;
+    const t = new Date(iso).getTime();
+    return Number.isNaN(t) ? 0 : t;
+  };
+
   switch (sort) {
     case "oldest":
-      return rows.sort(
-        (left, right) => new Date(left.fired_at).getTime() - new Date(right.fired_at).getTime(),
-      );
+      return rows.sort((left, right) => toTime(left.fired_at) - toTime(right.fired_at));
     case "severity":
       return rows.sort((left, right) => {
         const severityDelta =
@@ -513,33 +582,34 @@ export function sortAlerts(alerts: AlertRow[], sort: AlertSort): AlertRow[] {
         if (severityDelta !== 0) {
           return severityDelta;
         }
-        return new Date(right.fired_at).getTime() - new Date(left.fired_at).getTime();
+        return toTime(right.fired_at) - toTime(left.fired_at);
       });
     default:
-      return rows.sort(
-        (left, right) => new Date(right.fired_at).getTime() - new Date(left.fired_at).getTime(),
-      );
+      return rows.sort((left, right) => toTime(right.fired_at) - toTime(left.fired_at));
   }
 }
 
 export function countRecentAlerts(
-  alerts: AlertRow[],
+  alerts?: AlertRow[] | null,
   timeWindow: AlertTimeWindow = "7d",
 ): number {
+  const safe = Array.isArray(alerts) ? alerts.filter((a): a is AlertRow => Boolean(a)) : [];
   const cutoff = timeWindowCutoff(timeWindow);
   if (cutoff === null) {
-    return alerts.length;
+    return safe.length;
   }
-  return alerts.filter((alert) => new Date(alert.fired_at).getTime() >= cutoff).length;
+  return safe.filter((alert) => new Date(alert.fired_at).getTime() >= cutoff).length;
 }
 
-export function countAlertsByKind(alerts: AlertRow[]): {
+export function countAlertsByKind(alerts?: AlertRow[] | null): {
   velocity: number;
   regression: number;
   newIssue: number;
 } {
-  return alerts.reduce(
+  const safe = Array.isArray(alerts) ? alerts.filter((a): a is AlertRow => Boolean(a)) : [];
+  return safe.reduce(
     (counts, alert) => {
+      if (!alert) return counts;
       const normalizedKind = alert.kind === "velocity" ? "velocity_spike" : alert.kind;
       if (normalizedKind === "velocity_spike") {
         counts.velocity += 1;
@@ -554,23 +624,25 @@ export function countAlertsByKind(alerts: AlertRow[]): {
   );
 }
 
-export function countUniqueIssueAlerts(alerts: AlertRow[]): number {
+export function countUniqueIssueAlerts(alerts?: AlertRow[] | null): number {
+  const safe = Array.isArray(alerts) ? alerts.filter((a): a is AlertRow => Boolean(a)) : [];
   const issueIds = new Set(
-    alerts.map((alert) => alert.issue_id).filter((issueId): issueId is string => Boolean(issueId)),
+    safe.map((alert) => alert.issue_id).filter((issueId): issueId is string => Boolean(issueId)),
   );
   return issueIds.size;
 }
 
 export function getAlertsPageSubtitle(
-  alerts: AlertRow[],
-  loading: boolean,
+  alerts?: AlertRow[] | null,
+  loading = false,
   environment?: string,
 ): string {
   if (loading) {
     return "Loading alerts…";
   }
 
-  const recent = countRecentAlerts(alerts);
+  const safe = Array.isArray(alerts) ? alerts : [];
+  const recent = countRecentAlerts(safe);
   const noun = recent === 1 ? "alert" : "alerts";
   const parts = [`${recent} ${noun} in the last ${RECENT_DAYS} days`];
 
@@ -581,7 +653,7 @@ export function getAlertsPageSubtitle(
   return parts.join(" · ");
 }
 
-export function formatAlertSummary(alerts: AlertRow[]): string | null {
+export function formatAlertSummary(alerts?: AlertRow[] | null): string | null {
   const { velocity, regression, newIssue } = countAlertsByKind(alerts);
   const parts: string[] = [];
 
@@ -613,9 +685,16 @@ export function loadAlertsPreferences(): AlertsPreferences {
       parsed.defaultViewMode === "all"
         ? parsed.defaultViewMode
         : DEFAULT_ALERTS_PREFERENCES.defaultViewMode;
+    const timeWindow =
+      parsed.defaultTimeWindow === "24h" ||
+      parsed.defaultTimeWindow === "7d" ||
+      parsed.defaultTimeWindow === "30d" ||
+      parsed.defaultTimeWindow === "all"
+        ? parsed.defaultTimeWindow
+        : DEFAULT_ALERTS_PREFERENCES.defaultTimeWindow;
     return {
       defaultViewMode: viewMode,
-      defaultTimeWindow: parsed.defaultTimeWindow ?? DEFAULT_ALERTS_PREFERENCES.defaultTimeWindow,
+      defaultTimeWindow: timeWindow,
     };
   } catch {
     return DEFAULT_ALERTS_PREFERENCES;

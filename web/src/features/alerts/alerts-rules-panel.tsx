@@ -15,8 +15,10 @@ export function AlertsRulesPanel({
   webhookCount,
   canManageWebhooks = true,
 }: AlertsRulesPanelProps) {
-  const webhooksPath = projectSettingsPath(projectId, "webhooks");
-  const rulesPath = projectSettingsPath(projectId, "alerts");
+  const safeProjectId = projectId || "";
+  const webhooksPath = safeProjectId ? projectSettingsPath(safeProjectId, "webhooks") : "/settings";
+  const rulesPath = safeProjectId ? projectSettingsPath(safeProjectId, "alerts") : "/settings";
+  const builtInRulesCount = (ALERT_RULES ?? []).filter((rule) => rule && rule.id !== "custom").length;
   const webhookHint =
     webhookCount === null
       ? "Checking notification endpoints…"
@@ -29,7 +31,7 @@ export function AlertsRulesPanel({
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-fg-muted">
         <p className="min-w-0 leading-relaxed">
           <span className="font-medium text-fg-primary">
-            {ALERT_RULES.filter((rule) => rule.id !== "custom").length} built-in rules.
+            {builtInRulesCount} built-in rules.
           </span>{" "}
           Add project rules under Alert rules. Ignore an alert to stop that rule for the issue.
           <span className="mx-1.5 text-fg-muted/40" aria-hidden>·</span>

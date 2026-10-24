@@ -4,6 +4,7 @@ import { useAppContext } from "../../shell/app-context";
 import { NotFoundState } from "../../ui/error-state";
 import { PageShell } from "@/components/kit/page-shell";
 import { SettingsNav } from "../../ui/settings-nav";
+import { RouteErrorBoundary } from "../../ui/route-error-boundary";
 import { DsnKeysSettings } from "./dsn-keys";
 import { ProjectGeneralSettings } from "./project-general";
 import { InboundFiltersSettings } from "./inbound-filters";
@@ -13,7 +14,8 @@ import { WebhooksSettings } from "./webhooks";
 export function SettingsPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { projects } = useAppContext();
-  const project = projects.find((row) => row.id === projectId) ?? null;
+  const safeProjects = Array.isArray(projects) ? projects : [];
+  const project = safeProjects.find((row) => row && (row.id === projectId || row.slug === projectId)) ?? null;
 
   return (
     <PageShell
@@ -26,7 +28,8 @@ export function SettingsPage() {
 
         <div className="min-w-0 flex-1 overflow-auto bg-canvas p-4 md:p-6">
           <div className="mx-auto max-w-5xl space-y-4">
-            <Routes>
+            <RouteErrorBoundary title="Settings crashed" backHref={projectId ? projectPath(projectId, "issues") : "/"}>
+              <Routes>
               <Route index element={<ProjectGeneralSettings />} />
               <Route path="filters" element={<InboundFiltersSettings />} />
               <Route path="dsn" element={<DsnKeysSettings />} />
@@ -49,6 +52,7 @@ export function SettingsPage() {
                 }
               />
             </Routes>
+            </RouteErrorBoundary>
           </div>
         </div>
       </div>

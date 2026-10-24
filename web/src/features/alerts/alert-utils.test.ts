@@ -64,3 +64,38 @@ assert.equal(filterAlertsByViewMode([velocity, regression, ignored], "ignored").
 assert.equal(filterAlertsByViewMode([velocity, regression, ignored], "all").length, 3);
 assert.equal(countAlertsForViewModes([velocity, regression], "7d").unread, 2);
 assert.equal(groupAlertsByDay([velocity, regression]).length, 1);
+
+// Edge cases: null/undefined inputs
+assert.equal(filterAlerts(null as any).length, 0);
+assert.equal(filterAlerts(undefined as any).length, 0);
+assert.deepEqual(countAlertsByKind(null as any), { velocity: 0, regression: 0, newIssue: 0 });
+assert.equal(countAlertsByKind(null as any).velocity, 0);
+assert.equal(sortAlerts(null as any).length, 0);
+assert.equal(filterAlertsByViewMode(null as any, "all").length, 0);
+assert.equal(countAlertsForViewModes(null as any).unread, 0);
+assert.equal(groupAlertsByDay(null as any).length, 0);
+
+// Null or corrupt alert rows
+assert.equal(isAlertUnread(null as any), false);
+assert.equal(getAlertDetail(null as any), "");
+const emptyPayloadAlert = sampleAlert({ payload_json: null as any });
+assert.equal(getAlertDetail(emptyPayloadAlert), "Event rate jumped more than 300% in 15 minutes");
+const emptyObjPayloadAlert = sampleAlert({ payload_json: {} });
+assert.equal(getAlertDetail(emptyObjPayloadAlert), "Event rate jumped more than 300% in 15 minutes");
+
+// Stringified payload_json edge case
+const stringifiedPayloadAlert = sampleAlert({
+  payload_json: JSON.stringify({
+    title: "Serialized crash",
+    current_window: 10,
+    previous_window: 2,
+    ratio: 5,
+  }) as any,
+});
+assert.match(getAlertDetail(stringifiedPayloadAlert), /10 events in 15m/);
+
+// Corrupted/NaN date in sortAlerts
+const corruptedDateAlert = sampleAlert({ fired_at: "not-a-date" });
+const sortedWithCorrupted = sortAlerts([corruptedDateAlert, velocity]);
+assert.equal(sortedWithCorrupted.length, 2);
+assert.equal(sortedWithCorrupted[0]?.id, velocity.id);

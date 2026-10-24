@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Mail, Send } from "lucide-react";
 import {
@@ -96,7 +96,7 @@ function kindLabel(kind: string): string {
 
 export function AlertRulesSettings() {
   const { projectId: paramId } = useParams<{ projectId: string }>();
-  const { user } = useAppContext();
+  const { user, projects, projectId: contextProjectId, projectsLoading } = useAppContext();
   const { toast } = useToast();
   const [rules, setRules] = useState<AlertRuleRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,18 +117,28 @@ export function AlertRulesSettings() {
   const [testEmailRecipient, setTestEmailRecipient] = useState("");
   const [testAlertOpen, setTestAlertOpen] = useState(false);
 
-  const activeProjectId = paramId ?? null;
+  const safeProjects = Array.isArray(projects) ? projects : [];
+  const activeProject = useMemo(() => {
+    const candidate = paramId ?? contextProjectId;
+    if (candidate) {
+      const match = safeProjects.find((row) => row && (row.id === candidate || row.slug === candidate));
+      if (match) return match;
+    }
+    return safeProjects[0] ?? null;
+  }, [paramId, contextProjectId, safeProjects]);
+
+  const activeProjectId = activeProject?.id ?? null;
   const canManage = user?.role === "owner" || user?.role === "admin";
   const selectedKind = RULE_KINDS.find((item) => item.id === kind) ?? RULE_KINDS[0];
 
   const loadEmailAlertSettings = useCallback(async () => {
-    if (!activeProjectId) return;
+    if (projectsLoading || !activeProjectId) return;
     try {
       const settings = await fetchProjectEmailAlertSettings(activeProjectId);
-      setEmailAlertsEnabled(settings.email_alerts_enabled);
-      setEmailOnRegression(settings.email_alert_on_regression);
-      setEmailOnSpike(settings.email_alert_on_spike);
-      if (settings.email_alert_recipients && settings.email_alert_recipients.length > 0) {
+      setEmailAlertsEnabled(settings?.email_alerts_enabled ?? true);
+      setEmailOnRegression(settings?.email_alert_on_regression ?? true);
+      setEmailOnSpike(settings?.email_alert_on_spike ?? true);
+      if (Array.isArray(settings?.email_alert_recipients) && settings.email_alert_recipients.length > 0) {
         setCustomRecipientsMode(true);
         setCustomRecipientsInput(settings.email_alert_recipients.join(", "));
       } else {
@@ -140,9 +150,10 @@ export function AlertRulesSettings() {
     } finally {
       setEmailAlertsLoading(false);
     }
-  }, [activeProjectId]);
+  }, [projectsLoading, activeProjectId]);
 
   const loadRules = useCallback(async () => {
+    if (projectsLoading) return;
     if (!activeProjectId || !canManage) {
       setRules([]);
       setLoading(false);
@@ -150,13 +161,15 @@ export function AlertRulesSettings() {
     }
     setLoading(true);
     try {
-      setRules(await fetchAlertRules(activeProjectId));
+      const fetched = await fetchAlertRules(activeProjectId);
+      setRules(Array.isArray(fetched) ? fetched : []);
     } catch {
       toast("Failed to load alert rules");
+      setRules([]);
     } finally {
       setLoading(false);
     }
-  }, [activeProjectId, canManage, toast]);
+  }, [projectsLoading, activeProjectId, canManage, toast]);
 
   useEffect(() => {
     void loadRules();
@@ -253,7 +266,7 @@ export function AlertRulesSettings() {
     setBusy(true);
     try {
       const updated = await updateAlertRule(rule.id, { enabled });
-      setRules((rows) => rows.map((row) => (row.id === rule.id ? updated : row)));
+      setRules((rows) => (Array.isArray(rows) ? rows : []).map((row) => (row.id === rule.id ? updated : row)));
     } catch {
       toast("Failed to update rule");
     } finally {
@@ -268,7 +281,7 @@ export function AlertRulesSettings() {
     setBusy(true);
     try {
       await deleteAlertRule(id);
-      setRules((rows) => rows.filter((row) => row.id !== id));
+      setRules((rows) => (Array.isArray(rows) ? rows : []).filter((row) => row.id !== id));
       toast("Alert rule removed");
     } catch {
       toast("Failed to remove rule");
@@ -546,27 +559,30 @@ export function AlertRulesSettings() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Project rules</CardTitle>
-          <CardDescription>
-            {loading
-              ? "Loading…"
-              : rules.length === 0
-                ? "No custom rules yet — built-in engines still run."
-                : `${rules.length} custom rule${rules.length === 1 ? "" : "s"}`}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0 pt-0">
-          {loading ? (
-            <p className="p-5 text-xs text-fg-muted">Loading rules…</p>
-          ) : rules.length === 0 ? (
-            <p className="p-5 text-xs text-fg-muted">
-              Use a template above if you only want extra notifications for production.
-            </p>
-          ) : (
-            <ul className="divide-y divide-border-subtle">
-              {rules.map((rule) => (
+      {(() => {
+        const safeRules = Array.isArray(rules) ? rules : [];
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Project rules</CardTitle>
+              <CardDescription>
+                {loading
+                  ? "Loading…"
+                  : safeRules.length === 0
+                    ? "No custom rules yet — built-in engines still run."
+                    : `${safeRules.length} custom rule${safeRules.length === 1 ? "" : "s"}`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0 pt-0">
+              {loading ? (
+                <p className="p-5 text-xs text-fg-muted">Loading rules…</p>
+              ) : safeRules.length === 0 ? (
+                <p className="p-5 text-xs text-fg-muted">
+                  Use a template above if you only want extra notifications for production.
+                </p>
+              ) : (
+                <ul className="divide-y divide-border-subtle">
+                  {safeRules.map((rule) => (
                 <li key={rule.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0 space-y-1">
                     <p className={cn("text-sm font-medium text-fg-primary", !rule.enabled && "opacity-60")}>
@@ -606,6 +622,8 @@ export function AlertRulesSettings() {
           )}
         </CardContent>
       </Card>
+        );
+      })()}
     </div>
   );
 }

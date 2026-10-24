@@ -11,6 +11,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/sonner";
 import { MonitoringPage } from "./features/monitoring";
 
+import { RouteErrorBoundary } from "./ui/route-error-boundary";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -38,6 +40,14 @@ export function App() {
               }
             />
             <Route
+              path="/auth/authorize"
+              element={
+                <AuthGuard>
+                  <AuthorizeView />
+                </AuthGuard>
+              }
+            />
+            <Route
               path="/activate"
               element={
                 <AuthGuard>
@@ -49,7 +59,9 @@ export function App() {
               path="/*"
               element={
                 <AuthGuard>
-                  <AppShell />
+                  <RouteErrorBoundary title="Epure crashed">
+                    <AppShell />
+                  </RouteErrorBoundary>
                 </AuthGuard>
               }
             />

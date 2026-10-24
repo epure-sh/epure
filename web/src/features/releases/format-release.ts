@@ -22,7 +22,11 @@ export function getReleasesPageDescription(
     : `${count} ${noun} — click a version to see its issues.`;
 }
 
-export function formatReleaseMeta(release: ReleaseSummary): string {
+export function formatReleaseMeta(release?: ReleaseSummary | null): string {
+  if (!release) {
+    return "No events yet";
+  }
+
   const parts: string[] = [];
 
   if (release.first_seen_at && release.last_seen_at) {
@@ -41,35 +45,44 @@ export function formatReleaseMeta(release: ReleaseSummary): string {
     parts.push("No events yet");
   }
 
-  if (release.issue_count > 0) {
+  const issueCount = release.issue_count ?? 0;
+  if (issueCount > 0) {
     parts.push(
-      `${release.issue_count} issue${release.issue_count === 1 ? "" : "s"}`,
+      `${issueCount} issue${issueCount === 1 ? "" : "s"}`,
     );
   }
-  if (release.event_count > 0) {
+  const eventCount = release.event_count ?? 0;
+  if (eventCount > 0) {
     parts.push(
-      `${release.event_count} event${release.event_count === 1 ? "" : "s"}`,
+      `${eventCount} event${eventCount === 1 ? "" : "s"}`,
     );
   }
-  if (release.artifact_count > 0) {
+  const artifactCount = release.artifact_count ?? 0;
+  if (artifactCount > 0) {
     parts.push(
-      `${release.artifact_count} artifact${release.artifact_count === 1 ? "" : "s"}`,
+      `${artifactCount} artifact${artifactCount === 1 ? "" : "s"}`,
     );
   }
 
   return parts.join(" · ");
 }
 
-export function formatReleaseDeltas(release: ReleaseSummary): string | null {
-  const parts: string[] = [];
+export function formatReleaseDeltas(release?: ReleaseSummary | null): string | null {
+  if (!release) {
+    return null;
+  }
 
-  if (release.regression_count > 0) {
+  const parts: string[] = [];
+  const regressionCount = release.regression_count ?? 0;
+  const newIssueCount = release.new_issue_count ?? 0;
+
+  if (regressionCount > 0) {
     parts.push(
-      `+${release.regression_count} came back`,
+      `+${regressionCount} came back`,
     );
   }
-  if (release.new_issue_count > 0) {
-    parts.push(`+${release.new_issue_count} new`);
+  if (newIssueCount > 0) {
+    parts.push(`+${newIssueCount} new`);
   }
 
   return parts.length > 0 ? parts.join(" · ") : null;

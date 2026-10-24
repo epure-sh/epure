@@ -11,7 +11,7 @@ import { formatCompactCount } from "../../lib/format-count";
 import { formatAge } from "../../lib/format-time";
 import { copyText } from "../../lib/copy-text";
 import { toast } from "@/components/ui/sonner";
-import { Check, Clock, Sparkles } from "lucide-react";
+import { Check, Clock, Sparkles, RotateCcw, BellRing } from "lucide-react";
 import {
   inferTrendStatus,
   issueLocationHint,
@@ -32,8 +32,10 @@ export interface IssueListProps {
   onSelect: (id: string, extend?: boolean) => void;
   onToggleSelect: (id: string) => void;
   onResolve: (id: string) => void;
+  onReopen?: (id: string) => void;
   onIgnore: (id: string) => void;
   onSnooze?: (id: string) => void;
+  onUnsnooze?: (id: string) => void;
   actionsDisabled?: boolean;
   onMoveSelection: (direction: "up" | "down") => void;
   onOpenDetail: () => void;
@@ -57,8 +59,10 @@ export function IssueList({
   onSelect,
   onToggleSelect,
   onResolve,
+  onReopen,
   onIgnore,
   onSnooze,
+  onUnsnooze,
   actionsDisabled = false,
   onMoveSelection,
   onOpenDetail,
@@ -125,7 +129,7 @@ export function IssueList({
         return;
       }
 
-      // R or E: Resolve
+      // R or E: Resolve / Unresolve (Reopen) toggle
       if (
         !event.altKey &&
         !event.metaKey &&
@@ -135,27 +139,38 @@ export function IssueList({
         !actionsDisabled
       ) {
         const issue = issues.find((row) => row.id === targetId);
-        if (issue && canResolveIssue(issue.status)) {
-          event.preventDefault();
-          onResolve(targetId);
+        if (issue) {
+          if (issue.status === "resolved") {
+            if (onReopen) {
+              event.preventDefault();
+              onReopen(targetId);
+            }
+          } else if (canResolveIssue(issue.status)) {
+            event.preventDefault();
+            onResolve(targetId);
+          }
         }
         return;
       }
 
-      // S: Snooze
+      // S: Snooze / Unsnooze toggle
       if (
         !event.altKey &&
         !event.metaKey &&
         !event.ctrlKey &&
         event.key.toLowerCase() === "s" &&
         targetId &&
-        !actionsDisabled &&
-        onSnooze
+        !actionsDisabled
       ) {
         const issue = issues.find((row) => row.id === targetId);
-        if (issue && canSnoozeIssue(issue)) {
-          event.preventDefault();
-          onSnooze(targetId);
+        if (issue) {
+          if ((issue.snoozed || issue.status === "snoozed") && onUnsnooze) {
+            event.preventDefault();
+            onUnsnooze(targetId);
+          } else if (canSnoozeIssue(issue) && onSnooze) {
+            event.preventDefault();
+            onSnooze(targetId);
+          }
         }
         return;
       }
@@ -297,7 +312,17 @@ export function IssueList({
               className="flex items-center justify-end gap-1"
               onClick={(e) => e.stopPropagation()}
             >
-              {canResolveIssue(issue.status) && (
+              {issue.status === "resolved" ? (
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="h-6 w-6 p-0 text-fg-muted hover:text-healthy hover:bg-healthy/10"
+                  title="Unresolve / Reopen (R)"
+                  onClick={() => onReopen?.(issue.id)}
+                >
+                  <RotateCcw className="size-3.5" />
+                </Button>
+              ) : canResolveIssue(issue.status) ? (
                 <Button
                   variant="ghost"
                   size="icon-xs"
@@ -307,8 +332,18 @@ export function IssueList({
                 >
                   <Check className="size-3.5" />
                 </Button>
-              )}
-              {canSnoozeIssue(issue) && (
+              ) : null}
+              {issue.snoozed || issue.status === "snoozed" ? (
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="h-6 w-6 p-0 text-accent hover:text-accent hover:bg-accent/10"
+                  title="Unsnooze (S)"
+                  onClick={() => onUnsnooze?.(issue.id)}
+                >
+                  <BellRing className="size-3.5" />
+                </Button>
+              ) : canSnoozeIssue(issue) ? (
                 <Button
                   variant="ghost"
                   size="icon-xs"
@@ -318,7 +353,7 @@ export function IssueList({
                 >
                   <Clock className="size-3.5" />
                 </Button>
-              )}
+              ) : null}
               <Button
                 variant="ghost"
                 size="icon-xs"

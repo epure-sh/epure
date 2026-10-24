@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import { ErrorState, NotFoundState } from "../ui/error-state";
+import { RouteErrorBoundary } from "../ui/route-error-boundary";
 import { Skeleton } from "../ui/skeleton";
 import { useAppContext } from "./app-context";
 
@@ -17,8 +18,9 @@ export function ProjectScope() {
     projectId,
   } = useAppContext();
 
+  const safeProjects = Array.isArray(projects) ? projects : [];
   const matchingProject = paramId
-    ? projects.find((project) => project.id === paramId || project.slug === paramId) ?? null
+    ? safeProjects.find((project) => project && (project.id === paramId || project.slug === paramId)) ?? null
     : null;
 
   useEffect(() => {
@@ -66,12 +68,19 @@ export function ProjectScope() {
   }
 
   if (matchingProject.id !== projectId) {
-    return null;
+    return (
+      <div className="epure-shell-loading flex h-full flex-col items-center justify-center gap-3 p-6">
+        <Skeleton className="h-4 w-36" />
+        <p className="text-sm text-ink-muted">Loading…</p>
+      </div>
+    );
   }
 
   return (
     <div className="h-full min-h-0">
-      <Outlet />
+      <RouteErrorBoundary title="Project page crashed" backHref="/">
+        <Outlet />
+      </RouteErrorBoundary>
     </div>
   );
 }

@@ -67,10 +67,13 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
   const viewerRole = user?.role;
 
   const routeProjectId = projectIdFromPath(pathname);
+  const safeProjects = Array.isArray(projects) ? projects : [];
   const activeProject =
-    (inProject && routeProjectId ? projects.find((project) => project.id === routeProjectId) : null) ??
-    (projectId ? projects.find((project) => project.id === projectId) : null) ??
-    projects[0] ??
+    (inProject && routeProjectId
+      ? safeProjects.find((project) => project && (project.id === routeProjectId || project.slug === routeProjectId))
+      : null) ??
+    (projectId ? safeProjects.find((project) => project && (project.id === projectId || project.slug === projectId)) : null) ??
+    safeProjects[0] ??
     null;
 
   function enterProject(id: string) {

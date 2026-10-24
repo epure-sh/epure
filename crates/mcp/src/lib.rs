@@ -50,7 +50,7 @@ impl McpHandler {
     pub fn tool_definitions() -> Value {
         json!([
             {
-                "name": "list_unresolved_issues",
+                "name": "list_issues",
                 "description": "List top unresolved production issues ranked by priority score",
                 "inputSchema": {
                     "type": "object",
@@ -61,8 +61,8 @@ impl McpHandler {
                 }
             },
             {
-                "name": "epure_list_issues",
-                "description": "Alias for list_unresolved_issues: list unresolved production issues ranked by priority score",
+                "name": "list_unresolved_issues",
+                "description": "Alias for list_issues: list top unresolved production issues ranked by priority score",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -72,8 +72,30 @@ impl McpHandler {
                 }
             },
             {
+                "name": "epure_list_issues",
+                "description": "Alias for list_issues: list unresolved production issues ranked by priority score",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "project": { "type": "string", "description": "Project ID or slug" },
+                        "limit": { "type": "integer", "description": "Max issues to return (default 10)", "default": 10 }
+                    }
+                }
+            },
+            {
+                "name": "get_issue_detail",
+                "description": "Get detailed crash context, stack frames, breadcrumbs, and suspect code for an issue",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "issue_id": { "type": "string", "description": "Issue UUID" }
+                    },
+                    "required": ["issue_id"]
+                }
+            },
+            {
                 "name": "get_crash_context",
-                "description": "Get sanitized stack frames, source lines, and crumbs for an issue (Agentjacking-safe)",
+                "description": "Alias for get_issue_detail: get sanitized stack frames, source lines, and crumbs for an issue",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -84,7 +106,7 @@ impl McpHandler {
             },
             {
                 "name": "epure_get_issue_context",
-                "description": "Alias for get_crash_context: get sanitized stack frames and context for an issue",
+                "description": "Alias for get_issue_detail: get sanitized stack frames and context for an issue",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -94,7 +116,7 @@ impl McpHandler {
                 }
             },
             {
-                "name": "mark_issue_resolved",
+                "name": "resolve_issue",
                 "description": "Mark an issue as resolved with optional commit SHA",
                 "inputSchema": {
                     "type": "object",
@@ -106,8 +128,8 @@ impl McpHandler {
                 }
             },
             {
-                "name": "epure_triage_issue",
-                "description": "Alias for mark_issue_resolved: mark an issue as resolved with optional commit SHA",
+                "name": "mark_issue_resolved",
+                "description": "Alias for resolve_issue: mark an issue as resolved with optional commit SHA",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -115,6 +137,63 @@ impl McpHandler {
                         "commit_sha": { "type": "string", "description": "Optional Git commit hash" }
                     },
                     "required": ["issue_id"]
+                }
+            },
+            {
+                "name": "epure_triage_issue",
+                "description": "Alias for resolve_issue: mark an issue as resolved with optional commit SHA",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "issue_id": { "type": "string", "description": "Issue UUID" },
+                        "commit_sha": { "type": "string", "description": "Optional Git commit hash" }
+                    },
+                    "required": ["issue_id"]
+                }
+            },
+            {
+                "name": "unresolve_issue",
+                "description": "Mark a previously resolved or ignored issue back as unresolved",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "issue_id": { "type": "string", "description": "Issue UUID" }
+                    },
+                    "required": ["issue_id"]
+                }
+            },
+            {
+                "name": "snooze_issue",
+                "description": "Temporarily snooze/mute an issue until a deadline or occurrence/user threshold",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "issue_id": { "type": "string", "description": "Issue UUID" },
+                        "mode": { "type": "string", "description": "Snooze duration mode: 'hours', 'occurrences', 'users' (default 'hours')" }
+                    },
+                    "required": ["issue_id"]
+                }
+            },
+            {
+                "name": "unsnooze_issue",
+                "description": "Unsnooze/unmute a previously snoozed issue and restore active alerting",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "issue_id": { "type": "string", "description": "Issue UUID" }
+                    },
+                    "required": ["issue_id"]
+                }
+            },
+            {
+                "name": "list_releases",
+                "description": "List deployment releases and tracking metadata for a project",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "project_id": { "type": "string", "description": "Project ID or slug" }
+                    },
+                    "required": ["project_id"]
                 }
             }
         ])
@@ -198,15 +277,19 @@ impl McpHandler {
 
     async fn dispatch_tool(&self, name: &str, args: Value) -> Result<String, String> {
         match name {
-            "list_unresolved_issues" | "epure_list_issues" => {
+            "list_issues" | "list_unresolved_issues" | "epure_list_issues" => {
                 self.tool_list_unresolved_issues(args).await
             }
-            "get_crash_context" | "epure_get_issue_context" => {
+            "get_issue_detail" | "get_crash_context" | "epure_get_issue_context" => {
                 self.tool_get_crash_context(args).await
             }
-            "mark_issue_resolved" | "epure_triage_issue" => {
+            "resolve_issue" | "mark_issue_resolved" | "epure_triage_issue" => {
                 self.tool_mark_issue_resolved(args).await
             }
+            "unresolve_issue" => self.tool_unresolve_issue(args).await,
+            "snooze_issue" => self.tool_snooze_issue(args).await,
+            "unsnooze_issue" => self.tool_unsnooze_issue(args).await,
+            "list_releases" => self.tool_list_releases(args).await,
             _ => Err(format!("Unknown tool: {name}")),
         }
     }
@@ -319,6 +402,119 @@ impl McpHandler {
 
         Ok(format!("Issue {issue_id} marked as resolved."))
     }
+
+    async fn tool_unresolve_issue(&self, args: Value) -> Result<String, String> {
+        let issue_id = args
+            .get("issue_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "issue_id is required".to_string())?;
+
+        let payload = json!({ "status": "unresolved" });
+
+        let url = format!("{}/api/v1/issues/{issue_id}", self.base_url);
+        let res = self
+            .client
+            .patch(&url)
+            .header(AUTHORIZATION, format!("Bearer {}", self.token))
+            .header(CONTENT_TYPE, "application/json")
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if !res.status().is_success() {
+            return Err(format!("Epure API returned HTTP {}", res.status()));
+        }
+
+        Ok(format!("Issue {issue_id} marked as unresolved."))
+    }
+
+    async fn tool_snooze_issue(&self, args: Value) -> Result<String, String> {
+        let issue_id = args
+            .get("issue_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "issue_id is required".to_string())?;
+
+        let mode = args.get("mode").and_then(Value::as_str).unwrap_or("hours");
+        let payload = json!({ "mode": mode });
+
+        let url = format!("{}/api/v1/issues/{issue_id}/snooze", self.base_url);
+        let res = self
+            .client
+            .post(&url)
+            .header(AUTHORIZATION, format!("Bearer {}", self.token))
+            .header(CONTENT_TYPE, "application/json")
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if !res.status().is_success() {
+            return Err(format!("Epure API returned HTTP {}", res.status()));
+        }
+
+        Ok(format!("Issue {issue_id} snoozed successfully (mode: {mode})."))
+    }
+
+    async fn tool_unsnooze_issue(&self, args: Value) -> Result<String, String> {
+        let issue_id = args
+            .get("issue_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "issue_id is required".to_string())?;
+
+        let url = format!("{}/api/v1/issues/{issue_id}/unsnooze", self.base_url);
+        let res = self
+            .client
+            .post(&url)
+            .header(AUTHORIZATION, format!("Bearer {}", self.token))
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if !res.status().is_success() {
+            return Err(format!("Epure API returned HTTP {}", res.status()));
+        }
+
+        Ok(format!("Issue {issue_id} unsnoozed successfully."))
+    }
+
+    async fn tool_list_releases(&self, args: Value) -> Result<String, String> {
+        let project_id = args
+            .get("project_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "project_id is required".to_string())?;
+
+        let url = format!("{}/api/v1/releases?project_id={project_id}", self.base_url);
+        let res = self
+            .client
+            .get(&url)
+            .header(AUTHORIZATION, format!("Bearer {}", self.token))
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if !res.status().is_success() {
+            return Err(format!("Epure API returned HTTP {}", res.status()));
+        }
+
+        let body: Value = res.json().await.map_err(|e| e.to_string())?;
+        let releases = body.get("releases").and_then(Value::as_array);
+
+        let mut lines = Vec::new();
+        lines.push(format!("# Releases for {project_id}"));
+        if let Some(items) = releases {
+            if items.is_empty() {
+                lines.push("No releases found.".into());
+            }
+            for item in items {
+                let version = item.get("version").and_then(Value::as_str).unwrap_or("unknown");
+                let count = item.get("event_count").and_then(Value::as_i64).unwrap_or(0);
+                let first_seen = item.get("first_seen_at").and_then(Value::as_str).unwrap_or("-");
+                lines.push(format!("- [{version}] (events: {count}, first seen: {first_seen})"));
+            }
+        }
+        Ok(lines.join("\n"))
+    }
 }
 
 #[cfg(test)]
@@ -360,12 +556,19 @@ mod tests {
         let tools = resp.result.unwrap()["tools"].as_array().unwrap().clone();
         let tool_names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
 
+        assert!(tool_names.contains(&"list_issues"));
         assert!(tool_names.contains(&"list_unresolved_issues"));
         assert!(tool_names.contains(&"epure_list_issues"));
+        assert!(tool_names.contains(&"get_issue_detail"));
         assert!(tool_names.contains(&"get_crash_context"));
         assert!(tool_names.contains(&"epure_get_issue_context"));
+        assert!(tool_names.contains(&"resolve_issue"));
         assert!(tool_names.contains(&"mark_issue_resolved"));
         assert!(tool_names.contains(&"epure_triage_issue"));
+        assert!(tool_names.contains(&"unresolve_issue"));
+        assert!(tool_names.contains(&"snooze_issue"));
+        assert!(tool_names.contains(&"unsnooze_issue"));
+        assert!(tool_names.contains(&"list_releases"));
     }
 
     #[tokio::test]
