@@ -1,0 +1,113 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+:root, .dark {
+  /* Architectural Obsidian Surfaces */
+  --surface-canvas: oklch(0.125 0.005 260);
+  --surface-1: oklch(0.155 0.006 260);
+  --surface-2: oklch(0.195 0.008 260);
+  --surface-3: oklch(0.235 0.010 260);
+  --surface-overlay: oklch(0.155 0.006 260 / 0.88);
+
+  /* Hairline Borders */
+  --border-subtle: oklch(0.225 0.008 260);
+  --border-strong: oklch(0.315 0.012 260);
+
+  /* Typography Hierarchy */
+  --fg-primary: oklch(0.965 0.003 260);
+  --fg-secondary: oklch(0.735 0.008 260);
+  --fg-muted: oklch(0.525 0.010 260);
+
+  /* Semantic Status & Brand Accents */
+  --intent-primary: oklch(0.965 0.003 260);
+  --intent-primary-fg: oklch(0.125 0.005 260);
+  --status-escalating: oklch(0.65 0.22 28);
+  --status-regression: oklch(0.76 0.16 75);
+  --status-healthy: oklch(0.72 0.17 152);
+  --status-info: oklch(0.68 0.15 250);
+
+  /* Geometry & Tactile Shadows */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --shadow-bevel: inset 0 1px 0 0 oklch(1 0 0 / 0.10), 0 1px 2px 0 oklch(0 0 0 / 0.35);
+  --shadow-popover: 0 12px 32px -4px oklch(0 0 0 / 0.65), 0 0 0 1px var(--border-strong);
+
+  /* Aliases for backwards compatibility during refactor */
+  --bg: var(--surface-canvas);
+  --bg-subtle: var(--surface-1);
+  --surface: var(--surface-1);
+  --surface-inset: var(--surface-canvas);
+  --surface-elevated: var(--surface-2);
+  --surface-raised: var(--surface-3);
+  --border: var(--border-subtle);
+  --text: var(--fg-primary);
+  --text-muted: var(--fg-muted);
+  --text-subtle: var(--fg-secondary);
+  --accent: var(--intent-primary);
+  --accent-contrast: var(--intent-primary-fg);
+  --signal: var(--status-escalating);
+  --success: var(--status-healthy);
+  --warning: var(--status-regression);
+  --danger: var(--status-escalating);
+  --info: var(--status-info);
+}
+
+@theme inline {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --color-canvas: var(--surface-canvas);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-overlay: var(--surface-overlay);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+
+  --color-fg-primary: var(--fg-primary);
+  --color-fg-secondary: var(--fg-secondary);
+  --color-fg-muted: var(--fg-muted);
+
+  --color-primary: var(--intent-primary);
+  --color-primary-fg: var(--intent-primary-fg);
+  --color-escalating: var(--status-escalating);
+  --color-regression: var(--status-regression);
+  --color-healthy: var(--status-healthy);
+  --color-info: var(--status-info);
+
+  /* Legacy aliases mapped to Layer 0 tokens */
+  --color-bg: var(--surface-canvas);
+  --color-surface: var(--surface-1);
+  --color-border: var(--border-subtle);
+  --color-ink: var(--fg-primary);
+  --color-accent: var(--intent-primary);
+
+  --radius-xs: var(--radius-xs);
+  --radius-control: var(--radius-sm);
+  --radius-panel: var(--radius-md);
+
+  --shadow-tactile: var(--shadow-bevel);
+  --shadow-float: var(--shadow-popover);
+
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--border-subtle);
+    box-sizing: border-box;
+  }
+  body {
+    background-color: var(--surface-canvas);
+    color: var(--fg-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  table, time, kbd, code, .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
