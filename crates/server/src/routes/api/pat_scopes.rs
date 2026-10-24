@@ -46,6 +46,16 @@ pub fn pat_missing_scopes(method: &Method, path: &str, scopes: &[String]) -> Opt
         return needs_read();
     }
 
+    if path.starts_with("/webhooks")
+        || path.starts_with("/alert-rules")
+        || path.starts_with("/alerts/rules")
+        || path.starts_with("/dsn-keys")
+        || path.starts_with("/members")
+        || path.starts_with("/invitations")
+    {
+        return needs_admin();
+    }
+
     if path.starts_with("/issues")
         || path.starts_with("/agent/issues")
         || path.starts_with("/alerts/")
@@ -55,15 +65,6 @@ pub fn pat_missing_scopes(method: &Method, path: &str, scopes: &[String]) -> Opt
 
     if path.starts_with("/agent/") && *method != Method::GET {
         return needs_triage();
-    }
-
-    if path.starts_with("/webhooks")
-        || path.starts_with("/alert-rules")
-        || path.starts_with("/dsn-keys")
-        || path.starts_with("/members")
-        || path.starts_with("/invitations")
-    {
-        return needs_admin();
     }
 
     if path.starts_with("/projects") {
@@ -175,6 +176,22 @@ mod tests {
         let admin = scopes(true, false, true);
         assert!(pat_missing_scopes(&Method::POST, "/api/v1/invitations", &admin).is_none());
         assert!(pat_missing_scopes(&Method::DELETE, "/api/v1/invitations/uuid", &admin).is_none());
+    }
+
+    #[test]
+    fn alert_rules_require_admin_even_with_triage() {
+        let triage = scopes(true, true, false);
+        assert_eq!(
+            pat_missing_scopes(&Method::POST, "/api/v1/alerts/rules", &triage),
+            Some(StatusCode::FORBIDDEN)
+        );
+        assert_eq!(
+            pat_missing_scopes(&Method::POST, "/api/v1/alert-rules", &triage),
+            Some(StatusCode::FORBIDDEN)
+        );
+        let admin = scopes(true, false, true);
+        assert!(pat_missing_scopes(&Method::POST, "/api/v1/alerts/rules", &admin).is_none());
+        assert!(pat_missing_scopes(&Method::POST, "/api/v1/alert-rules", &admin).is_none());
     }
 
     #[test]

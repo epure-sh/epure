@@ -103,10 +103,6 @@ export function AlertBuilder({
       toast.error("Please select a valid project first");
       return;
     }
-    if (selectedChannelIds.size === 0) {
-      toast.error("Please select at least one output notification destination");
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -122,9 +118,7 @@ export function AlertBuilder({
       toast.success(`Alert rule "${computedName}" created and active`);
       onSuccess?.();
     } catch {
-      // Graceful fallback for UI simulation in dev/demo mode
-      toast.success(`Alert rule "${computedName}" created and active`);
-      onSuccess?.();
+      toast.error("Failed to create alert rule");
     } finally {
       setSubmitting(false);
     }
@@ -133,6 +127,12 @@ export function AlertBuilder({
   return (
     <div
       data-slot="alert-builder-card"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !e.shiftKey && !submitting) {
+          e.preventDefault();
+          void handleSaveRule();
+        }
+      }}
       className={cn(
         "rounded-xl border border-border-strong bg-surface-1 p-5 shadow-float space-y-6 select-none",
         className
@@ -235,7 +235,7 @@ export function AlertBuilder({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-surface-2/30 p-3.5 rounded-lg border border-border-subtle">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-surface-2/30 p-3.5 rounded-lg border border-border-subtle">
           <div className="space-y-1.5">
             <label className="text-[11px] font-medium text-fg-secondary">
               Scope Environment
@@ -256,12 +256,24 @@ export function AlertBuilder({
             </div>
           </div>
 
-          {selectedTrigger === "velocity_spike" ? (
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-medium text-fg-secondary">
+              Rule Label
+            </label>
+            <Input
+              placeholder={activePreset.defaultName}
+              value={customName}
+              onChange={(e) => setCustomName(e.target.value)}
+              className="h-7 text-xs font-sans"
+            />
+          </div>
+
+          {selectedTrigger === "velocity_spike" && (
             <div className="space-y-1.5">
               <label className="text-[11px] font-medium text-fg-secondary">
                 Velocity Surge Threshold
               </label>
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
                 {[150, 300, 500].map((val) => (
                   <Button
                     key={val}
@@ -274,19 +286,16 @@ export function AlertBuilder({
                     &gt; {val}% surge
                   </Button>
                 ))}
+                <Input
+                  type="number"
+                  min="1"
+                  max="10000"
+                  value={threshold || ""}
+                  onChange={(e) => setThreshold(Number(e.target.value) || 0)}
+                  className="h-7 w-20 text-xs font-mono"
+                  placeholder="Custom %"
+                />
               </div>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-medium text-fg-secondary">
-                Rule Label
-              </label>
-              <Input
-                placeholder={activePreset.defaultName}
-                value={customName}
-                onChange={(e) => setCustomName(e.target.value)}
-                className="h-7 text-xs font-sans"
-              />
             </div>
           )}
         </div>

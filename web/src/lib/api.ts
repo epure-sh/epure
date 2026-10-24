@@ -198,22 +198,30 @@ export interface AlertRow {
   ignored: boolean;
 }
 
-export type AlertListView = "all" | "unread" | "ignored";
+export type AlertListView = "all" | "unread" | "resolved" | "ignored";
 
 export async function fetchAlerts(
   projectId?: string,
   environment?: string,
-  view?: AlertListView,
+  view?: AlertListView | string,
+  limit?: number,
+  offset?: number,
 ): Promise<AlertRow[]> {
   const params = new URLSearchParams();
   if (projectId) {
     params.set("project_id", projectId);
   }
-  if (environment) {
+  if (environment && environment !== "all") {
     params.set("environment", environment);
   }
   if (view && view !== "all") {
     params.set("view", view);
+  }
+  if (typeof limit === "number") {
+    params.set("limit", String(limit));
+  }
+  if (typeof offset === "number" && offset > 0) {
+    params.set("offset", String(offset));
   }
   const suffix = params.toString();
   const body = await apiFetch<{ alerts?: AlertRow[] } | AlertRow[]>(
@@ -223,6 +231,16 @@ export async function fetchAlerts(
     return body;
   }
   return Array.isArray(body?.alerts) ? body.alerts : [];
+}
+
+export async function simulateAlert(
+  projectId: string,
+  kind?: string,
+): Promise<AlertRow> {
+  return apiFetch<AlertRow>("/api/v1/alerts/simulate", {
+    method: "POST",
+    body: JSON.stringify({ project_id: projectId, kind }),
+  });
 }
 
 export async function patchAlert(
@@ -247,9 +265,10 @@ export interface AlertRuleRow {
   created_at: string;
 }
 
-export async function fetchAlertRules(projectId: string): Promise<AlertRuleRow[]> {
+export async function fetchAlertRules(projectId?: string): Promise<AlertRuleRow[]> {
+  const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : "";
   const body = await apiFetch<{ rules?: AlertRuleRow[] } | AlertRuleRow[]>(
-    `/api/v1/alert-rules?project_id=${encodeURIComponent(projectId)}`,
+    `/api/v1/alert-rules${query}`,
   );
   if (Array.isArray(body)) {
     return body;

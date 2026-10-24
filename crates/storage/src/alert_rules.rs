@@ -56,6 +56,24 @@ pub async fn list_for_project(
     Ok(rows)
 }
 
+pub async fn list_for_org(
+    pool: &PgPool,
+    org_id: Uuid,
+) -> Result<Vec<AlertRuleRow>, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let rows = sqlx::query_as::<_, AlertRuleRow>(
+        r#"
+        SELECT id, org_id, project_id, name, enabled, kind, environment, threshold, created_at
+        FROM alert_rules
+        ORDER BY created_at ASC
+        "#,
+    )
+    .fetch_all(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(rows)
+}
+
 pub async fn list_enabled_for_project_ingest(
     pool: &PgPool,
     org_id: Uuid,

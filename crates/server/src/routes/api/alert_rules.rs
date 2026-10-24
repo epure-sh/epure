@@ -19,17 +19,19 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/alert-rules", get(list_rules).post(create_rule))
         .route("/alert-rules/{id}", patch(update_rule).delete(delete_rule))
+        .route("/alerts/rules", get(list_rules).post(create_rule))
+        .route("/alerts/rules/{id}", patch(update_rule).delete(delete_rule))
         .with_state(state)
 }
 
 #[derive(Deserialize)]
 struct ProjectQuery {
-    project_id: Uuid,
+    project_id: Option<String>,
 }
 
 #[derive(Deserialize)]
 struct CreateBody {
-    project_id: Uuid,
+    project_id: String,
     name: String,
     kind: String,
     environment: Option<String>,
@@ -71,9 +73,28 @@ async fn list_rules(
     Extension(dashboard): Extension<DashboardSession>,
     Query(query): Query<ProjectQuery>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let rows = alert_rules::list_for_project(&state.pools.app, dashboard.org_id, query.project_id)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let project_id = match query.project_id.as_deref() {
+        Some(raw) if !raw.trim().is_empty() => {
+            let pid = epure_storage::projects::resolve_project_id(
+                &state.pools.app,
+                dashboard.org_id,
+                raw.trim(),
+            )
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            match pid {
+                Some(id) => Some(id),
+                None => return Err(StatusCode::NOT_FOUND),
+            }
+        }
+        _ => None,
+    };
+
+    let rows = match project_id {
+        Some(pid) => alert_rules::list_for_project(&state.pools.app, dashboard.org_id, pid).await,
+        None => alert_rules::list_for_org(&state.pools.app, dashboard.org_id).await,
+    }
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(RulesResponse { rules: rows }))
 }
 
@@ -89,11 +110,20 @@ async fn create_rule(
         return Err(StatusCode::BAD_REQUEST);
     }
 
+    let project_id = epure_storage::projects::resolve_project_id(
+        &state.pools.app,
+        dashboard.org_id,
+        body.project_id.trim(),
+    )
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .ok_or(StatusCode::NOT_FOUND)?;
+
     let row = alert_rules::create_rule(
         &state.pools.app,
         dashboard.org_id,
         CreateAlertRuleParams {
-            project_id: body.project_id,
+            project_id,
             name,
             kind: body.kind,
             environment: normalize_environment(body.environment),

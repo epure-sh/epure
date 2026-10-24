@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
-import { fetchAlerts, fetchWebhooks, patchAlert, type AlertRow } from "../../lib/api";
+import { fetchAlerts, fetchWebhooks, patchAlert, simulateAlert, type AlertRow } from "../../lib/api";
 import { projectPath, projectSettingsPath } from "../../lib/paths";
 import { useAppContext } from "../../shell/app-context";
 import { ActionButton } from "../../ui/action-button";
@@ -21,6 +21,8 @@ import {
   loadAlertsPreferences,
   saveAlertsPreferences,
   sortAlerts,
+  type AlertKindFilter,
+  type AlertSort,
   type AlertTimeWindow,
   type AlertViewMode,
   type AlertsPreferences,
@@ -59,6 +61,9 @@ export function AlertsPage() {
   const [preferences, setPreferences] = useState<AlertsPreferences>(() => loadAlertsPreferences());
   const [viewMode, setViewMode] = useState<AlertViewMode>(preferences.defaultViewMode);
   const [timeWindow, setTimeWindow] = useState<AlertTimeWindow>(preferences.defaultTimeWindow);
+  const [kindFilter, setKindFilter] = useState<AlertKindFilter>("all");
+  const [sort, setSort] = useState<AlertSort>("newest");
+  const [simulating, setSimulating] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -143,24 +148,44 @@ export function AlertsPage() {
     saveAlertsPreferences(next);
   };
 
+  const handleSimulateAlert = async () => {
+    if (!activeProjectId || simulating) return;
+    setSimulating(true);
+    try {
+      await simulateAlert(activeProjectId, kindFilter !== "all" ? kindFilter : undefined);
+      toast("Test alert simulated");
+      await loadAlerts();
+    } catch {
+      toast("Failed to simulate alert");
+    } finally {
+      setSimulating(false);
+    }
+  };
+
+  const handleResetFilters = () => {
+    setKindFilter("all");
+    setSort("newest");
+    handleTimeWindowChange("7d");
+  };
+
   const safeAlerts = Array.isArray(alerts) ? alerts : [];
 
   const viewModeCounts = useMemo(
-    () => countAlertsForViewModes(safeAlerts, timeWindow),
-    [safeAlerts, timeWindow],
+    () => countAlertsForViewModes(safeAlerts, timeWindow, kindFilter),
+    [safeAlerts, timeWindow, kindFilter],
   );
 
   const timeScopedAlerts = useMemo(
-    () => filterAlerts(safeAlerts, { kind: "all", timeWindow }),
-    [safeAlerts, timeWindow],
+    () => filterAlerts(safeAlerts, { kind: kindFilter, timeWindow }),
+    [safeAlerts, kindFilter, timeWindow],
   );
 
   const filteredAlerts = useMemo(
-    () => sortAlerts(filterAlertsByViewMode(timeScopedAlerts, viewMode), "newest"),
-    [timeScopedAlerts, viewMode],
+    () => sortAlerts(filterAlertsByViewMode(timeScopedAlerts, viewMode), sort),
+    [timeScopedAlerts, viewMode, sort],
   );
 
-  const groupedAlerts = useMemo(() => groupAlertsByDay(filteredAlerts), [filteredAlerts]);
+  const groupedAlerts = useMemo(() => groupAlertsByDay(filteredAlerts, sort), [filteredAlerts, sort]);
 
   useEffect(() => {
     if (filteredAlerts.length === 0) {
@@ -197,9 +222,13 @@ export function AlertsPage() {
         const updated = await patchAlert(alertId, patch);
         setAlerts((rows) => rows.map((row) => (row.id === alertId ? updated : row)));
         if (patch.ignored === true) {
-          toast("Ignored — this rule won’t notify again for that issue");
+          toast("Alert muted — will not notify again for this issue");
         } else if (patch.ignored === false) {
-          toast("Alert unignored");
+          toast("Alert unmuted");
+        } else if (patch.read === true) {
+          toast("Alert resolved");
+        } else if (patch.read === false) {
+          toast("Alert marked unread");
         }
       } catch {
         setAlerts(previous);
@@ -246,13 +275,17 @@ export function AlertsPage() {
       if (!focused || busyId) {
         return;
       }
-      if (event.key === "e" && !focused.read_at && !focused.ignored) {
+      if ((event.key === "e" || event.key === "r") && !focused.ignored) {
         event.preventDefault();
-        void applyAlertPatch(focused.id, { read: true });
+        void applyAlertPatch(focused.id, { read: !focused.read_at });
       }
-      if (event.key === "i" && !focused.ignored) {
+      if (event.key === "i" || event.key === "m") {
         event.preventDefault();
-        void applyAlertPatch(focused.id, { ignored: true });
+        if (focused.ignored) {
+          void applyAlertPatch(focused.id, { ignored: false, read: false });
+        } else {
+          void applyAlertPatch(focused.id, { ignored: true });
+        }
       }
     };
 
@@ -261,13 +294,11 @@ export function AlertsPage() {
   }, [applyAlertPatch, busyId, filteredAlerts, focusedId]);
 
   const activeView = ALERT_VIEW_MODES.find((option) => option.value === viewMode);
-  const hasAnyAlerts = timeScopedAlerts.length > 0;
+  const hasAnyAlerts = safeAlerts.length > 0;
   const alternateViewMode =
-    viewMode === "unread" && viewModeCounts.all > 0
+    viewMode !== "all" && viewModeCounts.all > 0
       ? "all"
-      : viewMode === "ignored" && viewModeCounts.all > 0
-        ? "all"
-        : null;
+      : null;
 
   return (
     <PageShell
@@ -283,9 +314,17 @@ export function AlertsPage() {
             >
               {isCreatingRule ? "Close Builder" : "+ New Alert Rule"}
             </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={simulating}
+              onClick={() => void handleSimulateAlert()}
+            >
+              {simulating ? "Simulating…" : "Simulate Alert"}
+            </Button>
             {canManageWebhooks ? (
               <Button variant="secondary" size="sm" asChild>
-                <Link to={projectSettingsPath(activeProjectId, "alerts")}>Settings</Link>
+                <Link to={projectSettingsPath(activeProjectId, "alerts")}>Configure Rules</Link>
               </Button>
             ) : (
               <ActionButton
@@ -294,7 +333,7 @@ export function AlertsPage() {
                 disabled
                 tooltip="Admin or owner required to manage alert rules"
               >
-                Settings
+                Configure Rules
               </ActionButton>
             )}
           </div>
@@ -335,6 +374,11 @@ export function AlertsPage() {
             viewModeCounts={viewModeCounts}
             timeWindow={timeWindow}
             onTimeWindowChange={handleTimeWindowChange}
+            kindFilter={kindFilter}
+            onKindFilterChange={setKindFilter}
+            sort={sort}
+            onSortChange={setSort}
+            onResetFilters={handleResetFilters}
           />
 
           <FeedListBody>
@@ -369,10 +413,23 @@ export function AlertsPage() {
                   <Button
                     variant="primary"
                     size="sm"
+                    disabled={simulating}
+                    onClick={() => void handleSimulateAlert()}
+                  >
+                    {simulating ? "Simulating…" : "Simulate Alert"}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => setIsCreatingRule(true)}
                   >
                     + New Alert Rule
                   </Button>
+                  {canManageWebhooks ? (
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to={projectSettingsPath(activeProjectId, "alerts")}>Configure Rules</Link>
+                    </Button>
+                  ) : null}
                   <Button variant="ghost" size="sm" asChild>
                     <Link to={projectPath(activeProjectId, "issues")}>Open Issues</Link>
                   </Button>
@@ -383,14 +440,20 @@ export function AlertsPage() {
                 title={
                   viewMode === "unread"
                     ? "Caught up"
-                    : viewMode === "ignored"
-                      ? "Nothing ignored"
-                      : "No activity in this window"
+                    : viewMode === "resolved"
+                      ? "No resolved alerts"
+                      : viewMode === "ignored"
+                        ? "Nothing muted"
+                        : "No activity in this window"
                 }
                 description={
                   viewMode === "unread"
-                    ? "No unread alerts in this range."
-                    : activeView?.description ?? "Try widening the time range or switching views."
+                    ? "No unresolved alerts in this range."
+                    : viewMode === "resolved"
+                      ? "No alerts have been marked as resolved in this range."
+                      : viewMode === "ignored"
+                        ? "No alerts are currently muted."
+                        : activeView?.description ?? "Try widening the time range or switching views."
                 }
               >
                 <div className="flex flex-wrap items-center justify-center gap-2">
@@ -401,6 +464,24 @@ export function AlertsPage() {
                       onClick={() => handleViewModeChange(alternateViewMode)}
                     >
                       View all ({viewModeCounts.all})
+                    </Button>
+                  ) : null}
+                  {timeWindow !== "all" && safeAlerts.length > 0 ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleTimeWindowChange("all")}
+                    >
+                      All time ({safeAlerts.length})
+                    </Button>
+                  ) : null}
+                  {kindFilter !== "all" ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleResetFilters}
+                    >
+                      Reset type filter
                     </Button>
                   ) : null}
                   <Button variant="ghost" size="sm" asChild>
@@ -417,11 +498,12 @@ export function AlertsPage() {
                         <AlertListRow
                           key={alert.id || `alert-${alertIdx}`}
                           alert={alert}
-                          projectId={activeProjectId ?? ""}
+                          projectId={alert.project_id || activeProjectId || ""}
                           selected={alert.id === focusedId}
                           onMarkRead={() => void applyAlertPatch(alert.id, { read: true })}
+                          onMarkUnread={() => void applyAlertPatch(alert.id, { read: false })}
                           onIgnore={() => void applyAlertPatch(alert.id, { ignored: true })}
-                          onUnignore={() => void applyAlertPatch(alert.id, { ignored: false })}
+                          onUnignore={() => void applyAlertPatch(alert.id, { ignored: false, read: false })}
                         />
                       ) : null)}
                     </StackedCardList>

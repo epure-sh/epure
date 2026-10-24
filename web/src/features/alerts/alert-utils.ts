@@ -1,5 +1,4 @@
 import type { AlertRow } from "../../lib/api";
-import { formatAge } from "../../lib/format-time";
 import { projectPath, projectSettingsPath } from "../../lib/paths";
 
 const RECENT_DAYS = 7;
@@ -16,7 +15,7 @@ export type AlertKindFilter =
   | "users_affected"
   | "ingest_cap_hit"
   | "custom";
-export type AlertViewMode = "all" | "unread" | "ignored";
+export type AlertViewMode = "all" | "unread" | "resolved" | "ignored";
 export type AlertSort = "newest" | "oldest" | "severity";
 export type AlertTimeWindow = "24h" | "7d" | "30d" | "all";
 export type AlertSeverity = "warning" | "danger";
@@ -61,12 +60,17 @@ export const ALERT_VIEW_MODES: {
   },
   {
     value: "unread",
-    label: "Unread",
-    description: "Alerts you have not marked read",
+    label: "Unresolved",
+    description: "Alerts waiting for review",
+  },
+  {
+    value: "resolved",
+    label: "Resolved",
+    description: "Alerts marked as acknowledged or read",
   },
   {
     value: "ignored",
-    label: "Ignored",
+    label: "Muted",
     description: "Muted rules — they will not fire again for that issue",
   },
 ];
@@ -165,6 +169,7 @@ export const ALERT_KIND_FILTERS: { value: AlertKindFilter; label: string }[] = [
   { value: "event_milestone", label: "High volume" },
   { value: "users_affected", label: "Users affected" },
   { value: "ingest_cap_hit", label: "Ingest cap" },
+  { value: "custom", label: "Custom rule" },
 ];
 
 export const ALERT_SORT_OPTIONS: { value: AlertSort; label: string }[] = [
@@ -429,18 +434,23 @@ export function filterAlertsByViewMode(
   if (mode === "unread") {
     return safe.filter((alert) => isAlertUnread(alert));
   }
+  if (mode === "resolved") {
+    return safe.filter((alert) => Boolean(alert?.read_at) && !alert?.ignored);
+  }
   return safe.filter((alert) => Boolean(alert?.ignored));
 }
 
 export function countAlertsForViewModes(
   alerts?: AlertRow[] | null,
   timeWindow: AlertTimeWindow = "7d",
+  kind: AlertKindFilter = "all",
 ): Record<AlertViewMode, number> {
   const safe = Array.isArray(alerts) ? alerts : [];
-  const scoped = filterAlerts(safe, { kind: "all", timeWindow });
+  const scoped = filterAlerts(safe, { kind, timeWindow });
   return {
     all: scoped.length,
     unread: scoped.filter((alert) => isAlertUnread(alert)).length,
+    resolved: scoped.filter((alert) => Boolean(alert?.read_at) && !alert?.ignored).length,
     ignored: scoped.filter((alert) => Boolean(alert?.ignored)).length,
   };
 }
@@ -463,7 +473,7 @@ export function getAlertDayGroupLabel(firedAt?: string | null, now = Date.now())
   const alertStart = startOfLocalDay(timestamp);
   const diffDays = Math.floor((todayStart - alertStart) / (24 * 60 * 60 * 1000));
 
-  if (diffDays === 0) {
+  if (diffDays <= 0) {
     return "Today";
   }
   if (diffDays === 1) {
@@ -504,22 +514,42 @@ export function formatAlertListTime(iso?: string | null, now = Date.now()): stri
   const alertStart = startOfLocalDay(timestamp);
   const diffDays = Math.floor((todayStart - alertStart) / (24 * 60 * 60 * 1000));
 
-  if (diffDays <= 1) {
+  if (diffDays <= 0) {
     return new Date(iso).toLocaleTimeString(undefined, {
       hour: "numeric",
       minute: "2-digit",
     });
   }
 
-  return formatAge(iso, now);
+  if (diffDays === 1) {
+    return `Yesterday ${new Date(iso).toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    })}`;
+  }
+
+  if (diffDays < 7) {
+    return `${new Date(timestamp).toLocaleDateString(undefined, { weekday: "short" })} ${new Date(iso).toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    })}`;
+  }
+
+  return new Date(timestamp).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
 }
 
-export function groupAlertsByDay(alerts?: AlertRow[] | null, now = Date.now()): AlertDayGroup[] {
+export function groupAlertsByDay(
+  alerts?: AlertRow[] | null,
+  sort: AlertSort = "newest",
+  now = Date.now(),
+): AlertDayGroup[] {
   const safe = Array.isArray(alerts) ? alerts.filter((a): a is AlertRow => Boolean(a)) : [];
-  const sorted = sortAlerts(safe, "newest");
   const groups = new Map<string, AlertDayGroup>();
 
-  for (const alert of sorted) {
+  for (const alert of safe) {
     if (!alert) continue;
     const key = getAlertDayGroupKey(alert.fired_at);
     const existing = groups.get(key);
@@ -535,7 +565,21 @@ export function groupAlertsByDay(alerts?: AlertRow[] | null, now = Date.now()): 
     });
   }
 
-  return Array.from(groups.values());
+  const result = Array.from(groups.values()).map((group) => ({
+    ...group,
+    alerts: sortAlerts(group.alerts, sort),
+  }));
+
+  result.sort((a, b) => {
+    const timeA = Number(a.key) || 0;
+    const timeB = Number(b.key) || 0;
+    if (sort === "oldest") {
+      return timeA - timeB;
+    }
+    return timeB - timeA;
+  });
+
+  return result;
 }
 
 export function filterAlerts(
@@ -681,6 +725,7 @@ export function loadAlertsPreferences(): AlertsPreferences {
     };
     const viewMode =
       parsed.defaultViewMode === "unread" ||
+      parsed.defaultViewMode === "resolved" ||
       parsed.defaultViewMode === "ignored" ||
       parsed.defaultViewMode === "all"
         ? parsed.defaultViewMode

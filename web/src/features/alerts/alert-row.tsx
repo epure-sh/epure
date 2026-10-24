@@ -20,6 +20,7 @@ export interface AlertListRowProps {
   projectId: string;
   selected?: boolean;
   onMarkRead: () => void;
+  onMarkUnread?: () => void;
   onIgnore: () => void;
   onUnignore: () => void;
 }
@@ -29,6 +30,7 @@ export function AlertListRow({
   projectId,
   selected = false,
   onMarkRead,
+  onMarkUnread,
   onIgnore,
   onUnignore,
 }: AlertListRowProps) {
@@ -41,7 +43,7 @@ export function AlertListRow({
   const ruleName = getAlertRuleName(alert.kind);
   const severity = getAlertSeverityForAlert(alert);
   const firedAt = formatAlertListTime(alert.fired_at);
-  const to = getIssueLink(alert, projectId);
+  const to = getIssueLink(alert, alert.project_id || projectId);
   const unread = isAlertUnread(alert);
   const isIgnored = Boolean(alert.ignored);
 
@@ -59,17 +61,21 @@ export function AlertListRow({
         )}
       >
         <Link to={to} className="flex min-w-0 flex-1 items-center gap-3 focus-ring rounded-md">
-          <span className="w-16 shrink-0 font-mono text-2xs tabular-nums text-fg-muted">
+          <span className="w-24 sm:w-28 shrink-0 font-mono text-2xs tabular-nums text-fg-muted whitespace-nowrap">
             {firedAt}
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="text-2xs font-medium uppercase tracking-wide text-fg-muted">{ruleName}</p>
-              {alert.ignored && (
-                <Badge variant="neutral" size="compact" className="text-[10px] h-4">
-                  Ignored
+              {isIgnored ? (
+                <Badge variant="warning" size="compact" className="text-[10px] h-4">
+                  Muted
                 </Badge>
-              )}
+              ) : !unread ? (
+                <Badge variant="neutral" size="compact" className="text-[10px] h-4">
+                  Resolved
+                </Badge>
+              ) : null}
             </div>
             <p
               className={cn(
@@ -93,22 +99,66 @@ export function AlertListRow({
             "flex shrink-0 items-center gap-1 transition-opacity",
             selected
               ? "opacity-100"
-              : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-within:opacity-100",
+              : "opacity-100 sm:opacity-70 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-within:opacity-100",
           )}
         >
-          {alert.ignored ? (
-            <ActionButton variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onUnignore}>
-              Unignore
+          {isIgnored ? (
+            <ActionButton
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-fg-muted hover:text-fg-primary"
+              onClick={onUnignore}
+              title="Unmute alert rule"
+              aria-label="Unmute alert"
+            >
+              Unmute
             </ActionButton>
+          ) : unread ? (
+            <>
+              <ActionButton
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={onMarkRead}
+                title="Resolve alert (mark as read)"
+                aria-label="Resolve alert"
+              >
+                Resolve
+              </ActionButton>
+              <ActionButton
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-fg-muted hover:text-fg-primary"
+                onClick={onIgnore}
+                title="Mute alert rule for this issue"
+                aria-label="Mute alert"
+              >
+                Mute
+              </ActionButton>
+            </>
           ) : (
             <>
-              {unread ? (
-                <ActionButton variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onMarkRead}>
-                  Mark read
+              {onMarkUnread ? (
+                <ActionButton
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-fg-muted hover:text-fg-primary"
+                  onClick={onMarkUnread}
+                  title="Unresolve alert (mark as unread)"
+                  aria-label="Unresolve alert"
+                >
+                  Unresolve
                 </ActionButton>
               ) : null}
-              <ActionButton variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onIgnore}>
-                Ignore
+              <ActionButton
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-fg-muted hover:text-fg-primary"
+                onClick={onIgnore}
+                title="Mute alert rule for this issue"
+                aria-label="Mute alert"
+              >
+                Mute
               </ActionButton>
             </>
           )}

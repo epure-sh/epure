@@ -46,6 +46,7 @@ pub async fn build_agent_queue(
         org_id,
         params.user_id,
         200,
+        0,
         params.project_id,
         params.environment.as_deref(),
         AlertListFilter::Unread,

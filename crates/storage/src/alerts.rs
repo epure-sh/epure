@@ -20,14 +20,16 @@ pub struct AlertRow {
 pub enum AlertListFilter {
     All,
     Unread,
+    Read,
     Ignored,
 }
 
 impl AlertListFilter {
     pub fn parse(raw: Option<&str>) -> Self {
-        match raw.unwrap_or("all") {
-            "unread" => Self::Unread,
-            "ignored" => Self::Ignored,
+        match raw.unwrap_or("all").trim().to_ascii_lowercase().as_str() {
+            "unread" | "unresolved" => Self::Unread,
+            "read" | "resolved" => Self::Read,
+            "ignored" | "muted" => Self::Ignored,
             _ => Self::All,
         }
     }
@@ -113,12 +115,14 @@ pub async fn list_alerts(
     org_id: Uuid,
     user_id: Uuid,
     limit: i64,
+    offset: i64,
     project_id: Option<Uuid>,
     environment: Option<&str>,
     filter: AlertListFilter,
 ) -> Result<Vec<AlertRow>, sqlx::Error> {
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
     let filter_unread = matches!(filter, AlertListFilter::Unread);
+    let filter_read = matches!(filter, AlertListFilter::Read);
     let filter_ignored = matches!(filter, AlertListFilter::Ignored);
     let rows = sqlx::query_as::<_, AlertRow>(
         r#"
@@ -139,16 +143,18 @@ pub async fn list_alerts(
         WHERE ($2::uuid IS NULL OR a.project_id = $2)
           AND (
             $3::text IS NULL
-            OR i.environment = $3
-            OR (a.issue_id IS NULL AND $3 IS NULL)
+            OR COALESCE(a.payload_json->>'environment', i.environment) = $3
+            OR (i.environment IS NULL AND (a.payload_json->>'environment' IS NULL OR a.payload_json->>'environment' = ''))
           )
           AND (
             ($5 AND s.read_at IS NULL AND COALESCE(s.ignored, false) = false)
-            OR ($6 AND COALESCE(s.ignored, false) = true)
-            OR (NOT $5 AND NOT $6)
+            OR ($6 AND s.read_at IS NOT NULL AND COALESCE(s.ignored, false) = false)
+            OR ($7 AND COALESCE(s.ignored, false) = true)
+            OR (NOT $5 AND NOT $6 AND NOT $7)
           )
         ORDER BY a.fired_at DESC
         LIMIT $1
+        OFFSET $8
         "#,
     )
     .bind(limit)
@@ -156,7 +162,9 @@ pub async fn list_alerts(
     .bind(environment)
     .bind(user_id)
     .bind(filter_unread)
+    .bind(filter_read)
     .bind(filter_ignored)
+    .bind(offset)
     .fetch_all(&mut *tx)
     .await?;
     tx.commit().await?;
@@ -302,4 +310,23 @@ pub async fn patch_alert(
 
     tx.commit().await?;
     Ok(row)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_alert_list_filter_parse() {
+        assert_eq!(AlertListFilter::parse(None), AlertListFilter::All);
+        assert_eq!(AlertListFilter::parse(Some("all")), AlertListFilter::All);
+        assert_eq!(AlertListFilter::parse(Some("ALL")), AlertListFilter::All);
+        assert_eq!(AlertListFilter::parse(Some("unread")), AlertListFilter::Unread);
+        assert_eq!(AlertListFilter::parse(Some("unresolved")), AlertListFilter::Unread);
+        assert_eq!(AlertListFilter::parse(Some("read")), AlertListFilter::Read);
+        assert_eq!(AlertListFilter::parse(Some("resolved")), AlertListFilter::Read);
+        assert_eq!(AlertListFilter::parse(Some("ignored")), AlertListFilter::Ignored);
+        assert_eq!(AlertListFilter::parse(Some("muted")), AlertListFilter::Ignored);
+        assert_eq!(AlertListFilter::parse(Some("unknown")), AlertListFilter::All);
+    }
 }

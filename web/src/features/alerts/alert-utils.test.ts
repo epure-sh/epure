@@ -99,3 +99,69 @@ const corruptedDateAlert = sampleAlert({ fired_at: "not-a-date" });
 const sortedWithCorrupted = sortAlerts([corruptedDateAlert, velocity]);
 assert.equal(sortedWithCorrupted.length, 2);
 assert.equal(sortedWithCorrupted[0]?.id, velocity.id);
+
+// Resolved alert filtering
+const resolvedAlert = sampleAlert({
+  id: "alert-4",
+  read_at: baseDate.toISOString(),
+  ignored: false,
+});
+assert.equal(filterAlertsByViewMode([velocity, regression, ignored, resolvedAlert], "resolved").length, 1);
+assert.equal(filterAlertsByViewMode([velocity, regression, ignored, resolvedAlert], "resolved")[0]?.id, "alert-4");
+assert.equal(countAlertsForViewModes([velocity, regression, ignored, resolvedAlert], "7d").resolved, 1);
+
+// formatAlertListTime and getAlertDayGroupLabel
+import { formatAlertListTime, getAlertDayGroupLabel } from "./alert-utils";
+const now = new Date("2026-10-22T15:00:00.000Z").getTime();
+// Same day: formats local time
+const todayTime = formatAlertListTime("2026-10-22T14:30:00.000Z", now);
+assert.ok(todayTime !== "—" && !todayTime.includes("d"));
+
+// Clock skew slightly in future: still labels as "Today"
+const futureSkewLabel = getAlertDayGroupLabel("2026-10-22T15:05:00.000Z", now);
+assert.equal(futureSkewLabel, "Today");
+
+// Yesterday label
+const yesterdayLabel = getAlertDayGroupLabel("2026-10-21T12:00:00.000Z", now);
+assert.equal(yesterdayLabel, "Yesterday");
+
+// ALERT_KIND_FILTERS includes custom rule
+import { ALERT_KIND_FILTERS } from "./alert-utils";
+assert.ok(ALERT_KIND_FILTERS.some((filter) => filter.value === "custom"));
+
+// groupAlertsByDay with sort parameter
+const day1Older = sampleAlert({
+  id: "alert-day1-old",
+  fired_at: "2026-10-20T10:00:00.000Z",
+  kind: "velocity_spike",
+});
+const day2NewerDanger = sampleAlert({
+  id: "alert-day2-danger",
+  fired_at: "2026-10-22T10:00:00.000Z",
+  kind: "regression",
+});
+const day2NewerWarning = sampleAlert({
+  id: "alert-day2-warning",
+  fired_at: "2026-10-22T11:00:00.000Z",
+  kind: "velocity_spike",
+});
+
+// Sorted newest first: day2 group should be first, and inside day2 warning (11:00) before danger (10:00)
+const newestGroups = groupAlertsByDay([day1Older, day2NewerDanger, day2NewerWarning], "newest", now);
+assert.equal(newestGroups.length, 2);
+assert.equal(newestGroups[0]?.alerts[0]?.id, "alert-day2-warning");
+assert.equal(newestGroups[0]?.alerts[1]?.id, "alert-day2-danger");
+assert.equal(newestGroups[1]?.alerts[0]?.id, "alert-day1-old");
+
+// Sorted oldest first: day1 group should be first, and inside day2 danger (10:00) before warning (11:00)
+const oldestGroups = groupAlertsByDay([day1Older, day2NewerDanger, day2NewerWarning], "oldest", now);
+assert.equal(oldestGroups.length, 2);
+assert.equal(oldestGroups[0]?.alerts[0]?.id, "alert-day1-old");
+assert.equal(oldestGroups[1]?.alerts[0]?.id, "alert-day2-danger");
+assert.equal(oldestGroups[1]?.alerts[1]?.id, "alert-day2-warning");
+
+// Sorted severity: within day2, danger alert should be before warning alert
+const severityGroups = groupAlertsByDay([day1Older, day2NewerDanger, day2NewerWarning], "severity", now);
+assert.equal(severityGroups.length, 2);
+assert.equal(severityGroups[0]?.alerts[0]?.id, "alert-day2-danger");
+assert.equal(severityGroups[0]?.alerts[1]?.id, "alert-day2-warning");

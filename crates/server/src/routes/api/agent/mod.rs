@@ -287,6 +287,7 @@ async fn unsnooze_issue(
 #[derive(Deserialize)]
 struct AlertsQuery {
     limit: Option<i64>,
+    offset: Option<i64>,
     project_id: Option<Uuid>,
     environment: Option<String>,
     view: Option<String>,
@@ -303,11 +304,13 @@ async fn list_alerts(
     Query(query): Query<AlertsQuery>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let limit = query.limit.unwrap_or(50).clamp(1, 200);
+    let offset = query.offset.unwrap_or(0).max(0);
     let rows = alerts::list_alerts(
         &state.pools.app,
         dashboard.org_id,
         dashboard.user_id,
         limit,
+        offset,
         query.project_id,
         query.environment.as_deref(),
         AlertListFilter::parse(query.view.as_deref()),

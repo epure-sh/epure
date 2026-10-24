@@ -40,22 +40,33 @@ export function AlertsRulesPanel({
         {canManageWebhooks ? (
           <div className="flex shrink-0 items-center gap-1">
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" asChild>
-              <Link to={rulesPath}>Alert rules</Link>
+              <Link to={rulesPath}>Configure Rules</Link>
             </Button>
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" asChild>
               <Link to={webhooksPath}>Notifications</Link>
             </Button>
           </div>
         ) : (
-          <ActionButton
-            variant="ghost"
-            size="sm"
-            className="h-7 shrink-0 px-2 text-xs"
-            disabled
-            tooltip="Admin or owner required to manage notifications"
-          >
-            Notifications
-          </ActionButton>
+          <div className="flex shrink-0 items-center gap-1">
+            <ActionButton
+              variant="ghost"
+              size="sm"
+              className="h-7 shrink-0 px-2 text-xs"
+              disabled
+              tooltip="Admin or owner required to manage alert rules"
+            >
+              Configure Rules
+            </ActionButton>
+            <ActionButton
+              variant="ghost"
+              size="sm"
+              className="h-7 shrink-0 px-2 text-xs"
+              disabled
+              tooltip="Admin or owner required to manage notifications"
+            >
+              Notifications
+            </ActionButton>
+          </div>
         )}
       </div>
     </footer>
