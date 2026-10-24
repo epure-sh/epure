@@ -20,7 +20,7 @@ export function PageShell({
   className,
 }: PageShellProps) {
   return (
-    <div data-slot="page-shell" className={cn("flex min-h-full flex-col bg-canvas", className)}>
+    <div data-slot="page-shell" className={cn("flex h-full min-h-0 flex-1 flex-col bg-canvas", className)}>
       <header className="flex h-12 shrink-0 items-center justify-between border-b border-border-subtle bg-surface-1/60 px-6">
         <div className="flex items-baseline gap-3 min-w-0">
           <h1 className="text-sm font-semibold tracking-tight text-fg-primary truncate">
@@ -36,8 +36,8 @@ export function PageShell({
       <main
         className={
           density === "full-bleed"
-            ? "flex-1 overflow-auto"
-            : "mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-6"
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+            : "mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-6 overflow-auto"
         }
       >
         {children}

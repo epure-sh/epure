@@ -15,8 +15,7 @@ const OVERFLOW_TABS = ["stack", "more"] as const;
 export type IssueDetailTab = (typeof DETAIL_TABS)[number];
 export const DETAIL_TOOLBAR_BUTTON_CLASS = "h-control-sm gap-1 px-2 text-xs";
 
-const DETAIL_TAB_TRIGGER =
-  "h-7 px-2.5 text-2xs font-medium border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:text-ink text-ink-muted hover:text-ink transition-colors rounded-none";
+const DETAIL_TAB_TRIGGER = "h-7 px-2.5 text-2xs";
 
 export interface IssueDetailTabsProps {
   overview: ReactNode;
@@ -132,7 +131,7 @@ export function IssueDetailTabs({
       ) : null}
 
       {/* Navigation Tabs Bar */}
-      <Tabs {...tabsProps} className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <Tabs variant="line" {...tabsProps} className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex h-7 shrink-0 items-center justify-between border-b border-border/80 bg-surface px-4 md:px-6 select-none">
           <TabsList className="flex h-full items-stretch gap-1 border-b-0 bg-transparent p-0">
             <TabsTrigger value="overview" className={DETAIL_TAB_TRIGGER}>

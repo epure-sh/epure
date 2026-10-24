@@ -4,8 +4,8 @@ initStyleTheme();
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import "./styles/tokens.css";
 import "@design/tokens.css";
+import "./styles/tokens.css";
 import "./app.css";
 import { App } from "./app";
 

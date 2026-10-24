@@ -20,7 +20,7 @@ export function SelectTrigger({
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       className={cn(
-        "inline-flex items-center justify-between gap-2 rounded-control border border-border-subtle bg-surface-1 px-2.5 text-xs text-fg-primary",
+        "inline-flex items-center justify-between gap-2 rounded-control border border-border-subtle bg-surface-1 px-2.5 text-xs text-fg-primary cursor-pointer",
         "transition-colors duration-100 select-none shadow-tactile hover:bg-surface-2 focus-visible:outline-none focus-visible:border-border-strong",
         "disabled:cursor-not-allowed disabled:opacity-40",
         size === "sm" ? "h-7" : "h-8",
@@ -47,7 +47,7 @@ export function SelectContent({
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(
-          "relative z-[100] min-w-[8rem] overflow-hidden rounded-control border border-border-strong bg-surface-1 text-fg-primary shadow-float",
+          "relative z-[100] max-h-96 min-w-[8rem] overflow-hidden rounded-control border border-border-strong bg-surface-1 text-fg-primary shadow-float",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
           className
         )}
@@ -56,9 +56,9 @@ export function SelectContent({
       >
         <SelectPrimitive.Viewport
           className={cn(
-            "p-1",
+            "p-1 max-h-96 overflow-y-auto",
             position === "popper" &&
-              "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
+              "w-full min-w-[var(--radix-select-trigger-width)]"
           )}
         >
           {children}

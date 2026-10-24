@@ -55,6 +55,7 @@ import { EmptyState } from "@/components/kit/empty-state";
 import { DataTable } from "@/components/kit/data-table";
 import { CodeFrame } from "@/components/kit/code-frame";
 import { startProductTour } from "@/components/kit/product-tour";
+import { useThemeMode } from "@/lib/style-theme";
 
 import {
   Sparkle,
@@ -100,6 +101,7 @@ const sampleCodeSnippet = `export async function handleIngest(envelope: Envelope
 }`;
 
 export function DesignSystemPlayground() {
+  const [themeMode, toggleTheme] = useThemeMode();
   const [activeTab, setActiveTab] = React.useState("primitives");
   const [checkbox1, setCheckbox1] = React.useState(false);
   const [checkbox2, setCheckbox2] = React.useState(true);
@@ -114,6 +116,13 @@ export function DesignSystemPlayground() {
       description="/dev/ds — 4-State Stress-Testing, Token Locks & Zero-Drift Façade"
       actions={
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleTheme}
+          >
+            {themeMode === "dark" ? "Light Mode" : "Dark Mode"}
+          </Button>
           <Button
             variant="outline"
             size="sm"

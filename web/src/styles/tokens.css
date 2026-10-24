@@ -1,7 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-:root, .dark {
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *, .dark, .dark *));
+
+:root,
+.dark,
+[data-theme="dark"] {
   /* Architectural Obsidian Surfaces */
   --surface-canvas: oklch(0.125 0.005 260);
   --surface-1: oklch(0.155 0.006 260);
@@ -40,23 +44,89 @@
   --surface-inset: var(--surface-canvas);
   --surface-elevated: var(--surface-2);
   --surface-raised: var(--surface-3);
+  --surface-muted: var(--surface-2);
   --border: var(--border-subtle);
   --text: var(--fg-primary);
   --text-muted: var(--fg-muted);
   --text-subtle: var(--fg-secondary);
   --accent: var(--intent-primary);
+  --accent-muted: oklch(0.240 0.040 265);
   --accent-contrast: var(--intent-primary-fg);
   --signal: var(--status-escalating);
+  --signal-muted: var(--surface-2);
+  --signal-contrast: var(--intent-primary-fg);
   --success: var(--status-healthy);
   --warning: var(--status-regression);
   --danger: var(--status-escalating);
   --info: var(--status-info);
+  --state-hover: var(--surface-2);
+  --state-selected: var(--surface-3);
+  --state-pressed: var(--surface-1);
+  --state-error: var(--status-escalating);
+  --state-success: var(--status-healthy);
+}
+
+/* Light mode override when explicitly toggled to light */
+html.light,
+html[data-theme="light"],
+[data-theme="light"] {
+  --surface-canvas: oklch(0.985 0.002 240);
+  --surface-1: #ffffff;
+  --surface-2: oklch(0.965 0.004 240);
+  --surface-3: oklch(0.935 0.005 240);
+  --surface-overlay: oklch(0.985 0.002 240 / 0.88);
+
+  --border-subtle: rgba(26, 22, 18, 0.08);
+  --border-strong: rgba(26, 22, 18, 0.16);
+
+  --fg-primary: oklch(0.140 0.008 240);
+  --fg-secondary: oklch(0.440 0.012 240);
+  --fg-muted: oklch(0.600 0.010 240);
+
+  --intent-primary: oklch(0.140 0.008 240);
+  --intent-primary-fg: #ffffff;
+  --status-escalating: #be4444;
+  --status-regression: #b45309;
+  --status-healthy: #0d7a62;
+  --status-info: #4f6b8a;
+
+  --shadow-bevel: inset 0 1px 0 0 oklch(1 0 0 / 0.40), 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-popover: 0 12px 32px -4px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--border-strong);
+
+  --bg: var(--surface-canvas);
+  --bg-subtle: var(--surface-2);
+  --surface: var(--surface-1);
+  --surface-inset: var(--surface-canvas);
+  --surface-elevated: var(--surface-1);
+  --surface-raised: var(--surface-1);
+  --surface-muted: var(--surface-2);
+  --border: var(--border-subtle);
+  --text: var(--fg-primary);
+  --text-muted: var(--fg-muted);
+  --text-subtle: var(--fg-secondary);
+  --accent: #4f46e5;
+  --accent-muted: #eceafd;
+  --accent-contrast: #ffffff;
+  --signal: var(--accent);
+  --signal-muted: var(--accent-muted);
+  --signal-contrast: var(--accent-contrast);
+  --success: var(--status-healthy);
+  --warning: var(--status-regression);
+  --danger: var(--status-escalating);
+  --info: var(--status-info);
+  --state-hover: var(--surface-2);
+  --state-selected: var(--accent-muted);
+  --state-pressed: var(--surface-3);
+  --state-error: var(--status-escalating);
+  --state-success: var(--status-healthy);
 }
 
 @theme inline {
   --color-*: initial;
   --color-transparent: transparent;
   --color-current: currentColor;
+  --color-white: #ffffff;
+  --color-black: #000000;
 
   --color-canvas: var(--surface-canvas);
   --color-surface-1: var(--surface-1);
@@ -78,12 +148,34 @@
   --color-healthy: var(--status-healthy);
   --color-info: var(--status-info);
 
-  /* Legacy aliases mapped to Layer 0 tokens */
-  --color-bg: var(--surface-canvas);
-  --color-surface: var(--surface-1);
-  --color-border: var(--border-subtle);
-  --color-ink: var(--fg-primary);
-  --color-accent: var(--intent-primary);
+  /* Legacy & semantic aliases mapped to Layer 0 tokens */
+  --color-bg: var(--bg);
+  --color-bg-subtle: var(--bg-subtle);
+  --color-surface: var(--surface);
+  --color-surface-inset: var(--surface-inset);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-ink: var(--text);
+  --color-ink-muted: var(--text-muted);
+  --color-ink-subtle: var(--text-subtle);
+  --color-ink-inverse: var(--surface-canvas);
+  --color-accent: var(--accent);
+  --color-accent-muted: var(--accent-muted);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-signal: var(--signal);
+  --color-signal-muted: var(--signal-muted);
+  --color-signal-contrast: var(--signal-contrast);
+  --color-semantic-danger: var(--danger);
+  --color-semantic-warning: var(--warning);
+  --color-semantic-success: var(--success);
+  --color-semantic-info: var(--info);
+  --color-state-hover: var(--state-hover);
+  --color-state-selected: var(--state-selected);
+  --color-state-pressed: var(--state-pressed);
+  --color-state-error: var(--state-error);
+  --color-state-success: var(--state-success);
 
   --radius-xs: var(--radius-xs);
   --radius-control: var(--radius-sm);
@@ -101,6 +193,7 @@
     border-color: var(--border-subtle);
     box-sizing: border-box;
   }
+  html,
   body {
     background-color: var(--surface-canvas);
     color: var(--fg-primary);

@@ -130,7 +130,7 @@ export function IssueFeedRow({
       onClick={onClick}
       onKeyDown={keyHandler}
       className={cn(
-        "epure-issue-row epure-feed-row relative grid items-center border-b border-border/80 text-left transition-colors duration-fast focus-ring select-none",
+        "epure-issue-row epure-feed-row relative grid items-center border-b border-border/80 text-left transition-colors duration-fast focus-ring select-none cursor-pointer",
         `epure-issue-row--${rowVariant}`,
         unread && "epure-issue-row--unread",
         compact ? FEED_GRID_COMPACT : FEED_GRID_FULL,

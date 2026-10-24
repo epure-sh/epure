@@ -30,7 +30,7 @@ export interface CommandDialogProps {
 export function CommandDialog({ open, onOpenChange, children }: CommandDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 max-w-lg shadow-float border-border-strong">
+      <DialogContent className="overflow-hidden p-0 max-w-lg shadow-float border-border-strong [&>button]:hidden">
         <Command className="[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:text-fg-muted">
           {children}
         </Command>

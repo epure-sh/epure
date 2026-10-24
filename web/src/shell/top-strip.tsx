@@ -7,9 +7,12 @@ import {
   GitBranch,
   LogOut,
   Menu,
+  Moon,
+  Sun,
   Users,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useThemeMode } from "../lib/style-theme";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {
@@ -67,6 +70,7 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
     switchOrg,
   } = useAppContext();
   const logout = useLogout();
+  const [themeMode, toggleTheme] = useThemeMode();
 
   const routeProjectId = projectIdFromPath(pathname);
   const activeProject =
@@ -284,6 +288,18 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
           </Button>
         )}
 
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          onClick={toggleTheme}
+          aria-label={themeMode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          title={themeMode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          className="text-ink-muted hover:text-ink"
+        >
+          {themeMode === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+        </Button>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -304,6 +320,12 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
               <p className="truncate text-xs font-semibold text-ink">{user?.email ?? "…"}</p>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={toggleTheme} className="text-xs flex items-center justify-between cursor-pointer">
+              <span className="flex items-center gap-2">
+                {themeMode === "dark" ? <Sun size={13} /> : <Moon size={13} />}
+                <span>Theme: {themeMode === "dark" ? "Dark" : "Light"}</span>
+              </span>
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => navigate(workspaceSettingsPath())} className="text-xs">
               Settings
             </DropdownMenuItem>
