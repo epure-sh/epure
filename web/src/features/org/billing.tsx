@@ -4,6 +4,15 @@ import { SectionCard } from "@/components/kit/section-card";
 import { AskAgentCard } from "@/components/kit/ask-agent-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { toast } from "@/components/ui/sonner";
 import { useAppContext } from "@/shell/app-context";
 import {
@@ -332,101 +341,99 @@ export function BillingPage() {
           description="Demo projects (acme) are strictly excluded from billable volume."
           contentClassName="p-0"
         >
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs select-none">
-              <thead>
-                <tr className="border-b border-border-subtle bg-surface-2/40 text-[11px] font-semibold text-fg-muted">
-                  <th className="py-2.5 px-4">Project</th>
-                  <th className="py-2.5 px-4">Classification</th>
-                  <th className="py-2.5 px-4 text-right">30d Events</th>
-                  <th className="py-2.5 px-4 text-right">Spike Valve Filtered</th>
-                  <th className="py-2.5 px-4 text-center">30d Velocity Trend</th>
-                  <th className="py-2.5 px-4 text-right">Billable Impact</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-subtle/80 font-mono">
-                {projectRows.map((row) => (
-                  <tr key={row.id} className="hover:bg-surface-2/30 transition-colors">
-                    <td className="py-3 px-4">
-                      <div className="font-sans font-medium text-fg-primary">
-                        {row.name}
-                      </div>
-                      <div className="text-[10px] text-fg-muted font-mono">{row.slug}</div>
-                    </td>
+          <Table className="select-none">
+            <TableHeader className="bg-surface-2/40 text-[11px] font-semibold text-fg-muted">
+              <TableRow>
+                <TableHead>Project</TableHead>
+                <TableHead>Classification</TableHead>
+                <TableHead className="text-right">30d Events</TableHead>
+                <TableHead className="text-right">Spike Valve Filtered</TableHead>
+                <TableHead className="text-center">30d Velocity Trend</TableHead>
+                <TableHead className="text-right">Billable Impact</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-border-subtle/80 font-mono">
+              {projectRows.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell>
+                    <div className="font-sans font-medium text-fg-primary">
+                      {row.name}
+                    </div>
+                    <div className="text-[10px] text-fg-muted font-mono">{row.slug}</div>
+                  </TableCell>
 
-                    <td className="py-3 px-4 font-sans">
-                      {row.isDemo ? (
-                        <Badge variant="neutral" size="sm" className="text-[10px] bg-surface-2">
-                          Demo Sandbox
-                        </Badge>
-                      ) : (
-                        <Badge variant="healthy" size="sm" className="text-[10px]">
-                          Production Billable
-                        </Badge>
-                      )}
-                    </td>
+                  <TableCell className="font-sans">
+                    {row.isDemo ? (
+                      <Badge variant="neutral" size="sm" className="text-[10px] bg-surface-2">
+                        Demo Sandbox
+                      </Badge>
+                    ) : (
+                      <Badge variant="healthy" size="sm" className="text-[10px]">
+                        Production Billable
+                      </Badge>
+                    )}
+                  </TableCell>
 
-                    <td className="py-3 px-4 text-right text-fg-primary font-medium">
-                      {row.events30d.toLocaleString()}
-                    </td>
+                  <TableCell className="text-right text-fg-primary font-medium">
+                    {row.events30d.toLocaleString()}
+                  </TableCell>
 
-                    <td className="py-3 px-4 text-right text-healthy">
-                      {row.spikeValveAbsorbed.toLocaleString()}
-                    </td>
+                  <TableCell className="text-right text-healthy">
+                    {row.spikeValveAbsorbed.toLocaleString()}
+                  </TableCell>
 
-                    <td className="py-3 px-4 text-center">
-                      <div className="flex items-center justify-center">
-                        {/* Mini Sparkline SVG */}
-                        <svg className="w-20 h-5" viewBox="0 0 70 20">
-                          <polyline
-                            fill="none"
-                            stroke={row.isDemo ? "var(--color-fg-muted)" : "var(--color-accent)"}
-                            strokeWidth="1.75"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            points={row.sparkline
-                              .map((val, i) => `${i * 10 + 5},${20 - (val / 100) * 16}`)
-                              .join(" ")}
-                          />
-                        </svg>
-                      </div>
-                    </td>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center">
+                      {/* Mini Sparkline SVG */}
+                      <svg className="w-20 h-5" viewBox="0 0 70 20">
+                        <polyline
+                          fill="none"
+                          stroke={row.isDemo ? "var(--color-fg-muted)" : "var(--color-accent)"}
+                          strokeWidth="1.75"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          points={row.sparkline
+                            .map((val, i) => `${i * 10 + 5},${20 - (val / 100) * 16}`)
+                            .join(" ")}
+                        />
+                      </svg>
+                    </div>
+                  </TableCell>
 
-                    <td className="py-3 px-4 text-right font-sans">
-                      {row.isDemo ? (
-                        <span className="text-[11px] font-medium text-fg-muted">
-                          Excluded ($0.00)
-                        </span>
-                      ) : (
-                        <span className="text-[11px] font-semibold text-fg-primary">
-                          Included in Quota
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t border-border-strong bg-surface-2/60 font-semibold text-xs">
-                  <td className="py-3 px-4 font-sans text-fg-primary" colSpan={2}>
-                    Total Billable Ingest (Excluding Demos)
-                  </td>
-                  <td className="py-3 px-4 text-right font-mono text-fg-primary">
-                    {totalBillableEvents.toLocaleString()}
-                  </td>
-                  <td className="py-3 px-4 text-right font-mono text-healthy">
-                    482,100
-                  </td>
-                  <td className="py-3 px-4 text-center font-sans text-[11px] text-fg-muted">
-                    Healthy baseline
-                  </td>
-                  <td className="py-3 px-4 text-right font-sans text-accent font-semibold">
-                    $0 Overage Incurred
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                  <TableCell className="text-right font-sans">
+                    {row.isDemo ? (
+                      <span className="text-[11px] font-medium text-fg-muted">
+                        Excluded ($0.00)
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-semibold text-fg-primary">
+                        Included in Quota
+                      </span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+            <TableFooter className="font-semibold text-xs">
+              <TableRow>
+                <TableCell className="font-sans text-fg-primary" colSpan={2}>
+                  Total Billable Ingest (Excluding Demos)
+                </TableCell>
+                <TableCell className="text-right font-mono text-fg-primary">
+                  {totalBillableEvents.toLocaleString()}
+                </TableCell>
+                <TableCell className="text-right font-mono text-healthy">
+                  482,100
+                </TableCell>
+                <TableCell className="text-center font-sans text-[11px] text-fg-muted">
+                  Healthy baseline
+                </TableCell>
+                <TableCell className="text-right font-sans text-accent font-semibold">
+                  $0 Overage Incurred
+                </TableCell>
+              </TableRow>
+            </TableFooter>
+          </Table>
         </SectionCard>
 
         {/* Available Plans Selector */}

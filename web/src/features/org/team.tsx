@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -265,35 +273,34 @@ export function OrgTeamPage() {
           description="Members can access projects, investigate error traces, and configure alert subscriptions."
           contentClassName="p-0"
         >
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs select-none">
-              <thead>
-                <tr className="border-b border-border-subtle bg-surface-2/40 text-[11px] font-semibold text-fg-muted">
-                  <th className="py-3 px-4">Member</th>
-                  <th className="py-3 px-4">Workspace Role</th>
-                  <th className="py-3 px-4">Alert Subscription</th>
-                  <th className="py-3 px-4">Joined</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-subtle/80">
-                {loading ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-fg-muted font-mono text-xs">
-                      Loading team members…
-                    </td>
-                  </tr>
-                ) : members.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-fg-muted text-xs">
-                      No members found.
-                    </td>
-                  </tr>
-                ) : (
-                  members.map((member, idx) => {
-                    const isSelf = member.user_id === user?.user_id;
-                    const canEditMember =
-                      user?.role === "owner" || (user?.role === "admin" && member.role === "member");
+          <Table className="select-none">
+            <TableHeader className="bg-surface-2/40 text-[11px] font-semibold text-fg-muted">
+              <TableRow>
+                <TableHead>Member</TableHead>
+                <TableHead>Workspace Role</TableHead>
+                <TableHead>Alert Subscription</TableHead>
+                <TableHead>Joined</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-border-subtle/80">
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-8 text-center text-fg-muted font-mono text-xs">
+                    Loading team members…
+                  </TableCell>
+                </TableRow>
+              ) : members.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-8 text-center text-fg-muted text-xs">
+                    No members found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                members.map((member, idx) => {
+                  const isSelf = member.user_id === user?.user_id;
+                  const canEditMember =
+                    user?.role === "owner" || (user?.role === "admin" && member.role === "member");
 
                   // Mock subscription status for rich visualization
                   const subscriptionBadge =
@@ -312,8 +319,8 @@ export function OrgTeamPage() {
                     );
 
                   return (
-                    <tr key={member.user_id} className="hover:bg-surface-2/30 transition-colors">
-                      <td className="py-3 px-4">
+                    <TableRow key={member.user_id} className="hover:bg-surface-2/30 transition-colors">
+                      <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="size-8 rounded-full bg-surface-2 border border-border-strong flex items-center justify-center font-semibold text-fg-primary text-xs shrink-0">
                             {memberInitial(member)}
@@ -334,9 +341,9 @@ export function OrgTeamPage() {
                             </span>
                           </div>
                         </div>
-                      </td>
+                      </TableCell>
 
-                      <td className="py-3 px-4">
+                      <TableCell>
                         {canEditMember && !isSelf ? (
                           <Select
                             value={member.role}
@@ -362,17 +369,17 @@ export function OrgTeamPage() {
                             {ROLE_LABELS[member.role as MemberRole] ?? member.role}
                           </Badge>
                         )}
-                      </td>
+                      </TableCell>
 
-                      <td className="py-3 px-4">
+                      <TableCell>
                         {subscriptionBadge}
-                      </td>
+                      </TableCell>
 
-                      <td className="py-3 px-4 text-fg-muted font-mono text-[11px]">
+                      <TableCell className="text-fg-muted font-mono text-[11px]">
                         {formatRelativeTime(member.created_at)}
-                      </td>
+                      </TableCell>
 
-                      <td className="py-3 px-4 text-right">
+                      <TableCell className="text-right">
                         {canEditMember && !isSelf ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -393,13 +400,13 @@ export function OrgTeamPage() {
                         ) : (
                           <span className="text-fg-muted/40">—</span>
                         )}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
-                }))}
-              </tbody>
-            </table>
-          </div>
+                })
+              )}
+            </TableBody>
+          </Table>
         </SectionCard>
 
         {/* Pending Invitations Section */}
