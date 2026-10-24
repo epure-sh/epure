@@ -11,6 +11,7 @@ import { PageShell } from "@/components/kit/page-shell";
 import { CardRowSkeleton } from "../../ui/skeleton";
 import { useToast } from "../../ui/toast-provider";
 import { AlertListRow } from "./alert-row";
+import { AlertBuilder } from "./alert-builder";
 import {
   ALERT_VIEW_MODES,
   countAlertsForViewModes,
@@ -60,6 +61,7 @@ export function AlertsPage() {
   const [retrying, setRetrying] = useState(false);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [isCreatingRule, setIsCreatingRule] = useState(false);
 
   const activeProjectId = projectId ?? projects[0]?.id ?? null;
   const canManageWebhooks = user?.role === "owner" || user?.role === "admin";
@@ -257,20 +259,29 @@ export function AlertsPage() {
       description="Triage spikes, regressions, and thresholds. Ignore mutes that rule for the issue."
       actions={
         activeProjectId ? (
-          canManageWebhooks ? (
-            <Button variant="secondary" size="sm" asChild>
-              <Link to={projectSettingsPath(activeProjectId, "alerts")}>Alert rules</Link>
-            </Button>
-          ) : (
-            <ActionButton
-              variant="secondary"
+          <div className="flex items-center gap-2">
+            <Button
+              variant={isCreatingRule ? "outline" : "primary"}
               size="sm"
-              disabled
-              tooltip="Admin or owner required to manage alert rules"
+              onClick={() => setIsCreatingRule(!isCreatingRule)}
             >
-              Alert rules
-            </ActionButton>
-          )
+              {isCreatingRule ? "Close Builder" : "+ New Alert Rule"}
+            </Button>
+            {canManageWebhooks ? (
+              <Button variant="secondary" size="sm" asChild>
+                <Link to={projectSettingsPath(activeProjectId, "alerts")}>Settings</Link>
+              </Button>
+            ) : (
+              <ActionButton
+                variant="secondary"
+                size="sm"
+                disabled
+                tooltip="Admin or owner required to manage alert rules"
+              >
+                Settings
+              </ActionButton>
+            )}
+          </div>
         ) : null
       }
       density="full-bleed"
@@ -281,6 +292,19 @@ export function AlertsPage() {
         </FeedListBody>
       ) : (
         <>
+          {isCreatingRule && (
+            <div className="border-b border-border-subtle bg-surface-base p-4 md:p-6">
+              <AlertBuilder
+                projectId={activeProjectId}
+                onSuccess={() => {
+                  setIsCreatingRule(false);
+                  void loadAlerts();
+                }}
+                onCancel={() => setIsCreatingRule(false)}
+              />
+            </div>
+          )}
+
           <AlertsToolbar
             viewMode={viewMode}
             onViewModeChange={handleViewModeChange}
@@ -318,13 +342,13 @@ export function AlertsPage() {
                 description="Alerts fire when event velocity spikes, a resolved exception comes back, or volume thresholds are crossed."
               >
                 <div className="flex flex-wrap items-center justify-center gap-2">
-                  {canManageWebhooks ? (
-                    <Button variant="secondary" size="sm" asChild>
-                      <Link to={projectSettingsPath(activeProjectId, "alerts")}>
-                        Set up alert rules
-                      </Link>
-                    </Button>
-                  ) : null}
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setIsCreatingRule(true)}
+                  >
+                    + New Alert Rule
+                  </Button>
                   <Button variant="ghost" size="sm" asChild>
                     <Link to={projectPath(activeProjectId, "issues")}>Open Issues</Link>
                   </Button>

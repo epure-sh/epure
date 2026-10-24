@@ -10,6 +10,7 @@ use axum::{
 use epure_auth::DashboardSession;
 use epure_storage::events;
 use epure_storage::issues::{self, IssueListFilter, IssueSummary, SnoozeMode, UpdateIssueParams};
+use epure_storage::projects;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -31,7 +32,7 @@ pub fn router(state: Arc<AppState>) -> Router {
 #[derive(Deserialize)]
 struct ListQuery {
     q: Option<String>,
-    project_id: Option<Uuid>,
+    project_id: Option<String>,
     environment: Option<String>,
     window: Option<String>,
     sort: Option<String>,
@@ -156,8 +157,10 @@ async fn list_issues(
     Query(query): Query<ListQuery>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let mut filter = parse_issue_query(query.q.as_deref().unwrap_or_default());
-    if let Some(project_id) = query.project_id {
-        filter.project_id = Some(project_id);
+    if let Some(ref raw_id) = query.project_id {
+        if let Ok(Some(pid)) = projects::resolve_project_id(&state.pools.app, dashboard.org_id, raw_id).await {
+            filter.project_id = Some(pid);
+        }
     }
     if let Some(environment) = query.environment {
         filter.environment = Some(environment);

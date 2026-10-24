@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  billingPath,
+  workspacePath,
   workspaceSettingsPath,
   settingsTabFromPath,
   projectSettingsPath,
@@ -36,5 +38,12 @@ describe("paths helpers for settings and releases", () => {
     assert.equal(isWorkspaceSettingsRoute("/settings/security"), true);
     assert.equal(isWorkspaceSettingsRoute("/usage"), true);
     assert.equal(isWorkspaceSettingsRoute("/p/proj-123/settings"), false);
+  });
+
+  it("computes workspace navigation paths correctly", () => {
+    assert.equal(workspacePath(), "/");
+    assert.equal(workspacePath("team"), "/team");
+    assert.equal(workspacePath("billing"), "/billing");
+    assert.equal(billingPath(), "/billing");
   });
 });

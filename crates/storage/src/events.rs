@@ -259,7 +259,7 @@ pub async fn list_releases_for_issue(
         r#"
         SELECT DISTINCT release
         FROM events
-        WHERE issue_id = $1 AND release IS NOT NULL
+        WHERE issue_id = $1 AND release IS NOT NULL AND release <> ''
         ORDER BY 1
         "#,
     )

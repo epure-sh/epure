@@ -12,7 +12,6 @@ use epure_storage::issues::TimeWindow;
 use epure_storage::projects;
 use epure_storage::stats;
 use serde::Deserialize;
-use uuid::Uuid;
 
 use crate::state::AppState;
 
@@ -24,7 +23,7 @@ pub fn router(state: Arc<AppState>) -> Router {
 
 #[derive(Deserialize)]
 struct StatsQuery {
-    project_id: Uuid,
+    project_id: String,
     environment: Option<String>,
     window: Option<String>,
 }
@@ -34,7 +33,16 @@ async fn get_stats(
     Extension(dashboard): Extension<DashboardSession>,
     Query(query): Query<StatsQuery>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let project = projects::get_project(&state.pools.app, dashboard.org_id, query.project_id)
+    let project_id = projects::resolve_project_id(
+        &state.pools.app,
+        dashboard.org_id,
+        &query.project_id,
+    )
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .ok_or(StatusCode::NOT_FOUND)?;
+
+    let project = projects::get_project(&state.pools.app, dashboard.org_id, project_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     if project.is_none() {
@@ -45,7 +53,7 @@ async fn get_stats(
     let headline = stats::headline_stats(
         &state.pools.app,
         dashboard.org_id,
-        query.project_id,
+        project_id,
         query.environment.as_deref(),
         time_window,
     )

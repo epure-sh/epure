@@ -7,10 +7,12 @@ import { AccountSettingsPage } from "../features/org/account";
 import { OrgHomePage } from "../features/org/home";
 import { BillingPage } from "../features/org/billing";
 import { OrgTeamPage } from "../features/org/team";
+import { OrgChannelsPage } from "../features/org/channels";
 import { UsagePage } from "../features/org/usage";
 import { SetupPage } from "../features/setup";
 import { ReleasesPage } from "../features/releases";
 import { MonitorsPage } from "../features/monitors";
+import { MonitoringPage } from "../features/monitoring";
 import { SettingsPage } from "../features/settings";
 import { projectPath } from "../lib/paths";
 import { RouteErrorBoundary } from "../ui/route-error-boundary";
@@ -60,16 +62,21 @@ function ProjectBoundedRoute({
 
 function LegacyProjectRedirect({ segment }: { segment: "issues" | "releases" | "alerts" | "setup" | "settings" | "monitors" }) {
   const { projectId, projects, projectsLoading } = useAppContext();
-  const id = projectId ?? projects[0]?.id;
+
+  if (projectsLoading) {
+    return (
+      <div className="epure-shell-loading flex h-full flex-col items-center justify-center gap-3 p-6">
+        <Skeleton className="h-4 w-36" />
+        <p className="text-sm text-fg-muted">Loading…</p>
+      </div>
+    );
+  }
+
+  const activeProject =
+    (projectId ? projects.find((p) => p.id === projectId || p.slug === projectId) : null) ??
+    projects[0];
+  const id = activeProject?.id;
   if (!id) {
-    if (projectsLoading) {
-      return (
-        <div className="epure-shell-loading flex h-full flex-col items-center justify-center gap-3 p-6">
-          <Skeleton className="h-4 w-36" />
-          <p className="text-sm text-fg-muted">Loading…</p>
-        </div>
-      );
-    }
     return <Navigate to="/" replace />;
   }
   if (segment === "settings") {
@@ -112,8 +119,17 @@ export function AppShell() {
                     </BoundedRoute>
                   }
                 />
+                <Route path="/org/team" element={<Navigate to="/team" replace />} />
                 <Route
                   path="/settings/*"
+                  element={
+                    <BoundedRoute title="Settings crashed">
+                      <AccountSettingsPage />
+                    </BoundedRoute>
+                  }
+                />
+                <Route
+                  path="/org/settings/*"
                   element={
                     <BoundedRoute title="Settings crashed">
                       <AccountSettingsPage />
@@ -129,6 +145,7 @@ export function AppShell() {
                     </BoundedRoute>
                   }
                 />
+                <Route path="/org/usage" element={<Navigate to="/usage" replace />} />
                 <Route
                   path="/billing"
                   element={
@@ -137,6 +154,16 @@ export function AppShell() {
                     </BoundedRoute>
                   }
                 />
+                <Route path="/org/billing" element={<Navigate to="/billing" replace />} />
+                <Route
+                  path="/org/channels"
+                  element={
+                    <BoundedRoute title="Channels crashed">
+                      <OrgChannelsPage />
+                    </BoundedRoute>
+                  }
+                />
+                <Route path="/channels" element={<Navigate to="/org/channels" replace />} />
 
                 {/* Project scope */}
                 <Route path="/p/:projectId" element={<ProjectScope />}>
@@ -146,6 +173,22 @@ export function AppShell() {
                     element={
                       <ProjectBoundedRoute title="Issues crashed">
                         <IssuesPage />
+                      </ProjectBoundedRoute>
+                    }
+                  />
+                  <Route
+                    path="issues/:issueId"
+                    element={
+                      <ProjectBoundedRoute title="Issues crashed">
+                        <IssuesPage />
+                      </ProjectBoundedRoute>
+                    }
+                  />
+                  <Route
+                    path="monitoring"
+                    element={
+                      <ProjectBoundedRoute title="Monitoring crashed">
+                        <MonitoringPage />
                       </ProjectBoundedRoute>
                     }
                   />

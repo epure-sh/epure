@@ -21,6 +21,7 @@ import { Field } from "../../ui/field";
 import { Input } from "../../ui/input";
 import { useToast } from "../../ui/toast-provider";
 import { InfoCallout, MemberAccessNotice, SettingsTabHeader } from "./shared";
+import { AskAgentCard } from "@/components/kit/ask-agent-card";
 
 interface FilterToggle {
   id: string;
@@ -480,7 +481,7 @@ export function InboundFiltersSettings() {
             </Button>
           </div>
 
-          {simResult ? (
+              {simResult ? (
             <div
               className={`flex items-start gap-2.5 rounded-md border p-3 text-xs ${
                 simResult.dropped
@@ -503,6 +504,12 @@ export function InboundFiltersSettings() {
           ) : null}
         </CardContent>
       </Card>
+
+      <AskAgentCard
+        title="Configure Inbound Filters with AI"
+        description="Want to filter out noisy third-party scripts, crawler bots, or CORS errors? Ask your AI coding assistant to configure regex inbound filters."
+        promptText="Review our recent noisy errors and suggest inbound regex filters to block browser extensions and crawler noise."
+      />
     </div>
   );
 }

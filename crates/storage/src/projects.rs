@@ -61,6 +61,33 @@ pub async fn get_project(
     Ok(row)
 }
 
+pub async fn resolve_project_id(
+    pool: &PgPool,
+    org_id: Uuid,
+    project_ref: &str,
+) -> Result<Option<Uuid>, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let row = if let Ok(id) = Uuid::parse_str(project_ref) {
+        sqlx::query_scalar::<_, Uuid>(
+            "SELECT id FROM projects WHERE org_id = $1 AND id = $2 LIMIT 1",
+        )
+        .bind(org_id)
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+    } else {
+        sqlx::query_scalar::<_, Uuid>(
+            "SELECT id FROM projects WHERE org_id = $1 AND slug = $2 LIMIT 1",
+        )
+        .bind(org_id)
+        .bind(project_ref)
+        .fetch_optional(&mut *tx)
+        .await?
+    };
+    tx.commit().await?;
+    Ok(row)
+}
+
 pub async fn create_project(
     pool: &PgPool,
     org_id: Uuid,

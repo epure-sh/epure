@@ -1,17 +1,21 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { IssueSummary, ProjectRow, TimelineBucket } from "../../lib/api";
 import { cn } from "../../lib/cn";
-import { Button } from "../../ui/button";
-import { Checkbox } from "../../ui/checkbox";
+import { Button } from "@/components/ui/button";
 import { Empty } from "../../ui/empty";
-import { IssueFeedRow } from "../../ui/issue-feed-row";
+import { IssueRowShell } from "@/components/kit/issue-row-shell";
 import { IssueListColumnHeader } from "./issue-list-column-header";
+import { IssuePriorityIcon } from "../../ui/issue-priority";
+import { OccurrenceLineChart } from "../../ui/occurrence-line-chart";
+import { formatCompactCount } from "../../lib/format-count";
+import { formatAge } from "../../lib/format-time";
+import { copyText } from "../../lib/copy-text";
+import { toast } from "@/components/ui/sonner";
+import { Check, Clock, Sparkles } from "lucide-react";
 import {
   inferTrendStatus,
   issueLocationHint,
   parseIssueTitle,
-  platformLabel,
-  projectIssueCode,
 } from "./issue-feed-utils";
 import {
   canIgnoreIssue,
@@ -44,13 +48,9 @@ export interface IssueListProps {
   trendBucketsByIssueId?: Record<string, TimelineBucket[]>;
 }
 
-function projectForIssue(projects: ProjectRow[], issue: IssueSummary): ProjectRow | undefined {
-  return projects.find((project) => project.id === issue.project_id);
-}
-
 export function IssueList({
   issues,
-  projects,
+  projects: _projects,
   focusedId,
   selectedId,
   selectedIds,
@@ -69,10 +69,23 @@ export function IssueList({
   compact = false,
   filtersActive = false,
   onResetFilters,
-  isIssueUnread,
+  isIssueUnread: _isIssueUnread,
   trendBucketsByIssueId = {},
 }: IssueListProps) {
   const listRef = useRef<HTMLDivElement>(null);
+
+  const handleCopyAgentPrompt = useCallback((issue: IssueSummary) => {
+    const brief = [
+      `[Bug] ${issue.level ? `[${issue.level.toUpperCase()}] ` : ""}${issue.title ?? "Production Exception"}`,
+      `Release: ${issue.release ?? "unknown"} | Environment: ${issue.environment ?? "production"}`,
+      `Occurrences: ${issue.event_count} across ${issue.unique_user_count} users`,
+      `Last seen: ${issue.last_seen_at ?? "recently"}`,
+      "",
+      "Please analyze this production error, identify root cause, and provide fix recommendations.",
+    ].join("\n");
+    void copyText(brief);
+    toast.success("Copied prompt for AI agent (C)");
+  }, []);
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -81,6 +94,7 @@ export function IssueList({
         target &&
         (target.tagName === "INPUT" ||
           target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
           target.isContentEditable)
       ) {
         return;
@@ -88,6 +102,20 @@ export function IssueList({
 
       const targetId = selectedId ?? focusedId;
 
+      // J / K Navigation
+      if (!event.altKey && !event.metaKey && !event.ctrlKey && event.key === "j") {
+        event.preventDefault();
+        onMoveSelection("down");
+        return;
+      }
+
+      if (!event.altKey && !event.metaKey && !event.ctrlKey && event.key === "k") {
+        event.preventDefault();
+        onMoveSelection("up");
+        return;
+      }
+
+      // Enter / O opens detail
       if (
         (event.altKey && event.key.toLowerCase() === "k") ||
         (!event.altKey && !event.metaKey && !event.ctrlKey && (event.key === "Enter" || event.key === "o"))
@@ -97,29 +125,15 @@ export function IssueList({
         return;
       }
 
+      // R or E: Resolve
       if (
         !event.altKey &&
         !event.metaKey &&
         !event.ctrlKey &&
-        event.key === "j"
+        (event.key.toLowerCase() === "r" || event.key === "e") &&
+        targetId &&
+        !actionsDisabled
       ) {
-        event.preventDefault();
-        onMoveSelection("down");
-        return;
-      }
-
-      if (
-        !event.altKey &&
-        !event.metaKey &&
-        !event.ctrlKey &&
-        event.key === "k"
-      ) {
-        event.preventDefault();
-        onMoveSelection("up");
-        return;
-      }
-
-      if (event.key === "e" && targetId && !actionsDisabled) {
         const issue = issues.find((row) => row.id === targetId);
         if (issue && canResolveIssue(issue.status)) {
           event.preventDefault();
@@ -128,15 +142,7 @@ export function IssueList({
         return;
       }
 
-      if (event.key === "i" && targetId && !actionsDisabled) {
-        const issue = issues.find((row) => row.id === targetId);
-        if (issue && canIgnoreIssue(issue.status)) {
-          event.preventDefault();
-          onIgnore(targetId);
-        }
-        return;
-      }
-
+      // S: Snooze
       if (
         !event.altKey &&
         !event.metaKey &&
@@ -154,12 +160,40 @@ export function IssueList({
         return;
       }
 
+      // C: Copy AI prompt
+      if (
+        !event.altKey &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        event.key.toLowerCase() === "c" &&
+        targetId
+      ) {
+        const issue = issues.find((row) => row.id === targetId);
+        if (issue) {
+          event.preventDefault();
+          handleCopyAgentPrompt(issue);
+        }
+        return;
+      }
+
+      // X: Toggle checkbox
       if (event.key === "x" && focusedId) {
         event.preventDefault();
         onToggleSelect(focusedId);
         return;
       }
 
+      // I: Ignore
+      if (event.key === "i" && targetId && !actionsDisabled) {
+        const issue = issues.find((row) => row.id === targetId);
+        if (issue && canIgnoreIssue(issue.status)) {
+          event.preventDefault();
+          onIgnore(targetId);
+        }
+        return;
+      }
+
+      // /: Focus query search
       if (event.key === "/") {
         event.preventDefault();
         onFocusQuery();
@@ -177,6 +211,7 @@ export function IssueList({
       onResolve,
       onSnooze,
       onToggleSelect,
+      handleCopyAgentPrompt,
     ],
   );
 
@@ -226,81 +261,108 @@ export function IssueList({
     >
       <div
         ref={listRef}
+        data-slot="issue-feed-list"
         className={cn(
-          "epure-issue-list flex flex-col rounded-lg border border-border bg-surface",
+          "epure-issue-list flex flex-col rounded-lg border border-border bg-surface-1 shadow-xs",
           isEmpty
             ? "shrink-0 overflow-hidden"
             : "min-h-0 flex-1 overflow-x-hidden overflow-y-auto",
         )}
       >
-      <IssueListColumnHeader
-        compact={compact}
-        selectAllChecked={selectAllChecked}
-        selectAllIndeterminate={selectAllIndeterminate}
-        onToggleSelectAll={onToggleSelectAll}
-      />
+        <IssueListColumnHeader
+          compact={compact}
+          selectAllChecked={selectAllChecked}
+          selectAllIndeterminate={selectAllIndeterminate}
+          onToggleSelectAll={onToggleSelectAll}
+        />
 
-      {isEmpty ? (
-        <div className="epure-issue-list-empty px-4 py-6">
-          {emptyContent}
-        </div>
-      ) : null}
-
-      {issues.map((issue) => {
-        const title = issue.title ?? "Untitled issue";
-        const { shortTitle, subtitle } = parseIssueTitle(title);
-        const checked = selectedIds.has(issue.id);
-        const rowSelected = issue.id === (selectedId ?? focusedId);
-        const project = projectForIssue(projects, issue);
-        const platform = platformLabel(
-          project?.slug?.includes("api")
-            ? issue.title?.toLowerCase().includes("timeout")
-              ? "python"
-              : "node"
-            : "javascript",
-        );
-
-        return (
-          <div key={issue.id} data-issue-id={issue.id}>
-            <IssueFeedRow
-              shortTitle={shortTitle}
-              subtitle={subtitle}
-              lastSeen={issue.last_seen_at ?? undefined}
-              firstSeen={issue.first_seen_at ?? undefined}
-              eventCount={issue.event_count}
-              userCount={issue.unique_user_count}
-              level={issue.level ?? undefined}
-              status={issue.status}
-              projectCode={
-                project?.slug ? projectIssueCode(project.slug, issue.id) : undefined
-              }
-              platform={platform}
-              location={issueLocationHint(issue)}
-              trendBuckets={trendBucketsByIssueId[issue.id] ?? []}
-              trendStatus={inferTrendStatus(
-                issue,
-                trendBucketsByIssueId[issue.id] ?? [],
-              )}
-              regression={issue.status === "regression"}
-              unhandled={issue.status === "unresolved" && issue.level === "error"}
-              snoozed={issue.snoozed}
-              selected={rowSelected}
-              bulkSelected={checked}
-              unread={isIssueUnread ? isIssueUnread(issue) : false}
-              compact={compact}
-              checkbox={
-                <Checkbox
-                  checked={checked}
-                  aria-label={`Select ${title}`}
-                  title="Select (x)"
-                  onCheckedChange={() => onToggleSelect(issue.id)}
-                />
-              }
-              onClick={(event) => onSelect(issue.id, event.shiftKey)}
-            />
+        {isEmpty ? (
+          <div className="epure-issue-list-empty px-4 py-6">
+            {emptyContent}
           </div>
-        );
-      })}
+        ) : null}
+
+        {issues.map((issue) => {
+          const title = issue.title ?? "Untitled issue";
+          const { shortTitle, subtitle } = parseIssueTitle(title);
+          const checked = selectedIds.has(issue.id);
+          const rowSelected = issue.id === (selectedId ?? focusedId);
+          const buckets = trendBucketsByIssueId[issue.id] ?? [];
+          const trendStatus = inferTrendStatus(issue, buckets);
+          const isEscalating = Boolean(issue.is_escalating_3d || trendStatus === "escalating");
+
+          // Quick Action buttons on hover/focus (Sprint 4: Resolve, Snooze, Ask Agent)
+          const quickActions = (
+            <div
+              className="flex items-center justify-end gap-1"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {canResolveIssue(issue.status) && (
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="h-6 w-6 p-0 text-fg-muted hover:text-healthy hover:bg-healthy/10"
+                  title="Resolve (R)"
+                  onClick={() => onResolve(issue.id)}
+                >
+                  <Check className="size-3.5" />
+                </Button>
+              )}
+              {canSnoozeIssue(issue) && (
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="h-6 w-6 p-0 text-fg-muted hover:text-fg-primary hover:bg-surface-3"
+                  title="Snooze (S)"
+                  onClick={() => onSnooze?.(issue.id)}
+                >
+                  <Clock className="size-3.5" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="h-6 w-6 p-0 text-fg-muted hover:text-accent hover:bg-accent/10"
+                title="Ask Agent to Fix (C)"
+                onClick={() => handleCopyAgentPrompt(issue)}
+              >
+                <Sparkles className="size-3.5" />
+              </Button>
+            </div>
+          );
+
+          return (
+            <div key={issue.id} data-issue-id={issue.id}>
+              <IssueRowShell
+                id={issue.id}
+                selected={checked || rowSelected}
+                onSelectChange={() => onToggleSelect(issue.id)}
+                escalating={isEscalating}
+                statusBadge={
+                  <IssuePriorityIcon
+                    level={issue.level}
+                    status={issue.status}
+                    size={14}
+                  />
+                }
+                title={shortTitle}
+                subtitle={subtitle || issueLocationHint(issue)}
+                sparkline={
+                  <OccurrenceLineChart
+                    buckets={buckets}
+                    height={18}
+                    className="w-[72px]"
+                  />
+                }
+                eventsCount={formatCompactCount(issue.event_count)}
+                usersCount={formatCompactCount(issue.unique_user_count)}
+                timeAgo={issue.last_seen_at ? formatAge(issue.last_seen_at) : "—"}
+                onClick={() => onSelect(issue.id)}
+                actions={quickActions}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

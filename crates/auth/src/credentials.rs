@@ -19,6 +19,7 @@ pub struct AccountProfile {
     pub role: String,
     pub has_password: bool,
     pub google_linked: bool,
+    pub github_linked: bool,
     pub plan_tier: Option<String>,
 }
 
@@ -214,6 +215,7 @@ impl CredentialAuth {
                     u.display_name,
                     u.password_hash,
                     u.google_sub,
+                    u.github_id,
                     om.role,
                     o.name AS org_name,
                     o.plan_tier
@@ -238,6 +240,7 @@ impl CredentialAuth {
                 role: row.role,
                 has_password: row.password_hash.is_some(),
                 google_linked: row.google_sub.is_some(),
+                github_linked: row.github_id.is_some(),
                 plan_tier: row.plan_tier,
             })
         })
@@ -448,6 +451,7 @@ struct AccountProfileRow {
     display_name: Option<String>,
     password_hash: Option<Vec<u8>>,
     google_sub: Option<String>,
+    github_id: Option<String>,
     role: String,
     org_name: Option<String>,
     plan_tier: Option<String>,

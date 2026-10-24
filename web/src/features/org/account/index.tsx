@@ -30,6 +30,7 @@ export function AccountSettingsPage() {
               <Route path="agent" element={<AgentTokensTab />} />
               <Route path="connected-apps" element={<ConnectedAppsTab />} />
               <Route path="operations" element={<OperationsTab />} />
+              <Route path="releases" element={<Navigate to="/releases" replace />} />
               <Route path="*" element={<Navigate to={workspaceSettingsPath()} replace />} />
             </Routes>
           </div>

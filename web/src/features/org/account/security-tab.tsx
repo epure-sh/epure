@@ -53,6 +53,7 @@ function SettingsRow({
 export function SecurityTab({ settings }: { settings: AccountSettingsContext }) {
   const { profile, authConfig, logout, savePassword, removeAccount } = settings;
   const googleEnabled = isGoogleSignInVisible(authConfig?.google_enabled);
+  const githubEnabled = Boolean(authConfig?.github_enabled);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -145,8 +146,8 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
           description={
             profile?.has_password
               ? "Email and password sign-in is enabled."
-              : googleEnabled
-                ? "No password set — use Google or set one."
+              : googleEnabled || githubEnabled
+                ? `No password set — use ${[googleEnabled && "Google", githubEnabled && "GitHub"].filter(Boolean).join(" or ")} or set one.`
                 : "No password set — set one to sign in with email."
           }
           badge={
@@ -180,6 +181,31 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
               ) : (
                 <Button variant="secondary" size="sm" asChild>
                   <a href="/api/v1/auth/google">Connect</a>
+                </Button>
+              )
+            }
+          />
+        ) : null}
+
+        {githubEnabled ? (
+          <SettingsRow
+            title="GitHub"
+            description={
+              profile?.github_linked
+                ? "Linked for one-click sign-in."
+                : "Connect GitHub for faster sign-in."
+            }
+            badge={
+              <Badge variant="env" size="compact">
+                {profile?.github_linked ? "Connected" : "Not connected"}
+              </Badge>
+            }
+            action={
+              profile?.github_linked ? (
+                <span className="text-xs text-ink-muted">—</span>
+              ) : (
+                <Button variant="secondary" size="sm" asChild>
+                  <a href="/api/v1/auth/github">Connect</a>
                 </Button>
               )
             }

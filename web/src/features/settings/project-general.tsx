@@ -25,6 +25,7 @@ import {
   ReadOnlyDetail,
   SettingsTabHeader,
 } from "./shared";
+import { AskAgentCard } from "@/components/kit/ask-agent-card";
 
 const retentionOptions = [14, 30, 90] as const;
 
@@ -265,6 +266,12 @@ export function ProjectGeneralSettings() {
           ) : null}
         </div>
       </form>
+
+      <AskAgentCard
+        title="Automate Project Configuration"
+        description="Want to update ingest caps, retention periods, or project metadata via CLI? Ask your AI coding assistant to manage project settings."
+        promptText={`Configure project settings for ${project?.name ?? "this project"} via epure-cli`}
+      />
 
       {canDelete ? (
         <DangerZone

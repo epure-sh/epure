@@ -1,12 +1,13 @@
 import { useEffect } from "react";
-import { Outlet, useParams } from "react-router-dom";
+import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import { ErrorState, NotFoundState } from "../ui/error-state";
 import { Skeleton } from "../ui/skeleton";
 import { useAppContext } from "./app-context";
 
-/** Syncs URL `:projectId` into app context; guards invalid project ids. */
+/** Syncs URL `:projectId` into app context; guards invalid project ids and resolves slugs. */
 export function ProjectScope() {
   const { projectId: paramId } = useParams<{ projectId: string }>();
+  const location = useLocation();
   const {
     projects,
     projectsLoading,
@@ -16,11 +17,15 @@ export function ProjectScope() {
     projectId,
   } = useAppContext();
 
+  const matchingProject = paramId
+    ? projects.find((project) => project.id === paramId || project.slug === paramId) ?? null
+    : null;
+
   useEffect(() => {
-    if (paramId) {
-      setProjectId(paramId);
+    if (matchingProject) {
+      setProjectId(matchingProject.id);
     }
-  }, [paramId, setProjectId]);
+  }, [matchingProject, setProjectId]);
 
   if (projectsLoading) {
     return (
@@ -43,9 +48,7 @@ export function ProjectScope() {
     );
   }
 
-  const valid = paramId && projects.some((project) => project.id === paramId);
-
-  if (!valid) {
+  if (!matchingProject) {
     return (
       <NotFoundState
         title="Project not found"
@@ -56,7 +59,13 @@ export function ProjectScope() {
     );
   }
 
-  if (paramId && paramId !== projectId) {
+  // Canonicalize slug to UUID so child routes and API calls always receive a valid UUID
+  if (paramId && paramId !== matchingProject.id) {
+    const canonicalPath = location.pathname.replace(`/p/${paramId}`, `/p/${matchingProject.id}`);
+    return <Navigate to={`${canonicalPath}${location.search}${location.hash}`} replace />;
+  }
+
+  if (matchingProject.id !== projectId) {
     return null;
   }
 

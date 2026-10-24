@@ -43,7 +43,7 @@ export function IssueRowShell({
       onClick={onClick}
       className={cn(
         "group relative grid h-10 w-full items-center border-b border-border-subtle px-3 text-xs transition-colors duration-100 cursor-pointer select-none",
-        "grid-cols-[16px_auto_1fr_auto_90px_60px_60px] gap-3",
+        "grid-cols-[16px_auto_1fr_auto_80px_60px_80px] gap-3",
         selected ? "bg-surface-2/80" : "bg-surface-1 hover:bg-surface-2/50",
         className
       )}
@@ -112,9 +112,22 @@ export function IssueRowShell({
         ) : null}
       </div>
 
-      {/* Time Ago or Actions */}
-      <div className="text-right font-mono text-[11px] tabular-nums text-fg-muted truncate">
-        {actions || timeAgo}
+      {/* Time Ago or Actions (Hover revealed quick actions) */}
+      <div className="flex items-center justify-end overflow-hidden">
+        {actions ? (
+          <>
+            <div className="group-hover:hidden group-focus-within:hidden text-right font-mono text-[11px] tabular-nums text-fg-muted truncate w-full">
+              {timeAgo}
+            </div>
+            <div className="hidden group-hover:flex group-focus-within:flex items-center justify-end gap-1">
+              {actions}
+            </div>
+          </>
+        ) : (
+          <div className="text-right font-mono text-[11px] tabular-nums text-fg-muted truncate w-full">
+            {timeAgo}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes, useParams } from "react-router-dom";
-import { projectSettingsPath } from "../../lib/paths";
+import { projectPath, projectSettingsPath } from "../../lib/paths";
 import { useAppContext } from "../../shell/app-context";
 import { NotFoundState } from "../../ui/error-state";
 import { PageShell } from "@/components/kit/page-shell";
@@ -33,6 +33,7 @@ export function SettingsPage() {
               <Route path="webhooks" element={<WebhooksSettings />} />
               <Route path="alerts" element={<AlertRulesSettings />} />
               <Route path="security" element={<Navigate to="/settings/security" replace />} />
+              <Route path="releases" element={<Navigate to={projectPath(projectId ?? "", "releases")} replace />} />
               <Route
                 path="*"
                 element={

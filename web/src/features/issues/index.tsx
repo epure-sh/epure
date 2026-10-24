@@ -414,6 +414,17 @@ export function IssuesPage() {
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <ActionButton
+              variant="outline"
+              size="sm"
+              className="btn-tactile text-xs font-semibold border-accent/60 bg-accent/15 text-accent hover:bg-accent/25 shadow-xs"
+              disabled={actionsDisabled}
+              tooltip="Copy diagnostic brief with stack trace, breadcrumbs & suspect frame (C)"
+              onClick={handleExport}
+            >
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              <span>Ask Agent to Fix (C)</span>
+            </ActionButton>
             {canResolveIssue(selectedIssue.status) ? (
               <ActionButton
                 variant="primary"
@@ -424,7 +435,7 @@ export function IssuesPage() {
                 onClick={() => void handleResolve(selectedIssue.id)}
               >
                 <Check className="mr-1.5 h-3.5 w-3.5 stroke-[2.5]" />
-                <span>{patchingId === selectedIssue.id ? "Saving…" : "Resolve (E)"}</span>
+                <span>{patchingId === selectedIssue.id ? "Saving…" : "Resolve (R)"}</span>
               </ActionButton>
             ) : null}
             {canReopenIssue(selectedIssue.status) ? (
@@ -440,17 +451,15 @@ export function IssuesPage() {
                 <span>{patchingId === selectedIssue.id ? "Saving…" : "Unresolve"}</span>
               </ActionButton>
             ) : null}
-            <ActionButton
-              variant="outline"
-              size="sm"
-              className="btn-tactile text-xs font-medium border-accent/40 bg-accent-muted/30 text-accent hover:bg-accent-muted/60"
+            <SnoozeMenu
+              issue={selectedIssue}
               disabled={actionsDisabled}
-              tooltip={actionsDisabled ? "Saving changes…" : undefined}
-              onClick={handleExport}
-            >
-              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-              <span>Copy for AI (C)</span>
-            </ActionButton>
+              buttonSize="sm"
+              variant="outline"
+              showShortcutHint
+              className="btn-tactile text-xs font-medium"
+              onSnooze={handleSnooze}
+            />
             <ActionButton
               variant="outline"
               size="sm"
@@ -473,15 +482,6 @@ export function IssuesPage() {
               <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
               <span>Linear Issue</span>
             </ActionButton>
-            <SnoozeMenu
-              issue={selectedIssue}
-              disabled={actionsDisabled}
-              buttonSize="sm"
-              variant="outline"
-              showShortcutHint
-              className="btn-tactile text-xs font-medium"
-              onSnooze={handleSnooze}
-            />
             {canIgnoreIssue(selectedIssue.status) ? (
               <ActionButton
                 variant="ghost"

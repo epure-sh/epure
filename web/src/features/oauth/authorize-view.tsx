@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   fetchOAuthInfo,
@@ -15,12 +15,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EpureBrandMark } from "../../ui/logo";
-import { Bot, Check, ShieldCheck, Terminal, AlertTriangle } from "lucide-react";
+import { Bot, Check, ShieldCheck, Terminal, AlertTriangle, ArrowRight } from "lucide-react";
 
 export function AuthorizeView() {
   const [searchParams] = useSearchParams();
   const clientId = searchParams.get("client_id") || "";
-  const clientName = searchParams.get("client_name") || clientId;
+  const clientName = searchParams.get("client_name") || clientId || "AI Coding Assistant";
   const redirectUri = searchParams.get("redirect_uri") || "";
   const codeChallenge = searchParams.get("code_challenge") || "";
   const codeChallengeMethod = searchParams.get("code_challenge_method") || "S256";
@@ -64,7 +64,7 @@ export function AuthorizeView() {
       });
   }, [clientId, redirectUri, codeChallenge]);
 
-  async function handleAuthorize() {
+  const handleAuthorize = useCallback(async () => {
     if (!selectedOrgId) {
       setError("Please select an organization");
       return;
@@ -90,9 +90,9 @@ export function AuthorizeView() {
       setError(err instanceof Error ? err.message : "Authorization failed");
       setSubmitting(false);
     }
-  }
+  }, [clientId, clientName, selectedOrgId, redirectUri, codeChallenge, codeChallengeMethod, scopes, state]);
 
-  function handleCancel() {
+  const handleCancel = useCallback(() => {
     if (!redirectUri) {
       window.close();
       return;
@@ -103,47 +103,79 @@ export function AuthorizeView() {
       url += `&state=${encodeURIComponent(state)}`;
     }
     window.location.href = url;
-  }
+  }, [redirectUri, state]);
+
+  // Keyboard shortcut: Enter to Approve, Esc to Cancel
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === "Enter" && !loading && !submitting && selectedOrgId) {
+        e.preventDefault();
+        void handleAuthorize();
+      } else if (e.key === "Escape" && !submitting) {
+        e.preventDefault();
+        handleCancel();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [loading, submitting, selectedOrgId, handleAuthorize, handleCancel]);
 
   const isCli = clientId.toLowerCase().includes("cli");
+  const isCursor = clientId.toLowerCase().includes("cursor") || clientName.toLowerCase().includes("cursor");
+  const isClaude = clientId.toLowerCase().includes("claude") || clientName.toLowerCase().includes("claude");
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-bg px-4 py-12">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-surface-base px-4 py-12 select-none">
       <div className="mb-6 flex items-center gap-3">
         <EpureBrandMark className="h-8 w-8" />
-        <span className="font-mono text-sm tracking-widest uppercase text-ink-muted">
+        <span className="font-mono text-sm tracking-widest uppercase text-fg-muted">
           Epure Connect
         </span>
       </div>
 
-      <Card className="w-full max-w-md shadow-xl border-border bg-surface">
+      <Card className="w-full max-w-md shadow-float border-border-strong bg-surface-1">
         <CardHeader className="text-center pb-4">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-surface-muted/60 text-accent">
-            {isCli ? <Terminal size={24} /> : <Bot size={24} />}
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-border-subtle bg-surface-2 text-accent">
+            {isCli ? (
+              <Terminal size={24} />
+            ) : isCursor || isClaude ? (
+              <Bot size={24} className="text-accent" />
+            ) : (
+              <Bot size={24} />
+            )}
           </div>
-          <CardTitle className="text-xl">Authorize {clientName}</CardTitle>
-          <CardDescription className="text-xs mt-1">
-            <span className="font-mono font-medium text-ink">{clientName}</span> is requesting access to your Epure account.
+          <CardTitle className="text-lg font-semibold tracking-tight text-fg-primary">
+            Authorize {clientName}
+          </CardTitle>
+          <CardDescription className="text-xs mt-1 text-fg-muted">
+            <span className="font-mono font-medium text-fg-primary">{clientName}</span> is requesting PKCE access to your Epure triage workspace.
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
           {error && (
-            <div className="rounded-lg border border-state-error/40 bg-state-error/10 p-3 text-xs text-state-error flex items-start gap-2">
+            <div className="rounded-lg border border-semantic-danger/40 bg-semantic-danger/10 p-3 text-xs text-semantic-danger flex items-start gap-2">
               <AlertTriangle size={15} className="shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
           {loading ? (
-            <div className="py-8 text-center text-sm text-ink-muted">
+            <div className="py-8 text-center text-sm text-fg-muted">
               Loading authorization context…
             </div>
           ) : (
             <>
               {/* Workspace selector */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
                   Select Workspace / Organization
                 </label>
                 <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
@@ -162,43 +194,43 @@ export function AuthorizeView() {
 
               {/* Scopes requested */}
               <div className="space-y-2 pt-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
-                  Requested Permissions
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+                  Requested Capabilities
                 </label>
-                <div className="rounded-lg border border-border/70 bg-bg/40 p-3 space-y-2">
+                <div className="rounded-lg border border-border-subtle bg-surface-2/40 p-3 space-y-2.5">
                   {scopes.includes("read:agent") && (
                     <div className="flex items-start gap-2 text-xs">
-                      <Check size={14} className="text-state-success shrink-0 mt-0.5" />
+                      <Check size={14} className="text-healthy shrink-0 mt-0.5 stroke-[2.5]" />
                       <div>
-                        <span className="font-medium text-ink">Read Telemetry</span>
-                        <p className="text-[11px] text-ink-muted">Read issues, stack traces, and project metadata.</p>
+                        <span className="font-medium text-fg-primary">Read Telemetry</span>
+                        <p className="text-[11px] text-fg-muted">Read issues, stack traces, and breadcrumb context for AI diagnosis.</p>
                       </div>
                     </div>
                   )}
                   {scopes.includes("write:triage") && (
                     <div className="flex items-start gap-2 text-xs">
-                      <Check size={14} className="text-state-success shrink-0 mt-0.5" />
+                      <Check size={14} className="text-healthy shrink-0 mt-0.5 stroke-[2.5]" />
                       <div>
-                        <span className="font-medium text-ink">Triage Issues</span>
-                        <p className="text-[11px] text-ink-muted">Resolve, snooze, ignore, and merge issue groups.</p>
+                        <span className="font-medium text-fg-primary">Triage & Fix Exceptions</span>
+                        <p className="text-[11px] text-fg-muted">Resolve, snooze, and attach automated bug fix pull requests.</p>
                       </div>
                     </div>
                   )}
                   {scopes.includes("write:admin") && (
                     <div className="flex items-start gap-2 text-xs">
-                      <Check size={14} className="text-state-success shrink-0 mt-0.5" />
+                      <Check size={14} className="text-healthy shrink-0 mt-0.5 stroke-[2.5]" />
                       <div>
-                        <span className="font-medium text-ink">Administer Workspace</span>
-                        <p className="text-[11px] text-ink-muted">Create projects, manage alerts, and update configurations.</p>
+                        <span className="font-medium text-fg-primary">Administer Workspace</span>
+                        <p className="text-[11px] text-fg-muted">Create projects, manage alert rules, and update DSN keys.</p>
                       </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-1 text-[11px] text-ink-subtle">
+              <div className="flex items-center gap-2 pt-1 text-[11px] text-fg-muted">
                 <ShieldCheck size={13} className="shrink-0 text-accent" />
-                <span>Redirects safely to <code className="font-mono text-ink-muted truncate max-w-[240px]">{redirectUri}</code></span>
+                <span>Redirects safely to <code className="font-mono text-fg-secondary truncate max-w-[240px]">{redirectUri}</code></span>
               </div>
             </>
           )}
@@ -211,15 +243,25 @@ export function AuthorizeView() {
             disabled={submitting}
             className="w-1/2"
           >
-            Cancel
+            Cancel (Esc)
           </Button>
           <Button
             variant="primary"
-            onClick={handleAuthorize}
+            onClick={() => void handleAuthorize()}
             disabled={loading || submitting || !selectedOrgId}
-            className="w-1/2"
+            className="w-1/2 gap-1.5 shadow-tactile font-medium"
           >
-            {submitting ? "Authorizing…" : "Authorize"}
+            {submitting ? (
+              "Approving…"
+            ) : (
+              <>
+                <span>Approve</span>
+                <kbd className="rounded bg-primary-fg/20 px-1 py-0.5 font-mono text-[10px] text-primary-fg">
+                  ⏎
+                </kbd>
+                <ArrowRight className="size-3.5 ml-0.5" />
+              </>
+            )}
           </Button>
         </CardFooter>
       </Card>

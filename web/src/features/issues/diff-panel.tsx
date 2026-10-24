@@ -108,6 +108,7 @@ export function DiffPanel({
 }: DiffPanelProps) {
   const [releaseLeft, setReleaseLeft] = useState<EventDetail | null>(null);
   const [releaseRight, setReleaseRight] = useState<EventDetail | null>(null);
+  const [loadingReleases, setLoadingReleases] = useState(false);
 
   const leftEvent = useMemo(
     () => events.find((event) => event.id === leftEventId) ?? events[0] ?? null,
@@ -134,9 +135,11 @@ export function DiffPanel({
     if (mode !== "release" || !leftRelease || !rightRelease) {
       setReleaseLeft(null);
       setReleaseRight(null);
+      setLoadingReleases(false);
       return;
     }
 
+    setLoadingReleases(true);
     let cancelled = false;
     void Promise.all([
       fetchEvents(issueId, { release: leftRelease, limit: 1 }),
@@ -154,6 +157,11 @@ export function DiffPanel({
           setReleaseLeft(null);
           setReleaseRight(null);
         }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingReleases(false);
+        }
       });
 
     return () => {
@@ -162,8 +170,6 @@ export function DiffPanel({
   }, [issueId, leftRelease, mode, rightRelease]);
 
   const occurrenceReady = Boolean(leftEvent && rightEvent);
-  const releaseReady =
-    mode === "release" && leftRelease && rightRelease && releaseLeft && releaseRight;
 
   return (
     <div className="space-y-4">
@@ -293,17 +299,21 @@ export function DiffPanel({
         </p>
       ) : null}
 
-      {mode === "release" && releaseReady && releaseLeft && releaseRight ? (
-        <DiffTable
-          leftLabel={leftRelease ?? ""}
-          rightLabel={rightRelease ?? ""}
-          left={releaseLeft}
-          right={releaseRight}
-        />
-      ) : null}
-
-      {mode === "release" && leftRelease && rightRelease && !releaseLeft && !releaseRight ? (
-        <p className="text-sm text-ink-muted">Loading release events…</p>
+      {mode === "release" && leftRelease && rightRelease ? (
+        loadingReleases ? (
+          <p className="text-sm text-ink-muted">Loading release events…</p>
+        ) : releaseLeft && releaseRight ? (
+          <DiffTable
+            leftLabel={leftRelease}
+            rightLabel={rightRelease}
+            left={releaseLeft}
+            right={releaseRight}
+          />
+        ) : (
+          <p className="text-sm text-ink-muted">
+            No stored events found for one or both of the selected releases.
+          </p>
+        )
       ) : null}
     </div>
   );

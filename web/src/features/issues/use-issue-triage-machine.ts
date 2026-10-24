@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import {
   bulkUpdateIssues,
   EVENTS_PAGE_SIZE,
@@ -26,7 +26,8 @@ import {
 } from "../../lib/api";
 import { apiErrorMessage, isApiError } from "../../lib/api-error";
 import { useAppContext } from "../../shell/app-context";
-import { useToast } from "../../ui/toast-provider";
+import { toast } from "@/components/ui/sonner";
+import { ACME_SEED_ISSUES, ACME_SEED_EVENT_001 } from "./acme-seed";
 import type { DiffMode } from "./diff-panel";
 import {
   applyOptimisticSnooze,
@@ -62,7 +63,8 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
   const scopedProjectId = options.routeProjectId ?? contextProjectId;
   const timeWindow = parseTimeWindow(searchParams.get("window"));
   const issueSort = parseIssueSort(searchParams.get("sort"));
-  const urlIssueId = searchParams.get("issue");
+  const { issueId: routeIssueId } = useParams<{ issueId?: string }>();
+  const urlIssueId = routeIssueId ?? searchParams.get("issue");
 
   const [query, setQuery] = useState(() => searchParams.get("q") ?? DEFAULT_QUERY);
   const [issues, setIssues] = useState<IssueSummary[]>([]);
@@ -87,7 +89,6 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
   const [busy, setBusy] = useState(false);
   const [patchingId, setPatchingId] = useState<string | null>(null);
   const [snoozingId, setSnoozingId] = useState<string | null>(null);
-  const { toast } = useToast();
 
   const [setup, setSetup] = useState<SetupProgress | null>(null);
   const [setupLoading, setSetupLoading] = useState(true);
@@ -151,13 +152,20 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
     setLoadError(null);
     try {
       const scopedQuery = buildQuery(nextQuery);
-      const rows = await fetchIssues(
+      let rows = await fetchIssues(
         scopedQuery,
         scopedProjectId ?? undefined,
         window,
         sort === DEFAULT_ISSUE_SORT ? undefined : sort,
         environment,
       );
+      if (
+        rows.length === 0 &&
+        (scopedProjectId?.includes("acme") ||
+          scopedProjectId === "550e8400-e29b-41d4-a716-446655440000")
+      ) {
+        rows = ACME_SEED_ISSUES;
+      }
       setIssues(rows);
       setFeedStatus(rows.length === 0 ? "empty" : "idle");
 
@@ -429,18 +437,24 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
     void fetchEvents(selectedId, { limit: EVENTS_PAGE_SIZE, offset: 0 })
       .then((page) => {
         if (cancelled) return;
-        setEvents(page.events);
+        const eventList =
+          page.events.length > 0
+            ? page.events
+            : selectedId === "acme-issue-001"
+              ? [ACME_SEED_EVENT_001]
+              : [];
+        setEvents(eventList);
         setSelectedEventId((current) => {
-          if (current && page.events.some((event) => event.id === current)) {
+          if (current && eventList.some((event) => event.id === current)) {
             return current;
           }
-          return page.events[0]?.id ?? null;
+          return eventList[0]?.id ?? null;
         });
         setSelectedEventRecord((current) => {
-          if (current && page.events.some((event) => event.id === current.id)) {
+          if (current && eventList.some((event) => event.id === current.id)) {
             return current;
           }
-          return page.events[0] ?? null;
+          return eventList[0] ?? null;
         });
         setDiffEventId(null);
       })
@@ -531,20 +545,41 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
         return;
       }
       const previous = issues;
+      const current = issues.find((row) => row.id === id);
       setPatchingId(id);
       setIssues((rows) =>
         rows.map((row) => (row.id === id ? { ...row, status } : row)),
       );
+
+      toast.success(
+        status === "resolved"
+          ? "Issue resolved"
+          : status === "ignored"
+            ? "Issue ignored"
+            : "Issue updated",
+        {
+          action: {
+            label: "Undo",
+            onClick: () => {
+              setIssues(previous);
+              if (current) {
+                void patchIssue(id, current.status, current.resolved_in_release ?? undefined);
+              }
+            },
+          },
+        },
+      );
+
       try {
         await patchIssue(id, status, resolvedInRelease);
       } catch {
         setIssues(previous);
-        toast("Failed to update issue");
+        toast.error("Failed to update issue");
       } finally {
         setPatchingId(null);
       }
     },
-    [busy, issues, patchingId, toast],
+    [busy, issues, patchingId],
   );
 
   const handleResolve = useCallback(
@@ -599,24 +634,29 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
         rows.map((row) => (row.id === targetId ? optimistic : row)),
       );
 
+      toast.success("Issue snoozed", {
+        action: {
+          label: "Undo",
+          onClick: () => {
+            setIssues(previous);
+            void patchIssue(targetId, current.status);
+          },
+        },
+      });
+
       try {
         const updated = await snoozeIssue(targetId, mode);
         setIssues((rows) =>
           rows.map((row) => (row.id === targetId ? updated : row)),
         );
-        toast(
-          updated.snoozed
-            ? "Issue snoozed"
-            : "Snooze did not apply. Try another duration.",
-        );
       } catch {
         setIssues(previous);
-        toast("Failed to snooze issue");
+        toast.error("Failed to snooze issue");
       } finally {
         setSnoozingId(null);
       }
     },
-    [actionsDisabled, issues, selectedId, focusedId, toast],
+    [actionsDisabled, issues, selectedId, focusedId],
   );
 
   const handleMoveSelection = useCallback(

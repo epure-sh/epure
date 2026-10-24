@@ -57,13 +57,21 @@ export function ReleasesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const activeProjectId = routeProjectId ?? projectId ?? projects[0]?.id ?? null;
-  const activeProject = useMemo(
-    () => projects.find((row) => row.id === activeProjectId) ?? null,
-    [activeProjectId, projects],
-  );
+  const activeProject = useMemo(() => {
+    const candidate = routeProjectId ?? projectId;
+    if (candidate) {
+      const match = projects.find((row) => row.id === candidate || row.slug === candidate);
+      if (match) return match;
+    }
+    return projects[0] ?? null;
+  }, [routeProjectId, projectId, projects]);
+
+  const activeProjectId = activeProject?.id ?? null;
 
   const loadReleases = useCallback(async () => {
+    if (projectsLoading) {
+      return;
+    }
     if (!activeProjectId) {
       setReleases([]);
       setLoading(false);
@@ -80,7 +88,7 @@ export function ReleasesPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeProjectId]);
+  }, [projectsLoading, activeProjectId]);
 
   useEffect(() => {
     void loadReleases();
@@ -128,25 +136,17 @@ export function ReleasesPage() {
       />
 
       <FeedListBody>
-        {!activeProjectId ? (
-          projectsLoading ? (
-            <StackedCardList>
-              {Array.from({ length: 5 }).map((_, index) => (
-                <CardRowSkeleton key={index} />
-              ))}
-            </StackedCardList>
-          ) : (
-            <Empty
-              title="No project selected"
-              description="Choose a project to view its releases."
-            />
-          )
-        ) : loading ? (
+        {projectsLoading || loading ? (
           <StackedCardList>
             {Array.from({ length: 5 }).map((_, index) => (
               <CardRowSkeleton key={index} />
             ))}
           </StackedCardList>
+        ) : !activeProjectId ? (
+          <Empty
+            title="No project selected"
+            description="Choose a project to view its releases."
+          />
         ) : error ? (
           <div className="space-y-3">
             <p className="text-sm text-semantic-danger">{error}</p>

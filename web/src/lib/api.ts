@@ -17,6 +17,11 @@ export interface IssueSummary {
   snooze_until: string | null;
   snooze_until_count: number | null;
   snooze_until_users: number | null;
+  came_back?: boolean;
+  affected_users_count?: number;
+  velocity_24h?: number;
+  is_escalating_3d?: boolean;
+  priority_score?: string;
 }
 
 export interface TimelineBucket {
@@ -483,6 +488,7 @@ export interface MeResponse {
   role: string;
   has_password: boolean;
   google_linked: boolean;
+  github_linked?: boolean;
   plan_tier?: string | null;
 }
 
@@ -557,9 +563,11 @@ export async function sendTestEmailAlert(
 
 export interface AuthConfig {
   google_enabled: boolean;
+  github_enabled?: boolean;
   password_enabled: boolean;
   registration_enabled: boolean;
   session_secure?: boolean;
+  mcp_enabled?: boolean;
 }
 
 export async function fetchMe(): Promise<MeResponse> {

@@ -24,6 +24,7 @@ import { SdkSnippetBlock } from "../../ui/sdk-snippet-block";
 import { useToast } from "../../ui/toast-provider";
 import { InfoCallout, MemberAccessNotice, SettingsTabHeader } from "./shared";
 import { DualSendingCard } from "../../ui/dual-sending-card";
+import { AskAgentCard } from "@/components/kit/ask-agent-card";
 
 export function DsnKeysSettings() {
   const { projectId: paramId } = useParams<{ projectId: string }>();
@@ -312,6 +313,12 @@ export function DsnKeysSettings() {
           </CardContent>
         </Card>
       ) : null}
+
+      <AskAgentCard
+        title="Connect SDK with AI Assistant"
+        description="Ask your AI coding assistant to swap your DSN or set up error handling in your application in 1 prompt."
+        promptText={activeDsn ? `Configure our application to send errors to Epure with DSN: ${activeDsn}` : "Configure our application to send errors to Epure"}
+      />
     </div>
   );
 }

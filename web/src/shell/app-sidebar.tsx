@@ -1,22 +1,25 @@
 import {
+  Activity,
   Bell,
+  Building2,
+  ChevronDown,
   CircleDot,
   CreditCard,
-  FolderKanban,
   Layers,
   LogOut,
   Package,
+  Radio,
   Search,
   Settings,
-  Users,
-  Activity,
-  ChevronDown,
   ShieldCheck,
+  Users,
   X,
 } from "lucide-react";
+import { motion } from "motion/react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "../lib/cn";
 import {
+  billingPath,
   isProjectRoute,
   projectIdFromPath,
   projectPath,
@@ -51,7 +54,15 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const inProject = isProjectRoute(pathname);
-  const { setProjectId, projectId, projects, user } = useAppContext();
+  const {
+    setProjectId,
+    projectId,
+    projects,
+    user,
+    organizations,
+    currentOrg,
+    switchOrg,
+  } = useAppContext();
   const logout = useLogout();
   const viewerRole = user?.role;
 
@@ -68,50 +79,111 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
     navigate(projectPath(id, "issues"));
   }
 
+  // Project Context (Self-Explanatory Names):
+  // Issues → Monitoring → Alerts → Releases (placed directly after Alerts) → Project Settings
   const projectNavItems = activeProject
     ? [
         { to: projectPath(activeProject.id, "issues"), label: "Issues", icon: CircleDot, end: true },
-        { to: projectPath(activeProject.id, "releases"), label: "Releases", icon: Package, end: true },
+        { to: projectPath(activeProject.id, "monitoring"), label: "Monitoring", icon: Activity, end: true },
         { to: projectPath(activeProject.id, "alerts"), label: "Alerts", icon: Bell, end: true },
-        { to: projectSettingsPath(activeProject.id), label: "Settings", icon: Settings, end: false },
+        { to: projectPath(activeProject.id, "releases"), label: "Releases", icon: Package, end: true },
+        { to: projectSettingsPath(activeProject.id), label: "Project Settings", icon: Settings, end: false },
       ]
     : [];
 
-  const workspaceNavItems = [
-    { to: workspacePath(), label: "Projects", icon: Layers, end: true },
-    { to: "/team", label: "Team", icon: Users, end: true },
-    { to: "/usage", label: "Usage", icon: Activity, end: true },
-    { to: "/billing", label: "Billing", icon: CreditCard, end: true },
-    { to: workspaceSettingsPath(), label: "Settings", icon: Settings, end: false },
+  // Organisation Context:
+  // Projects → Team → Usage & Billing → Output Channels → Org Settings
+  const orgNavItems = [
+    { to: "/", label: "Projects", icon: Layers, end: true },
+    { to: workspacePath("team"), label: "Team", icon: Users, end: true },
+    { to: billingPath(), label: "Usage & Billing", icon: CreditCard, end: true },
+    { to: "/org/channels", label: "Output Channels", icon: Radio, end: true },
+    { to: workspaceSettingsPath(), label: "Org Settings", icon: Settings, end: false },
   ];
 
   const sidebarContent = (
     <>
-      {/* 1. Brand & Workspace Header */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border-subtle px-3.5 bg-surface-1/50">
+      {/* 1. Organisation Menu at top of sidebar (one level above Projects) */}
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border-subtle px-3 bg-surface-1">
         <Link
           to={workspacePath()}
           onClick={onMobileClose}
-          className="flex items-center gap-2.5 transition-opacity hover:opacity-85 focus-ring rounded-md py-1"
+          className="flex items-center gap-2 transition-opacity hover:opacity-85 focus-ring rounded-md py-1 shrink-0"
         >
-          <EpureBrandMark size={28} />
-          <div className="flex flex-col">
-            <span className="font-semibold text-xs tracking-tight text-fg-primary flex items-center gap-1.5">
-              <span>Épure</span>
-              <span className="h-1.5 w-1.5 rounded-full bg-healthy animate-pulse" />
-            </span>
-            <span className="font-mono text-[10px] text-fg-muted leading-tight">
-              cockpit
-            </span>
-          </div>
+          <EpureBrandMark size={22} />
+          <span className="font-semibold text-xs tracking-tight text-fg-primary">
+            Épure
+          </span>
         </Link>
+
+        {/* Organisation Selector Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-fg-primary h-7 max-w-[130px]"
+              title="Organisation Menu"
+            >
+              <Building2 size={13} className="text-primary shrink-0" />
+              <span className="truncate text-xs">
+                {currentOrg ? currentOrg.name : user?.org_name || "Organisation"}
+              </span>
+              <ChevronDown size={11} className="text-fg-muted shrink-0" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64 shadow-lg border border-border-subtle bg-surface-1">
+            <DropdownMenuLabel className="flex items-center justify-between text-2xs uppercase tracking-wider text-fg-muted">
+              <span>Organisations</span>
+              <span className="text-[10px] text-fg-muted">{organizations.length} total</span>
+            </DropdownMenuLabel>
+            <div className="max-h-56 overflow-y-auto divide-y divide-border-subtle/40">
+              {organizations.map((org) => {
+                const isSelected = org.is_current || org.id === user?.org_id;
+                return (
+                  <DropdownMenuItem
+                    key={org.id}
+                    onSelect={() => void switchOrg(org.id)}
+                    className={cn(
+                      "flex items-center justify-between text-xs py-2 cursor-pointer",
+                      isSelected && "bg-primary/10 font-semibold text-fg-primary",
+                    )}
+                  >
+                    <div className="flex flex-col min-w-0 pr-2">
+                      <div className="flex items-center gap-2">
+                        <span className="size-1.5 rounded-full bg-healthy shrink-0" />
+                        <span className="truncate">{org.name}</span>
+                      </div>
+                      <span className="text-2xs font-mono text-fg-muted capitalize ml-3.5">
+                        {org.role} · {org.member_count} member{org.member_count === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
+                );
+              })}
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => {
+                onMobileClose?.();
+                navigate(workspaceSettingsPath());
+              }}
+              className="text-xs cursor-pointer flex items-center gap-2"
+            >
+              <Settings size={13} className="text-fg-muted" />
+              <span>Organisation Settings</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {onMobileClose ? (
           <Button
             type="button"
             variant="ghost"
             size="icon-xs"
             onClick={onMobileClose}
-            className="md:hidden text-fg-muted hover:text-fg-primary"
+            className="md:hidden text-fg-muted hover:text-fg-primary ml-1"
             aria-label="Close navigation"
           >
             <X size={16} />
@@ -119,20 +191,21 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
         ) : null}
       </div>
 
-      {/* 2. Project Selector Dropdown */}
-      <div className="p-2.5 pb-1.5 border-b border-border-subtle">
+      {/* 2. Project Selector Dropdown (Clean 6px semantic health dot, no letter avatars) */}
+      <div className="p-2.5 pb-1.5 border-b border-border-subtle bg-surface-1/40">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               type="button"
               variant="outline"
               size="sm"
+              data-tour="project-switcher"
               className="btn-tactile flex w-full items-center justify-between h-8 px-2.5 text-xs font-medium text-fg-primary shadow-2xs"
               title={activeProject?.name ?? "Select project"}
             >
               <div className="flex min-w-0 items-center gap-2">
-                <FolderKanban className="h-3.5 w-3.5 text-primary shrink-0" />
-                <span className="truncate">{activeProject?.name ?? "Select project"}</span>
+                <span className="size-1.5 rounded-full bg-healthy shrink-0" />
+                <span className="truncate font-semibold">{activeProject?.name ?? "Select project"}</span>
               </div>
               <ChevronDown className="h-3 w-3 text-fg-muted shrink-0" />
             </Button>
@@ -207,23 +280,39 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
             <nav className="space-y-0.5">
               {projectNavItems.map((item) => {
                 const Icon = item.icon;
+                const isExactActive = pathname === item.to || (item.to.endsWith("/issues") && pathname.startsWith(item.to));
                 return (
                   <NavLink
                     key={item.to}
                     to={item.to}
                     end={item.end}
+                    data-tour={item.label === "Monitoring" ? "monitoring-nav" : undefined}
                     onClick={onMobileClose}
                     className={({ isActive }) =>
                       cn(
-                        "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-ring",
-                        isActive
-                          ? "bg-primary/10 text-fg-primary font-semibold border-l-2 border-primary"
-                          : "text-fg-muted hover:bg-surface-2 hover:text-fg-primary border-l-2 border-transparent",
+                        "relative flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-ring select-none",
+                        isActive || isExactActive
+                          ? "text-fg-primary font-semibold"
+                          : "text-fg-muted hover:text-fg-primary hover:bg-surface-2/60",
                       )
                     }
                   >
-                    <Icon size={14} className="shrink-0" strokeWidth={1.8} />
-                    <span className="truncate">{item.label}</span>
+                    {({ isActive }) => {
+                      const active = isActive || isExactActive;
+                      return (
+                        <>
+                          {active && (
+                            <motion.div
+                              layoutId="activeProjectNavPill"
+                              className="absolute inset-0 rounded-md bg-surface-2 border-l-2 border-primary"
+                              transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                            />
+                          )}
+                          <Icon size={14} className="relative z-10 shrink-0" strokeWidth={1.8} />
+                          <span className="relative z-10 truncate">{item.label}</span>
+                        </>
+                      );
+                    }}
                   </NavLink>
                 );
               })}
@@ -231,13 +320,13 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
           </div>
         ) : null}
 
-        {/* Workspace Section */}
+        {/* Organisation Section */}
         <div>
-          <p className="px-2 pb-1 text-[10px] font-semibold tracking-wider text-fg-muted uppercase">
-            Workspace
+          <p className="px-2.5 pb-1.5 text-[10px] font-semibold tracking-wider text-fg-muted uppercase">
+            Organisation
           </p>
           <nav className="space-y-0.5">
-            {workspaceNavItems.map((item) => {
+            {orgNavItems.map((item) => {
               const Icon = item.icon;
               return (
                 <NavLink
@@ -247,15 +336,26 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
                   onClick={onMobileClose}
                   className={({ isActive }) =>
                     cn(
-                      "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-ring",
+                      "relative flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-ring select-none",
                       isActive
-                        ? "bg-primary/10 text-fg-primary font-semibold border-l-2 border-primary"
-                        : "text-fg-muted hover:bg-surface-2 hover:text-fg-primary border-l-2 border-transparent",
+                        ? "text-fg-primary font-semibold"
+                        : "text-fg-muted hover:text-fg-primary hover:bg-surface-2/60",
                     )
                   }
                 >
-                  <Icon size={14} className="shrink-0" strokeWidth={1.8} />
-                  <span className="truncate">{item.label}</span>
+                  {({ isActive }) => (
+                    <>
+                      {isActive && (
+                        <motion.div
+                          layoutId="activeOrgNavPill"
+                          className="absolute inset-0 rounded-md bg-surface-2 border-l-2 border-primary"
+                          transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                        />
+                      )}
+                      <Icon size={14} className="relative z-10 shrink-0" strokeWidth={1.8} />
+                      <span className="relative z-10 truncate">{item.label}</span>
+                    </>
+                  )}
                 </NavLink>
               );
             })}

@@ -80,6 +80,7 @@ struct MeResponse {
     role: String,
     has_password: bool,
     google_linked: bool,
+    github_linked: bool,
     plan_tier: Option<String>,
 }
 
@@ -501,6 +502,7 @@ async fn current_session(
         role: profile.role,
         has_password: profile.has_password,
         google_linked: profile.google_linked,
+        github_linked: profile.github_linked,
         plan_tier: profile.plan_tier,
     }))
 }

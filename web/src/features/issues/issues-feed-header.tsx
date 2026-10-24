@@ -1,21 +1,22 @@
 import {
-  AlertTriangle,
   Check,
   Clock,
   Download,
-  Moon,
   RotateCcw,
   Search,
   SlidersHorizontal,
   Sparkles,
   Users,
 } from "lucide-react";
-import { useState, type RefObject } from "react";
+import { useState, useEffect, type RefObject } from "react";
 import type { HeadlineStats } from "../../lib/api";
 import { formatCompactCount } from "../../lib/format-count";
 import { cn } from "../../lib/cn";
 import { ActionButton } from "../../ui/action-button";
 import { Button } from "@/components/ui/button";
+import { FilterBar } from "@/components/kit/filter-bar";
+import { startAcmeProductTour } from "@/components/kit/product-tour";
+import { useAppContext } from "../../shell/app-context";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,6 +47,7 @@ import {
   removeChipToken,
   replaceFreeText,
   resetQuery,
+  setToken,
   STATUS_FILTER_PRESETS,
   TIME_WINDOW_OPTIONS,
   toggleToken,
@@ -86,6 +88,22 @@ export function IssuesFeedHeader({
   selectedCount = 0,
   onExportCsv,
 }: IssuesFeedHeaderProps) {
+  const { environment, setEnvironment, projectId, projects } = useAppContext();
+  const currentProject = projects.find((p) => p.id === projectId);
+  const isAcmeDemo = Boolean(currentProject?.is_demo || projectId?.startsWith("acme") || projectId?.includes("acme"));
+
+  useEffect(() => {
+    if (isAcmeDemo && typeof window !== "undefined") {
+      const tourSeen = localStorage.getItem("epure.acme_tour_seen");
+      if (!tourSeen) {
+        localStorage.setItem("epure.acme_tour_seen", "true");
+        const timer = setTimeout(() => {
+          startAcmeProductTour();
+        }, 1200);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isAcmeDemo]);
   const [searchOpen, setSearchOpen] = useState(false);
   const chips = extractChips(query);
   const { freeText } = parseQuery(query);
@@ -94,7 +112,6 @@ export function IssuesFeedHeader({
   const isUnresolvedActive = queryHasToken(query, "is:unresolved");
   const isRegressionActive = queryHasToken(query, "is:regression");
   const isSnoozedActive = queryHasToken(query, "is:snoozed");
-  const isAllActive = !hasStateChip;
 
   // Active filters beyond default "is:unresolved"
   const isCustomized = hasActiveFilters(query) || Boolean(freeText && freeText.trim().length > 0);
@@ -123,100 +140,71 @@ export function IssuesFeedHeader({
     filterInputRef?.current?.focus();
   }
 
-  function applyPreset(token: string) {
-    onQueryChange(toggleToken(query, token));
-    filterInputRef?.current?.focus();
-  }
-
   function handleResetAll() {
     onQueryChange(resetQuery());
     setSearchOpen(false);
     filterInputRef?.current?.focus();
   }
 
-  const unresolvedCount = statsLoading ? "…" : formatCompactCount(stats?.unresolved ?? 0);
-  const regressionCount = statsLoading ? "…" : formatCompactCount(stats?.regressions ?? 0);
-  const snoozedCount = statsLoading ? "…" : formatCompactCount(stats?.snoozed ?? 0);
+  function applyPreset(token: string) {
+    onQueryChange(toggleToken(query, token));
+    filterInputRef?.current?.focus();
+  }
+
   const eventsCount = statsLoading ? "…" : formatCompactCount(stats?.events_7d ?? 0);
 
   return (
     <header className="epure-issues-feed-header shrink-0 border-b border-border bg-bg select-none">
       {/* Tier 1: Triage Mode Cockpit & View Horizon Controls */}
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border/60 px-4 py-2 md:px-6">
-        {/* Triage Mode Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto py-0.5">
-          {/* Unresolved Tab */}
-          <Button
-            variant={isUnresolvedActive ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setDirectStateFilter(isUnresolvedActive ? null : "is:unresolved")}
-          >
-            <span
-              className={cn(
-                "h-1.5 w-1.5 rounded-full shrink-0",
-                (stats?.unresolved ?? 0) > 0 ? "bg-signal animate-pulse" : "bg-fg-muted/40",
-              )}
-            />
-            <span>Unresolved</span>
-            <span
-              className={cn(
-                "ml-1 font-mono text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-full",
-                isUnresolvedActive
-                  ? "bg-signal/20 text-signal"
-                  : "bg-surface-2 text-fg-muted",
-              )}
-            >
-              {unresolvedCount}
-            </span>
-          </Button>
-
-          {/* Regressions Tab */}
-          <Button
-            variant={isRegressionActive ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setDirectStateFilter(isRegressionActive ? null : "is:regression")}
-          >
-            <AlertTriangle
-              className={cn(
-                "h-3 w-3 shrink-0",
-                (stats?.regressions ?? 0) > 0 ? "text-regression" : "text-fg-muted/60",
-              )}
-            />
-            <span>Regressions</span>
-            <span
-              className={cn(
-                "ml-0.5 font-mono text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-full",
-                (stats?.regressions ?? 0) > 0
-                  ? "bg-regression/20 text-regression"
-                  : "bg-surface-2 text-fg-muted",
-              )}
-            >
-              {regressionCount}
-            </span>
-          </Button>
-
-          {/* Snoozed Tab */}
-          <Button
-            variant={isSnoozedActive ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setDirectStateFilter(isSnoozedActive ? null : "is:snoozed")}
-          >
-            <Moon className="h-3 w-3 shrink-0 text-fg-muted/70" />
-            <span>Snoozed</span>
-            <span className="ml-0.5 font-mono text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-full bg-surface-2 text-fg-muted">
-              {snoozedCount}
-            </span>
-          </Button>
-
-          {/* All Issues Tab */}
-          <Button
-            variant={isAllActive ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setDirectStateFilter(null)}
-          >
-            All
-          </Button>
-        </div>
+        {/* Integrated FilterBar with Env switcher, Priority, Status, Escalating, and Came Back */}
+        <FilterBar
+          environment={environment}
+          onEnvironmentChange={(env) => setEnvironment(env as any)}
+          status={
+            isRegressionActive
+              ? "regression"
+              : isSnoozedActive
+                ? "snoozed"
+                : isUnresolvedActive
+                  ? "unresolved"
+                  : "all"
+          }
+          onStatusChange={(nextStatus) => {
+            if (nextStatus === "all") setDirectStateFilter(null);
+            else if (nextStatus === "unresolved") setDirectStateFilter("is:unresolved");
+            else if (nextStatus === "resolved") setDirectStateFilter("is:resolved");
+            else if (nextStatus === "snoozed") setDirectStateFilter("is:snoozed");
+          }}
+          escalating={queryHasToken(query, "is:escalating")}
+          onToggleEscalating={() => onQueryChange(toggleToken(query, "is:escalating"))}
+          regression={isRegressionActive}
+          onToggleRegression={() =>
+            setDirectStateFilter(isRegressionActive ? "is:unresolved" : "is:regression")
+          }
+          priority={
+            queryHasToken(query, "level:error")
+              ? "critical"
+              : queryHasToken(query, "level:warning")
+                ? "medium"
+                : ""
+          }
+          onPriorityChange={(p) => {
+            if (!p) {
+              onQueryChange(removeChipToken(removeChipToken(query, "level:error"), "level:warning"));
+            } else if (p === "critical" || p === "high") {
+              onQueryChange(setToken(query, "level:error"));
+            } else {
+              onQueryChange(setToken(query, "level:warning"));
+            }
+          }}
+          stats={{
+            unresolved: stats?.unresolved,
+            regressions: stats?.regressions,
+            snoozed: stats?.snoozed,
+          }}
+          onReset={handleResetAll}
+        />
 
         {/* View Controls: Sort, Time Window, Export */}
         <div className="flex items-center gap-2">
@@ -278,6 +266,20 @@ export function IssuesFeedHeader({
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
+
+          {/* Acme Spotlight Product Tour Trigger */}
+          {isAcmeDemo && (
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={() => startAcmeProductTour()}
+              className="h-7 text-xs gap-1 font-medium text-accent hover:text-accent border-accent/30 bg-accent/5 shadow-2xs"
+              title="Start Acme interactive tour"
+            >
+              <Sparkles className="size-3" />
+              <span>Product Tour</span>
+            </Button>
+          )}
         </div>
       </div>
 

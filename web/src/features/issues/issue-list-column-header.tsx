@@ -1,85 +1,75 @@
-import { cn } from "../../lib/cn";
-import { Checkbox } from "../../ui/checkbox";
-import {
-  FEED_CELL_CHECKBOX,
-  FEED_CELL_ISSUE,
-  FEED_CELL_NUMERIC,
-  FEED_CELL_PRIORITY,
-  FEED_CELL_TEXT,
-  FEED_CELL_TREND,
-  FEED_GRID_COMPACT,
-  FEED_GRID_FULL,
-  FEED_HEADER_CELL,
-} from "../../ui/issue-feed-layout";
-
-const HEADER_LABEL = "text-xs font-medium text-ink-muted";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 
 export interface IssueListColumnHeaderProps {
   compact?: boolean;
   selectAllChecked?: boolean;
   selectAllIndeterminate?: boolean;
   onToggleSelectAll?: () => void;
+  className?: string;
 }
 
-/** Sticky column labels for the issues feed grid; aligns with `IssueFeedRow` columns. */
+/**
+ * Sticky column labels for the issues feed grid; perfectly aligned with `IssueRowShell`
+ * CSS Grid tracks: `grid-cols-[16px_auto_1fr_auto_80px_60px_80px] gap-3 px-3` (0px layout shift).
+ */
 export function IssueListColumnHeader({
-  compact = false,
   selectAllChecked = false,
   selectAllIndeterminate = false,
   onToggleSelectAll,
+  className,
 }: IssueListColumnHeaderProps) {
-  const gridClass = compact ? FEED_GRID_COMPACT : FEED_GRID_FULL;
-
   return (
     <div
+      data-slot="issue-list-column-header"
       className={cn(
-        "epure-issue-list-header sticky top-0 z-10 hidden shrink-0 items-center border-b border-l-2 border-l-transparent border-border bg-bg-subtle lg:grid",
-        gridClass,
+        "sticky top-0 z-10 grid h-8 w-full items-center border-b border-border-subtle bg-surface-2/90 backdrop-blur-xs px-3 text-[11px] font-medium text-fg-muted select-none",
+        "grid-cols-[16px_auto_1fr_auto_80px_60px_80px] gap-3",
+        className
       )}
       aria-hidden
     >
-      <div className={cn(FEED_HEADER_CELL, FEED_CELL_CHECKBOX)}>
+      {/* 1. Checkbox slot */}
+      <div className="flex items-center justify-center size-4 shrink-0">
         {onToggleSelectAll ? (
           <Checkbox
             checked={selectAllIndeterminate ? "indeterminate" : selectAllChecked}
             aria-label="Select all issues"
-            title="Select all"
+            title="Select all (x)"
             onCheckedChange={() => onToggleSelectAll()}
           />
         ) : null}
       </div>
 
-      <div className={cn(FEED_HEADER_CELL, FEED_CELL_ISSUE)}>
-        <span className={HEADER_LABEL}>Issue</span>
+      {/* 2. Priority indicator slot */}
+      <div className="shrink-0 w-3.5 text-center text-[10px]">
+        !
       </div>
 
-      <div className={cn(FEED_HEADER_CELL, FEED_CELL_TEXT, "hidden lg:flex")}>
-        <span className={HEADER_LABEL}>Last seen</span>
+      {/* 3. Title column */}
+      <div className="min-w-0 truncate">
+        Issue
       </div>
 
-      {!compact ? (
-        <>
-          <div className={cn(FEED_HEADER_CELL, FEED_CELL_TEXT, "hidden xl:flex")}>
-            <span className={HEADER_LABEL}>Age</span>
-          </div>
-          <div className={cn(FEED_HEADER_CELL, FEED_CELL_TREND, "hidden lg:flex")}>
-            <span className={HEADER_LABEL}>30d</span>
-          </div>
-          <div className={cn(FEED_HEADER_CELL, FEED_CELL_NUMERIC, "justify-end")}>
-            <span className={HEADER_LABEL}>Events</span>
-          </div>
-          <div className={cn(FEED_HEADER_CELL, FEED_CELL_NUMERIC, "hidden justify-end xl:flex")}>
-            <span className={HEADER_LABEL}>Users</span>
-          </div>
-          <div className={cn(FEED_CELL_PRIORITY, "hidden xl:flex")}>
-            <span className={HEADER_LABEL}>Priority</span>
-          </div>
-        </>
-      ) : (
-        <div className={cn(FEED_CELL_NUMERIC, "flex justify-end")}>
-          <span className={HEADER_LABEL}>Events</span>
-        </div>
-      )}
+      {/* 4. Trend / sparkline column */}
+      <div className="shrink-0 text-right pr-2">
+        30d
+      </div>
+
+      {/* 5. Events count column */}
+      <div className="text-right tabular-nums">
+        Events
+      </div>
+
+      {/* 6. Users count column */}
+      <div className="text-right tabular-nums">
+        Users
+      </div>
+
+      {/* 7. Activity / TimeAgo column */}
+      <div className="text-right tabular-nums">
+        Last seen
+      </div>
     </div>
   );
 }

@@ -8,9 +8,11 @@ use axum::{
     Extension, Json, Router,
 };
 use epure_auth::DashboardSession;
-use epure_storage::releases::{self, ReleaseSummary};
+use epure_storage::{
+    projects,
+    releases::{self, ReleaseSummary},
+};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::state::AppState;
 
@@ -22,7 +24,7 @@ pub fn router(state: Arc<AppState>) -> Router {
 
 #[derive(Deserialize)]
 struct ListQuery {
-    project_id: Uuid,
+    project_id: String,
 }
 
 #[derive(Serialize)]
@@ -35,8 +37,17 @@ async fn list_releases(
     Extension(dashboard): Extension<DashboardSession>,
     Query(query): Query<ListQuery>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    let project_id = projects::resolve_project_id(
+        &state.pools.app,
+        dashboard.org_id,
+        &query.project_id,
+    )
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .ok_or(StatusCode::NOT_FOUND)?;
+
     let rows =
-        releases::list_releases_for_project(&state.pools.app, dashboard.org_id, query.project_id)
+        releases::list_releases_for_project(&state.pools.app, dashboard.org_id, project_id)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
