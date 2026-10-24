@@ -297,8 +297,8 @@ export function ProjectsSettings() {
               title="Delete project"
               description="Permanently remove this project and all of its data."
             >
-              <p className="text-sm text-ink-muted">
-                Deletes <span className="font-medium text-ink">{selected.name}</span> and all related
+              <p className="text-sm text-fg-muted">
+                Deletes <span className="font-medium text-fg-primary">{selected.name}</span> and all related
                 data.
               </p>
               <Button

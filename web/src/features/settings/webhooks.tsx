@@ -22,6 +22,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "../../ui/dialog";
@@ -130,14 +131,14 @@ function SecretRevealCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-surface px-3 py-2">
-          <code className="min-w-0 flex-1 truncate font-mono text-xs text-ink">
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-border-subtle bg-surface-1 px-3 py-2">
+          <code className="min-w-0 flex-1 truncate font-mono text-xs text-fg-primary">
             {webhook.signing_secret}
           </code>
           <CopyButton value={webhook.signing_secret} label="Copy secret" />
         </div>
-        <p className="text-xs text-ink-muted">
-          Prefix <span className="font-mono text-ink">{webhook.secret_prefix}</span> is shown in
+        <p className="text-xs text-fg-muted">
+          Prefix <span className="font-mono text-fg-primary">{webhook.secret_prefix}</span> is shown in
           the list so you can tell secrets apart after rotation.
         </p>
         <Button variant="secondary" size="sm" onClick={onDismiss}>
@@ -349,7 +350,7 @@ export function WebhooksSettings() {
       />
 
       <InfoCallout>
-        <strong className="font-medium text-ink">Outbound only.</strong> Unlike{" "}
+        <strong className="font-medium text-fg-primary">Outbound only.</strong> Unlike{" "}
         <Link
           to={projectSettingsPath(activeProjectId, "dsn")}
           className="font-medium text-accent underline-offset-2 hover:underline"
@@ -381,7 +382,7 @@ export function WebhooksSettings() {
         <CardContent>
           <form className="space-y-4" onSubmit={(event) => void handleCreate(event)}>
             <div className="space-y-2">
-              <p className="text-sm font-medium text-ink">Destination</p>
+              <p className="text-sm font-medium text-fg-primary">Destination</p>
               <div className="flex flex-wrap gap-2">
                 {destinations.map((item) => (
                   <Button
@@ -423,8 +424,10 @@ export function WebhooksSettings() {
                   value={format}
                   onValueChange={(value) => setFormat(value as "slack" | "discord" | "generic")}
                 >
-                  <SelectTrigger aria-label="Webhook format">
-                    <SelectValue />
+                  <SelectTrigger aria-label="Webhook format" className="w-full">
+                    <SelectValue placeholder="Webhook format">
+                      {formatOptions.find((option) => option.value === format)?.label}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {formatOptions.map((option) => (
@@ -434,23 +437,23 @@ export function WebhooksSettings() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="mt-1 text-xs text-ink-muted">
+                <p className="mt-1 text-xs text-fg-muted">
                   {formatOptions.find((option) => option.value === format)?.hint}
                 </p>
               </Field>
             ) : (
-              <p className="text-xs text-ink-muted">
-                Format: <span className="font-medium text-ink">{formatLabel(format)}</span>
+              <p className="text-xs text-fg-muted">
+                Format: <span className="font-medium text-fg-primary">{formatLabel(format)}</span>
               </p>
             )}
 
             <div className="space-y-2">
-              <p className="text-sm font-medium text-ink">Forward these alerts</p>
+              <p className="text-sm font-medium text-fg-primary">Forward these alerts</p>
               <div className="grid gap-2 sm:grid-cols-2">
                 {WEBHOOK_EVENT_OPTIONS.map((item) => (
                   <label
                     key={item.id}
-                    className="flex cursor-pointer items-start gap-3 rounded-md border border-border p-3 transition-colors hover:bg-state-hover"
+                    className="flex cursor-pointer select-none items-start gap-3 rounded-md border border-border-subtle p-3 transition-colors hover:bg-surface-2"
                   >
                     <Checkbox
                       checked={events.includes(item.id)}
@@ -458,8 +461,8 @@ export function WebhooksSettings() {
                       aria-label={item.label}
                     />
                     <span className="space-y-0.5">
-                      <span className="block text-sm font-medium text-ink">{item.label}</span>
-                      <span className="block text-xs text-ink-muted">{item.description}</span>
+                      <span className="block text-sm font-medium text-fg-primary">{item.label}</span>
+                      <span className="block text-xs text-fg-muted">{item.description}</span>
                     </span>
                   </label>
                 ))}
@@ -467,12 +470,12 @@ export function WebhooksSettings() {
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-medium text-ink">Payload preview</p>
-              <p className="text-xs text-ink-muted">
+              <p className="text-sm font-medium text-fg-primary">Payload preview</p>
+              <p className="text-xs text-fg-muted">
                 Sample {formatLabel(format)} body for{" "}
                 {eventLabel(events[0] ?? "issue_created")}. Fields stay the same across events.
               </p>
-              <pre className="overflow-x-auto rounded-md border border-border bg-bg-subtle p-3 font-mono text-xs text-ink">
+              <pre className="overflow-x-auto rounded-md border border-border-subtle bg-surface-2 p-3 font-mono text-xs text-fg-primary">
                 {previewWebhookPayload(format, events[0] ?? "issue_created")}
               </pre>
             </div>
@@ -501,18 +504,18 @@ export function WebhooksSettings() {
         </CardHeader>
         <CardContent className="p-0 pt-0">
           {loading ? (
-            <p className="px-4 pb-4 text-sm text-ink-muted">Loading endpoints…</p>
+            <p className="p-5 text-xs text-fg-muted">Loading endpoints…</p>
           ) : webhooks.length === 0 ? (
-            <p className="px-4 pb-4 text-sm text-ink-muted">
+            <p className="p-5 text-xs text-fg-muted">
               Add Slack, Discord, or a custom HTTPS receiver to get notified outside Epure.
             </p>
           ) : (
-            <ul className="divide-y divide-border">
+            <ul className="divide-y divide-border-subtle">
               {webhooks.map((hook) => (
                 <li key={hook.id} className="space-y-2 px-4 py-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1.5">
-                      <p className="truncate font-mono text-sm text-ink" title={hook.url}>
+                      <p className="truncate font-mono text-sm text-fg-primary" title={hook.url}>
                         {maskWebhookUrl(hook.url)}
                       </p>
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -523,7 +526,7 @@ export function WebhooksSettings() {
                       </div>
                       <div className="flex flex-wrap gap-2 pt-1">
                         {WEBHOOK_EVENT_OPTIONS.map((item) => (
-                          <label key={item.id} className="flex items-center gap-1.5 text-xs text-ink-muted">
+                          <label key={item.id} className="flex items-center gap-1.5 text-xs text-fg-muted cursor-pointer select-none">
                             <Checkbox
                               checked={hook.events.includes(item.id)}
                               disabled={busy}
@@ -532,11 +535,11 @@ export function WebhooksSettings() {
                               }
                               aria-label={`${item.label} for endpoint`}
                             />
-                            {item.label}
+                            <span>{item.label}</span>
                           </label>
                         ))}
                       </div>
-                      <p className="text-xs text-ink-muted">
+                      <p className="text-xs text-fg-muted">
                         Added {formatRelativeTime(hook.created_at)}
                       </p>
                     </div>
@@ -574,19 +577,19 @@ export function WebhooksSettings() {
         </CardContent>
       </Card>
 
-      <details className="rounded-lg border border-border bg-surface">
-        <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-ink">
+      <details className="rounded-lg border border-border-subtle bg-surface-1">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-fg-primary">
           Verify signatures on your endpoint
         </summary>
-        <CardContent className="space-y-3 border-t border-border pt-4">
-          <p className="text-sm text-ink-muted">
+        <CardContent className="space-y-3 border-t border-border-subtle pt-4">
+          <p className="text-sm text-fg-muted">
             Read the raw request body, compute HMAC-SHA256 over{" "}
-            <span className="font-mono text-xs text-ink">X-Epure-Timestamp</span>, a dot, and the
+            <span className="font-mono text-xs text-fg-primary">X-Epure-Timestamp</span>, a dot, and the
             body. Use your signing secret with the{" "}
-            <span className="font-mono text-xs text-ink">whsec_</span> prefix removed, and compare
-            to <span className="font-mono text-xs text-ink">X-Epure-Signature</span>.
+            <span className="font-mono text-xs text-fg-primary">whsec_</span> prefix removed, and compare
+            to <span className="font-mono text-xs text-fg-primary">X-Epure-Signature</span>.
           </p>
-          <pre className="overflow-x-auto rounded-md border border-border bg-bg-subtle p-3 font-mono text-xs text-ink">
+          <pre className="overflow-x-auto rounded-md border border-border-subtle bg-surface-2 p-3 font-mono text-xs text-fg-primary">
             {verificationSnippet()}
           </pre>
           <CopyButton value={verificationSnippet()} label="Copy sample verifier" />
@@ -603,14 +606,14 @@ export function WebhooksSettings() {
                 : null}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end gap-2">
+          <DialogFooter>
             <Button variant="ghost" onClick={() => setDeleteTarget(null)} disabled={busy}>
               Cancel
             </Button>
             <Button variant="danger" disabled={busy} onClick={() => void handleDelete()}>
               Remove endpoint
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

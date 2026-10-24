@@ -12,10 +12,10 @@ export interface ListRowProps extends HTMLAttributes<HTMLElement> {
 }
 
 const accentClasses: Record<ListRowAccent, string> = {
-  danger: "epure-regression-strip border-l-[3px] border-l-semantic-danger",
-  warning: "border-l-[3px] border-l-semantic-warning",
-  signal: "border-l-[length:var(--unread-bar-width)] border-l-signal",
-  none: "",
+  danger: "border-l-2 border-l-semantic-danger",
+  warning: "border-l-2 border-l-semantic-warning",
+  signal: "border-l-2 border-l-signal",
+  none: "border-l-2 border-l-transparent",
 };
 
 export const ListRow = forwardRef<HTMLDivElement, ListRowProps>(
@@ -29,11 +29,11 @@ export const ListRow = forwardRef<HTMLDivElement, ListRowProps>(
           "epure-list-row",
           variant === "airy" && [
             "epure-list-row--airy epure-issue-row--airy",
-            "flex w-full rounded-lg border border-border bg-surface text-left transition-colors duration-fast",
+            "flex w-full rounded-lg border border-border-subtle bg-surface-1 text-left transition-colors duration-fast",
             "hover:border-border-strong hover:bg-state-hover focus-ring",
           ],
           variant === "flat" &&
-            "flex w-full border-b border-border text-left transition-colors duration-fast hover:bg-state-hover focus-ring",
+            "flex w-full text-left transition-colors duration-fast hover:bg-state-hover focus-ring",
           accentClasses[accent],
           className,
         )}

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { AlertRow } from "../../lib/api";
 import { cn } from "../../lib/cn";
 import { ActionButton } from "../../ui/action-button";
+import { Badge } from "../../ui/badge";
 import { ListRow } from "../../ui/list-row";
 import {
   formatAlertListTime,
@@ -40,41 +41,56 @@ export function AlertListRow({
   const unread = isAlertUnread(alert);
 
   return (
-    <li>
+    <li className="border-b border-border-subtle last:border-b-0">
       <ListRow
         variant="flat"
         accent={unread ? "signal" : severity === "danger" ? "danger" : "none"}
         data-alert-id={alert.id}
         className={cn(
           "group items-center gap-3 px-4 py-2.5",
-          selected && "bg-accent-muted",
-          unread && "epure-issue-row--unread",
+          selected ? "bg-surface-2" : "bg-surface-1 hover:bg-surface-2/60",
+          unread && "font-medium",
+          alert.ignored && "opacity-60",
         )}
       >
         <Link to={to} className="flex min-w-0 flex-1 items-center gap-3 focus-ring rounded-md">
-          <span className="w-14 shrink-0 font-mono text-2xs tabular-nums text-ink-muted">
+          <span className="w-16 shrink-0 font-mono text-2xs tabular-nums text-fg-muted">
             {firedAt}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-2xs font-medium uppercase tracking-wide text-ink-muted">{ruleName}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-2xs font-medium uppercase tracking-wide text-fg-muted">{ruleName}</p>
+              {alert.ignored && (
+                <Badge variant="neutral" size="compact" className="text-[10px] h-4">
+                  Ignored
+                </Badge>
+              )}
+            </div>
             <p
               className={cn(
                 "truncate font-mono text-sm",
-                unread ? "font-semibold text-ink" : "font-medium text-ink-muted",
+                unread ? "font-semibold text-fg-primary" : "font-medium text-fg-secondary",
               )}
             >
               {title}
             </p>
-            <p className="mt-0.5 truncate text-xs text-ink-muted">{detail}</p>
+            <p className="mt-0.5 truncate text-xs text-fg-muted">{detail}</p>
           </div>
           <ChevronRight
             size={16}
             strokeWidth={1.5}
-            className="shrink-0 text-ink-muted transition-transform group-hover:translate-x-0.5 group-hover:text-ink"
+            className="shrink-0 text-fg-muted transition-transform group-hover:translate-x-0.5 group-hover:text-fg-primary"
             aria-hidden
           />
         </Link>
-        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+        <div
+          className={cn(
+            "flex shrink-0 items-center gap-1 transition-opacity",
+            selected
+              ? "opacity-100"
+              : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-within:opacity-100",
+          )}
+        >
           {alert.ignored ? (
             <ActionButton variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onUnignore}>
               Unignore

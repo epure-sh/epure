@@ -289,10 +289,10 @@ export function IssuesFeedHeader({
             <Popover open={searchOpen} onOpenChange={setSearchOpen}>
               <PopoverAnchor asChild>
                 <div
-                  className="epure-filter-panel epure-issues-feed-search flex h-8 min-w-0 items-center gap-2 rounded-md border border-border bg-surface px-2.5 transition-colors hover:border-border-strong focus-within:border-accent cursor-text"
+                  className="epure-filter-panel epure-issues-feed-search flex h-8 min-w-0 items-center gap-2 rounded-md border border-border-subtle bg-surface-1 px-2.5 transition-colors hover:border-border-strong focus-within:border-border-strong cursor-text"
                   onClick={() => setSearchOpen(true)}
                 >
-                  <Search size={13} className="shrink-0 text-ink-muted" aria-hidden />
+                  <Search size={13} className="shrink-0 text-fg-muted" aria-hidden />
                   <div className="flex min-h-0 min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
                     {chips.map((chip) => (
                       <FilterChip
@@ -306,6 +306,8 @@ export function IssuesFeedHeader({
                       />
                     ))}
                     <Input
+                      variant="ghost"
+                      size="auto"
                       ref={filterInputRef}
                       value={freeText ?? ""}
                       onChange={(event) => onQueryChange(replaceFreeText(query, event.target.value))}
@@ -334,7 +336,7 @@ export function IssuesFeedHeader({
                     />
                   </div>
 
-                  <kbd className="hidden sm:inline-flex h-4 select-none items-center rounded border border-border px-1.5 font-mono text-[10px] text-ink-subtle">
+                  <kbd className="hidden sm:inline-flex h-4 select-none items-center rounded border border-border-subtle px-1.5 font-mono text-[10px] text-fg-muted">
                     /
                   </kbd>
                 </div>
@@ -344,7 +346,7 @@ export function IssuesFeedHeader({
               <PopoverContent
                 align="start"
                 sideOffset={6}
-                className="w-[min(calc(100vw-2rem),520px)] space-y-3.5 p-4 shadow-xl border border-border bg-surface rounded-xl"
+                className="w-[min(calc(100vw-2rem),520px)] space-y-3.5 p-4 shadow-float border border-border-strong bg-surface-1 rounded-xl"
                 onOpenAutoFocus={(event) => event.preventDefault()}
                 onInteractOutside={(event) => {
                   if (filterInputRef?.current?.contains(event.target as Node)) {
@@ -353,16 +355,16 @@ export function IssuesFeedHeader({
                 }}
               >
                 {/* Palette Header */}
-                <div className="border-b border-border/70 pb-2.5">
-                  <p className="text-xs font-semibold text-ink">Pre-Filter Options</p>
-                  <p className="text-2xs text-ink-muted">Click any token to filter results immediately.</p>
+                <div className="border-b border-border-subtle pb-2.5">
+                  <p className="text-xs font-semibold text-fg-primary">Pre-Filter Options</p>
+                  <p className="text-2xs text-fg-muted">Click any token to filter results immediately.</p>
                 </div>
 
                 {/* Categorized Filter Tokens */}
                 <div className="space-y-3">
                   {/* Category 1: Severity Level */}
                   <div>
-                    <p className="text-2xs font-semibold uppercase tracking-wider text-ink-muted mb-1.5">
+                    <p className="text-2xs font-semibold uppercase tracking-wider text-fg-muted mb-1.5">
                       Severity Level
                     </p>
                     <div className="flex flex-wrap gap-1.5">
@@ -500,13 +502,13 @@ export function IssuesFeedHeader({
         </div>
 
         {/* Live Ingestion & Spike Valve Telemetry Indicator */}
-        <div className="hidden sm:flex items-center gap-2 text-2xs text-ink-muted shrink-0">
-          <span className="flex items-center gap-1.5 rounded-full border border-border/80 bg-surface px-2.5 py-0.5 font-tabular">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-            <span className="font-mono font-medium text-ink">{eventsCount}</span>
+        <div className="hidden sm:flex items-center gap-2 text-2xs text-fg-muted shrink-0">
+          <span className="flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface-1 px-2.5 py-0.5 font-tabular">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+            <span className="font-mono font-medium text-fg-primary">{eventsCount}</span>
             <span>{getEventsStatLabel(timeWindow).toLowerCase()}</span>
           </span>
-          <span className="inline-flex items-center gap-1 text-ink-subtle">
+          <span className="inline-flex items-center gap-1 text-fg-muted">
             <Sparkles className="h-3 w-3 text-healthy" />
             <span>0 overages</span>
           </span>

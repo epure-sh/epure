@@ -20,6 +20,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "../../ui/dialog";
@@ -270,21 +271,21 @@ export function TeamSettings() {
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardContent className="p-4">
-            <p className="text-2xl font-semibold tabular-nums text-ink">{stats.members}</p>
-            <p className="mt-1 text-sm text-ink-muted">Members</p>
+            <p className="text-2xl font-semibold tabular-nums text-fg-primary">{stats.members}</p>
+            <p className="mt-1 text-sm text-fg-muted">Members</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-2xl font-semibold tabular-nums text-ink">{stats.admins}</p>
-            <p className="mt-1 text-sm text-ink-muted">Admins & owners</p>
+            <p className="text-2xl font-semibold tabular-nums text-fg-primary">{stats.admins}</p>
+            <p className="mt-1 text-sm text-fg-muted">Admins & owners</p>
           </CardContent>
         </Card>
         {canManage ? (
           <Card>
             <CardContent className="p-4">
-              <p className="text-2xl font-semibold tabular-nums text-ink">{stats.pending}</p>
-              <p className="mt-1 text-sm text-ink-muted">Pending invites</p>
+              <p className="text-2xl font-semibold tabular-nums text-fg-primary">{stats.pending}</p>
+              <p className="mt-1 text-sm text-fg-muted">Pending invites</p>
             </CardContent>
           </Card>
         ) : null}
@@ -309,7 +310,7 @@ export function TeamSettings() {
           />
         ) : (
           <Card className="mt-3 overflow-hidden p-0">
-            <ul className="divide-y divide-border">
+            <ul className="divide-y divide-border-subtle">
               {members.map((member) => {
                 const isSelf = member.user_id === user?.user_id;
                 const manageable = canManageMember(user?.role, member.role, isSelf);
@@ -322,22 +323,22 @@ export function TeamSettings() {
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <div
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-bg-subtle text-sm font-medium text-ink"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-surface-2 text-sm font-medium text-fg-primary"
                         aria-hidden
                       >
                         {memberInitial(member)}
                       </div>
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate text-sm font-medium text-ink">
+                          <p className="truncate text-sm font-medium text-fg-primary">
                             {memberLabel(member)}
                           </p>
                           {isSelf ? (
                             <Badge variant="env" size="compact">You</Badge>
                           ) : null}
                         </div>
-                        <p className="truncate font-mono text-xs text-ink-muted">{member.email}</p>
-                        <p className="mt-0.5 text-xs text-ink-muted">
+                        <p className="truncate font-mono text-xs text-fg-muted">{member.email}</p>
+                        <p className="mt-0.5 text-xs text-fg-muted">
                           Joined {formatRelativeTime(member.created_at)}
                         </p>
                       </div>
@@ -410,7 +411,7 @@ export function TeamSettings() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <UserPlus size={16} className="text-ink-muted" />
+                <UserPlus size={16} className="text-fg-muted" />
                 Invite teammate
               </CardTitle>
               <CardDescription>
@@ -463,7 +464,7 @@ export function TeamSettings() {
                     Send invite
                   </Button>
                 </div>
-                <p className="text-xs text-ink-muted">{ROLE_DESCRIPTIONS[inviteRole]}</p>
+                <p className="text-xs text-fg-muted">{ROLE_DESCRIPTIONS[inviteRole]}</p>
               </form>
             </CardContent>
           </Card>
@@ -497,7 +498,7 @@ export function TeamSettings() {
             />
           ) : (
             <Card className="mt-3 overflow-hidden p-0">
-              <ul className="divide-y divide-border">
+              <ul className="divide-y divide-border-subtle">
                 {invitations.map((invitation) => (
                   <li
                     key={invitation.id}
@@ -505,14 +506,14 @@ export function TeamSettings() {
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <div
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-bg-subtle text-ink-muted"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-surface-2 text-fg-muted"
                         aria-hidden
                       >
                         <Mail size={14} />
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate font-mono text-sm text-ink">{invitation.email}</p>
-                        <p className="text-xs text-ink-muted">
+                        <p className="truncate font-mono text-sm text-fg-primary">{invitation.email}</p>
+                        <p className="text-xs text-fg-muted">
                           <Badge
                             variant={roleBadgeVariant(invitation.role)}
                             className="mr-2 capitalize"
@@ -554,7 +555,7 @@ export function TeamSettings() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Shield size={16} className="text-ink-muted" />
+              <Shield size={16} className="text-fg-muted" />
               Roles & permissions
             </CardTitle>
             <CardDescription>What each role can do in this workspace.</CardDescription>
@@ -565,7 +566,7 @@ export function TeamSettings() {
                 <Badge variant={roleBadgeVariant(role)} className="mt-0.5 shrink-0 capitalize">
                   {ROLE_LABELS[role]}
                 </Badge>
-                <p className="text-sm text-ink-muted">{ROLE_DESCRIPTIONS[role]}</p>
+                <p className="text-sm text-fg-muted">{ROLE_DESCRIPTIONS[role]}</p>
               </div>
             ))}
           </CardContent>
@@ -582,14 +583,14 @@ export function TeamSettings() {
                 : null}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end gap-2">
+          <DialogFooter>
             <Button variant="secondary" onClick={() => setRemoveTarget(null)} disabled={busy}>
               Cancel
             </Button>
             <Button variant="danger" disabled={busy} onClick={() => void handleRemoveMember()}>
               Remove member
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -608,8 +609,8 @@ export function TeamSettings() {
           </DialogHeader>
           {revealedInvite ? (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-bg-subtle px-3 py-2">
-                <code className="min-w-0 flex-1 truncate text-xs text-ink">
+              <div className="flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-2 px-3 py-2">
+                <code className="min-w-0 flex-1 truncate text-xs text-fg-primary">
                   {inviteSignupUrl(revealedInvite.inviteToken)}
                 </code>
                 <CopyButton
@@ -618,16 +619,16 @@ export function TeamSettings() {
                   onCopied={() => toast("Invite link copied")}
                 />
               </div>
-              <p className="text-xs text-ink-muted">
+              <p className="text-xs text-fg-muted">
                 The link expires in 7 days. Resend to issue a fresh link.
               </p>
             </div>
           ) : null}
-          <div className="flex justify-end">
+          <DialogFooter>
             <Button variant="secondary" onClick={() => setRevealedInvite(null)}>
               Done
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

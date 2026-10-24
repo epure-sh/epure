@@ -19,13 +19,13 @@ export function AccountSettingsPage() {
         description="Manage your profile, security, and sessions."
       />
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <WorkspaceSettingsNav />
 
-        <div className="min-w-0 flex-1 overflow-auto bg-bg p-4">
+        <div className="min-w-0 flex-1 overflow-auto bg-canvas p-4 md:p-6">
           <div className="mx-auto max-w-default space-y-4">
             {settings.loading ? (
-              <p className="text-sm text-ink-muted">Loading settings…</p>
+              <p className="text-sm text-fg-muted">Loading settings…</p>
             ) : (
               <Routes>
                 <Route index element={<GeneralTab settings={settings} />} />

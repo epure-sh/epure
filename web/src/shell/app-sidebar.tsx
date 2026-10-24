@@ -88,7 +88,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
   const sidebarContent = (
     <>
       {/* 1. Brand & Workspace Header */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border/80 px-3.5 bg-bg/50">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border-subtle px-3.5 bg-surface-1/50">
         <Link
           to={workspacePath()}
           onClick={onMobileClose}
@@ -96,11 +96,11 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
         >
           <EpureBrandMark size={28} />
           <div className="flex flex-col">
-            <span className="font-semibold text-xs tracking-tight text-ink flex items-center gap-1.5">
+            <span className="font-semibold text-xs tracking-tight text-fg-primary flex items-center gap-1.5">
               <span>Épure</span>
               <span className="h-1.5 w-1.5 rounded-full bg-healthy animate-pulse" />
             </span>
-            <span className="font-mono text-[10px] text-ink-subtle leading-tight">
+            <span className="font-mono text-[10px] text-fg-muted leading-tight">
               cockpit
             </span>
           </div>
@@ -111,7 +111,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
             variant="ghost"
             size="icon-xs"
             onClick={onMobileClose}
-            className="md:hidden text-ink-muted hover:text-ink"
+            className="md:hidden text-fg-muted hover:text-fg-primary"
             aria-label="Close navigation"
           >
             <X size={16} />
@@ -120,25 +120,25 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
       </div>
 
       {/* 2. Project Selector Dropdown */}
-      <div className="p-2.5 pb-1.5 border-b border-border/60">
+      <div className="p-2.5 pb-1.5 border-b border-border-subtle">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="btn-tactile flex w-full items-center justify-between h-8 px-2.5 text-xs font-medium text-ink shadow-2xs"
+              className="btn-tactile flex w-full items-center justify-between h-8 px-2.5 text-xs font-medium text-fg-primary shadow-2xs"
               title={activeProject?.name ?? "Select project"}
             >
               <div className="flex min-w-0 items-center gap-2">
-                <FolderKanban className="h-3.5 w-3.5 text-accent shrink-0" />
+                <FolderKanban className="h-3.5 w-3.5 text-primary shrink-0" />
                 <span className="truncate">{activeProject?.name ?? "Select project"}</span>
               </div>
-              <ChevronDown className="h-3 w-3 text-ink-muted shrink-0" />
+              <ChevronDown className="h-3 w-3 text-fg-muted shrink-0" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-64 max-w-[calc(100vw-2rem)] shadow-lg border border-border">
-            <DropdownMenuLabel className="text-2xs font-semibold text-ink-muted uppercase tracking-wider">
+          <DropdownMenuContent align="start" className="w-64 max-w-[calc(100vw-2rem)] shadow-lg border border-border-subtle bg-surface-1">
+            <DropdownMenuLabel className="text-2xs font-semibold text-fg-muted uppercase tracking-wider">
               Switch Project
             </DropdownMenuLabel>
             <DropdownMenuRadioGroup
@@ -183,13 +183,13 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
             onMobileClose?.();
             dispatchOpenCommandPalette();
           }}
-          className="btn-tactile mt-2 flex w-full items-center justify-between h-7 px-2.5 text-2xs text-ink-muted transition-colors hover:text-ink font-normal"
+          className="btn-tactile mt-2 flex w-full items-center justify-between h-7 px-2.5 text-2xs text-fg-muted transition-colors hover:text-fg-primary font-normal"
         >
           <span className="flex items-center gap-1.5">
-            <Search size={12} className="text-ink-subtle" />
+            <Search size={12} className="text-fg-muted" />
             <span>Search or command…</span>
           </span>
-          <kbd className="font-mono text-[10px] text-ink-subtle border border-border px-1 py-0.5 rounded">
+          <kbd className="font-mono text-[10px] text-fg-muted border border-border-subtle px-1 py-0.5 rounded">
             ⌘K
           </kbd>
         </Button>
@@ -201,8 +201,8 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
         {activeProject ? (
           <div>
             <div className="px-2 pb-1 flex items-baseline justify-between gap-1.5" title={activeProject.name}>
-              <span className="text-[10px] font-semibold tracking-wider text-ink-subtle uppercase">Project</span>
-              <span className="text-2xs font-medium text-ink truncate max-w-[130px]">{activeProject.name}</span>
+              <span className="text-[10px] font-semibold tracking-wider text-fg-muted uppercase">Project</span>
+              <span className="text-2xs font-medium text-fg-primary truncate max-w-[130px]">{activeProject.name}</span>
             </div>
             <nav className="space-y-0.5">
               {projectNavItems.map((item) => {
@@ -217,8 +217,8 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
                       cn(
                         "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-ring",
                         isActive
-                          ? "bg-accent-muted/60 text-accent font-semibold border-l-2 border-accent"
-                          : "text-ink-muted hover:bg-state-hover/70 hover:text-ink border-l-2 border-transparent",
+                          ? "bg-primary/10 text-fg-primary font-semibold border-l-2 border-primary"
+                          : "text-fg-muted hover:bg-surface-2 hover:text-fg-primary border-l-2 border-transparent",
                       )
                     }
                   >
@@ -233,7 +233,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
 
         {/* Workspace Section */}
         <div>
-          <p className="px-2 pb-1 text-[10px] font-semibold tracking-wider text-ink-subtle uppercase">
+          <p className="px-2 pb-1 text-[10px] font-semibold tracking-wider text-fg-muted uppercase">
             Workspace
           </p>
           <nav className="space-y-0.5">
@@ -249,8 +249,8 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
                     cn(
                       "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-ring",
                       isActive
-                        ? "bg-accent-muted/60 text-accent font-semibold border-l-2 border-accent"
-                        : "text-ink-muted hover:bg-state-hover/70 hover:text-ink border-l-2 border-transparent",
+                        ? "bg-primary/10 text-fg-primary font-semibold border-l-2 border-primary"
+                        : "text-fg-muted hover:bg-surface-2 hover:text-fg-primary border-l-2 border-transparent",
                     )
                   }
                 >
@@ -264,16 +264,16 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
       </div>
 
       {/* 4. Footer: Spike Valve Live Telemetry & User Profile */}
-      <div className="shrink-0 border-t border-border p-2.5 space-y-2 bg-bg/40">
+      <div className="shrink-0 border-t border-border-subtle p-2.5 space-y-2 bg-surface-1/40">
         {/* Spike Valve Status Widget */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Link
               to="/usage"
               onClick={onMobileClose}
-              className="btn-tactile block rounded-md border border-border/80 bg-surface px-2.5 py-2 text-2xs shadow-2xs hover:border-border-strong hover:bg-state-hover transition-colors"
+              className="btn-tactile block rounded-md border border-border-subtle bg-surface-1 px-2.5 py-2 text-2xs shadow-tactile hover:border-border-strong hover:bg-surface-2 transition-colors"
             >
-              <div className="flex items-center justify-between font-medium text-ink">
+              <div className="flex items-center justify-between font-medium text-fg-primary">
                 <span className="flex items-center gap-1.5">
                   <span className="relative flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-healthy/60 opacity-60" />
@@ -285,17 +285,17 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
                   0 Overages
                 </span>
               </div>
-              <p className="mt-1 text-[10px] text-ink-subtle leading-tight">
+              <p className="mt-1 text-[10px] text-fg-muted leading-tight">
                 Soft-sampling active · 100% count kept
               </p>
             </Link>
           </TooltipTrigger>
           <TooltipContent side="right" align="center" className="max-w-xs space-y-1 p-3 text-xs shadow-lg">
-            <div className="flex items-center gap-1.5 font-medium text-ink">
+            <div className="flex items-center gap-1.5 font-medium text-fg-primary">
               <ShieldCheck size={14} className="text-healthy" />
               <span>Spike Valve Protection Active</span>
             </div>
-            <p className="text-ink-muted leading-relaxed">
+            <p className="text-fg-muted leading-relaxed">
               Accurate event count kept (100%) with automated soft-sampling during traffic spikes.
               Zero bill overages, zero storage depletion. Click to inspect telemetry.
             </p>
@@ -309,23 +309,23 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
               type="button"
               variant="ghost"
               size="sm"
-              className="btn-tactile flex w-full items-center justify-between border border-border/60 bg-surface px-2 h-8 text-xs transition-colors hover:bg-state-hover"
+              className="btn-tactile flex w-full items-center justify-between border border-border-subtle bg-surface-1 px-2 h-8 text-xs transition-colors hover:bg-surface-2"
             >
               <div className="flex min-w-0 items-center gap-2">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-muted text-[10px] font-semibold text-accent">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-fg-primary">
                   {(user?.email ?? "?").slice(0, 1).toUpperCase()}
                 </span>
-                <span className="truncate text-2xs font-medium text-ink">
+                <span className="truncate text-2xs font-medium text-fg-primary">
                   {user?.email ?? "Signed in"}
                 </span>
               </div>
-              <ChevronDown className="h-3 w-3 text-ink-muted shrink-0" />
+              <ChevronDown className="h-3 w-3 text-fg-muted shrink-0" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52 shadow-lg border border-border">
+          <DropdownMenuContent align="end" className="w-52 shadow-lg border border-border-subtle bg-surface-1">
             <DropdownMenuLabel className="font-normal">
-              <span className="text-2xs text-ink-subtle">Signed in as</span>
-              <p className="truncate text-xs font-semibold text-ink">{user?.email ?? "…"}</p>
+              <span className="text-2xs text-fg-muted">Signed in as</span>
+              <p className="truncate text-xs font-semibold text-fg-primary">{user?.email ?? "…"}</p>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -352,7 +352,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
     <>
       {/* Desktop Persistent Sidebar */}
       <aside
-        className="epure-sidebar hidden md:flex h-full min-h-0 w-60 shrink-0 flex-col border-r border-border bg-surface select-none shadow-xs"
+        className="epure-sidebar hidden md:flex h-full min-h-0 w-60 shrink-0 flex-col border-r border-border-subtle bg-surface-1 select-none shadow-xs"
         aria-label="Application Sidebar"
       >
         {sidebarContent}
@@ -361,7 +361,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
       {/* Mobile Drawer Backdrop & Sliding Aside */}
       <div
         className={cn(
-          "fixed inset-0 z-50 bg-ink/40 backdrop-blur-xs transition-opacity md:hidden",
+          "fixed inset-0 z-50 bg-overlay backdrop-blur-xs transition-opacity md:hidden",
           mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
         )}
         onClick={onMobileClose}
@@ -369,7 +369,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
       />
       <aside
         className={cn(
-          "epure-sidebar fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-col border-r border-border bg-surface shadow-2xl transition-transform duration-200 md:hidden select-none",
+          "epure-sidebar fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-col border-r border-border-subtle bg-surface-1 shadow-2xl transition-transform duration-200 md:hidden select-none",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
         aria-label="Mobile Navigation Sidebar"

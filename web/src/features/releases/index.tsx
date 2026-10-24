@@ -30,18 +30,18 @@ function ReleaseRow({
   const issuesPath = issuesFilterPath(projectId, `release:${release.version}`);
 
   return (
-    <li>
+    <li className="border-b border-border-subtle last:border-b-0">
       <ListRow asChild variant="flat" className="group items-center gap-3 px-4 py-2.5">
         <Link to={issuesPath}>
           <div className="min-w-0 flex-1">
-            <p className="truncate font-mono text-sm font-medium text-ink">{release.version}</p>
-            <p className="mt-0.5 text-xs text-ink-muted">{meta}</p>
-            {deltas ? <p className="mt-1 text-xs text-ink">{deltas}</p> : null}
+            <p className="truncate font-mono text-sm font-medium text-fg-primary">{release.version}</p>
+            <p className="mt-0.5 text-xs text-fg-muted">{meta}</p>
+            {deltas ? <p className="mt-1 text-xs text-fg-secondary">{deltas}</p> : null}
           </div>
           <ChevronRight
             size={16}
             strokeWidth={1.5}
-            className="shrink-0 text-ink-muted transition-transform group-hover:translate-x-0.5 group-hover:text-ink"
+            className="shrink-0 text-fg-muted transition-transform group-hover:translate-x-0.5 group-hover:text-fg-primary"
             aria-hidden
           />
         </Link>
@@ -118,7 +118,7 @@ export function ReleasesPage() {
               {activeProject?.name ? (
                 <>
                   <FeedHeaderStatDot />
-                  <span className="text-ink-muted">{activeProject.name}</span>
+                  <span className="text-fg-muted">{activeProject.name}</span>
                 </>
               ) : null}
             </>
@@ -159,11 +159,11 @@ export function ReleasesPage() {
                 initOnly
               />
               <div>
-                <p className="text-xs font-medium text-ink">Source maps (optional, JS/TS)</p>
-                <p className="mt-1 text-xs text-ink-muted">
+                <p className="text-xs font-medium text-fg-primary">Source maps (optional, JS/TS)</p>
+                <p className="mt-1 text-xs text-fg-muted">
                   Upload artifacts for the same version so stack traces resolve to your source.
                 </p>
-                <pre className="epure-code-well mt-2 overflow-x-auto rounded-lg border border-border bg-bg-subtle p-3 font-mono text-xs text-ink-muted">
+                <pre className="epure-code-well mt-2 overflow-x-auto rounded-lg border border-border-subtle bg-surface-2 p-3 font-mono text-xs text-fg-muted">
                   {RELEASE_CLI_HINT}
                 </pre>
               </div>

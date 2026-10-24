@@ -30,6 +30,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "../../ui/dialog";
@@ -114,7 +115,7 @@ function StatusBadge({
       return (
         <span
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-md border border-border bg-bg-subtle px-2 py-0.5 text-xs font-medium text-ink-muted",
+            "inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-surface-2 px-2 py-0.5 text-xs font-medium text-fg-muted",
             className,
           )}
         >
@@ -327,19 +328,19 @@ export function MonitorsPage() {
         <div className="space-y-4 py-4">
           {/* SDK Guide Expandable Card */}
           {showSdkGuide && (
-            <div className="rounded-lg border border-border bg-surface p-4 shadow-sm animate-in fade-in duration-200">
+            <div className="rounded-lg border border-border-subtle bg-surface-1 p-4 shadow-sm animate-in fade-in duration-200">
               <div className="mb-3 flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-ink">Sentry SDK Heartbeat Setup</h3>
-                  <p className="mt-0.5 text-xs text-ink-muted">
-                    Epure seamlessly ingests Sentry <code className="font-mono text-ink">check_in</code> envelopes.
+                  <h3 className="text-sm font-semibold text-fg-primary">Sentry SDK Heartbeat Setup</h3>
+                  <p className="mt-0.5 text-xs text-fg-muted">
+                    Epure seamlessly ingests Sentry <code className="font-mono text-fg-primary">check_in</code> envelopes.
                     Monitors are registered automatically upon first check-in or can be pre-configured below.
                   </p>
                 </div>
                 <Button
                   type="button"
                   variant="ghost"
-                  className="h-7 px-2 text-xs text-ink-muted"
+                  className="h-7 px-2 text-xs text-fg-muted"
                   onClick={() => setShowSdkGuide(false)}
                 >
                   Close
@@ -361,13 +362,13 @@ export function MonitorsPage() {
 
                 <TabsContent value="python" className="space-y-2 pt-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs text-ink-muted">python cron job</span>
+                    <span className="font-mono text-xs text-fg-muted">python cron job</span>
                     <CopyButton
                       value={`import sentry_sdk\n\nsentry_sdk.init(dsn="https://...", environment="production")\n\n# Option 1: Decorator\n@sentry_sdk.monitor(monitor_slug="nightly-backup")\ndef run_nightly_backup():\n    perform_backup()\n\n# Option 2: Manual Check-In ID tracking\ncheck_in_id = sentry_sdk.capture_check_in(\n    monitor_slug="billing-sync",\n    status="in_progress",\n)\ntry:\n    sync_subscriptions()\n    sentry_sdk.capture_check_in(\n        monitor_slug="billing-sync",\n        status="ok",\n        check_in_id=check_in_id,\n    )\nexcept Exception:\n    sentry_sdk.capture_check_in(\n        monitor_slug="billing-sync",\n        status="error",\n        check_in_id=check_in_id,\n    )\n    raise`}
                       label="Copy Snippet"
                     />
                   </div>
-                  <pre className="overflow-x-auto rounded-md border border-border bg-bg-subtle p-3 font-mono text-xs text-ink">
+                  <pre className="overflow-x-auto rounded-md border border-border-subtle bg-surface-2 p-3 font-mono text-xs text-fg-primary">
 {`import sentry_sdk
 
 sentry_sdk.init(dsn="https://...", environment="production")
@@ -401,13 +402,13 @@ except Exception:
 
                 <TabsContent value="typescript" className="space-y-2 pt-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs text-ink-muted">node / ts cron job</span>
+                    <span className="font-mono text-xs text-fg-muted">node / ts cron job</span>
                     <CopyButton
                       value={`import * as Sentry from "@sentry/node";\n\nSentry.init({ dsn: "https://...", environment: "production" });\n\n// Option 1: Wrap cron job with automatic start/stop and duration\nawait Sentry.withMonitor("nightly-backup", async () => {\n  await runNightlyBackup();\n}, {\n  schedule: { type: "crontab", value: "0 2 * * *" },\n});\n\n// Option 2: Manual Check-In\nconst checkInId = Sentry.captureCheckIn({\n  monitorSlug: "billing-sync",\n  status: "in_progress",\n});\ntry {\n  await syncSubscriptions();\n  Sentry.captureCheckIn({\n    monitorSlug: "billing-sync",\n    status: "ok",\n    checkInId,\n  });\n} catch (err) {\n  Sentry.captureCheckIn({\n    monitorSlug: "billing-sync",\n    status: "error",\n    checkInId,\n  });\n  throw err;\n}`}
                       label="Copy Snippet"
                     />
                   </div>
-                  <pre className="overflow-x-auto rounded-md border border-border bg-bg-subtle p-3 font-mono text-xs text-ink">
+                  <pre className="overflow-x-auto rounded-md border border-border-subtle bg-surface-2 p-3 font-mono text-xs text-fg-primary">
 {`import * as Sentry from "@sentry/node";
 
 Sentry.init({ dsn: "https://...", environment: "production" });
@@ -444,13 +445,13 @@ try {
 
                 <TabsContent value="curl" className="space-y-2 pt-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs text-ink-muted">raw sentry envelope POST</span>
+                    <span className="font-mono text-xs text-fg-muted">raw sentry envelope POST</span>
                     <CopyButton
                       value={`curl -X POST https://api.epure.sh/api/${activeProjectId ?? "PROJECT_ID"}/envelope/ \\\n  -H "Content-Type: application/x-sentry-envelope" \\\n  --data-binary $'{"sent_at":"2026-10-22T22:00:00Z"}\\n{"type":"check_in"}\\n{"monitor_slug":"nightly-backup","status":"ok","duration":1.24,"environment":"production"}\\n'`}
                       label="Copy cURL"
                     />
                   </div>
-                  <pre className="overflow-x-auto rounded-md border border-border bg-bg-subtle p-3 font-mono text-xs text-ink">
+                  <pre className="overflow-x-auto rounded-md border border-border-subtle bg-surface-2 p-3 font-mono text-xs text-fg-primary">
 {`curl -X POST https://api.epure.sh/api/${activeProjectId ?? "PROJECT_ID"}/envelope/ \\
   -H "Content-Type: application/x-sentry-envelope" \\
   --data-binary $'{"sent_at":"2026-10-22T22:00:00Z"}\\n{"type":"check_in"}\\n{"monitor_slug":"nightly-backup","status":"ok","duration":1.24,"environment":"production"}\\n'`}
@@ -462,17 +463,14 @@ try {
 
           {/* Search & Filter Toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="relative min-w-[240px] flex-1 max-w-sm">
-              <Search
-                size={14}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-muted pointer-events-none"
-              />
+            <div className="min-w-[240px] flex-1 max-w-sm">
               <Input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Filter by slug or schedule..."
-                className="pl-8 text-xs h-8"
+                leadingIcon={<Search size={14} />}
+                className="h-8 text-xs"
               />
             </div>
 
@@ -498,7 +496,7 @@ try {
               <Button
                 type="button"
                 variant="ghost"
-                className="h-7 w-7 p-0 ml-1 text-ink-muted hover:text-ink"
+                className="h-7 w-7 p-0 ml-1 text-fg-muted hover:text-fg-primary"
                 onClick={() => void loadMonitors()}
                 title="Refresh monitors"
               >
@@ -582,7 +580,7 @@ try {
               {filteredMonitors.map((m) => (
                 <li
                   key={m.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-elevated/40 last:border-b-0"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-subtle bg-surface-1 px-4 py-3 transition-colors hover:bg-surface-2/60 last:border-b-0"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -596,21 +594,21 @@ try {
                         {m.slug}
                       </Button>
                       {m.environment && (
-                        <span className="rounded border border-border bg-bg-subtle px-1.5 py-0.5 text-2xs font-mono text-ink-muted">
+                        <span className="rounded border border-border-subtle bg-surface-2 px-1.5 py-0.5 text-2xs font-mono text-fg-muted">
                           {m.environment}
                         </span>
                       )}
                     </div>
 
-                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-fg-muted">
                       <span className="flex items-center gap-1 font-mono">
-                        <Clock size={12} className="shrink-0 text-ink-muted/80" />
+                        <Clock size={12} className="shrink-0 text-fg-muted/80" />
                         {m.schedule || "heartbeat"}
                       </span>
                       <span>·</span>
                       <span>
                         Last run:{" "}
-                        <span className="text-ink">
+                        <span className="text-fg-primary">
                           {m.last_check_in_at ? formatRelativeTime(m.last_check_in_at) : "never"}
                         </span>
                       </span>
@@ -619,7 +617,7 @@ try {
                           <span>·</span>
                           <span>
                             Duration:{" "}
-                            <span className="font-mono text-ink">
+                            <span className="font-mono text-fg-primary">
                               {formatDuration(m.last_duration_ms)}
                             </span>
                           </span>
@@ -641,7 +639,7 @@ try {
                     <ActionButton
                       type="button"
                       variant="ghost"
-                      className="h-8 w-8 p-0 text-ink-muted hover:text-semantic-danger"
+                      className="h-8 w-8 p-0 text-fg-muted hover:text-escalating"
                       disabled={deletingId === m.id}
                       onClick={() => void handleDelete(m.id, m.slug)}
                       tooltip="Delete monitor"
@@ -708,7 +706,7 @@ try {
               />
             </Field>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <DialogFooter className="pt-2">
               <Button
                 type="button"
                 variant="ghost"
@@ -720,7 +718,7 @@ try {
               <Button type="submit" variant="primary" disabled={createBusy}>
                 {createBusy ? "Registering..." : "Register Monitor"}
               </Button>
-            </div>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -739,15 +737,15 @@ try {
               </DialogTitle>
             </div>
             <DialogDescription>
-              Schedule: <span className="font-mono text-ink">{selectedMonitor?.schedule || "heartbeat"}</span>
+              Schedule: <span className="font-mono text-fg-primary">{selectedMonitor?.schedule || "heartbeat"}</span>
               {selectedMonitor?.environment && (
-                <> · Environment: <span className="text-ink">{selectedMonitor.environment}</span></>
+                <> · Environment: <span className="text-fg-primary">{selectedMonitor.environment}</span></>
               )}
             </DialogDescription>
           </DialogHeader>
 
           <div className="min-h-0 flex-1 overflow-auto mt-2 pr-1 space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
               Recent Check-Ins ({historyCheckIns.length})
             </h4>
 
@@ -757,13 +755,13 @@ try {
                 <CardRowSkeleton />
               </div>
             ) : historyCheckIns.length === 0 ? (
-              <p className="py-6 text-center text-xs text-ink-muted">
+              <p className="py-6 text-center text-xs text-fg-muted">
                 No check-in events recorded for this monitor yet.
               </p>
             ) : (
-              <div className="overflow-hidden rounded-md border border-border bg-bg">
+              <div className="overflow-hidden rounded-md border border-border-subtle bg-surface-1">
                 <table className="w-full text-left text-xs">
-                  <thead className="border-b border-border bg-surface text-ink-muted font-medium">
+                  <thead className="border-b border-border-subtle bg-surface-2 text-fg-muted font-medium">
                     <tr>
                       <th className="px-3 py-2">Status</th>
                       <th className="px-3 py-2">Duration</th>
@@ -771,19 +769,19 @@ try {
                       <th className="px-3 py-2 font-mono text-2xs">Check-in ID</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody className="divide-y divide-border-subtle">
                     {historyCheckIns.map((ci) => (
-                      <tr key={ci.id} className="hover:bg-surface/50">
+                      <tr key={ci.id} className="hover:bg-surface-2/60">
                         <td className="px-3 py-2">
                           <StatusBadge status={ci.status} />
                         </td>
-                        <td className="px-3 py-2 font-mono text-ink">
+                        <td className="px-3 py-2 font-mono text-fg-primary">
                           {formatDuration(ci.duration_ms)}
                         </td>
-                        <td className="px-3 py-2 text-ink-muted whitespace-nowrap">
+                        <td className="px-3 py-2 text-fg-muted whitespace-nowrap">
                           {formatRelativeTime(ci.created_at)}
                         </td>
-                        <td className="px-3 py-2 font-mono text-2xs text-ink-muted truncate max-w-[120px]">
+                        <td className="px-3 py-2 font-mono text-2xs text-fg-muted truncate max-w-[120px]">
                           {ci.check_in_id || ci.id.slice(0, 8)}
                         </td>
                       </tr>
@@ -794,7 +792,7 @@ try {
             )}
           </div>
 
-          <div className="flex items-center justify-end pt-3 border-t border-border shrink-0">
+          <DialogFooter className="pt-3 border-t border-border-subtle shrink-0">
             <Button
               type="button"
               variant="secondary"
@@ -803,7 +801,7 @@ try {
             >
               Done
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

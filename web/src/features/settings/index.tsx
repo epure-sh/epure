@@ -21,10 +21,10 @@ export function SettingsPage() {
       description="SDK connection, notification endpoints, retention, and ingest limits."
       density="full-bleed"
     >
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <SettingsNav />
 
-        <div className="min-w-0 flex-1 overflow-auto bg-canvas p-6">
+        <div className="min-w-0 flex-1 overflow-auto bg-canvas p-4 md:p-6">
           <div className="mx-auto max-w-5xl space-y-4">
             <Routes>
               <Route index element={<ProjectGeneralSettings />} />

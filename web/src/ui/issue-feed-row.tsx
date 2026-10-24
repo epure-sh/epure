@@ -52,7 +52,7 @@ const TREND_STATUS_LABEL: Record<TrendStatus, string> = {
 function PlatformBadge({ label }: { label: string }) {
   return (
     <span
-      className="epure-platform-badge inline-flex h-4 min-w-4 items-center justify-center rounded-sm bg-bg-subtle px-1 font-mono text-2xs font-medium uppercase text-ink-muted"
+      className="epure-platform-badge inline-flex h-4 min-w-4 items-center justify-center rounded-sm bg-surface-2 px-1 font-mono text-2xs font-medium uppercase text-fg-muted"
       aria-hidden
     >
       {label}
@@ -130,7 +130,7 @@ export function IssueFeedRow({
       onClick={onClick}
       onKeyDown={keyHandler}
       className={cn(
-        "epure-issue-row epure-feed-row relative grid items-center border-b border-border/80 text-left transition-colors duration-fast focus-ring select-none cursor-pointer",
+        "epure-issue-row epure-feed-row relative grid items-center border-b border-border-subtle text-left transition-colors duration-fast focus-ring select-none cursor-pointer",
         `epure-issue-row--${rowVariant}`,
         unread && "epure-issue-row--unread",
         compact ? FEED_GRID_COMPACT : FEED_GRID_FULL,
@@ -179,15 +179,15 @@ export function IssueFeedRow({
               ) : null}
             </div>
             {subtitle ? (
-              <p className="mt-0.5 truncate text-xs leading-tight text-ink-muted">{subtitle}</p>
+              <p className="mt-0.5 truncate text-xs leading-tight text-fg-muted">{subtitle}</p>
             ) : null}
-            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-2xs text-ink-muted">
+            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-2xs text-fg-muted">
               {platform ? <PlatformBadge label={platform} /> : null}
               {projectCode ? (
-                <span className="font-mono text-2xs font-medium text-ink-subtle">{projectCode}</span>
+                <span className="font-mono text-2xs font-medium text-fg-muted">{projectCode}</span>
               ) : null}
               {location ? (
-                <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-bg-subtle text-ink-muted border border-border/60 truncate max-w-sm">
+                <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-surface-2 text-fg-muted border border-border-subtle truncate max-w-sm">
                   {location}
                 </span>
               ) : null}
@@ -202,7 +202,7 @@ export function IssueFeedRow({
       </div>
 
       {lastSeen ? (
-        <span className={cn("hidden text-xs leading-tight text-ink-muted lg:block", FEED_CELL_TEXT)}>
+        <span className={cn("hidden text-xs leading-tight text-fg-muted lg:block", FEED_CELL_TEXT)}>
           {formatRelativeTime(lastSeen)}
         </span>
       ) : (
@@ -210,7 +210,7 @@ export function IssueFeedRow({
       )}
 
       {!compact && firstSeen ? (
-        <span className={cn("hidden text-xs leading-tight text-ink-muted xl:block", FEED_CELL_TEXT)}>
+        <span className={cn("hidden text-xs leading-tight text-fg-muted xl:block", FEED_CELL_TEXT)}>
           {formatAge(firstSeen)}
         </span>
       ) : !compact ? (
@@ -240,7 +240,7 @@ export function IssueFeedRow({
       ) : null}
 
       {eventCount !== undefined ? (
-        <span className={cn(FEED_CELL_NUMERIC, "font-mono-slash text-xs leading-tight tabular-nums text-ink")}>
+        <span className={cn(FEED_CELL_NUMERIC, "font-mono-slash text-xs leading-tight tabular-nums text-fg-primary")}>
           {formatCompactCount(eventCount)}
         </span>
       ) : (
@@ -250,7 +250,7 @@ export function IssueFeedRow({
       {!compact && userCount !== undefined ? (
         <span
           className={cn(
-            "hidden font-mono-slash text-xs leading-tight tabular-nums text-ink-muted xl:block",
+            "hidden font-mono-slash text-xs leading-tight tabular-nums text-fg-muted xl:block",
             FEED_CELL_NUMERIC,
           )}
         >

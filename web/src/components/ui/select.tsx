@@ -92,6 +92,7 @@ export function SelectItem({
       className={cn(
         "relative flex w-full cursor-pointer select-none items-center rounded-xs py-1.5 pl-7 pr-2 text-xs text-fg-secondary outline-none",
         "transition-colors duration-75 hover:bg-surface-2 hover:text-fg-primary focus:bg-surface-2 focus:text-fg-primary",
+        "data-[highlighted]:bg-surface-2 data-[highlighted]:text-fg-primary",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
         className
       )}

@@ -322,14 +322,14 @@ export function OrgHomePage() {
                     <Badge variant="error" className="font-semibold text-2xs uppercase tracking-wide">
                       Project Paused
                     </Badge>
-                    <span className="text-xs font-semibold text-ink">
+                    <span className="text-xs font-semibold text-fg-primary">
                       7-Day Pilot Trial Ended
                     </span>
                   </div>
-                  <h2 className="text-sm font-semibold text-ink">
+                  <h2 className="text-sm font-semibold text-fg-primary">
                     Production Error Ingestion is Currently Paused
                   </h2>
-                  <p className="text-xs text-ink-muted max-w-2xl">
+                  <p className="text-xs text-fg-muted max-w-2xl">
                     Your 7-day trial has expired and incoming production errors are no longer processed. Upgrade to Cloud Pro ($49/mo) or Team Plus to unpause ingestion and restore live tracking immediately.
                   </p>
                 </div>
@@ -357,7 +357,7 @@ export function OrgHomePage() {
                   next.delete("welcome");
                   setSearchParams(next, { replace: true });
                 }}
-                className="absolute top-3.5 right-3.5 text-ink-muted hover:text-ink"
+                className="absolute top-3.5 right-3.5 text-fg-muted hover:text-fg-primary"
                 aria-label="Dismiss banner"
               >
                 <X size={14} />
@@ -373,11 +373,11 @@ export function OrgHomePage() {
                       7-Day Trial Active · 0 Credentials Required
                     </span>
                   </div>
-                  <h2 className="text-sm font-semibold text-ink">
+                  <h2 className="text-sm font-semibold text-fg-primary">
                     Welcome to your pre-provisioned Epure Cloud sandbox!
                   </h2>
-                  <p className="text-xs text-ink-muted max-w-2xl">
-                    Your environment is pre-loaded with sample exceptions, a dedicated DSN, and active Spike Valve crash-loop protection. Connect Claude Code or Cursor via <code className="rounded bg-bg-subtle px-1.5 py-0.5 text-ink font-mono text-2xs">epure-mcp</code> to auto-fix issues in seconds, or upgrade to keep your data beyond 7 days.
+                  <p className="text-xs text-fg-muted max-w-2xl">
+                    Your environment is pre-loaded with sample exceptions, a dedicated DSN, and active Spike Valve crash-loop protection. Connect Claude Code or Cursor via <code className="rounded bg-surface-2 px-1.5 py-0.5 text-fg-primary font-mono text-2xs">epure-mcp</code> to auto-fix issues in seconds, or upgrade to keep your data beyond 7 days.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -395,21 +395,21 @@ export function OrgHomePage() {
           {projects.length > 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-3 pb-1 select-none">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-ink">Active Projects</span>
-                <span className="rounded-full bg-bg-subtle px-2 py-0.5 font-mono text-[11px] font-medium text-ink-muted border border-border/60">
+                <span className="text-xs font-semibold text-fg-primary">Active Projects</span>
+                <span className="rounded-full bg-surface-2 px-2 py-0.5 font-mono text-[11px] font-medium text-fg-muted border border-border-subtle">
                   {filteredProjects.length}
                   {filteredProjects.length !== projects.length ? ` of ${projects.length}` : ""}
                 </span>
               </div>
 
               {projects.length >= 2 ? (
-                <div className="relative w-56 sm:w-64">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-subtle pointer-events-none" />
+                <div className="w-56 sm:w-64">
                   <Input
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Filter by name or slug…"
-                    className="h-8 pl-8 text-xs bg-surface border-border/80"
+                    leadingIcon={<Search className="h-3.5 w-3.5 text-fg-muted" />}
+                    className="h-8 text-xs"
                   />
                 </div>
               ) : null}
@@ -428,7 +428,7 @@ export function OrgHomePage() {
           />
 
           {!canManage && projects.length === 0 ? (
-            <p className="text-sm text-ink-muted">Ask an admin to create a project.</p>
+            <p className="text-sm text-fg-muted">Ask an admin to create a project.</p>
           ) : null}
         </div>
       </div>

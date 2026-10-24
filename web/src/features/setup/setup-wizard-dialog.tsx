@@ -412,7 +412,7 @@ export function SetupWizardDialog({
         className={cn(CARD_BASE, dialogSizeClass)}
         aria-describedby={undefined}
       >
-        <DialogHeader className="shrink-0 space-y-2 border-b border-border px-3 py-2.5 pr-10">
+        <DialogHeader className="shrink-0 space-y-2 border-b border-border-subtle px-3 py-2.5 pr-10">
           <DialogTitle className="flex items-center gap-2 text-base font-medium tracking-ui">
             {step === "connect" && selectedPlatform ? (
               <>
@@ -440,11 +440,11 @@ export function SetupWizardDialog({
           {step === "name" ? (
             <div className="flex flex-col gap-3">
               <div className="space-y-2">
-                <p className="text-sm font-medium tracking-ui text-ink">Project name</p>
-                <p className="text-xs text-ink-muted">
+                <p className="text-sm font-medium tracking-ui text-fg-primary">Project name</p>
+                <p className="text-xs text-fg-muted">
                   One app or service. You can rename later.
                 </p>
-                <p className="text-2xs text-ink-muted">
+                <p className="text-2xs text-fg-muted">
                   <SetupDocsLink href={EPURE_DOCS_QUICKSTART_URL}>Setup guide</SetupDocsLink>
                 </p>
                 <Field label="Name">
@@ -462,7 +462,7 @@ export function SetupWizardDialog({
                   />
                 </Field>
               </div>
-              <div className="flex justify-end border-t border-border pt-2">
+              <div className="flex justify-end border-t border-border-subtle pt-2">
                 <Button
                   type="button"
                   variant="primary"
@@ -479,8 +479,8 @@ export function SetupWizardDialog({
             <div className="flex flex-col gap-3">
               <div className="space-y-2">
                 <div className="space-y-0.5">
-                  <p className="text-sm font-medium tracking-ui text-ink">How are you starting?</p>
-                  <p className="text-xs text-ink-muted">
+                  <p className="text-sm font-medium tracking-ui text-fg-primary">How are you starting?</p>
+                  <p className="text-xs text-fg-muted">
                     Snippets on the next steps.
                   </p>
                 </div>
@@ -498,14 +498,14 @@ export function SetupWizardDialog({
                     </Button>
                   ))}
                 </div>
-                <p className="text-2xs text-ink-muted">
+                <p className="text-2xs text-fg-muted">
                   Not sure?{" "}
                   <SetupDocsLink href={EPURE_DOCS_QUICKSTART_URL}>Quickstart</SetupDocsLink>
                   {" · "}
                   <SetupDocsLink href={EPURE_DOCS_MIGRATION_URL}>From Sentry</SetupDocsLink>
                 </p>
               </div>
-              <div className="flex justify-start border-t border-border pt-2">
+              <div className="flex justify-start border-t border-border-subtle pt-2">
                 {!projectId && !initialName.trim() ? (
                   <Button type="button" variant="ghost" onClick={handleBack}>
                     Back
@@ -521,8 +521,8 @@ export function SetupWizardDialog({
             <div className="flex min-h-0 flex-1 flex-col gap-2">
               <div className="flex shrink-0 items-start justify-between gap-2">
                 <div className="space-y-0.5">
-                  <p className="text-sm font-medium tracking-ui text-ink">Choose your stack</p>
-                  <p className="text-xs text-ink-muted">Tap one. We show install and init next.</p>
+                  <p className="text-sm font-medium tracking-ui text-fg-primary">Choose your stack</p>
+                  <p className="text-xs text-fg-muted">Tap one. We show install and init next.</p>
                 </div>
                 <SetupDocsLink href={`${EPURE_DOCS_URL}/platforms`} className="shrink-0 pt-0.5">
                   All platforms
@@ -555,7 +555,7 @@ export function SetupWizardDialog({
                   ))}
                 </div>
               </div>
-              <div className="flex shrink-0 justify-start border-t border-border pt-2">
+              <div className="flex shrink-0 justify-start border-t border-border-subtle pt-2">
                 <Button type="button" variant="ghost" onClick={handleBack}>
                   Back
                 </Button>
@@ -580,7 +580,7 @@ export function SetupWizardDialog({
               ) : null}
 
               {!dsn && !dsnError ? (
-                <p className="text-sm text-ink-muted">Preparing DSN…</p>
+                <p className="text-sm text-fg-muted">Preparing DSN…</p>
               ) : null}
 
               {dsn && selectedPlatform ? (
@@ -594,7 +594,7 @@ export function SetupWizardDialog({
                       toast("Clipboard blocked. Select text and copy manually.")
                     }
                   />
-                  <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border pt-2">
+                  <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border-subtle pt-2">
                     <Button type="button" variant="ghost" onClick={handleBack}>
                       Back
                     </Button>
@@ -629,17 +629,17 @@ export function SetupWizardDialog({
           {step === "verify" ? (
             <div className="flex flex-col gap-5">
               <div className="space-y-1.5 py-2 text-center">
-                <p className="text-xl font-medium tracking-ui text-ink">You&apos;re wired.</p>
-                <p className="text-sm text-ink-muted">
+                <p className="text-xl font-medium tracking-ui text-fg-primary">You&apos;re wired.</p>
+                <p className="text-sm text-fg-muted">
                   Break something on purpose, or wait for the next one. We&apos;re listening.
                 </p>
                 {verifyIssueSeen ? (
-                  <p className="pt-1 text-sm font-medium text-accent">Got it. You&apos;re live.</p>
+                  <p className="pt-1 text-sm font-medium text-primary">Got it. You&apos;re live.</p>
                 ) : verifyListening ? (
-                  <p className="pt-1 text-xs text-ink-muted">Listening…</p>
+                  <p className="pt-1 text-xs text-fg-muted">Listening…</p>
                 ) : null}
               </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border-subtle pt-2">
                 <Button type="button" variant="ghost" onClick={handleBack}>
                   Back
                 </Button>

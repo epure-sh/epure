@@ -165,7 +165,7 @@ export function ProjectGeneralSettings() {
               value={project.slug ?? "—"}
               mono
             />
-            <p className="text-xs text-ink-muted">
+            <p className="text-xs text-fg-muted">
               Slugs are generated at creation and used in URLs. They cannot be changed.
             </p>
 
@@ -197,8 +197,8 @@ export function ProjectGeneralSettings() {
                 value={String(retentionDays)}
                 onValueChange={(value) => setRetentionDays(Number(value))}
               >
-                <SelectTrigger aria-label="Retention days">
-                  <SelectValue />
+                <SelectTrigger aria-label="Retention days" className="w-full">
+                  <SelectValue placeholder="Retention days">{retentionDays} days</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {retentionOptions.map((days) => (
@@ -237,7 +237,7 @@ export function ProjectGeneralSettings() {
                 onChange={(event) => setIngestCap(Number(event.target.value))}
               />
             </Field>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-fg-muted">
               <span>Current cap:</span>
               <Badge variant="env" className="font-mono">
                 {project.ingest_cap_per_hour.toLocaleString()} events / hour
@@ -261,7 +261,7 @@ export function ProjectGeneralSettings() {
             Save changes
           </Button>
           {dirty ? (
-            <p className="self-center text-xs text-ink-muted">You have unsaved changes.</p>
+            <p className="self-center text-xs text-fg-muted">You have unsaved changes.</p>
           ) : null}
         </div>
       </form>
@@ -271,9 +271,9 @@ export function ProjectGeneralSettings() {
           title="Delete project"
           description="Permanently remove this project and all of its data."
         >
-          <p className="text-sm text-ink-muted">
+          <p className="text-sm text-fg-muted">
             Deleting removes issues, events, DSN keys, webhooks, and releases for{" "}
-            <span className="font-medium text-ink">{project.name}</span>. This cannot be undone.
+            <span className="font-medium text-fg-primary">{project.name}</span>. This cannot be undone.
           </p>
           <Button
             variant="danger"

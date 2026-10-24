@@ -6,6 +6,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "../../ui/dialog";
@@ -25,8 +26,8 @@ export function SettingsTabHeader({
   return (
     <header className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0 space-y-1">
-        <h2 className="text-lg font-medium tracking-ui text-ink">{title}</h2>
-        <p className="text-sm text-ink-muted">{description}</p>
+        <h2 className="text-lg font-medium tracking-ui text-fg-primary">{title}</h2>
+        <p className="text-sm text-fg-muted">{description}</p>
       </div>
       {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </header>
@@ -45,8 +46,8 @@ export function InfoCallout({
   return (
     <div
       className={cn(
-        "border border-border border-l-[3px] bg-surface p-3 text-sm text-ink-muted",
-        variant === "warning" ? "border-l-semantic-warning" : "border-l-accent",
+        "border border-border-subtle border-l-[3px] bg-surface-1 p-3 text-sm text-fg-muted",
+        variant === "warning" ? "border-l-semantic-warning" : "border-l-primary",
         className,
       )}
     >
@@ -98,8 +99,8 @@ export function ReadOnlyDetail({
 }) {
   return (
     <div>
-      <p className="text-xs text-ink-muted">{label}</p>
-      <p className={cn("mt-1 text-sm text-ink", mono && "font-mono text-xs text-ink-muted")}>
+      <p className="text-xs text-fg-muted">{label}</p>
+      <p className={cn("mt-1 text-sm text-fg-primary", mono && "font-mono text-xs text-fg-muted")}>
         {value}
       </p>
     </div>
@@ -111,9 +112,9 @@ export function EnvironmentReference() {
 
   return (
     <div className="space-y-2">
-      <p className="text-sm text-ink-muted">
+      <p className="text-sm text-fg-muted">
         Environments are set in your SDK init, not in Epure. Tag events with{" "}
-        <span className="font-mono text-xs text-ink">environment</span> so you can filter issues by
+        <span className="font-mono text-xs text-fg-primary">environment</span> so you can filter issues by
         deploy target.
       </p>
       <div className="flex flex-wrap gap-1.5">
@@ -172,7 +173,7 @@ export function DeleteProjectDialog({
               autoComplete="off"
             />
           </Field>
-          <div className="flex justify-end gap-2">
+          <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
@@ -183,7 +184,7 @@ export function DeleteProjectDialog({
             >
               Delete permanently
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

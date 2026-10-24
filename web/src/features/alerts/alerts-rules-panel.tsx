@@ -25,14 +25,14 @@ export function AlertsRulesPanel({
         : `${webhookCount} endpoint${webhookCount === 1 ? "" : "s"} forwarding subscribed events.`;
 
   return (
-    <footer className="shrink-0 border-t border-border bg-bg-subtle/20 px-4 py-2.5 md:px-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-ink-muted">
+    <footer className="shrink-0 border-t border-border-subtle bg-surface-1/40 px-4 py-2.5 md:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-fg-muted">
         <p className="min-w-0 leading-relaxed">
-          <span className="font-medium text-ink">
+          <span className="font-medium text-fg-primary">
             {ALERT_RULES.filter((rule) => rule.id !== "custom").length} built-in rules.
           </span>{" "}
           Add project rules under Alert rules. Ignore an alert to stop that rule for the issue.
-          <span className="mx-1.5 text-ink-muted/40" aria-hidden>·</span>
+          <span className="mx-1.5 text-fg-muted/40" aria-hidden>·</span>
           {webhookHint}
         </p>
         {canManageWebhooks ? (

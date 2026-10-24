@@ -281,26 +281,26 @@ export function InboundFiltersSettings() {
             return (
               <div
                 key={filter.id}
-                className="flex items-center justify-between gap-4 p-4 hover:bg-state-hover/40 transition-colors"
+                className="flex items-center justify-between gap-4 p-4 hover:bg-surface-2/40 transition-colors"
               >
                 <div className="flex items-start gap-3 min-w-0">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-surface text-ink-muted mt-0.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-surface-1 text-fg-muted mt-0.5">
                     <Icon size={14} />
                   </div>
                   <div className="min-w-0 space-y-0.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-ink">{filter.name}</span>
+                      <span className="text-xs font-semibold text-fg-primary">{filter.name}</span>
                       {enabled ? (
                         <span className="inline-flex items-center gap-1 text-[10px] text-healthy font-medium">
                           <span className="h-1.5 w-1.5 rounded-full bg-healthy" />
                           Filtering active
                         </span>
                       ) : (
-                        <span className="text-[10px] text-ink-subtle">Disabled</span>
+                        <span className="text-[10px] text-fg-muted">Disabled</span>
                       )}
                     </div>
-                    <p className="text-2xs text-ink-muted leading-relaxed">{filter.description}</p>
-                    <p className="text-[11px] font-mono text-ink-subtle truncate">
+                    <p className="text-2xs text-fg-muted leading-relaxed">{filter.description}</p>
+                    <p className="text-[11px] font-mono text-fg-muted truncate">
                       Matches: {filter.example}
                     </p>
                   </div>
@@ -357,10 +357,10 @@ export function InboundFiltersSettings() {
             {patterns.map((pattern) => (
               <div
                 key={pattern}
-                className="flex items-center justify-between rounded-md border border-border/80 bg-surface px-3 py-1.5 text-xs shadow-2xs"
+                className="flex items-center justify-between rounded-md border border-border-subtle bg-surface-1 px-3 py-1.5 text-xs shadow-2xs"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-mono text-2xs text-ink truncate">{pattern}</span>
+                  <span className="font-mono text-2xs text-fg-primary truncate">{pattern}</span>
                 </div>
                 <Button
                   variant="ghost"
@@ -418,8 +418,8 @@ export function InboundFiltersSettings() {
                 {busyCap ? "Saving…" : "Save cap"}
               </Button>
 
-              <div className="flex items-center gap-1.5 pl-2 border-l border-border/60">
-                <span className="text-2xs text-ink-subtle">Presets:</span>
+              <div className="flex items-center gap-1.5 pl-2 border-l border-border-subtle">
+                <span className="text-2xs text-fg-muted">Presets:</span>
                 {[1000, 5000, 25000, 100000].map((preset) => (
                   <Button
                     key={preset}

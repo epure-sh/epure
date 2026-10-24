@@ -11,12 +11,21 @@ import {
   updateProjectEmailAlertSettings,
   type AlertRuleRow,
 } from "../../lib/api";
+import { cn } from "../../lib/cn";
 import { projectPath } from "../../lib/paths";
 import { useAppContext } from "../../shell/app-context";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Checkbox } from "../../ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../ui/dialog";
 import { Field } from "../../ui/field";
 import { Input } from "../../ui/input";
 import { RadioGroup, RadioGroupItem } from "../../ui/radio-group";
@@ -106,6 +115,7 @@ export function AlertRulesSettings() {
   const [savingEmailAlerts, setSavingEmailAlerts] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
   const [testEmailRecipient, setTestEmailRecipient] = useState("");
+  const [testAlertOpen, setTestAlertOpen] = useState(false);
 
   const activeProjectId = paramId ?? null;
   const canManage = user?.role === "owner" || user?.role === "admin";
@@ -178,7 +188,8 @@ export function AlertRulesSettings() {
     }
   };
 
-  const handleSendTestEmail = async () => {
+  const handleSendTestEmail = async (e?: FormEvent) => {
+    if (e) e.preventDefault();
     if (!activeProjectId) return;
     setTestingEmail(true);
     try {
@@ -186,6 +197,7 @@ export function AlertRulesSettings() {
       const res = await sendTestEmailAlert(activeProjectId, target);
       if (res.sent) {
         toast(`Test email sent via Resend to ${res.recipient}! Check inbox.`);
+        setTestAlertOpen(false);
       } else {
         toast(res.error ? `Failed to send test email: ${res.error}` : "Failed to send test email");
       }
@@ -249,7 +261,10 @@ export function AlertRulesSettings() {
     }
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(id: string, ruleName?: string) {
+    if (ruleName && !window.confirm(`Remove alert rule "${ruleName}"?`)) {
+      return;
+    }
     setBusy(true);
     try {
       await deleteAlertRule(id);
@@ -292,7 +307,7 @@ export function AlertRulesSettings() {
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-accent" />
+              <Mail className="h-4 w-4 text-primary" />
               <CardTitle>Email Alert Notifications</CardTitle>
             </div>
             <Badge variant="env">Resend · alert.epure.sh</Badge>
@@ -303,17 +318,17 @@ export function AlertRulesSettings() {
         </CardHeader>
         <CardContent>
           {emailAlertsLoading ? (
-            <p className="text-xs text-ink-muted">Loading email settings…</p>
+            <p className="text-xs text-fg-muted">Loading email settings…</p>
           ) : (
             <form onSubmit={(e) => void handleSaveEmailAlerts(e)} className="space-y-4">
-              <div className="flex items-center justify-between rounded-lg border border-border bg-surface p-3">
+              <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface-1 p-3">
                 <div className="space-y-0.5">
-                  <span className="text-xs font-semibold text-ink">Enable Email Alerts</span>
-                  <p className="text-2xs text-ink-muted">
+                  <span className="text-xs font-semibold text-fg-primary">Enable Email Alerts</span>
+                  <p className="text-2xs text-fg-muted">
                     Send real-time alert emails from alerts@alert.epure.sh
                   </p>
                 </div>
-                <label className="flex items-center gap-2 text-xs font-medium text-ink cursor-pointer">
+                <label className="flex items-center gap-2 text-xs font-medium text-fg-primary cursor-pointer select-none">
                   <Checkbox
                     checked={emailAlertsEnabled}
                     onCheckedChange={(checked) => setEmailAlertsEnabled(checked === true)}
@@ -323,19 +338,19 @@ export function AlertRulesSettings() {
               </div>
 
               {emailAlertsEnabled && (
-                <div className="space-y-3 rounded-lg border border-border bg-bg/50 p-3.5">
-                  <span className="text-2xs font-semibold uppercase tracking-wider text-ink-muted">
+                <div className="space-y-3 rounded-lg border border-border-subtle bg-surface-2/40 p-3.5">
+                  <span className="text-2xs font-semibold uppercase tracking-wider text-fg-muted">
                     Trigger Conditions
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <label className="flex items-center gap-2 text-xs text-ink cursor-pointer">
+                    <label className="flex items-center gap-2 text-xs text-fg-primary cursor-pointer select-none">
                       <Checkbox
                         checked={emailOnRegression}
                         onCheckedChange={(checked) => setEmailOnRegression(checked === true)}
                       />
                       <span>Issue Regressions (reopened)</span>
                     </label>
-                    <label className="flex items-center gap-2 text-xs text-ink cursor-pointer">
+                    <label className="flex items-center gap-2 text-xs text-fg-primary cursor-pointer select-none">
                       <Checkbox
                         checked={emailOnSpike}
                         onCheckedChange={(checked) => setEmailOnSpike(checked === true)}
@@ -344,8 +359,8 @@ export function AlertRulesSettings() {
                     </label>
                   </div>
 
-                  <div className="pt-2 border-t border-border/60 space-y-2">
-                    <span className="text-2xs font-semibold uppercase tracking-wider text-ink-muted">
+                  <div className="pt-2 border-t border-border-subtle space-y-2">
+                    <span className="text-2xs font-semibold uppercase tracking-wider text-fg-muted">
                       Recipients
                     </span>
                     <RadioGroup
@@ -353,11 +368,11 @@ export function AlertRulesSettings() {
                       onValueChange={(val) => setCustomRecipientsMode(val === "custom")}
                       className="space-y-2"
                     >
-                      <label className="flex items-center gap-2 text-xs text-ink cursor-pointer">
+                      <label className="flex items-center gap-2 text-xs text-fg-primary cursor-pointer select-none">
                         <RadioGroupItem value="all" id="mode-all" />
                         <span>All workspace team members</span>
                       </label>
-                      <label className="flex items-center gap-2 text-xs text-ink cursor-pointer">
+                      <label className="flex items-center gap-2 text-xs text-fg-primary cursor-pointer select-none">
                         <RadioGroupItem value="custom" id="mode-custom" />
                         <span>Custom email list</span>
                       </label>
@@ -385,29 +400,69 @@ export function AlertRulesSettings() {
                   {savingEmailAlerts ? "Saving…" : "Save Email Settings"}
                 </Button>
 
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={testEmailRecipient}
-                    onChange={(e) => setTestEmailRecipient(e.target.value)}
-                    placeholder={user?.email ?? "recipient@example.com"}
-                    className="w-48 text-xs h-8"
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    disabled={testingEmail}
-                    onClick={() => void handleSendTestEmail()}
-                  >
-                    <Send className="mr-1.5 h-3.5 w-3.5" />
-                    {testingEmail ? "Sending…" : "Send Test"}
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setTestEmailRecipient(user?.email ?? "");
+                    setTestAlertOpen(true);
+                  }}
+                >
+                  <Send className="mr-1.5 h-3.5 w-3.5" />
+                  Send Test Alert…
+                </Button>
               </div>
             </form>
           )}
         </CardContent>
       </Card>
+
+      {/* Test Alert Dialog */}
+      <Dialog open={testAlertOpen} onOpenChange={setTestAlertOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Test Alert Email</DialogTitle>
+            <DialogDescription>
+              Dispatch a sample alert email via Resend to verify your mailbox delivery and alert layout.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={(e) => void handleSendTestEmail(e)} className="space-y-4">
+            <Field
+              label="Recipient Email"
+              hint="Leave blank to send to your logged-in email."
+            >
+              <Input
+                type="email"
+                value={testEmailRecipient}
+                onChange={(e) => setTestEmailRecipient(e.target.value)}
+                placeholder={user?.email ?? "recipient@example.com"}
+                autoFocus
+              />
+            </Field>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setTestAlertOpen(false)}
+                disabled={testingEmail}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                disabled={testingEmail}
+              >
+                <Send className="mr-1.5 h-3.5 w-3.5" />
+                {testingEmail ? "Sending…" : "Send Test Alert"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <InfoCallout>
         Built-in rules already fire for velocity spikes, new issues, and regressions. A custom rule
@@ -425,8 +480,8 @@ export function AlertRulesSettings() {
               <Button
                 key={template.name}
                 type="button"
-                variant="secondary"
-                size="sm"
+                variant="outline"
+                size="xs"
                 onClick={() => applyTemplate(template)}
               >
                 {template.name}
@@ -444,8 +499,8 @@ export function AlertRulesSettings() {
             </Field>
             <Field label="Type">
               <Select value={kind} onValueChange={(value) => setKind(value as RuleKind)}>
-                <SelectTrigger aria-label="Alert type">
-                  <SelectValue />
+                <SelectTrigger aria-label="Alert type" className="w-full">
+                  <SelectValue placeholder="Alert type">{selectedKind.label}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {RULE_KINDS.map((option) => (
@@ -455,7 +510,7 @@ export function AlertRulesSettings() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="mt-1 text-xs text-ink-muted">{selectedKind.description}</p>
+              <p className="mt-1 text-xs text-fg-muted">{selectedKind.description}</p>
             </Field>
             <Field
               label="Environment"
@@ -504,17 +559,19 @@ export function AlertRulesSettings() {
         </CardHeader>
         <CardContent className="p-0 pt-0">
           {loading ? (
-            <p className="px-4 pb-4 text-sm text-ink-muted">Loading rules…</p>
+            <p className="p-5 text-xs text-fg-muted">Loading rules…</p>
           ) : rules.length === 0 ? (
-            <p className="px-4 pb-4 text-sm text-ink-muted">
+            <p className="p-5 text-xs text-fg-muted">
               Use a template above if you only want extra notifications for production.
             </p>
           ) : (
-            <ul className="divide-y divide-border">
+            <ul className="divide-y divide-border-subtle">
               {rules.map((rule) => (
-                <li key={rule.id} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
+                <li key={rule.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0 space-y-1">
-                    <p className="text-sm font-medium text-ink">{rule.name}</p>
+                    <p className={cn("text-sm font-medium text-fg-primary", !rule.enabled && "opacity-60")}>
+                      {rule.name}
+                    </p>
                     <div className="flex flex-wrap items-center gap-1.5">
                       <Badge variant="secondary">{kindLabel(rule.kind)}</Badge>
                       {rule.environment ? <Badge variant="env">{rule.environment}</Badge> : null}
@@ -525,20 +582,20 @@ export function AlertRulesSettings() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-xs text-ink-muted">
+                    <label className="flex items-center gap-2 text-xs text-fg-muted cursor-pointer select-none">
                       <Checkbox
                         checked={rule.enabled}
                         disabled={busy}
                         onCheckedChange={(checked) => void handleToggle(rule, checked === true)}
                         aria-label={`Enable ${rule.name}`}
                       />
-                      On
+                      <span>On</span>
                     </label>
                     <Button
                       variant="danger"
                       size="sm"
                       disabled={busy}
-                      onClick={() => void handleDelete(rule.id)}
+                      onClick={() => void handleDelete(rule.id, rule.name)}
                     >
                       Remove
                     </Button>

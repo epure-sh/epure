@@ -38,9 +38,9 @@ function AlertsDayGroup({
 }) {
   return (
     <section className="space-y-1.5">
-      <h2 className="sticky top-0 z-10 -mx-1 bg-bg/95 px-1 py-1 text-xs font-medium text-ink-muted backdrop-blur-sm">
+      <h2 className="sticky top-0 z-10 -mx-4 px-4 md:-mx-6 md:px-6 py-1.5 bg-canvas/95 text-xs font-medium text-fg-muted backdrop-blur-sm border-b border-border-subtle/50">
         {label}
-        <span className="ml-1.5 font-mono font-normal tabular-nums text-ink-muted/80">{count}</span>
+        <span className="ml-1.5 font-mono font-normal tabular-nums text-fg-muted/80">{count}</span>
       </h2>
       {children}
     </section>

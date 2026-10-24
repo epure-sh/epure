@@ -15,7 +15,7 @@ export function Skeleton({ className, ...props }: SkeletonProps) {
   return (
     <div
       className={cn(
-        "epure-skeleton animate-pulse rounded-sm bg-bg-subtle",
+        "epure-skeleton animate-pulse rounded-sm bg-surface-2",
         className,
       )}
       aria-hidden
@@ -26,7 +26,7 @@ export function Skeleton({ className, ...props }: SkeletonProps) {
 
 export function CardRowSkeleton() {
   return (
-    <li className="epure-card-row-skeleton border-b border-border px-4 py-2.5 last:border-b-0">
+    <li className="epure-card-row-skeleton border-b border-border-subtle px-4 py-2.5 last:border-b-0">
       <Skeleton className="h-4 w-40" />
       <Skeleton className="mt-2 h-3 w-64" />
     </li>
@@ -37,7 +37,7 @@ export function IssueRowSkeleton() {
   return (
     <div
       className={cn(
-        "epure-issue-row-skeleton grid min-h-row items-center border-b border-l-2 border-l-transparent border-border",
+        "epure-issue-row-skeleton grid min-h-row items-center border-b border-l-2 border-l-transparent border-border-subtle",
         FEED_GRID_FULL,
       )}
     >

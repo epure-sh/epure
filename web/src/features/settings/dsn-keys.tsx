@@ -154,12 +154,12 @@ export function DsnKeysSettings() {
       />
 
       <InfoCallout>
-        <strong className="font-medium text-ink">Inbound only.</strong> DSN keys let the SDK send
+        <strong className="font-medium text-fg-primary">Inbound only.</strong> DSN keys let the SDK send
         errors to Epure. They cannot read issues, trigger alerts, or call outbound webhooks. To
         notify Slack or Discord, use{" "}
         <Link
           to={projectSettingsPath(activeProjectId, "webhooks")}
-          className="font-medium text-accent underline-offset-2 hover:underline"
+          className="font-medium text-primary underline-offset-2 hover:underline"
         >
           Notifications
         </Link>
@@ -167,7 +167,7 @@ export function DsnKeysSettings() {
       </InfoCallout>
 
       {revealed ? (
-        <Card className="border-accent/30 bg-bg-subtle">
+        <Card className="border-primary/30 bg-surface-2">
           <CardHeader>
             <CardTitle>New key created</CardTitle>
             <CardDescription>
@@ -180,12 +180,12 @@ export function DsnKeysSettings() {
               label="Connection string (DSN)"
               hint="Paste into your SDK init. Safe to embed in client apps."
             />
-            <div className="epure-code-well rounded-md border border-border bg-bg-subtle p-3">
+            <div className="epure-code-well rounded-md border border-border-subtle bg-surface-2 p-3">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-xs text-ink-muted">Secret key (server-side only)</p>
+                <p className="text-xs text-fg-muted">Secret key (server-side only)</p>
                 <CopyButton value={revealed.secret_key} label="Copy secret" />
               </div>
-              <p className="mt-2 break-all font-mono text-xs text-ink">{revealed.secret_key}</p>
+              <p className="mt-2 break-all font-mono text-xs text-fg-primary">{revealed.secret_key}</p>
             </div>
           </CardContent>
         </Card>
@@ -237,7 +237,7 @@ export function DsnKeysSettings() {
               Rotate keys
             </Button>
           </div>
-          <p className="text-xs text-ink-muted">
+          <p className="text-xs text-fg-muted">
             Rotating revokes all active keys and issues a new pair. Plan a deploy window before
             rotating production keys.
           </p>
@@ -251,13 +251,13 @@ export function DsnKeysSettings() {
         </CardHeader>
         <CardContent className="p-0 pt-0">
           {loading ? (
-            <p className="px-4 pb-4 text-sm text-ink-muted">Loading keys…</p>
+            <p className="px-4 pb-4 text-sm text-fg-muted">Loading keys…</p>
           ) : keys.length === 0 ? (
-            <p className="px-4 pb-4 text-sm text-ink-muted">
+            <p className="px-4 pb-4 text-sm text-fg-muted">
               No DSN keys yet. Create one to connect your SDK.
             </p>
           ) : (
-            <ul className="divide-y divide-border">
+            <ul className="divide-y divide-border-subtle">
               {keys.map((key) => (
                 <li
                   key={key.id}
@@ -265,12 +265,12 @@ export function DsnKeysSettings() {
                 >
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate font-mono text-sm text-ink">{key.public_key}</p>
+                      <p className="truncate font-mono text-sm text-fg-primary">{key.public_key}</p>
                       <Badge variant={key.revoked_at ? "secondary" : "env"}>
                         {key.revoked_at ? "Revoked" : "Active"}
                       </Badge>
                     </div>
-                    <p className="text-xs text-ink-muted">
+                    <p className="text-xs text-fg-muted">
                       {key.label ?? "unlabeled"} · created {formatRelativeTime(key.created_at)}
                       {key.revoked_at
                         ? ` · revoked ${formatRelativeTime(key.revoked_at)}`

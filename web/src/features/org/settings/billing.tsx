@@ -87,17 +87,17 @@ function WorkspaceUsageStrip() {
   }, [projects]);
 
   if (loading) {
-    return <p className="text-sm text-ink-muted">Loading usage…</p>;
+    return <p className="text-sm text-fg-muted">Loading usage…</p>;
   }
 
   if (events7d === null) {
-    return <p className="text-sm text-ink-muted">Unable to load usage.</p>;
+    return <p className="text-sm text-fg-muted">Unable to load usage.</p>;
   }
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
       <StatBar
-        className="min-w-0 flex-1 rounded-lg border border-border !border-b !px-4 !py-3"
+        className="min-w-0 flex-1 rounded-lg border border-border-subtle !border-b !px-4 !py-3"
         items={[
           { label: "Events (7d)", value: events7d },
           { label: "Unresolved", value: unresolved },
@@ -120,30 +120,30 @@ function SelfHostedBilling() {
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-bg-subtle">
-              <Server size={16} className="text-accent" aria-hidden />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-surface-2">
+              <Server size={16} className="text-primary" aria-hidden />
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-sm font-medium text-ink">Self-hosted</h2>
+                <h2 className="text-sm font-medium text-fg-primary">Self-hosted</h2>
                 <Badge variant="env">OSS</Badge>
               </div>
-              <p className="text-xs text-ink-muted">Apache 2.0. No subscription on this install.</p>
+              <p className="text-xs text-fg-muted">Apache 2.0. No subscription on this install.</p>
             </div>
           </div>
-          <p className="font-mono text-lg font-medium tabular-nums text-ink">$0</p>
+          <p className="font-mono text-lg font-medium tabular-nums text-fg-primary">$0</p>
         </CardContent>
       </Card>
 
       <WorkspaceUsageStrip />
 
-      <p className="text-sm text-ink-muted">
+      <p className="text-sm text-fg-muted">
         Want zero-maintenance PostgreSQL backups, multi-region uptime heartbeats, and managed upgrades?{" "}
         <a
           href={CLOUD_UPGRADE_URL}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-0.5 text-ink font-medium underline-offset-2 hover:underline"
+          className="inline-flex items-center gap-0.5 text-fg-primary font-medium underline-offset-2 hover:underline"
         >
           Explore Epure Cloud plans (Pro $29, Scale $89)
           <ExternalLink size={12} className="opacity-70" aria-hidden />
@@ -180,18 +180,18 @@ function CloudUsageMeter({ monthlyLimit }: { monthlyLimit: number }) {
           description="7-day projection. Soft sampling before hard limits."
         />
         {projected === null ? (
-          <p className="text-sm text-ink-muted">Loading…</p>
+          <p className="text-sm text-fg-muted">Loading…</p>
         ) : (
           <>
             <div className="flex items-baseline justify-between gap-2">
-              <p className="font-mono text-lg font-medium tabular-nums text-ink">
+              <p className="font-mono text-lg font-medium tabular-nums text-fg-primary">
                 {formatEvents(projected)}
-                <span className="text-sm font-normal text-ink-muted">
+                <span className="text-sm font-normal text-fg-muted">
                   {" "}
                   / {formatEvents(monthlyLimit)} projected
                 </span>
               </p>
-              <span className="text-xs text-ink-muted">{percent}%</span>
+              <span className="text-xs text-fg-muted">{percent}%</span>
             </div>
             <Progress value={percent} className="h-1.5" aria-label="Projected monthly event usage" />
           </>
@@ -231,14 +231,14 @@ function PlanOptionCard({
     >
       <CardContent className="flex h-full flex-col p-4">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-base font-semibold text-ink">{plan.name}</h3>
+          <h3 className="text-base font-semibold text-fg-primary">{plan.name}</h3>
           {isCurrent ? (
             <Badge variant="env" className="border-healthy/30 text-healthy">
               Active Plan
             </Badge>
           ) : null}
           {plan.comingSoon ? (
-            <Badge variant="secondary" className="text-2xs uppercase text-ink-muted">
+            <Badge variant="secondary" className="text-2xs uppercase text-fg-muted">
               Coming Soon
             </Badge>
           ) : plan.highlighted && !isCurrent ? (
@@ -248,14 +248,14 @@ function PlanOptionCard({
           ) : null}
         </div>
 
-        <p className="mt-3 font-mono text-2xl font-medium tabular-nums text-ink">
+        <p className="mt-3 font-mono text-2xl font-medium tabular-nums text-fg-primary">
           {displayPrice}
-          <span className="text-xs font-normal text-ink-muted ml-1.5">{displayPeriod}</span>
+          <span className="text-xs font-normal text-fg-muted ml-1.5">{displayPeriod}</span>
         </p>
 
-        <p className="mt-1 text-xs text-ink-muted">{plan.description}</p>
+        <p className="mt-1 text-xs text-fg-muted">{plan.description}</p>
 
-        <ul className="mt-4 flex-1 space-y-2 text-xs text-ink-muted">
+        <ul className="mt-4 flex-1 space-y-2 text-xs text-fg-muted">
           {plan.features.map((feature) => (
             <li key={feature} className="flex items-start gap-2">
               <Check size={13} className="mt-0.5 shrink-0 text-healthy" aria-hidden />
@@ -417,7 +417,7 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
       )}
 
       {checkoutParam === "canceled" && (
-        <div className="flex items-center gap-2.5 rounded-lg border border-border bg-bg-subtle p-3.5 text-xs text-ink-muted">
+        <div className="flex items-center gap-2.5 rounded-lg border border-border-subtle bg-surface-2 p-3.5 text-xs text-fg-muted">
           <span>Checkout was canceled. Your current plan remains active without modifications.</span>
         </div>
       )}
@@ -437,12 +437,12 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
                 <Badge variant="error" className="font-semibold text-2xs uppercase tracking-wide">
                   Project Paused
                 </Badge>
-                <span className="text-xs font-semibold text-ink">7-Day Pilot Trial Ended</span>
+                <span className="text-xs font-semibold text-fg-primary">7-Day Pilot Trial Ended</span>
               </div>
-              <h2 className="text-sm font-semibold text-ink">
+              <h2 className="text-sm font-semibold text-fg-primary">
                 Production Error Ingestion is Paused
               </h2>
-              <p className="text-xs text-ink-muted max-w-xl">
+              <p className="text-xs text-fg-muted max-w-xl">
                 Your 7-day canary sandbox trial has expired and incoming production errors are currently rejected. Upgrade to Cloud Pro or Team Plus to unpause ingestion and resume live tracking immediately.
               </p>
             </div>
@@ -479,14 +479,14 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
                   <Zap size={11} className="mr-1 inline-block" />
                   7-Day Pilot Trial
                 </Badge>
-                <span className="text-xs font-semibold text-ink">
+                <span className="text-xs font-semibold text-fg-primary">
                   {daysRemaining > 0 ? `${daysRemaining} days remaining` : "Trial period ended"}
                 </span>
               </div>
-              <h2 className="text-sm font-semibold text-ink">
+              <h2 className="text-sm font-semibold text-fg-primary">
                 Canary Sandbox Active — Zero-Overage Spike Valve & AI Triage Enabled
               </h2>
-              <p className="text-xs text-ink-muted max-w-xl">
+              <p className="text-xs text-fg-muted max-w-xl">
                 You are piloting Epure Cloud with 100,000 included events and native Claude Code / Cursor MCP triage. Upgrade now to preserve your data and unlock unlimited projects.
               </p>
             </div>
@@ -516,11 +516,11 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
       ) : null}
 
       {/* Active Subscription Overview Card */}
-      <Card className="border-border bg-surface shadow-xs">
+      <Card className="border-border-subtle bg-surface-1 shadow-xs">
         <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-base font-semibold text-ink">{activePlan.name}</h2>
+              <h2 className="text-base font-semibold text-fg-primary">{activePlan.name}</h2>
               <Badge variant="env" className="border-accent/30 text-accent font-medium">
                 {isTrial ? "Pilot Trial" : "Official Epure Cloud"}
               </Badge>
@@ -530,19 +530,19 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
                 </Badge>
               )}
             </div>
-            <p className="text-xs text-ink-muted">
+            <p className="text-xs text-fg-muted">
               {formatEvents(monthlyLimit)} events / mo included with automatic Spike Valve overage immunity.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <p className="font-mono text-2xl font-semibold tabular-nums text-ink">
+            <p className="font-mono text-2xl font-semibold tabular-nums text-fg-primary">
               {isTrial
                 ? "$0"
                 : annual
                   ? (activePlan.priceAnnual ?? activePlan.price)
                   : (activePlan.priceMonthly ?? activePlan.price)}
-              <span className="text-xs font-normal text-ink-muted ml-1">
+              <span className="text-xs font-normal text-fg-muted ml-1">
                 {isTrial ? "pilot trial" : annual ? "/ mo (annual)" : "/ mo"}
               </span>
             </p>
@@ -578,13 +578,13 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
           />
 
           {/* Annual vs Monthly Toggle */}
-          <div className="inline-flex items-center rounded-lg border border-border bg-bg-subtle p-0.5 text-xs">
+          <div className="inline-flex items-center rounded-lg border border-border-subtle bg-surface-2 p-0.5 text-xs">
             <Button
               type="button"
               variant={annual ? "secondary" : "ghost"}
               size="xs"
               onClick={() => setAnnual(true)}
-              className={annual ? "bg-surface text-ink shadow-xs" : "text-ink-muted hover:text-ink"}
+              className={annual ? "bg-surface-1 text-fg-primary shadow-tactile" : "text-fg-muted hover:text-fg-primary"}
             >
               Annual <span className="text-healthy font-semibold ml-1">(2 Mo Free)</span>
             </Button>
@@ -593,7 +593,7 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
               variant={!annual ? "secondary" : "ghost"}
               size="xs"
               onClick={() => setAnnual(false)}
-              className={!annual ? "bg-surface text-ink shadow-xs" : "text-ink-muted hover:text-ink"}
+              className={!annual ? "bg-surface-1 text-fg-primary shadow-tactile" : "text-fg-muted hover:text-fg-primary"}
             >
               Monthly
             </Button>
@@ -615,11 +615,11 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-ink-muted">
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-fg-muted">
         <p>Subscriptions are billed securely via Polar with automated EU VAT receipts and instant activation.</p>
         <a
           href="mailto:sales@epure.sh?subject=Custom%20Enterprise%20Billing"
-          className="inline-flex items-center gap-1 font-medium text-ink hover:underline"
+          className="inline-flex items-center gap-1 font-medium text-fg-primary hover:underline"
         >
           <span>Need custom invoicing or BYOC? Talk to sales</span>
           <ExternalLink size={12} />

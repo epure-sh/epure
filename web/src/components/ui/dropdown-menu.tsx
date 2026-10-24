@@ -88,6 +88,7 @@ export function DropdownMenuItem({
       className={cn(
         "relative flex cursor-pointer select-none items-center rounded-xs px-2 py-1.5 text-xs text-fg-secondary outline-none transition-colors",
         "hover:bg-surface-2 hover:text-fg-primary focus:bg-surface-2 focus:text-fg-primary",
+        "data-[highlighted]:bg-surface-2 data-[highlighted]:text-fg-primary",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
         inset && "pl-7",
         className
@@ -109,6 +110,7 @@ export function DropdownMenuCheckboxItem({
       className={cn(
         "relative flex cursor-pointer select-none items-center rounded-xs py-1.5 pl-7 pr-2 text-xs text-fg-secondary outline-none transition-colors",
         "hover:bg-surface-2 hover:text-fg-primary focus:bg-surface-2 focus:text-fg-primary",
+        "data-[highlighted]:bg-surface-2 data-[highlighted]:text-fg-primary",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
         className
       )}
@@ -136,6 +138,7 @@ export function DropdownMenuRadioItem({
       className={cn(
         "relative flex cursor-pointer select-none items-center rounded-xs py-1.5 pl-7 pr-2 text-xs text-fg-secondary outline-none transition-colors",
         "hover:bg-surface-2 hover:text-fg-primary focus:bg-surface-2 focus:text-fg-primary",
+        "data-[highlighted]:bg-surface-2 data-[highlighted]:text-fg-primary",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
         className
       )}

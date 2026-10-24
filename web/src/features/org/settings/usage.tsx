@@ -66,10 +66,10 @@ function QuotaMeter({
     <div className="space-y-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <p className="text-sm font-medium text-ink">{label}</p>
-          {hint ? <p className="text-xs text-ink-muted">{hint}</p> : null}
+          <p className="text-sm font-medium text-fg-primary">{label}</p>
+          {hint ? <p className="text-xs text-fg-muted">{hint}</p> : null}
         </div>
-        <p className="font-mono text-xs tabular-nums text-ink-muted">
+        <p className="font-mono text-xs tabular-nums text-fg-muted">
           {formatValue(used)} / {formatValue(limit)}
         </p>
       </div>
@@ -84,7 +84,7 @@ function QuotaMeter({
               : "bg-accent"
         }
       />
-      <div className="flex items-center justify-between text-2xs text-ink-muted">
+      <div className="flex items-center justify-between text-2xs text-fg-muted">
         <span>{percent.toFixed(1)}% of limit</span>
         {tone !== "ok" ? (
           <Badge variant={tone === "danger" ? "error" : "warning"} size="compact">
@@ -98,7 +98,7 @@ function QuotaMeter({
 
 function UsageMetricSkeleton() {
   return (
-    <div className="space-y-2 rounded-lg border border-border bg-surface p-4">
+    <div className="space-y-2 rounded-lg border border-border-subtle bg-surface-1 p-4">
       <Skeleton className="h-7 w-16" />
       <Skeleton className="h-4 w-24" />
     </div>
@@ -115,10 +115,10 @@ function UsageMetricCard({
   hint?: string;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-surface p-4">
-      <p className="font-mono text-2xl font-semibold tabular-nums text-ink">{value}</p>
-      <p className="mt-1 text-sm text-ink-muted">{label}</p>
-      {hint ? <p className="mt-1 text-2xs text-ink-muted">{hint}</p> : null}
+    <div className="rounded-lg border border-border-subtle bg-surface-1 p-4">
+      <p className="font-mono text-2xl font-semibold tabular-nums text-fg-primary">{value}</p>
+      <p className="mt-1 text-sm text-fg-muted">{label}</p>
+      {hint ? <p className="mt-1 text-2xs text-fg-muted">{hint}</p> : null}
     </div>
   );
 }
@@ -347,12 +347,12 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
                 ))}
               </div>
             ) : rows.length === 0 ? (
-              <p className="text-sm text-ink-muted">No projects yet.</p>
+              <p className="text-sm text-fg-muted">No projects yet.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[44rem] text-left text-sm">
                   <thead>
-                    <tr className="border-b border-border text-xs text-ink-muted">
+                    <tr className="border-b border-border-subtle text-xs text-fg-muted">
                       <th className="pb-2 pr-4 font-medium">Project</th>
                       <th className="pb-2 pr-4 font-medium">Events</th>
                       <th className="pb-2 pr-4 font-medium">Trend</th>
@@ -365,10 +365,10 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
                   </thead>
                   <tbody>
                     {rows.map((row) => (
-                      <tr key={row.project.id} className="border-b border-border/60">
+                      <tr key={row.project.id} className="border-b border-border-subtle">
                         <td className="py-3 pr-4">
-                          <p className="font-medium text-ink">{row.project.name}</p>
-                          <p className="mt-0.5 font-mono text-2xs text-ink-muted">
+                          <p className="font-medium text-fg-primary">{row.project.name}</p>
+                          <p className="mt-0.5 font-mono text-2xs text-fg-muted">
                             {row.project.slug ?? row.project.id.slice(0, 8)}
                           </p>
                         </td>
@@ -385,7 +385,7 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
                               className="w-20"
                             />
                           ) : (
-                            <span className="text-2xs text-ink-muted">—</span>
+                            <span className="text-2xs text-fg-muted">—</span>
                           )}
                         </td>
                         <td className="py-3 pr-4 font-mono text-xs tabular-nums">
@@ -400,7 +400,7 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
                         <td className="py-3 pr-4 font-mono text-xs tabular-nums">
                           {row.project.ingest_cap_per_hour.toLocaleString()}
                           {cloud ? (
-                            <p className="mt-0.5 font-sans text-2xs text-ink-muted">
+                            <p className="mt-0.5 font-sans text-2xs text-fg-muted">
                               {Math.round(row.ingestUtilization * 100)}% utilized
                             </p>
                           ) : null}
@@ -426,37 +426,37 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
               How Epure measures volume on {deploymentLabel().toLowerCase()} deployments.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 text-sm text-ink-muted">
+          <CardContent className="space-y-4 text-sm text-fg-muted">
             <ul className="space-y-2">
               <li>
-                <span className="font-medium text-ink">Events ingested</span> — every accepted error
+                <span className="font-medium text-fg-primary">Events ingested</span> — every accepted error
                 envelope written to Postgres, including duplicates across issues.
               </li>
               <li>
-                <span className="font-medium text-ink">Unique users</span> — distinct user keys per
+                <span className="font-medium text-fg-primary">Unique users</span> — distinct user keys per
                 issue; org totals sum issue-level counts and may overcount the same user across
                 issues.
               </li>
               <li>
-                <span className="font-medium text-ink">Storage</span> — estimated from stored event
+                <span className="font-medium text-fg-primary">Storage</span> — estimated from stored event
                 payloads and metadata until exact byte metering ships.
               </li>
               <li>
-                <span className="font-medium text-ink">Retention</span> — per-project TTL in days;
+                <span className="font-medium text-fg-primary">Retention</span> — per-project TTL in days;
                 older monthly partitions are dropped automatically.
               </li>
               <li>
-                <span className="font-medium text-ink">Ingest cap</span> — hourly spike valve per
+                <span className="font-medium text-fg-primary">Ingest cap</span> — hourly spike valve per
                 project; events above the cap are rejected with 429.
               </li>
             </ul>
             {!cloud ? (
-              <p className="text-xs text-ink-muted">
+              <p className="text-xs text-fg-muted">
                 Self-hosted instances have no metered billing limits. Epure Cloud plans add managed hosting,
                 multi-region failover, and automated continuous backups.
               </p>
             ) : (
-              <p className="text-xs text-ink-muted">
+              <p className="text-xs text-fg-muted">
                 Epure Cloud includes zero-overage Spike Valve protection. If event velocity spikes, full
                 diagnostic samples are captured while exact occurrence counters stay 100% accurate.
               </p>

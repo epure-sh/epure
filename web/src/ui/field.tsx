@@ -20,7 +20,7 @@ export function Field({ label, htmlFor, hint, error, children, className, ...pro
       {error ? (
         <p className="text-xs text-semantic-danger">{error}</p>
       ) : hint ? (
-        <p className="text-xs text-ink-muted">{hint}</p>
+        <p className="text-xs text-fg-muted">{hint}</p>
       ) : null}
     </div>
   );
