@@ -42,8 +42,9 @@ function validateForm(name: string, ingestCap: number): { name?: string; ingestC
 
 export function ProjectGeneralSettings() {
   const { projectId: paramId } = useParams<{ projectId: string }>();
-  const { projects, refreshProjects, user } = useAppContext();
-  const project = projects.find((row) => row.id === paramId) ?? null;
+  const { projects, refreshProjects, user, userLoading, projectsLoading } = useAppContext();
+  const safeProjects = Array.isArray(projects) ? projects : [];
+  const project = safeProjects.find((row) => row && (row.id === paramId || row.slug === paramId)) ?? null;
 
   const [name, setName] = useState("");
   const [retentionDays, setRetentionDays] = useState<number>(30);
@@ -118,6 +119,15 @@ export function ProjectGeneralSettings() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (projectsLoading || userLoading) {
+    return (
+      <div className="space-y-4">
+        <SettingsTabHeader title="General" description="Project identity and data policies." />
+        <div className="h-32 rounded-lg border border-border-subtle bg-surface-1 animate-pulse" />
+      </div>
+    );
   }
 
   if (!project) {

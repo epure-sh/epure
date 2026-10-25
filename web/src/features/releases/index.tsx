@@ -67,7 +67,7 @@ export function ReleasesPage() {
   const activeProject = useMemo(() => {
     const candidate = routeProjectId ?? projectId;
     if (candidate) {
-      const match = safeProjects.find((row) => row.id === candidate || row.slug === candidate);
+      const match = safeProjects.find((row) => row && (row.id === candidate || row.slug === candidate));
       if (match) return match;
     }
     return safeProjects[0] ?? null;

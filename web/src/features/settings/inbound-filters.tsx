@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   Bot,
@@ -71,8 +71,9 @@ const DEFAULT_PATTERNS = [
 
 export function InboundFiltersSettings() {
   const { projectId: paramId } = useParams<{ projectId: string }>();
-  const { projects, refreshProjects, user } = useAppContext();
-  const project = projects.find((row) => row.id === paramId) ?? null;
+  const { projects, refreshProjects, user, userLoading, projectsLoading } = useAppContext();
+  const safeProjects = Array.isArray(projects) ? projects : [];
+  const project = safeProjects.find((row) => row && (row.id === paramId || row.slug === paramId)) ?? null;
   const { toast } = useToast();
 
   const canManage = user?.role === "owner" || user?.role === "admin";
@@ -105,6 +106,12 @@ export function InboundFiltersSettings() {
   // Spike Valve Cap
   const [ingestCap, setIngestCap] = useState<number>(project?.ingest_cap_per_hour ?? 5000);
   const [busyCap, setBusyCap] = useState(false);
+
+  useEffect(() => {
+    if (project?.ingest_cap_per_hour != null) {
+      setIngestCap(project.ingest_cap_per_hour);
+    }
+  }, [project?.ingest_cap_per_hour]);
 
   // Interactive Test Simulator
   const [testPayload, setTestPayload] = useState("");
@@ -232,6 +239,18 @@ export function InboundFiltersSettings() {
       dropped: false,
       reason: "Passed all active noise filters. Event is eligible for ingestion & triage.",
     });
+  }
+
+  if (projectsLoading || userLoading) {
+    return (
+      <div className="space-y-4">
+        <SettingsTabHeader
+          title="Inbound Filters & Spike Valve"
+          description="Control noise filtering and traffic limits."
+        />
+        <div className="h-32 rounded-lg border border-border-subtle bg-surface-1 animate-pulse" />
+      </div>
+    );
   }
 
   if (!project) {

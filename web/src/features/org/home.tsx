@@ -26,7 +26,8 @@ import { ProjectList } from "./project-list";
 
 export function OrgHomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { projects, refreshProjects, user, setProjectId } = useAppContext();
+  const { projects, refreshProjects, user, setProjectId, projectsLoading } = useAppContext();
+  const safeProjects = useMemo(() => (Array.isArray(projects) ? projects : []), [projects]);
   const [newProjectName, setNewProjectName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [busy, setBusy] = useState(false);
@@ -59,16 +60,16 @@ export function OrgHomePage() {
   const canDeleteProjects = user?.role === "owner";
 
   const filteredProjects = useMemo(() => {
-    if (!searchQuery.trim()) return projects;
+    if (!searchQuery.trim()) return safeProjects;
     const q = searchQuery.toLowerCase().trim();
-    return projects.filter(
+    return safeProjects.filter(
       (p) => p.name.toLowerCase().includes(q) || (p.slug && p.slug.toLowerCase().includes(q)),
     );
-  }, [projects, searchQuery]);
+  }, [safeProjects, searchQuery]);
 
   const selectedProjects = useMemo(
-    () => projects.filter((project) => selectedIds.has(project.id)),
-    [projects, selectedIds],
+    () => safeProjects.filter((project) => selectedIds.has(project.id)),
+    [safeProjects, selectedIds],
   );
 
   const exitEditMode = useCallback(() => {
@@ -89,8 +90,8 @@ export function OrgHomePage() {
   }, []);
 
   const selectAllProjects = useCallback(() => {
-    setSelectedIds(new Set(projects.map((project) => project.id)));
-  }, [projects]);
+    setSelectedIds(new Set(safeProjects.map((project) => project.id)));
+  }, [safeProjects]);
   const setupParam = searchParams.get("setup");
 
   useEffect(() => {
@@ -421,13 +422,14 @@ export function OrgHomePage() {
             statsByProject={statsByProject}
             activityByProject={activityByProject}
             loading={statsLoading}
+            projectsLoading={projectsLoading}
             viewerRole={user?.role}
             editMode={editMode && canDeleteProjects}
             selectedIds={selectedIds}
             onToggleSelect={toggleProjectSelect}
           />
 
-          {!canManage && projects.length === 0 ? (
+          {!canManage && !projectsLoading && safeProjects.length === 0 ? (
             <p className="text-sm text-fg-muted">Ask an admin to create a project.</p>
           ) : null}
         </div>

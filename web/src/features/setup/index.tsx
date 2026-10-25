@@ -27,10 +27,15 @@ import {
 export function SetupPage() {
   const { projectId: paramProjectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { projects } = useAppContext();
+  const { projects, projectsLoading } = useAppContext();
 
+  const safeProjects = Array.isArray(projects) ? projects : [];
   const activeProject =
-    projects.find((p) => p.id === paramProjectId) ?? projects[0] ?? null;
+    (paramProjectId
+      ? safeProjects.find((p) => p && (p.id === paramProjectId || p.slug === paramProjectId))
+      : null) ??
+    safeProjects[0] ??
+    null;
   const projectId = activeProject?.id ?? "";
 
   const [keys, setKeys] = useState<DsnKeyRow[]>([]);
@@ -40,7 +45,7 @@ export function SetupPage() {
   const [sendingTestEvent, setSendingTestEvent] = useState(false);
 
   useEffect(() => {
-    if (!projectId) return;
+    if (projectsLoading || !projectId) return;
     let cancelled = false;
     setLoadingKeys(true);
 
@@ -72,7 +77,7 @@ export function SetupPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, projectsLoading]);
 
   const activeKey = keys.find((k) => !k.revoked_at) ?? keys[0];
   const dsnSegment = activeProject ? dsnPathSegment(activeProject) : "1";
@@ -161,6 +166,21 @@ sentry.Init(sentry.ClientOptions{
     null,
     2
   );
+
+  if (projectsLoading) {
+    return (
+      <PageShell
+        title="Connect Project"
+        description="Zero code changes required: swap your Sentry DSN and connect epure-mcp for instant AI triage."
+        density="standard"
+      >
+        <div className="mx-auto max-w-4xl space-y-6 p-6 w-full animate-pulse select-none">
+          <div className="h-16 rounded-panel border border-border-subtle bg-surface-1" />
+          <div className="h-64 rounded-panel border border-border-subtle bg-surface-1" />
+        </div>
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell

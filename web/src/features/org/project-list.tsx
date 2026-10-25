@@ -16,6 +16,7 @@ export interface ProjectListProps {
   statsByProject: Map<string, HeadlineStats>;
   activityByProject: Map<string, TimelineBucket[]>;
   loading?: boolean;
+  projectsLoading?: boolean;
   viewerRole?: string | null;
   editMode?: boolean;
   selectedIds?: Set<string>;
@@ -254,11 +255,22 @@ export function ProjectList({
   statsByProject,
   activityByProject,
   loading = false,
+  projectsLoading = false,
   viewerRole,
   editMode = false,
   selectedIds,
   onToggleSelect,
 }: ProjectListProps) {
+  if (projectsLoading && projects.length === 0) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {[1, 2, 3].map((n) => (
+          <ProjectCardSkeleton key={n} />
+        ))}
+      </div>
+    );
+  }
+
   if (loading && projects.length > 0 && statsByProject.size === 0) {
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

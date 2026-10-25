@@ -28,7 +28,7 @@ import { AskAgentCard } from "@/components/kit/ask-agent-card";
 
 export function DsnKeysSettings() {
   const { projectId: paramId } = useParams<{ projectId: string }>();
-  const { projects, user } = useAppContext();
+  const { projects, projectsLoading, user, userLoading } = useAppContext();
   const [keys, setKeys] = useState<DsnKeyRow[]>([]);
   const [revealed, setRevealed] = useState<CreatedDsnKey | null>(null);
   const [keyLabel, setKeyLabel] = useState("default");
@@ -36,13 +36,18 @@ export function DsnKeysSettings() {
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
 
-  const activeProjectId = paramId ?? null;
+  const safeProjects = Array.isArray(projects) ? projects : [];
+  const project = safeProjects.find((p) => p && (p.id === paramId || p.slug === paramId)) ?? null;
+  const activeProjectId = project?.id ?? paramId ?? null;
   const canManage = user?.role === "owner" || user?.role === "admin";
 
   const activeKeys = keys.filter((key) => !key.revoked_at);
   const activeKey = activeKeys[0] ?? null;
 
   const loadKeys = useCallback(async () => {
+    if (projectsLoading || userLoading) {
+      return;
+    }
     if (!activeProjectId || !canManage) {
       setKeys([]);
       setLoading(false);
@@ -57,7 +62,7 @@ export function DsnKeysSettings() {
     } finally {
       setLoading(false);
     }
-  }, [activeProjectId, canManage, toast]);
+  }, [projectsLoading, userLoading, activeProjectId, canManage, toast]);
 
   useEffect(() => {
     void loadKeys();
@@ -124,8 +129,13 @@ export function DsnKeysSettings() {
     }
   }
 
-  if (!canManage) {
-    return <MemberAccessNotice resource="DSN keys" />;
+  if (projectsLoading || userLoading) {
+    return (
+      <div className="space-y-4">
+        <SettingsTabHeader title="SDK connection" description="DSN keys for SDK ingest." />
+        <div className="h-32 rounded-lg border border-border-subtle bg-surface-1 animate-pulse" />
+      </div>
+    );
   }
 
   if (!activeProjectId) {
@@ -137,7 +147,11 @@ export function DsnKeysSettings() {
     );
   }
 
-  const activeProject = projects.find((row) => row.id === activeProjectId) ?? null;
+  if (!canManage) {
+    return <MemberAccessNotice resource="DSN keys" />;
+  }
+
+  const activeProject = safeProjects.find((row) => row && (row.id === activeProjectId || row.slug === activeProjectId)) ?? null;
   const dsnSegment = activeProject ? dsnPathSegment(activeProject) : null;
 
   const activeDsn =

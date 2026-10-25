@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   createWebhook,
@@ -151,7 +151,7 @@ function SecretRevealCard({
 
 export function WebhooksSettings() {
   const { projectId: paramId } = useParams<{ projectId: string }>();
-  const { user } = useAppContext();
+  const { user, userLoading, projects, projectsLoading } = useAppContext();
   const [webhooks, setWebhooks] = useState<WebhookRow[]>([]);
   const [destination, setDestination] = useState<DestinationId>("slack");
   const [url, setUrl] = useState("");
@@ -164,11 +164,20 @@ export function WebhooksSettings() {
   const [deleteTarget, setDeleteTarget] = useState<WebhookRow | null>(null);
   const { toast } = useToast();
 
-  const activeProjectId = paramId ?? null;
+  const safeProjects = Array.isArray(projects) ? projects : [];
+  const activeProjectId = useMemo(() => {
+    if (!paramId) return null;
+    const match = safeProjects.find((p) => p && (p.id === paramId || p.slug === paramId));
+    return match ? match.id : paramId;
+  }, [paramId, safeProjects]);
+
   const canManage = user?.role === "owner" || user?.role === "admin";
   const activeDestination = destinations.find((item) => item.id === destination) ?? destinations[0];
 
   const loadWebhooks = useCallback(async () => {
+    if (projectsLoading || userLoading) {
+      return;
+    }
     if (!activeProjectId || !canManage) {
       setWebhooks([]);
       setLoading(false);
@@ -183,7 +192,7 @@ export function WebhooksSettings() {
     } finally {
       setLoading(false);
     }
-  }, [activeProjectId, canManage, toast]);
+  }, [projectsLoading, userLoading, activeProjectId, canManage, toast]);
 
   useEffect(() => {
     void loadWebhooks();
@@ -321,8 +330,16 @@ export function WebhooksSettings() {
     }
   }
 
-  if (!canManage) {
-    return <MemberAccessNotice resource="notification endpoints" />;
+  if (projectsLoading || userLoading) {
+    return (
+      <div className="space-y-4">
+        <SettingsTabHeader
+          title="Notifications"
+          description="Outbound webhooks for Slack, Discord, or your own HTTPS receiver."
+        />
+        <div className="h-32 rounded-lg border border-border-subtle bg-surface-1 animate-pulse" />
+      </div>
+    );
   }
 
   if (!activeProjectId) {
@@ -335,6 +352,10 @@ export function WebhooksSettings() {
         <InfoCallout variant="warning">Select a project to manage notification endpoints.</InfoCallout>
       </div>
     );
+  }
+
+  if (!canManage) {
+    return <MemberAccessNotice resource="notification endpoints" />;
   }
 
   return (

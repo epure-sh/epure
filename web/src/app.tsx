@@ -13,6 +13,10 @@ import { MonitoringPage } from "./features/monitoring";
 
 import { RouteErrorBoundary } from "./ui/route-error-boundary";
 
+import { TooltipProvider } from "./ui/tooltip";
+import { ToastProvider } from "./ui/toast-provider";
+import { AppProvider } from "./shell/app-context";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -27,45 +31,80 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <NuqsAdapter>
-          <Routes>
-            <Route path="/dev/ds" element={<DesignSystemPlayground />} />
-            <Route path="/embed/monitoring/:token" element={<MonitoringPage isEmbed />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route
-              path="/oauth/authorize"
-              element={
-                <AuthGuard>
-                  <AuthorizeView />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/auth/authorize"
-              element={
-                <AuthGuard>
-                  <AuthorizeView />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/activate"
-              element={
-                <AuthGuard>
-                  <DeviceActivateView />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/*"
-              element={
-                <AuthGuard>
-                  <RouteErrorBoundary title="Epure crashed">
-                    <AppShell />
-                  </RouteErrorBoundary>
-                </AuthGuard>
-              }
-            />
-          </Routes>
+          <AppProvider>
+            <TooltipProvider delayDuration={300}>
+              <ToastProvider>
+                <RouteErrorBoundary title="Epure application error" backHref="/">
+                  <Routes>
+                    <Route
+                      path="/dev/ds"
+                      element={
+                        <RouteErrorBoundary title="Design system playground error" backHref="/">
+                          <DesignSystemPlayground />
+                        </RouteErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="/embed/monitoring/:token"
+                      element={
+                        <RouteErrorBoundary title="Monitoring embed error">
+                          <MonitoringPage isEmbed />
+                        </RouteErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="/login"
+                      element={
+                        <RouteErrorBoundary title="Sign in error" backHref="/login">
+                          <LoginPage />
+                        </RouteErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="/oauth/authorize"
+                      element={
+                        <AuthGuard>
+                          <RouteErrorBoundary title="Authorization error" backHref="/">
+                            <AuthorizeView />
+                          </RouteErrorBoundary>
+                        </AuthGuard>
+                      }
+                    />
+                    <Route
+                      path="/auth/authorize"
+                      element={
+                        <AuthGuard>
+                          <RouteErrorBoundary title="Authorization error" backHref="/">
+                            <AuthorizeView />
+                          </RouteErrorBoundary>
+                        </AuthGuard>
+                      }
+                    />
+                    <Route
+                      path="/activate"
+                      element={
+                        <AuthGuard>
+                          <RouteErrorBoundary title="Device activation error" backHref="/">
+                            <DeviceActivateView />
+                          </RouteErrorBoundary>
+                        </AuthGuard>
+                      }
+                    />
+                    <Route
+                      path="/*"
+                      element={
+                        <AuthGuard>
+                          <RouteErrorBoundary title="Epure crashed" backHref="/">
+                            <AppShell />
+                          </RouteErrorBoundary>
+                        </AuthGuard>
+                      }
+                    />
+                  </Routes>
+                </RouteErrorBoundary>
+              </ToastProvider>
+            </TooltipProvider>
+          </AppProvider>
         </NuqsAdapter>
         <Toaster />
       </BrowserRouter>

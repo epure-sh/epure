@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { workspaceSettingsPath } from "../../../lib/paths";
 import { PageChrome } from "../../../ui/page-chrome";
 import { WorkspaceSettingsNav } from "../../../ui/workspace-settings-nav";
+import { RouteErrorBoundary } from "../../../ui/route-error-boundary";
 import { AgentTokensTab } from "./agent-tokens-tab";
 import { ConnectedAppsTab } from "./connected-apps-tab";
 import { GeneralTab } from "./general-tab";
@@ -24,15 +25,20 @@ export function AccountSettingsPage() {
 
         <div className="min-w-0 flex-1 overflow-auto bg-canvas p-4 md:p-6">
           <div className="mx-auto max-w-default space-y-4">
-            <Routes>
-              <Route index element={<GeneralTab settings={settings} />} />
-              <Route path="security" element={<SecurityTab settings={settings} />} />
-              <Route path="agent" element={<AgentTokensTab />} />
-              <Route path="connected-apps" element={<ConnectedAppsTab />} />
-              <Route path="operations" element={<OperationsTab />} />
-              <Route path="releases" element={<Navigate to="/releases" replace />} />
-              <Route path="*" element={<Navigate to={workspaceSettingsPath()} replace />} />
-            </Routes>
+            <RouteErrorBoundary title="Account Settings error" backHref="/settings">
+              <Routes>
+                <Route index element={<GeneralTab settings={settings} />} />
+                <Route path="security" element={<SecurityTab settings={settings} />} />
+                <Route path="agent" element={<AgentTokensTab />} />
+                <Route path="connected-apps" element={<ConnectedAppsTab />} />
+                <Route path="operations" element={<OperationsTab />} />
+                <Route path="team" element={<Navigate to="/team" replace />} />
+                <Route path="billing" element={<Navigate to="/billing" replace />} />
+                <Route path="usage" element={<Navigate to="/usage" replace />} />
+                <Route path="releases" element={<Navigate to="/releases" replace />} />
+                <Route path="*" element={<Navigate to={workspaceSettingsPath()} replace />} />
+              </Routes>
+            </RouteErrorBoundary>
           </div>
         </div>
       </div>

@@ -40,13 +40,13 @@ interface OrderedCrumb {
 }
 
 function asBreadcrumbs(value: unknown): Breadcrumb[] {
+  let list: unknown[] = [];
   if (Array.isArray(value)) {
-    return value as Breadcrumb[];
+    list = value;
+  } else if (value && typeof value === "object" && Array.isArray((value as { values?: unknown }).values)) {
+    list = (value as { values: unknown[] }).values;
   }
-  if (value && typeof value === "object" && Array.isArray((value as { values?: unknown }).values)) {
-    return (value as { values: Breadcrumb[] }).values;
-  }
-  return [];
+  return list.filter((item): item is Breadcrumb => Boolean(item && typeof item === "object"));
 }
 
 function crumbTimestampMs(timestamp?: number): number | null {

@@ -1,6 +1,6 @@
 // src/components/ui/button.tsx
 import * as React from "react";
-import { Slot } from "@radix-ui/react-slot";
+import { Slot, Slottable } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { CircleNotch } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
@@ -74,16 +74,16 @@ export function Button({
       className={cn(buttonVariants({ variant, size }), className)}
       {...props}
     >
-      {loading && <CircleNotch className="animate-spin" weight="bold" />}
-      {children}
-      {hotkey && (
+      {loading ? <CircleNotch className="animate-spin" weight="bold" /> : null}
+      <Slottable>{children}</Slottable>
+      {hotkey ? (
         <kbd
           data-slot="kbd"
           className="ml-1 inline-flex h-4 items-center rounded-[3px] border border-border-subtle bg-surface-3/70 px-1 font-mono text-[10px] font-normal text-fg-muted"
         >
           {hotkey}
         </kbd>
-      )}
+      ) : null}
     </Comp>
   );
 }

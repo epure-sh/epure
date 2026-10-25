@@ -1,7 +1,9 @@
 import {
+  Activity,
   BarChart3,
   Bell,
   CircleDot,
+  Clock,
   CreditCard,
   FileDown,
   GitMerge,
@@ -21,6 +23,7 @@ import {
 import {
   billingPath,
   isProjectRoute,
+  projectIdFromPath,
   projectPath,
   projectSegmentFromPath,
   projectSettingsPath,
@@ -66,7 +69,17 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [, setTriageVersion] = useState(0);
 
-  const activeProjectId = projectId ?? projects[0]?.id ?? null;
+  const safeProjects = Array.isArray(projects) ? projects : [];
+  const routeProjectId = projectIdFromPath(pathname);
+  const activeProject =
+    (routeProjectId
+      ? safeProjects.find((p) => p && (p.id === routeProjectId || p.slug === routeProjectId))
+      : null) ??
+    (projectId ? safeProjects.find((p) => p && (p.id === projectId || p.slug === projectId)) : null) ??
+    safeProjects[0] ??
+    null;
+
+  const activeProjectId = activeProject?.id ?? null;
   const inProject = isProjectRoute(pathname) && activeProjectId;
   const onIssuesPage = projectSegmentFromPath(pathname) === "issues";
   const triage = getIssuesTriage();
@@ -121,11 +134,11 @@ export function CommandPalette() {
             Billing
           </CommandItem>
         </CommandGroup>
-        {projects.length > 0 ? (
+        {safeProjects.length > 0 ? (
           <>
             <CommandSeparator />
             <CommandGroup heading="Projects & Client Workspaces">
-              {projects.map((p) => (
+              {safeProjects.map((p) => (
                 <CommandItem
                   key={p.id}
                   onSelect={() =>
@@ -157,11 +170,11 @@ export function CommandPalette() {
               </CommandItem>
               <CommandItem
                 onSelect={() =>
-                  run(() => navigate(projectPath(activeProjectId, "releases")))
+                  run(() => navigate(projectPath(activeProjectId, "monitoring")))
                 }
               >
-                <Package className="h-4 w-4 text-ink-muted" />
-                Releases
+                <Activity className="h-4 w-4 text-ink-muted" />
+                Monitoring
               </CommandItem>
               <CommandItem
                 onSelect={() =>
@@ -170,6 +183,22 @@ export function CommandPalette() {
               >
                 <Bell className="h-4 w-4 text-ink-muted" />
                 Alerts
+              </CommandItem>
+              <CommandItem
+                onSelect={() =>
+                  run(() => navigate(projectPath(activeProjectId, "releases")))
+                }
+              >
+                <Package className="h-4 w-4 text-ink-muted" />
+                Releases
+              </CommandItem>
+              <CommandItem
+                onSelect={() =>
+                  run(() => navigate(projectPath(activeProjectId, "monitors")))
+                }
+              >
+                <Clock className="h-4 w-4 text-ink-muted" />
+                Cron Monitors
               </CommandItem>
               <CommandItem
                 onSelect={() =>

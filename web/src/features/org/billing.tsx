@@ -114,14 +114,17 @@ export function BillingPage() {
 
   const realIngestPercent = Math.min(100, Math.round((realIngestCount / monthlyLimit) * 100));
 
+  const safeProjects = Array.isArray(projects) ? projects : [];
+  const nonDemoCount = safeProjects.filter((pr) => pr && !pr.is_demo).length;
+
   // Projects Breakdown Data
-  const projectRows: ProjectBillingRow[] = projects.map((p, idx) => {
-    const isDemo = Boolean(p.is_demo || p.id.startsWith("acme") || p.id.startsWith("prj_seed"));
+  const projectRows: ProjectBillingRow[] = safeProjects.map((p, idx) => {
+    const isDemo = Boolean(p?.is_demo || p?.id?.startsWith("acme") || p?.id?.startsWith("prj_seed"));
     const events = isDemo
       ? idx === 0
         ? 28_400
         : 10_000
-      : Math.round(realIngestCount / Math.max(1, projects.filter((pr) => !pr.is_demo).length || 1));
+      : Math.round(realIngestCount / Math.max(1, nonDemoCount || 1));
     const valve = isDemo ? (idx === 0 ? 12_800 : 4_200) : 482_100;
 
     // 7-point sparkline heights (normalized 0..100)
@@ -130,9 +133,9 @@ export function BillingPage() {
       : [15, 30, 45, 65, 80, 95, 85];
 
     return {
-      id: p.id,
-      name: p.name,
-      slug: p.slug ?? p.id,
+      id: p?.id ?? `project-${idx}`,
+      name: p?.name ?? "Untitled project",
+      slug: p?.slug ?? p?.id ?? `project-${idx}`,
       isDemo,
       events30d: events,
       spikeValveAbsorbed: valve,

@@ -28,7 +28,8 @@ import {
 export function MonitoringPage({ isEmbed = false }: { isEmbed?: boolean }) {
   const { projectId } = useParams<{ projectId: string }>();
   const { projects } = useAppContext();
-  const project = projects.find((p) => p.id === projectId) ?? projects[0];
+  const safeProjects = Array.isArray(projects) ? projects : [];
+  const project = safeProjects.find((p) => p && (p.id === projectId || p.slug === projectId)) ?? safeProjects[0] ?? null;
 
   const [shareOpen, setShareOpen] = React.useState(false);
   const [embedCopied, setEmbedCopied] = React.useState(false);
@@ -54,7 +55,8 @@ export function MonitoringPage({ isEmbed = false }: { isEmbed?: boolean }) {
   }, []);
 
   const embedToken = `tok_mon_${(project?.id ?? "demo").slice(0, 8)}`;
-  const embedUrl = `${window.location.origin}/embed/monitoring/${embedToken}`;
+  const origin = typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
+  const embedUrl = `${origin}/embed/monitoring/${embedToken}`;
   const iframeSnippet = `<iframe src="${embedUrl}" width="100%" height="480" frameborder="0"></iframe>`;
 
   const handleCopyLink = () => {

@@ -4,6 +4,7 @@ import {
   Building2,
   ChevronDown,
   CircleDot,
+  Clock,
   CreditCard,
   Layers,
   LogOut,
@@ -90,6 +91,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
         { to: projectPath(activeProject.id, "monitoring"), label: "Monitoring", icon: Activity, end: true },
         { to: projectPath(activeProject.id, "alerts"), label: "Alerts", icon: Bell, end: true },
         { to: projectPath(activeProject.id, "releases"), label: "Releases", icon: Package, end: true },
+        { to: projectPath(activeProject.id, "monitors"), label: "Cron Monitors", icon: Clock, end: true },
         { to: projectSettingsPath(activeProject.id), label: "Project Settings", icon: Settings, end: false },
       ]
     : [];
@@ -103,6 +105,8 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
     { to: "/org/channels", label: "Output Channels", icon: Radio, end: true },
     { to: workspaceSettingsPath(), label: "Org Settings", icon: Settings, end: false },
   ];
+
+  const safeOrganizations = Array.isArray(organizations) ? organizations : [];
 
   const sidebarContent = (
     <>
@@ -139,10 +143,10 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
           <DropdownMenuContent align="end" className="w-64 shadow-lg border border-border-subtle bg-surface-1">
             <DropdownMenuLabel className="flex items-center justify-between text-2xs uppercase tracking-wider text-fg-muted">
               <span>Organisations</span>
-              <span className="text-[10px] text-fg-muted">{organizations.length} total</span>
+              <span className="text-[10px] text-fg-muted">{safeOrganizations.length} total</span>
             </DropdownMenuLabel>
             <div className="max-h-56 overflow-y-auto divide-y divide-border-subtle/40">
-              {organizations.map((org) => {
+              {safeOrganizations.map((org) => {
                 const isSelected = org.is_current || org.id === user?.org_id;
                 return (
                   <DropdownMenuItem
@@ -221,7 +225,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
               value={activeProject?.id ?? ""}
               onValueChange={enterProject}
             >
-              {projects.map((project) => (
+              {safeProjects.map((project) => (
                 <DropdownMenuRadioItem key={project.id} value={project.id} className="text-xs">
                   <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
                     <span className="flex items-center gap-2 min-w-0">

@@ -16,14 +16,12 @@ import { MonitoringPage } from "../features/monitoring";
 import { SettingsPage } from "../features/settings";
 import { projectPath } from "../lib/paths";
 import { RouteErrorBoundary } from "../ui/route-error-boundary";
-import { AppProvider, useAppContext } from "./app-context";
+import { useAppContext } from "./app-context";
 import { EnvironmentUrlSync } from "./environment-url-sync";
 import { CommandPalette } from "./command-palette";
 import { ProjectScope } from "./project-scope";
 import { TopStrip } from "./top-strip";
 import { AppSidebar } from "./app-sidebar";
-import { ToastProvider } from "../ui/toast-provider";
-import { TooltipProvider } from "../ui/tooltip";
 import { Skeleton } from "../ui/skeleton";
 
 function BoundedRoute({
@@ -60,7 +58,11 @@ function ProjectBoundedRoute({
   );
 }
 
-function LegacyProjectRedirect({ segment }: { segment: "issues" | "releases" | "alerts" | "setup" | "settings" | "monitors" }) {
+function LegacyProjectRedirect({
+  segment,
+}: {
+  segment: "issues" | "monitoring" | "releases" | "alerts" | "setup" | "settings" | "monitors";
+}) {
   const { projectId, projects, projectsLoading } = useAppContext();
 
   if (projectsLoading) {
@@ -90,18 +92,15 @@ export function AppShell() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
-    <AppProvider>
-      <ToastProvider>
-      <TooltipProvider delayDuration={300}>
-        <div className="epure-app-shell flex h-full min-h-0 flex-row bg-bg text-ink overflow-hidden">
-          <AppSidebar
-            mobileOpen={mobileSidebarOpen}
-            onMobileClose={() => setMobileSidebarOpen(false)}
-          />
-          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <TopStrip onOpenMobileSidebar={() => setMobileSidebarOpen(true)} />
-            <EnvironmentUrlSync />
-            <main className="epure-app-shell-main flex min-h-0 flex-1 flex-col overflow-hidden bg-bg">
+    <div className="epure-app-shell flex h-full min-h-0 flex-row bg-bg text-ink overflow-hidden">
+      <AppSidebar
+        mobileOpen={mobileSidebarOpen}
+        onMobileClose={() => setMobileSidebarOpen(false)}
+      />
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <TopStrip onOpenMobileSidebar={() => setMobileSidebarOpen(true)} />
+        <EnvironmentUrlSync />
+        <main className="epure-app-shell-main flex min-h-0 flex-1 flex-col overflow-hidden bg-bg">
               <Routes>
                 {/* Workspace scope */}
                 <Route
@@ -245,6 +244,14 @@ export function AppShell() {
                   }
                 />
                 <Route
+                  path="/monitoring"
+                  element={
+                    <BoundedRoute title="Monitoring crashed">
+                      <LegacyProjectRedirect segment="monitoring" />
+                    </BoundedRoute>
+                  }
+                />
+                <Route
                   path="/releases"
                   element={
                     <BoundedRoute title="Releases crashed">
@@ -276,6 +283,7 @@ export function AppShell() {
                     </BoundedRoute>
                   }
                 />
+                <Route path="/projects" element={<Navigate to="/" replace />} />
 
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
@@ -283,8 +291,5 @@ export function AppShell() {
           </div>
           <CommandPalette />
         </div>
-      </TooltipProvider>
-      </ToastProvider>
-    </AppProvider>
   );
 }

@@ -96,7 +96,7 @@ function kindLabel(kind: string): string {
 
 export function AlertRulesSettings() {
   const { projectId: paramId } = useParams<{ projectId: string }>();
-  const { user, projects, projectId: contextProjectId, projectsLoading } = useAppContext();
+  const { user, userLoading, projects, projectId: contextProjectId, projectsLoading } = useAppContext();
   const { toast } = useToast();
   const [rules, setRules] = useState<AlertRuleRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,7 +132,7 @@ export function AlertRulesSettings() {
   const selectedKind = RULE_KINDS.find((item) => item.id === kind) ?? RULE_KINDS[0];
 
   const loadEmailAlertSettings = useCallback(async () => {
-    if (projectsLoading || !activeProjectId) return;
+    if (projectsLoading || userLoading || !activeProjectId) return;
     try {
       const settings = await fetchProjectEmailAlertSettings(activeProjectId);
       setEmailAlertsEnabled(settings?.email_alerts_enabled ?? true);
@@ -150,10 +150,10 @@ export function AlertRulesSettings() {
     } finally {
       setEmailAlertsLoading(false);
     }
-  }, [projectsLoading, activeProjectId]);
+  }, [projectsLoading, userLoading, activeProjectId]);
 
   const loadRules = useCallback(async () => {
-    if (projectsLoading) return;
+    if (projectsLoading || userLoading) return;
     if (!activeProjectId || !canManage) {
       setRules([]);
       setLoading(false);
@@ -169,7 +169,7 @@ export function AlertRulesSettings() {
     } finally {
       setLoading(false);
     }
-  }, [projectsLoading, activeProjectId, canManage, toast]);
+  }, [projectsLoading, userLoading, activeProjectId, canManage, toast]);
 
   useEffect(() => {
     void loadRules();
@@ -290,8 +290,13 @@ export function AlertRulesSettings() {
     }
   }
 
-  if (!canManage) {
-    return <MemberAccessNotice resource="alert rules" />;
+  if (projectsLoading || userLoading) {
+    return (
+      <div className="space-y-4">
+        <SettingsTabHeader title="Alert rules" description="Custom notify rules for this project." />
+        <div className="h-32 rounded-lg border border-border-subtle bg-surface-1 animate-pulse" />
+      </div>
+    );
   }
 
   if (!activeProjectId) {
@@ -301,6 +306,10 @@ export function AlertRulesSettings() {
         <InfoCallout variant="warning">Select a project to manage alert rules.</InfoCallout>
       </div>
     );
+  }
+
+  if (!canManage) {
+    return <MemberAccessNotice resource="alert rules" />;
   }
 
   return (

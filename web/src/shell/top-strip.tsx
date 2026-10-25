@@ -35,8 +35,11 @@ import { useLogout } from "../lib/use-logout";
 
 function getPageName(pathname: string): string {
   if (pathname.includes("/issues")) return "Issues Feed";
+  if (pathname.includes("/monitoring")) return "Monitoring";
+  if (pathname.includes("/monitors")) return "Cron Monitors";
   if (pathname.includes("/releases")) return "Releases";
   if (pathname.includes("/alerts")) return "Alerts";
+  if (pathname.includes("/setup")) return "Setup";
   if (pathname.includes("/settings")) return "Settings";
   if (pathname.includes("/team")) return "Team";
   if (pathname.includes("/usage")) return "Usage";
@@ -66,6 +69,7 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
 
   const routeProjectId = projectIdFromPath(pathname);
   const safeProjects = Array.isArray(projects) ? projects : [];
+  const safeOrganizations = Array.isArray(organizations) ? organizations : [];
   const activeProject =
     inProject && routeProjectId
       ? safeProjects.find((project) => project && (project.id === routeProjectId || project.slug === routeProjectId)) ?? null
@@ -115,10 +119,10 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
           <DropdownMenuContent align="start" className="w-64 shadow-lg border border-border-subtle bg-surface-1">
             <DropdownMenuLabel className="flex items-center justify-between text-2xs uppercase tracking-wider text-fg-muted">
               <span>Workspaces</span>
-              <span className="text-[10px] text-fg-muted">{organizations.length} joined</span>
+              <span className="text-[10px] text-fg-muted">{safeOrganizations.length} joined</span>
             </DropdownMenuLabel>
             <div className="max-h-56 overflow-y-auto divide-y divide-border-subtle/40">
-              {organizations.map((org) => {
+              {safeOrganizations.map((org) => {
                 const isSelected = org.is_current || org.id === user?.org_id;
                 return (
                   <DropdownMenuItem
@@ -176,11 +180,11 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
             <DropdownMenuLabel className="flex items-center justify-between text-2xs uppercase tracking-wider text-fg-muted">
               <span>Projects</span>
             </DropdownMenuLabel>
-            {projects.length === 0 ? (
+            {safeProjects.length === 0 ? (
               <div className="px-2 py-2 text-2xs text-fg-muted">No projects configured</div>
             ) : (
               <div className="max-h-56 overflow-y-auto divide-y divide-border-subtle/40">
-                {projects.slice(0, 25).map((p) => {
+                {safeProjects.slice(0, 25).map((p) => {
                   const isActive = p.id === activeProject?.id;
                   return (
                     <DropdownMenuItem

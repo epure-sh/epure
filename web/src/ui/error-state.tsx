@@ -1,11 +1,14 @@
 import { type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useInRouterContext } from "react-router-dom";
 import { cn } from "../lib/cn";
 import { Button } from "./button";
 
 export interface ErrorStateProps {
   title: string;
   description?: string;
+  error?: Error | null;
+  stack?: string;
+  showReload?: boolean;
   backHref?: string;
   backLabel?: string;
   onRetry?: () => void;
@@ -18,6 +21,9 @@ export interface ErrorStateProps {
 export function ErrorState({
   title,
   description,
+  error,
+  stack,
+  showReload = false,
   backHref,
   backLabel = "Go back",
   onRetry,
@@ -26,6 +32,9 @@ export function ErrorState({
   className,
   children,
 }: ErrorStateProps) {
+  const inRouter = useInRouterContext();
+  const technicalDetails = stack || error?.stack || error?.message;
+
   return (
     <div
       className={cn(
@@ -33,11 +42,21 @@ export function ErrorState({
         className,
       )}
     >
-      <p className="text-sm font-medium text-ink">{title}</p>
+      <p className="text-sm font-semibold text-fg-primary">{title}</p>
       {description ? (
-        <p className="mt-2 max-w-md text-xs text-ink-muted">{description}</p>
+        <p className="mt-2 max-w-md text-xs text-fg-muted">{description}</p>
       ) : null}
       <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+        {showReload ? (
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={() => window.location.reload()}
+          >
+            Reload page
+          </Button>
+        ) : null}
         {onRetry ? (
           <Button
             type="button"
@@ -51,10 +70,24 @@ export function ErrorState({
         ) : null}
         {backHref ? (
           <Button variant="ghost" size="sm" asChild>
-            <Link to={backHref}>{backLabel}</Link>
+            {inRouter ? (
+              <Link to={backHref}>{backLabel}</Link>
+            ) : (
+              <a href={backHref}>{backLabel}</a>
+            )}
           </Button>
         ) : null}
       </div>
+      {technicalDetails ? (
+        <details className="mt-5 w-full max-w-xl text-left border border-border-subtle bg-surface-2/80 rounded-md p-3 text-xs">
+          <summary className="cursor-pointer font-medium text-fg-muted hover:text-fg-primary select-none">
+            {error?.name ? `${error.name}: ` : "Error details: "}{error?.message || "Technical details"}
+          </summary>
+          <pre className="mt-2 overflow-auto font-mono text-[11px] leading-relaxed text-fg-secondary max-h-48 whitespace-pre-wrap select-text bg-surface-1 p-2.5 rounded border border-border-subtle">
+            {technicalDetails}
+          </pre>
+        </details>
+      ) : null}
       {children}
     </div>
   );

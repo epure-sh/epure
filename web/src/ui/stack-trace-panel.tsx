@@ -44,10 +44,11 @@ function asStackFrames(value: unknown): StackFrame[] {
   if (!Array.isArray(value)) {
     return [];
   }
-  return value as StackFrame[];
+  return value.filter((item): item is StackFrame => Boolean(item && typeof item === "object"));
 }
 
 function frameKey(frame: StackFrame): string {
+  if (!frame || typeof frame !== "object") return "";
   return [
     frame.function ?? "",
     frame.filename ?? "",
@@ -61,6 +62,7 @@ function dedupeStackFrames(frames: StackFrame[]): UniqueFrame[] {
   const unique: UniqueFrame[] = [];
 
   for (const frame of frames) {
+    if (!frame || typeof frame !== "object") continue;
     const key = frameKey(frame);
     if (seen.has(key)) {
       continue;
@@ -73,6 +75,7 @@ function dedupeStackFrames(frames: StackFrame[]): UniqueFrame[] {
 }
 
 function isVendorFrame(frame: StackFrame): boolean {
+  if (!frame || typeof frame !== "object") return false;
   if (frame.in_app === false) {
     return true;
   }

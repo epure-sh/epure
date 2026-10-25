@@ -16,7 +16,7 @@ import { MemberAccessNotice } from "../../settings/shared";
 
 export function AgentTokensTab() {
   const navigate = useNavigate();
-  const { user } = useAppContext();
+  const { user, userLoading } = useAppContext();
   const { toast } = useToast();
   const [tokens, setTokens] = useState<AgentTokenRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +25,9 @@ export function AgentTokensTab() {
   const canManage = user?.role === "owner" || user?.role === "admin";
 
   const load = useCallback(async () => {
+    if (userLoading) {
+      return;
+    }
     if (!canManage) {
       setTokens([]);
       setLoading(false);
@@ -38,7 +41,7 @@ export function AgentTokensTab() {
     } finally {
       setLoading(false);
     }
-  }, [canManage, toast]);
+  }, [userLoading, canManage, toast]);
 
   useEffect(() => {
     void load();
@@ -58,6 +61,14 @@ export function AgentTokensTab() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (userLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-32 rounded-lg border border-border-subtle bg-surface-1 animate-pulse" />
+      </div>
+    );
   }
 
   if (!canManage) {

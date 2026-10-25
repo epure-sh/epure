@@ -24,10 +24,10 @@ export function ProjectScope() {
     : null;
 
   useEffect(() => {
-    if (matchingProject) {
+    if (matchingProject && matchingProject.id !== projectId) {
       setProjectId(matchingProject.id);
     }
-  }, [matchingProject, setProjectId]);
+  }, [matchingProject, projectId, setProjectId]);
 
   if (projectsLoading) {
     return (
@@ -43,6 +43,7 @@ export function ProjectScope() {
       <ErrorState
         title="Could not load projects"
         description={projectsError}
+        showReload
         onRetry={() => void refreshProjects()}
         backHref="/"
         backLabel="Back to workspace"
@@ -63,17 +64,14 @@ export function ProjectScope() {
 
   // Canonicalize slug to UUID so child routes and API calls always receive a valid UUID
   if (paramId && paramId !== matchingProject.id) {
-    const canonicalPath = location.pathname.replace(`/p/${paramId}`, `/p/${matchingProject.id}`);
-    return <Navigate to={`${canonicalPath}${location.search}${location.hash}`} replace />;
-  }
-
-  if (matchingProject.id !== projectId) {
-    return (
-      <div className="epure-shell-loading flex h-full flex-col items-center justify-center gap-3 p-6">
-        <Skeleton className="h-4 w-36" />
-        <p className="text-sm text-ink-muted">Loading…</p>
-      </div>
-    );
+    const segments = location.pathname.split("/");
+    if (segments[1] === "p" && segments[2]) {
+      segments[2] = matchingProject.id;
+      const canonicalPath = segments.join("/");
+      if (canonicalPath !== location.pathname) {
+        return <Navigate to={`${canonicalPath}${location.search}${location.hash}`} replace />;
+      }
+    }
   }
 
   return (

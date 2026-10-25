@@ -61,8 +61,14 @@ export interface UseIssueTriageMachineOptions {
 export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { buildQuery, projectId: contextProjectId, environment } = useAppContext();
-  const scopedProjectId = options.routeProjectId ?? contextProjectId;
+  const { buildQuery, projectId: contextProjectId, environment, projects } = useAppContext();
+  const safeProjects = useMemo(() => (Array.isArray(projects) ? projects : []), [projects]);
+  const rawId = options.routeProjectId ?? contextProjectId;
+  const scopedProjectId = useMemo(() => {
+    if (!rawId) return rawId;
+    const match = safeProjects.find((p) => p && (p.id === rawId || p.slug === rawId));
+    return match ? match.id : rawId;
+  }, [rawId, safeProjects]);
   const timeWindow = parseTimeWindow(searchParams.get("window"));
   const issueSort = parseIssueSort(searchParams.get("sort"));
   const { issueId: routeIssueId } = useParams<{ issueId?: string }>();

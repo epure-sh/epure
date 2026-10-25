@@ -70,10 +70,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
+const DEFAULT_TOAST_CONTEXT: ToastContextValue = {
+  toast: (msg: string) => {
+    console.info("[Toast fallback]:", msg);
+  },
+};
+
 export function useToast(): ToastContextValue {
   const context = useContext(ToastContext);
-  if (!context) {
-    throw new Error("useToast must be used within ToastProvider");
-  }
-  return context;
+  return context ?? DEFAULT_TOAST_CONTEXT;
 }

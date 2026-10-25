@@ -12,6 +12,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
 import {
   createMonitor,
   deleteMonitor,
@@ -126,7 +127,8 @@ function StatusBadge({
 }
 
 export function MonitorsPage() {
-  const { projectId, projects, environment } = useAppContext();
+  const { projectId: routeProjectId } = useParams<{ projectId: string }>();
+  const { projectId, projects, projectsLoading, environment } = useAppContext();
   const { toast } = useToast();
 
   const [monitors, setMonitors] = useState<MonitorItem[]>([]);
@@ -155,9 +157,22 @@ export function MonitorsPage() {
   // Deleting state
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const activeProjectId = projectId ?? projects[0]?.id ?? null;
+  const safeProjects = Array.isArray(projects) ? projects : [];
+  const activeProject = useMemo(() => {
+    const candidate = routeProjectId ?? projectId;
+    if (candidate) {
+      const match = safeProjects.find((row) => row && (row.id === candidate || row.slug === candidate));
+      if (match) return match;
+    }
+    return safeProjects[0] ?? null;
+  }, [routeProjectId, projectId, safeProjects]);
+
+  const activeProjectId = activeProject?.id ?? null;
 
   const loadMonitors = useCallback(async () => {
+    if (projectsLoading) {
+      return;
+    }
     if (!activeProjectId) {
       setMonitors([]);
       setLoading(false);
@@ -167,14 +182,14 @@ export function MonitorsPage() {
     setError(null);
     try {
       const items = await fetchMonitors(activeProjectId);
-      setMonitors(items);
+      setMonitors(Array.isArray(items) ? items : []);
     } catch {
       setMonitors([]);
       setError("Failed to load cron monitors");
     } finally {
       setLoading(false);
     }
-  }, [activeProjectId]);
+  }, [projectsLoading, activeProjectId]);
 
   useEffect(() => {
     void loadMonitors();
@@ -232,7 +247,7 @@ export function MonitorsPage() {
     setHistoryCheckIns([]);
     try {
       const res = await fetchMonitorDetails(monitor.id);
-      setHistoryCheckIns(res.check_ins);
+      setHistoryCheckIns(Array.isArray(res?.check_ins) ? res.check_ins : []);
     } catch {
       toast("Failed to load check-in details");
     } finally {
@@ -242,7 +257,9 @@ export function MonitorsPage() {
 
   // Filtered monitors
   const filteredMonitors = useMemo(() => {
-    return monitors.filter((m) => {
+    const list = Array.isArray(monitors) ? monitors : [];
+    return list.filter((m) => {
+      if (!m) return false;
       if (statusFilter !== "all" && m.status !== statusFilter) {
         return false;
       }
@@ -506,7 +523,7 @@ try {
           </div>
 
           {/* Monitors Table */}
-          {loading ? (
+          {projectsLoading || loading ? (
             <StackedCardList>
               <CardRowSkeleton />
               <CardRowSkeleton />
