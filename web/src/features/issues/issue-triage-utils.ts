@@ -49,6 +49,58 @@ export function applyOptimisticSnooze(issue: IssueSummary, mode: SnoozeMode): Is
   }
 }
 
+const LIST_STATUSES = new Set(["unresolved", "resolved", "ignored", "regression"]);
+
+/**
+ * Mirrors the server's `is:` filter: `is:snoozed` matches snoozed issues of any status,
+ * any other known status matches that exact status and excludes snoozed issues.
+ */
+export function issueMatchesStatusFilter(
+  issue: Pick<IssueSummary, "status" | "snoozed">,
+  status: string | undefined,
+): boolean {
+  if (!status) {
+    return true;
+  }
+  if (status === "snoozed") {
+    return issue.snoozed;
+  }
+  if (!LIST_STATUSES.has(status)) {
+    return true;
+  }
+  return issue.status === status && !issue.snoozed;
+}
+
+export interface HeadlineStatsDelta {
+  unresolved: number;
+  regressions: number;
+  snoozed: number;
+}
+
+function statsBucket(
+  issue: Pick<IssueSummary, "status" | "snoozed"> | null,
+): keyof HeadlineStatsDelta | null {
+  if (!issue) return null;
+  if (issue.snoozed) return "snoozed";
+  if (issue.status === "unresolved") return "unresolved";
+  if (issue.status === "regression") return "regressions";
+  return null;
+}
+
+/** How the headline counters move when an issue goes from `before` to `after` (null = deleted). */
+export function headlineStatsDelta(
+  before: Pick<IssueSummary, "status" | "snoozed"> | null,
+  after: Pick<IssueSummary, "status" | "snoozed"> | null,
+): HeadlineStatsDelta {
+  const delta: HeadlineStatsDelta = { unresolved: 0, regressions: 0, snoozed: 0 };
+  const from = statsBucket(before);
+  const to = statsBucket(after);
+  if (from === to) return delta;
+  if (from) delta[from] -= 1;
+  if (to) delta[to] += 1;
+  return delta;
+}
+
 export interface BulkTriageAvailability {
   resolve: boolean;
   ignore: boolean;

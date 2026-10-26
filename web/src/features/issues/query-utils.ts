@@ -160,6 +160,30 @@ export function replaceFreeText(query: string, freeText: string): string {
   return composeQuery(parseQuery(query), freeText);
 }
 
+const STRUCTURED_PREFIXES = ["is:", "env:", "release:", "user.email:", "level:"] as const;
+
+function isStructuredToken(token: string): boolean {
+  return STRUCTURED_PREFIXES.some((prefix) => token.startsWith(prefix));
+}
+
+/** Free-text portion of a query (everything that is not a `key:value` filter token). */
+export function getSearchText(query: string): string {
+  return query
+    .split(/\s+/)
+    .filter((token) => token && !isStructuredToken(token))
+    .join(" ");
+}
+
+/**
+ * Replace only the free-text portion of a query, leaving every filter token untouched.
+ * Unlike `replaceFreeText`, an empty result stays empty (the "All" view) instead of
+ * falling back to `is:unresolved`.
+ */
+export function withSearchText(query: string, text: string): string {
+  const tokens = query.split(/\s+/).filter((token) => token && isStructuredToken(token));
+  return [...tokens, text.trim()].filter(Boolean).join(" ");
+}
+
 export function removeToken(query: string, prefix: string): string {
   return query
     .split(/\s+/)

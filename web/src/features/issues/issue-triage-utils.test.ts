@@ -6,6 +6,8 @@ import {
   canReopenIssue,
   canResolveIssue,
   canSnoozeIssue,
+  headlineStatsDelta,
+  issueMatchesStatusFilter,
 } from "./issue-triage-utils";
 
 assert.equal(canResolveIssue("unresolved"), true);
@@ -64,3 +66,22 @@ const snoozedForOccurrences = applyOptimisticSnooze(baseIssue, "occurrences");
 assert.equal(snoozedForOccurrences.snoozed, true);
 assert.equal(snoozedForOccurrences.snooze_until_count, 142);
 assert.equal(snoozedForOccurrences.snooze_until_users, null);
+
+assert.equal(issueMatchesStatusFilter({ status: "resolved", snoozed: false }, "unresolved"), false);
+assert.equal(issueMatchesStatusFilter({ status: "unresolved", snoozed: true }, "unresolved"), false);
+assert.equal(issueMatchesStatusFilter({ status: "unresolved", snoozed: true }, "snoozed"), true);
+assert.equal(issueMatchesStatusFilter({ status: "resolved", snoozed: false }, "resolved"), true);
+assert.equal(issueMatchesStatusFilter({ status: "resolved", snoozed: false }, undefined), true);
+
+assert.deepEqual(
+  headlineStatsDelta({ status: "unresolved", snoozed: false }, { status: "resolved", snoozed: false }),
+  { unresolved: -1, regressions: 0, snoozed: 0 },
+);
+assert.deepEqual(
+  headlineStatsDelta({ status: "regression", snoozed: false }, { status: "regression", snoozed: true }),
+  { unresolved: 0, regressions: -1, snoozed: 1 },
+);
+assert.deepEqual(
+  headlineStatsDelta({ status: "unresolved", snoozed: false }, null),
+  { unresolved: -1, regressions: 0, snoozed: 0 },
+);

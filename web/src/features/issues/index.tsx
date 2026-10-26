@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BellRing, Check, ExternalLink, EyeOff, GitBranch, RotateCcw, Sparkles } from "lucide-react";
 import { Navigate, useParams } from "react-router-dom";
-import {
-  bulkUpdateIssues,
-  setupNeedsWizard,
-} from "../../lib/api";
+import { setupNeedsWizard } from "../../lib/api";
 import { projectPath } from "../../lib/paths";
 import { cn } from "../../lib/cn";
 import { useIssuesLayoutMode } from "../../lib/style-theme";
@@ -120,8 +117,7 @@ export function IssuesPage() {
     waitingForFirstIssue,
     actionsDisabled,
     busy,
-    setBusy,
-    patchingId,
+    pendingIds,
     isIssueUnread,
     handleResolve,
     handleIgnore,
@@ -171,27 +167,21 @@ export function IssuesPage() {
       setResolveWithAiOpen(false);
       return;
     }
-    setBusy(true);
     try {
       await copyBulkIssueExport(eligible);
-      await bulkUpdateIssues(
-        eligible.map((issue) => issue.id),
-        "ignore",
-      );
-      setSelectedIds(new Set());
-      setResolveWithAiOpen(false);
-      await loadIssues(query, timeWindow, issueSort);
-      toast(
+    } catch {
+      toast("Resolve with AI failed");
+      return;
+    }
+    setResolveWithAiOpen(false);
+    await handleBulk("ignore", {
+      ids: eligible.map((issue) => issue.id),
+      successMessage:
         eligible.length === 1
           ? "Copied and ignored"
           : `Copied ${eligible.length} issues and marked ignored`,
-      );
-    } catch {
-      toast("Resolve with AI failed");
-    } finally {
-      setBusy(false);
-    }
-  }, [actionsDisabled, issueSort, loadIssues, query, selectedIssues, setSelectedIds, timeWindow, toast]);
+    });
+  }, [actionsDisabled, handleBulk, selectedIssues, toast]);
 
 
   const needsSetupRedirect =
@@ -436,7 +426,7 @@ export function IssuesPage() {
                 onClick={() => void handleResolve(selectedIssue.id)}
               >
                 <Check className="mr-1.5 h-3.5 w-3.5 stroke-[2.5]" />
-                <span>{patchingId === selectedIssue.id ? "Saving…" : "Resolve (R)"}</span>
+                <span>{pendingIds.has(selectedIssue.id) ? "Saving…" : "Resolve (R)"}</span>
               </ActionButton>
             ) : null}
             {canReopenIssue(selectedIssue.status) ? (
@@ -449,7 +439,7 @@ export function IssuesPage() {
                 onClick={() => void handleReopen(selectedIssue.id)}
               >
                 <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                <span>{patchingId === selectedIssue.id ? "Saving…" : "Unresolve"}</span>
+                <span>{pendingIds.has(selectedIssue.id) ? "Saving…" : "Unresolve"}</span>
               </ActionButton>
             ) : null}
             {selectedIssue.snoozed || selectedIssue.status === "snoozed" ? (
