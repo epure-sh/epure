@@ -47,7 +47,7 @@ sqlx = { version = "0.8", default-features = false, features = [
 ] }
 subtle = "2"
 thiserror = "2"
-tokio = { version = "1", default-features = false, features = ["macros", "rt-multi-thread", "net", "time", "sync", "signal", "fs"] }
+tokio = { version = "1.54", default-features = false, features = ["macros", "rt-multi-thread", "net", "time", "sync", "signal", "fs"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["limit"] }
 tower-sessions = { version = "0.14" }

@@ -20,7 +20,7 @@ server.tool("epure_api", "Call any Epure /api/v1 endpoint (issues, projects, web
     path: z
         .string()
         .describe("Path starting with /api/v1/… e.g. /api/v1/issues?q=is:unresolved"),
-    body: z.record(z.unknown()).optional().describe("JSON body for POST/PATCH"),
+    body: z.record(z.string(), z.unknown()).optional().describe("JSON body for POST/PATCH"),
 }, async ({ method, path, body }) => {
     const safePath = assertEpureApiPath(path);
     const init = { method };
