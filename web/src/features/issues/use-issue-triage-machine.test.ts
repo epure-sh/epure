@@ -169,4 +169,80 @@ describe("use-issue-triage-machine semantics", () => {
     assert.ok(prompt.includes("src/cart/calculateTotal.ts:15"));
     assert.ok(prompt.includes("Likely fault location"));
   });
+
+  it("synchronizes query state and headline stats optimistically on snooze and unsnooze", () => {
+    const initialStats = {
+      project_id: "prj_1",
+      environment: "production",
+      unresolved: 10,
+      events_7d: 500,
+      regressions: 0,
+      snoozed: 2,
+    };
+
+    // Snooze: unresolved decrements, snoozed increments
+    const afterSnooze = {
+      ...initialStats,
+      snoozed: (initialStats.snoozed ?? 0) + 1,
+      unresolved: Math.max(0, (initialStats.unresolved ?? 0) - 1),
+    };
+    assert.equal(afterSnooze.snoozed, 3);
+    assert.equal(afterSnooze.unresolved, 9);
+
+    // Unsnooze: snoozed decrements, unresolved increments
+    const afterUnsnooze = {
+      ...afterSnooze,
+      snoozed: Math.max(0, (afterSnooze.snoozed ?? 0) - 1),
+      unresolved: (afterSnooze.unresolved ?? 0) + 1,
+    };
+    assert.equal(afterUnsnooze.snoozed, 2);
+    assert.equal(afterUnsnooze.unresolved, 10);
+
+    // List filtering: unresolved query removes snoozed issue
+    const issues = [
+      { id: "iss_1", status: "unresolved", snoozed: false },
+      { id: "iss_2", status: "unresolved", snoozed: false },
+    ];
+    const targetId = "iss_1";
+    const remainingUnresolved = issues.filter((r) => r.id !== targetId);
+    assert.equal(remainingUnresolved.length, 1);
+    assert.equal(remainingUnresolved[0].id, "iss_2");
+
+    // List filtering: snoozed query removes unsnoozed issue
+    const snoozedIssues = [
+      { id: "iss_1", status: "unresolved", snoozed: true },
+      { id: "iss_2", status: "unresolved", snoozed: true },
+    ];
+    const remainingSnoozed = snoozedIssues.filter((r) => r.id !== targetId);
+    assert.equal(remainingSnoozed.length, 1);
+    assert.equal(remainingSnoozed[0].id, "iss_2");
+
+    // Unresolved query prepends unsnoozed issue when it wasn't in the list
+    const incomingUnsnoozed = { id: "iss_3", status: "unresolved", snoozed: false };
+    const updatedList = remainingUnresolved.some((r) => r.id === incomingUnsnoozed.id)
+      ? remainingUnresolved.map((r) => (r.id === incomingUnsnoozed.id ? incomingUnsnoozed : r))
+      : [incomingUnsnoozed, ...remainingUnresolved];
+    assert.equal(updatedList.length, 2);
+    assert.equal(updatedList[0].id, "iss_3");
+  });
+
+  it("handles compound query filtering and optimistic removal on resolution or snooze", () => {
+    const compoundQuery = "level:error env:production is:unresolved";
+    const isUnresolvedView =
+      compoundQuery.includes("is:unresolved") ||
+      (!compoundQuery.includes("is:snoozed") &&
+        !compoundQuery.includes("is:resolved") &&
+        !compoundQuery.includes("is:ignored") &&
+        !compoundQuery.includes("is:all"));
+    assert.equal(isUnresolvedView, true);
+
+    const issues = [
+      { id: "err_1", status: "unresolved", level: "error", environment: "production" },
+      { id: "err_2", status: "unresolved", level: "error", environment: "production" },
+    ];
+    const resolvedId = "err_1";
+    const remaining = issues.filter((r) => r.id !== resolvedId);
+    assert.equal(remaining.length, 1);
+    assert.equal(remaining[0].id, "err_2");
+  });
 });

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { fetchReleases, type ReleaseSummary } from "../../lib/api";
 import { issuesFilterPath, projectSettingsPath } from "../../lib/paths";
+import { isDemoProject } from "../../lib/demo-utils";
 import { useAppContext } from "../../shell/app-context";
 import { Button } from "../../ui/button";
 import { Empty } from "../../ui/empty";
@@ -70,7 +71,7 @@ export function ReleasesPage() {
       const match = safeProjects.find((row) => row && (row.id === candidate || row.slug === candidate));
       if (match) return match;
     }
-    return safeProjects[0] ?? null;
+    return safeProjects.find((row) => row && !isDemoProject(row)) ?? safeProjects[0] ?? null;
   }, [routeProjectId, projectId, safeProjects]);
 
   const activeProjectId = activeProject?.id ?? null;

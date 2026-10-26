@@ -50,56 +50,19 @@ export interface OutputChannel {
 
 const STORAGE_KEY = "epure.output_channels";
 
-export const DEFAULT_CHANNELS: OutputChannel[] = [
-  {
-    id: "chan-001",
-    name: "Engineering Core Team",
-    type: "email",
-    status: "active",
-    memberEmails: ["alex@acmecorp.com", "dev@acmecorp.com"],
-    createdAt: new Date(Date.now() - 30 * 86400 * 1000).toISOString(),
-  },
-  {
-    id: "chan-002",
-    name: "Slack #production-crashes",
-    type: "slack",
-    status: "active",
-    url: "https://example.com/services/mock-slack-hook",
-    signingSecret: "whsec_mock_sample_secret",
-    lastTestStatus: {
-      code: 200,
-      latencyMs: 42,
-      testedAt: new Date(Date.now() - 3600 * 1000).toISOString(),
-    },
-    createdAt: new Date(Date.now() - 14 * 86400 * 1000).toISOString(),
-  },
-  {
-    id: "chan-003",
-    name: "Discord #incident-room",
-    type: "discord",
-    status: "active",
-    url: "https://discord.com/api/webhooks/123456789/abcdefghijk",
-    signingSecret: "whsec_live_d81992ec510bf881a299",
-    lastTestStatus: {
-      code: 200,
-      latencyMs: 58,
-      testedAt: new Date(Date.now() - 7200 * 1000).toISOString(),
-    },
-    createdAt: new Date(Date.now() - 7 * 86400 * 1000).toISOString(),
-  },
-];
+export const DEFAULT_CHANNELS: OutputChannel[] = [];
 
 export function getStoredChannels(): OutputChannel[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
   } catch {}
-  return DEFAULT_CHANNELS;
+  return [];
 }
 
 export function saveStoredChannels(channels: OutputChannel[]): void {
@@ -130,43 +93,34 @@ export function OrgChannelsPage() {
       .then((rows) => {
         if (rows.length > 0) {
           setMembers(rows);
-        } else {
-          // Fallback with current user
+        } else if (user) {
           setMembers([
             {
-              user_id: user?.user_id ?? "usr_1",
-              email: user?.email ?? "dev@acmecorp.com",
-              display_name: user?.display_name ?? "Admin",
-              role: user?.role ?? "owner",
-              created_at: new Date().toISOString(),
-            },
-            {
-              user_id: "usr_2",
-              email: "alex@acmecorp.com",
-              display_name: "Alex Rivera",
-              role: "admin",
-              created_at: new Date().toISOString(),
-            },
-            {
-              user_id: "usr_3",
-              email: "sre@acmecorp.com",
-              display_name: "Site Reliability",
-              role: "member",
+              user_id: user.user_id,
+              email: user.email,
+              display_name: user.display_name,
+              role: user.role,
               created_at: new Date().toISOString(),
             },
           ]);
+        } else {
+          setMembers([]);
         }
       })
       .catch(() => {
-        setMembers([
-          {
-            user_id: user?.user_id ?? "usr_1",
-            email: user?.email ?? "dev@acmecorp.com",
-            display_name: user?.display_name ?? "Admin",
-            role: user?.role ?? "owner",
-            created_at: new Date().toISOString(),
-          },
-        ]);
+        if (user) {
+          setMembers([
+            {
+              user_id: user.user_id,
+              email: user.email,
+              display_name: user.display_name,
+              role: user.role,
+              created_at: new Date().toISOString(),
+            },
+          ]);
+        } else {
+          setMembers([]);
+        }
       });
   }, [user]);
 
@@ -262,7 +216,9 @@ export function OrgChannelsPage() {
           occurrences_24h: 3120,
           impacted_users: 189,
         },
-        url: "https://app.epure.ai/p/acme/issues/iss_sample_984",
+        url: typeof window !== "undefined"
+          ? `${window.location.origin}/issues/iss_sample_984`
+          : "https://app.epure.ai/issues/iss_sample_984",
       },
       null,
       2
@@ -305,7 +261,29 @@ export function OrgChannelsPage() {
 
         {/* Channel Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {channels.map((channel) => {
+          {channels.length === 0 ? (
+            <div className="col-span-full rounded-lg border border-dashed border-border-subtle bg-surface-1 p-8 text-center flex flex-col items-center justify-center gap-3">
+              <div className="size-10 rounded-full bg-accent/10 text-accent flex items-center justify-center">
+                <Radio className="size-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-fg-primary">No Output Channels configured</h3>
+                <p className="mt-1 text-xs text-fg-muted max-w-sm">
+                  Connect notification destinations like Slack, Discord, Webhooks, or Team Email to receive alerts when regressions strike.
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                className="gap-1.5 text-xs font-medium"
+                onClick={handleOpenCreateModal}
+              >
+                <Plus className="size-3.5" />
+                <span>Create Your First Channel</span>
+              </Button>
+            </div>
+          ) : (
+            channels.map((channel) => {
             const isEmail = channel.type === "email";
             const isSlack = channel.type === "slack";
             const isDiscord = channel.type === "discord";
@@ -403,7 +381,8 @@ export function OrgChannelsPage() {
                 </div>
               </div>
             );
-          })}
+          })
+        )}
         </div>
 
         {/* Explainers Card */}

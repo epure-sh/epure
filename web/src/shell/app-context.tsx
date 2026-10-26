@@ -134,13 +134,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setUserLoading(true);
         const me = await fetchMe();
         setUser(me);
-      } catch {
-        // ignore
+        await refreshOrganizations();
+        await refreshProjects();
       } finally {
         setUserLoading(false);
       }
-      await refreshOrganizations();
-      await refreshProjects();
     },
     [refreshProjects, refreshOrganizations],
   );

@@ -8,7 +8,12 @@ import {
   projectSettingsPath,
   projectPath,
   isWorkspaceSettingsRoute,
+  organizationsPath,
+  userSettingsPath,
+  isGlobalRoute,
+  getNavigationContext,
 } from "./paths";
+
 
 describe("paths helpers for settings and releases", () => {
   it("computes workspace settings paths correctly", () => {
@@ -46,4 +51,30 @@ describe("paths helpers for settings and releases", () => {
     assert.equal(workspacePath("billing"), "/billing");
     assert.equal(billingPath(), "/billing");
   });
+
+  it("computes global routes and contextual navigation correctly", () => {
+    assert.equal(organizationsPath(), "/organizations");
+    assert.equal(userSettingsPath(), "/user/settings");
+    assert.equal(userSettingsPath("security"), "/user/settings/security");
+    assert.equal(userSettingsPath("agent"), "/user/settings/agent");
+
+    assert.equal(isGlobalRoute("/organizations"), true);
+    assert.equal(isGlobalRoute("/orgs"), true);
+    assert.equal(isGlobalRoute("/user/settings"), true);
+    assert.equal(isGlobalRoute("/user/settings/security"), true);
+    assert.equal(isGlobalRoute("/user"), true);
+    assert.equal(isGlobalRoute("/"), false);
+    assert.equal(isGlobalRoute("/team"), false);
+    assert.equal(isGlobalRoute("/settings"), false);
+    assert.equal(isGlobalRoute("/p/proj-123/issues"), false);
+
+    assert.equal(getNavigationContext("/organizations"), "global");
+    assert.equal(getNavigationContext("/user/settings"), "global");
+    assert.equal(getNavigationContext("/"), "organization");
+    assert.equal(getNavigationContext("/team"), "organization");
+    assert.equal(getNavigationContext("/settings"), "organization");
+    assert.equal(getNavigationContext("/p/proj-123/issues"), "project");
+    assert.equal(getNavigationContext("/p/proj-123/monitoring"), "project");
+  });
 });
+

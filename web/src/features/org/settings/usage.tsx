@@ -31,6 +31,7 @@ import {
   type UsageTimeWindow,
   usageWindowDays,
 } from "./usage-utils";
+import { isDemoProject } from "../../../lib/demo-utils";
 
 interface OrgUsageSettingsProps {
   window: UsageTimeWindow;
@@ -125,6 +126,10 @@ function UsageMetricCard({
 
 export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsProps) {
   const { projects } = useAppContext();
+  const realProjects = useMemo(
+    () => (Array.isArray(projects) ? projects : []).filter((p) => p && !isDemoProject(p)),
+    [projects],
+  );
   const [rows, setRows] = useState<ProjectUsage[]>([]);
   const [activityBuckets, setActivityBuckets] = useState<
     ReturnType<typeof buildActivityBuckets>
@@ -151,25 +156,60 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
       setLoading(true);
       try {
         const usage = await Promise.all(
-          projects.map(async (project) => {
-            const [stats, issues] = await Promise.all([
-              fetchHeadlineStats(project.id, undefined, window),
-              fetchIssues("", project.id, window),
-            ]);
-            const projectBuckets = buildActivityBuckets(issues, usageWindowDays(window));
-            return {
-              project,
-              issues,
-              ...stats,
-              uniqueUsers: sumUniqueUsers(issues),
-              storageBytes: estimateStorageBytes(stats.events_7d),
-              ingestUtilization: ingestUtilization(
-                stats.events_7d,
-                project.ingest_cap_per_hour,
-                window,
-              ),
-              trendBuckets: projectBuckets,
-            };
+          realProjects.map(async (project) => {
+            try {
+              const [statsRes, issuesRes] = await Promise.allSettled([
+                fetchHeadlineStats(project.id, undefined, window),
+                fetchIssues("", project.id, window),
+              ]);
+              const stats: HeadlineStats =
+                statsRes.status === "fulfilled"
+                  ? statsRes.value
+                  : {
+                      project_id: project.id,
+                      environment: null,
+                      unresolved: 0,
+                      events_7d: 0,
+                      regressions: 0,
+                      snoozed: 0,
+                    };
+              const issues: IssueSummary[] =
+                issuesRes.status === "fulfilled" && Array.isArray(issuesRes.value)
+                  ? issuesRes.value
+                  : [];
+              const projectBuckets = buildActivityBuckets(issues, usageWindowDays(window));
+              return {
+                project,
+                issues,
+                ...stats,
+                uniqueUsers: sumUniqueUsers(issues),
+                storageBytes: estimateStorageBytes(stats.events_7d),
+                ingestUtilization: ingestUtilization(
+                  stats.events_7d,
+                  project.ingest_cap_per_hour,
+                  window,
+                ),
+                trendBuckets: projectBuckets,
+              };
+            } catch {
+              const emptyStats: HeadlineStats = {
+                project_id: project.id,
+                environment: null,
+                unresolved: 0,
+                events_7d: 0,
+                regressions: 0,
+                snoozed: 0,
+              };
+              return {
+                project,
+                issues: [],
+                ...emptyStats,
+                uniqueUsers: 0,
+                storageBytes: 0,
+                ingestUtilization: 0,
+                trendBuckets: [],
+              };
+            }
           }),
         );
 
@@ -198,7 +238,7 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
     return () => {
       cancelled = true;
     };
-  }, [projects, window]);
+  }, [realProjects, window]);
 
   const tableRows: ProjectUsageRow[] = useMemo(
     () =>

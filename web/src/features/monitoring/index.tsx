@@ -17,6 +17,7 @@ import {
 } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/format-time";
 import { formatCompactCount } from "@/lib/format-count";
+import { isDemoProject } from "@/lib/demo-utils";
 import { bucketsToTelemetry } from "@/features/org/project-usage";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, Users } from "lucide-react";
 
@@ -75,6 +76,7 @@ export function MonitoringPage({ isEmbed = false }: { isEmbed?: boolean }) {
   const safeProjects = Array.isArray(projects) ? projects : [];
   const project =
     safeProjects.find((p) => p && (p.id === projectId || p.slug === projectId)) ??
+    safeProjects.find((p) => p && !isDemoProject(p)) ??
     safeProjects[0] ??
     null;
   const activeProjectId = project?.id ?? null;

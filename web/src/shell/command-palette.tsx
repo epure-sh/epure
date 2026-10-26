@@ -2,6 +2,7 @@ import {
   Activity,
   BarChart3,
   Bell,
+  Building2,
   CircleDot,
   Clock,
   CreditCard,
@@ -9,8 +10,10 @@ import {
   GitMerge,
   LayoutGrid,
   Package,
+  Radio,
   Search,
   Settings,
+  SlidersHorizontal,
   Users,
   Wand2,
 } from "lucide-react";
@@ -23,14 +26,17 @@ import {
 import {
   billingPath,
   isProjectRoute,
+  organizationsPath,
   projectIdFromPath,
   projectPath,
   projectSegmentFromPath,
   projectSettingsPath,
   usagePath,
+  userSettingsPath,
   workspacePath,
   workspaceSettingsPath,
 } from "../lib/paths";
+
 import { useAppContext } from "./app-context";
 import {
   CommandDialog,
@@ -112,6 +118,18 @@ export function CommandPalette() {
       <CommandInput placeholder="Jump to…" />
       <CommandList>
         <CommandEmpty>No results.</CommandEmpty>
+        <CommandGroup heading="Global Context">
+          <CommandItem onSelect={() => run(() => navigate(organizationsPath()))}>
+            <Building2 className="h-4 w-4 text-ink-muted" />
+            Organisations
+          </CommandItem>
+          <CommandItem onSelect={() => run(() => navigate(userSettingsPath()))}>
+            <SlidersHorizontal className="h-4 w-4 text-ink-muted" />
+            User Settings
+          </CommandItem>
+        </CommandGroup>
+        <CommandSeparator />
+
         <CommandGroup heading="Workspace">
           <CommandItem onSelect={() => run(() => navigate(workspacePath()))}>
             <LayoutGrid className="h-4 w-4 text-ink-muted" />
@@ -121,9 +139,13 @@ export function CommandPalette() {
             <Users className="h-4 w-4 text-ink-muted" />
             Team
           </CommandItem>
+          <CommandItem onSelect={() => run(() => navigate("/org/channels"))}>
+            <Radio className="h-4 w-4 text-ink-muted" />
+            Output Channels
+          </CommandItem>
           <CommandItem onSelect={() => run(() => navigate(workspaceSettingsPath()))}>
             <Settings className="h-4 w-4 text-ink-muted" />
-            Settings
+            Org Settings
           </CommandItem>
           <CommandItem onSelect={() => run(() => navigate(usagePath()))}>
             <BarChart3 className="h-4 w-4 text-ink-muted" />
@@ -134,6 +156,7 @@ export function CommandPalette() {
             Billing
           </CommandItem>
         </CommandGroup>
+
         {safeProjects.length > 0 ? (
           <>
             <CommandSeparator />

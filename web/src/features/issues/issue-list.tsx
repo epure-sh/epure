@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { IssueSummary, ProjectRow, TimelineBucket } from "../../lib/api";
 import { cn } from "../../lib/cn";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty } from "../../ui/empty";
 import { IssueRowShell } from "@/components/kit/issue-row-shell";
 import { IssueListColumnHeader } from "./issue-list-column-header";
-import { Badge } from "@/components/ui/badge";
 import { OccurrenceLineChart } from "../../ui/occurrence-line-chart";
 import { resolveIssuePriority } from "../../ui/issue-priority";
 import { formatCompactCount } from "../../lib/format-count";
@@ -387,7 +387,16 @@ export function IssueList({
                     <Badge variant="info" size="sm">Snoozed</Badge>
                   ) : null
                 }
-                title={shortTitle}
+                title={
+                  <span className="flex items-center gap-1.5 min-w-0 truncate">
+                    <span className="truncate">{shortTitle}</span>
+                    {(issue.snoozed || issue.status === "snoozed") && (
+                      <Badge variant="info" size="compact" className="shrink-0 font-medium text-[10px] px-1.5 py-0 h-4 bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                        Snoozed
+                      </Badge>
+                    )}
+                  </span>
+                }
                 subtitle={subtitle || issueLocationHint(issue)}
                 sparkline={
                   <OccurrenceLineChart

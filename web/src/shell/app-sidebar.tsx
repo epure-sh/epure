@@ -1,11 +1,17 @@
 import {
   Activity,
+  ArrowLeft,
+  ArrowRight,
   Bell,
+  BookOpen,
   Building2,
   ChevronDown,
   CircleDot,
   Clock,
+  Compass,
   CreditCard,
+  ExternalLink,
+  History,
   Layers,
   LogOut,
   Package,
@@ -13,6 +19,8 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  SlidersHorizontal,
+  UserCheck,
   Users,
   X,
 } from "lucide-react";
@@ -21,13 +29,21 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "../lib/cn";
 import {
   billingPath,
+  getNavigationContext,
   isProjectRoute,
+  organizationsPath,
   projectIdFromPath,
   projectPath,
   projectSettingsPath,
+  userSettingsPath,
   workspacePath,
   workspaceSettingsPath,
 } from "../lib/paths";
+import {
+  EPURE_CHANGELOG_URL,
+  EPURE_DOCS_QUICKSTART_URL,
+  EPURE_DOCS_URL,
+} from "../lib/docs-url";
 import { EpureBrandMark } from "../ui/logo";
 import { Button } from "../ui/button";
 import { useAppContext } from "./app-context";
@@ -54,7 +70,9 @@ export interface AppSidebarProps {
 export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const navContext = getNavigationContext(pathname);
   const inProject = isProjectRoute(pathname);
+
   const {
     setProjectId,
     projectId,
@@ -69,11 +87,17 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
 
   const routeProjectId = projectIdFromPath(pathname);
   const safeProjects = Array.isArray(projects) ? projects : [];
+  const safeOrganizations = Array.isArray(organizations) ? organizations : [];
+
   const activeProject =
     (inProject && routeProjectId
-      ? safeProjects.find((project) => project && (project.id === routeProjectId || project.slug === routeProjectId))
+      ? safeProjects.find(
+          (project) => project && (project.id === routeProjectId || project.slug === routeProjectId),
+        )
       : null) ??
-    (projectId ? safeProjects.find((project) => project && (project.id === projectId || project.slug === projectId)) : null) ??
+    (projectId
+      ? safeProjects.find((project) => project && (project.id === projectId || project.slug === projectId))
+      : null) ??
     safeProjects[0] ??
     null;
 
@@ -83,8 +107,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
     navigate(projectPath(id, "issues"));
   }
 
-  // Project Context (Self-Explanatory Names):
-  // Issues → Monitoring → Alerts → Releases (placed directly after Alerts) → Project Settings
+  // 1. Project Context Navigation Items
   const projectNavItems = activeProject
     ? [
         { to: projectPath(activeProject.id, "issues"), label: "Issues", icon: CircleDot, end: true },
@@ -96,21 +119,49 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
       ]
     : [];
 
-  // Organisation Context:
-  // Projects → Team → Usage & Billing → Output Channels → Org Settings
+  // 2. Organisation Context Navigation Items
   const orgNavItems = [
-    { to: "/", label: "Projects", icon: Layers, end: true },
-    { to: workspacePath("team"), label: "Team", icon: Users, end: true },
-    { to: billingPath(), label: "Usage & Billing", icon: CreditCard, end: true },
-    { to: "/org/channels", label: "Output Channels", icon: Radio, end: true },
-    { to: workspaceSettingsPath(), label: "Org Settings", icon: Settings, end: false },
+    { to: "/", label: "Projects", icon: Layers, end: true, badge: undefined },
+    {
+      to: organizationsPath(),
+      label: "Organisations",
+      icon: Building2,
+      end: true,
+      badge: safeOrganizations.length > 0 ? String(safeOrganizations.length) : undefined,
+    },
+    { to: workspacePath("team"), label: "Team", icon: Users, end: true, badge: undefined },
+    { to: billingPath(), label: "Usage & Billing", icon: CreditCard, end: true, badge: undefined },
+    { to: "/org/channels", label: "Output Channels", icon: Radio, end: true, badge: undefined },
+    { to: workspaceSettingsPath(), label: "Org Settings", icon: Settings, end: false, badge: undefined },
   ];
 
-  const safeOrganizations = Array.isArray(organizations) ? organizations : [];
+  // 3. Main / Global Context Navigation Items
+  const globalNavItems = [
+    {
+      to: organizationsPath(),
+      label: "Organisations",
+      icon: Building2,
+      end: true,
+      badge: safeOrganizations.length > 0 ? String(safeOrganizations.length) : undefined,
+    },
+    {
+      to: userSettingsPath(),
+      label: "User Settings",
+      icon: SlidersHorizontal,
+      end: false,
+      badge: undefined,
+    },
+  ];
+
+  const externalResourceLinks = [
+    { href: EPURE_DOCS_URL, label: "Documentation", icon: BookOpen },
+    { href: EPURE_CHANGELOG_URL, label: "Changelog", icon: History },
+    { href: EPURE_DOCS_QUICKSTART_URL, label: "Quickstart Guide", icon: Compass },
+  ];
 
   const sidebarContent = (
     <>
-      {/* 1. Organisation Menu at top of sidebar (one level above Projects) */}
+      {/* 1. Header Zone — Dynamic per Navigation Context with Zero Shift */}
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-border-subtle px-3 bg-surface-1">
         <Link
           to={workspacePath()}
@@ -123,138 +174,205 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
           </span>
         </Link>
 
-        {/* Organisation Selector Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        {/* Dynamic Context Header Controls */}
+        <div className="flex items-center gap-1.5 min-w-0">
+          {navContext === "project" ? (
+            /* In Project Context: Back to Organisation Button */
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-fg-primary h-7 max-w-[130px]"
-              title="Organisation Menu"
-            >
-              <Building2 size={13} className="text-primary shrink-0" />
-              <span className="truncate text-xs">
-                {currentOrg ? currentOrg.name : user?.org_name || "Organisation"}
-              </span>
-              <ChevronDown size={11} className="text-fg-muted shrink-0" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64 shadow-lg border border-border-subtle bg-surface-1">
-            <DropdownMenuLabel className="flex items-center justify-between text-2xs uppercase tracking-wider text-fg-muted">
-              <span>Organisations</span>
-              <span className="text-[10px] text-fg-muted">{safeOrganizations.length} total</span>
-            </DropdownMenuLabel>
-            <div className="max-h-56 overflow-y-auto divide-y divide-border-subtle/40">
-              {safeOrganizations.map((org) => {
-                const isSelected = org.is_current || org.id === user?.org_id;
-                return (
-                  <DropdownMenuItem
-                    key={org.id}
-                    onSelect={() => void switchOrg(org.id)}
-                    className={cn(
-                      "flex items-center justify-between text-xs py-2 cursor-pointer",
-                      isSelected && "bg-primary/10 font-semibold text-fg-primary",
-                    )}
-                  >
-                    <div className="flex flex-col min-w-0 pr-2">
-                      <div className="flex items-center gap-2">
-                        <span className="size-1.5 rounded-full bg-healthy shrink-0" />
-                        <span className="truncate">{org.name}</span>
-                      </div>
-                      <span className="text-2xs font-mono text-fg-muted capitalize ml-3.5">
-                        {org.role} · {org.member_count} member{org.member_count === 1 ? "" : "s"}
-                      </span>
-                    </div>
-                  </DropdownMenuItem>
-                );
-              })}
-            </div>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={() => {
-                onMobileClose?.();
-                navigate(workspaceSettingsPath());
-              }}
-              className="text-xs cursor-pointer flex items-center gap-2"
-            >
-              <Settings size={13} className="text-fg-muted" />
-              <span>Organisation Settings</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {onMobileClose ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            onClick={onMobileClose}
-            className="md:hidden text-fg-muted hover:text-fg-primary ml-1"
-            aria-label="Close navigation"
-          >
-            <X size={16} />
-          </Button>
-        ) : null}
-      </div>
-
-      {/* 2. Project Selector Dropdown (Clean 6px semantic health dot, no letter avatars) */}
-      <div className="p-2.5 pb-1.5 border-b border-border-subtle bg-surface-1/40">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              data-tour="project-switcher"
-              className="btn-tactile flex w-full items-center justify-between h-8 px-2.5 text-xs font-medium text-fg-primary shadow-2xs"
-              title={activeProject?.name ?? "Select project"}
-            >
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="size-1.5 rounded-full bg-healthy shrink-0" />
-                <span className="truncate font-semibold">{activeProject?.name ?? "Select project"}</span>
-              </div>
-              <ChevronDown className="h-3 w-3 text-fg-muted shrink-0" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-64 max-w-[calc(100vw-2rem)] shadow-lg border border-border-subtle bg-surface-1">
-            <DropdownMenuLabel className="text-2xs font-semibold text-fg-muted uppercase tracking-wider">
-              Switch Project
-            </DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={activeProject?.id ?? ""}
-              onValueChange={enterProject}
-            >
-              {safeProjects.map((project) => (
-                <DropdownMenuRadioItem key={project.id} value={project.id} className="text-xs">
-                  <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                    <span className="flex items-center gap-2 min-w-0">
-                      <span className="size-1.5 rounded-full bg-healthy shrink-0" />
-                      <span className="truncate font-medium">{project.name}</span>
-                    </span>
-                    <span className="font-mono text-[11px] text-fg-muted shrink-0">/{project.slug}</span>
-                    {isSharedProjectRole(project.role ?? viewerRole) ? (
-                      <SharedProjectBadge />
-                    ) : null}
-                  </span>
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={() => {
+              onClick={() => {
                 onMobileClose?.();
                 navigate(workspacePath());
               }}
-              className="text-xs"
+              className="flex items-center gap-1.5 px-2 py-1 text-xs text-fg-muted hover:text-fg-primary h-7 max-w-[130px]"
+              title={`Return to ${currentOrg?.name ?? "Organisation"}`}
             >
-              <Layers className="mr-2 h-3.5 w-3.5" />
-              <span>Manage all projects</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <ArrowLeft size={12} className="shrink-0 text-fg-muted" />
+              <span className="truncate text-2xs font-medium">
+                {currentOrg ? currentOrg.name : "Workspace"}
+              </span>
+            </Button>
+          ) : navContext === "organization" ? (
+            /* In Organisation Context: Organisation Selector Dropdown */
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-fg-primary h-7 max-w-[130px]"
+                  title="Organisation Menu"
+                >
+                  <Building2 size={13} className="text-primary shrink-0" />
+                  <span className="truncate text-xs">
+                    {currentOrg ? currentOrg.name : user?.org_name || "Organisation"}
+                  </span>
+                  <ChevronDown size={11} className="text-fg-muted shrink-0" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 shadow-lg border border-border-subtle bg-surface-1">
+                <DropdownMenuLabel className="flex items-center justify-between text-2xs uppercase tracking-wider text-fg-muted">
+                  <span>Organisations</span>
+                  <span className="text-[10px] text-fg-muted">{safeOrganizations.length} total</span>
+                </DropdownMenuLabel>
+                <div className="max-h-56 overflow-y-auto divide-y divide-border-subtle/40">
+                  {safeOrganizations.map((org) => {
+                    const isSelected = org.is_current || org.id === user?.org_id;
+                    return (
+                      <DropdownMenuItem
+                        key={org.id}
+                        onSelect={() => void switchOrg(org.id)}
+                        className={cn(
+                          "flex items-center justify-between text-xs py-2 cursor-pointer",
+                          isSelected && "bg-primary/10 font-semibold text-fg-primary",
+                        )}
+                      >
+                        <div className="flex flex-col min-w-0 pr-2">
+                          <div className="flex items-center gap-2">
+                            <span className="size-1.5 rounded-full bg-healthy shrink-0" />
+                            <span className="truncate">{org.name}</span>
+                          </div>
+                          <span className="text-2xs font-mono text-fg-muted capitalize ml-3.5">
+                            {org.role} · {org.member_count} member{org.member_count === 1 ? "" : "s"}
+                          </span>
+                        </div>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => {
+                    onMobileClose?.();
+                    navigate(organizationsPath());
+                  }}
+                  className="text-xs cursor-pointer flex items-center gap-2"
+                >
+                  <Building2 size={13} className="text-fg-muted" />
+                  <span>Manage all organisations</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    onMobileClose?.();
+                    navigate(workspaceSettingsPath());
+                  }}
+                  className="text-xs cursor-pointer flex items-center gap-2"
+                >
+                  <Settings size={13} className="text-fg-muted" />
+                  <span>Organisation Settings</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            /* In Main / Global Context: Global Scope Badge */
+            <span className="rounded bg-primary/10 px-2 py-0.5 text-[10px] font-mono font-medium text-primary uppercase">
+              Global
+            </span>
+          )}
 
-        {/* Quick Search Shortcut Trigger */}
+          {onMobileClose ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              onClick={onMobileClose}
+              className="md:hidden text-fg-muted hover:text-fg-primary ml-1"
+              aria-label="Close navigation"
+            >
+              <X size={16} />
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
+      {/* 2. Sub-Header Zone — Dynamic Context Scope & Search */}
+      <div className="p-2.5 pb-1.5 border-b border-border-subtle bg-surface-1/40">
+        {navContext === "global" ? (
+          /* In Global Context: Active Workspace Return Banner */
+          <Link
+            to={workspacePath()}
+            onClick={onMobileClose}
+            className="btn-tactile flex w-full items-center justify-between h-8 px-2.5 text-xs font-medium text-fg-primary rounded-md border border-border-subtle bg-surface-1 hover:bg-surface-2 transition-colors shadow-2xs"
+            title={`Active Workspace: ${currentOrg?.name ?? "Organisation"}`}
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="size-1.5 rounded-full bg-healthy shrink-0" />
+              <span className="truncate font-medium text-xs">
+                {currentOrg ? currentOrg.name : "Workspace"}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 text-[11px] text-fg-muted shrink-0">
+              <span>Open</span>
+              <ArrowRight size={11} />
+            </div>
+          </Link>
+        ) : (
+          /* In Project or Organisation Context: Project Selector Dropdown */
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                data-tour="project-switcher"
+                className="btn-tactile flex w-full items-center justify-between h-8 px-2.5 text-xs font-medium text-fg-primary shadow-2xs"
+                title={activeProject?.name ?? "Select project"}
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="size-1.5 rounded-full bg-healthy shrink-0" />
+                  <span className="truncate font-semibold">
+                    {activeProject?.name ?? "Select project"}
+                  </span>
+                </div>
+                <ChevronDown className="h-3 w-3 text-fg-muted shrink-0" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="w-64 max-w-[calc(100vw-2rem)] shadow-lg border border-border-subtle bg-surface-1"
+            >
+              <DropdownMenuLabel className="text-2xs font-semibold text-fg-muted uppercase tracking-wider">
+                Switch Project
+              </DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={activeProject?.id ?? ""}
+                onValueChange={enterProject}
+              >
+                {safeProjects.map((project) => (
+                  <DropdownMenuRadioItem key={project.id} value={project.id} className="text-xs">
+                    <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="size-1.5 rounded-full bg-healthy shrink-0" />
+                        <span className="truncate font-medium">{project.name}</span>
+                      </span>
+                      <span className="font-mono text-[11px] text-fg-muted shrink-0">
+                        /{project.slug}
+                      </span>
+                      {isSharedProjectRole(project.role ?? viewerRole) ? (
+                        <SharedProjectBadge />
+                      ) : null}
+                    </span>
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => {
+                  onMobileClose?.();
+                  navigate(workspacePath());
+                }}
+                className="text-xs"
+              >
+                <Layers className="mr-2 h-3.5 w-3.5" />
+                <span>Manage all projects</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
+        {/* Quick Search Shortcut Omnibar Trigger */}
         <Button
           type="button"
           variant="outline"
@@ -275,19 +393,28 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
         </Button>
       </div>
 
-      {/* 3. Navigation Links List */}
+      {/* 3. Navigation Links List — Adapts Dynamically to Context */}
       <div className="flex-1 overflow-y-auto px-2 py-2.5 space-y-4">
-        {/* Project Section */}
-        {activeProject ? (
+        {navContext === "project" && activeProject ? (
+          /* PROJECT CONTEXT NAVIGATION */
           <div>
-            <div className="px-2 pb-1 flex items-baseline justify-between gap-1.5" title={activeProject.name}>
-              <span className="text-[10px] font-semibold tracking-wider text-fg-muted uppercase">Project</span>
-              <span className="text-2xs font-medium text-fg-primary truncate max-w-[130px]">{activeProject.name}</span>
+            <div
+              className="px-2 pb-1 flex items-baseline justify-between gap-1.5"
+              title={activeProject.name}
+            >
+              <span className="text-[10px] font-semibold tracking-wider text-fg-muted uppercase">
+                Project
+              </span>
+              <span className="text-2xs font-medium text-fg-primary truncate max-w-[130px]">
+                {activeProject.name}
+              </span>
             </div>
             <nav className="space-y-0.5">
               {projectNavItems.map((item) => {
                 const Icon = item.icon;
-                const isExactActive = pathname === item.to || (item.to.endsWith("/issues") && pathname.startsWith(item.to));
+                const isExactActive =
+                  pathname === item.to ||
+                  (item.to.endsWith("/issues") && pathname.startsWith(item.to));
                 return (
                   <NavLink
                     key={item.to}
@@ -310,7 +437,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
                         <>
                           {active && (
                             <motion.div
-                              layoutId="activeProjectNavPill"
+                              layoutId="activeNavPill"
                               className="absolute inset-0 rounded-md bg-surface-2 border-l-2 border-primary"
                               transition={{ type: "spring", stiffness: 400, damping: 32 }}
                             />
@@ -324,53 +451,161 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
                 );
               })}
             </nav>
-          </div>
-        ) : null}
 
-        {/* Organisation Section */}
-        <div>
-          <p className="px-2.5 pb-1.5 text-[10px] font-semibold tracking-wider text-fg-muted uppercase">
-            Organisation
-          </p>
-          <nav className="space-y-0.5">
-            {orgNavItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  onClick={onMobileClose}
-                  className={({ isActive }) =>
-                    cn(
-                      "relative flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-ring select-none",
-                      isActive
-                        ? "text-fg-primary font-semibold"
-                        : "text-fg-muted hover:text-fg-primary hover:bg-surface-2/60",
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      {isActive && (
-                        <motion.div
-                          layoutId="activeOrgNavPill"
-                          className="absolute inset-0 rounded-md bg-surface-2 border-l-2 border-primary"
-                          transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                        />
+            {/* Quick scope return links */}
+            <div className="mt-4 pt-3 border-t border-border-subtle/50 space-y-0.5">
+              <NavLink
+                to={workspacePath()}
+                end
+                onClick={onMobileClose}
+                className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-fg-muted hover:text-fg-primary hover:bg-surface-2/60 transition-colors focus-ring select-none"
+              >
+                <Layers size={14} className="shrink-0" strokeWidth={1.8} />
+                <span className="truncate">All Projects</span>
+              </NavLink>
+              <NavLink
+                to={organizationsPath()}
+                end
+                onClick={onMobileClose}
+                className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-fg-muted hover:text-fg-primary hover:bg-surface-2/60 transition-colors focus-ring select-none"
+              >
+                <Building2 size={14} className="shrink-0" strokeWidth={1.8} />
+                <span className="truncate">All Organisations</span>
+              </NavLink>
+            </div>
+          </div>
+        ) : navContext === "organization" ? (
+          /* ORGANISATION CONTEXT NAVIGATION */
+          <div>
+            <p className="px-2.5 pb-1.5 text-[10px] font-semibold tracking-wider text-fg-muted uppercase">
+              {currentOrg ? currentOrg.name : "Organisation"}
+            </p>
+            <nav className="space-y-0.5">
+              {orgNavItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    onClick={onMobileClose}
+                    className={({ isActive }) =>
+                      cn(
+                        "relative flex items-center justify-between gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-ring select-none",
+                        isActive
+                          ? "text-fg-primary font-semibold"
+                          : "text-fg-muted hover:text-fg-primary hover:bg-surface-2/60",
+                      )
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        {isActive && (
+                          <motion.div
+                            layoutId="activeNavPill"
+                            className="absolute inset-0 rounded-md bg-surface-2 border-l-2 border-primary"
+                            transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                          />
+                        )}
+                        <span className="relative z-10 flex items-center gap-2.5 truncate">
+                          <Icon size={14} className="shrink-0" strokeWidth={1.8} />
+                          <span className="truncate">{item.label}</span>
+                        </span>
+                        {item.badge ? (
+                          <span className="relative z-10 rounded bg-surface-2 px-1.5 py-0.2 text-[10px] font-mono text-fg-muted">
+                            {item.badge}
+                          </span>
+                        ) : null}
+                      </>
+                    )}
+                  </NavLink>
+                );
+              })}
+            </nav>
+          </div>
+        ) : (
+          /* MAIN / GLOBAL CONTEXT NAVIGATION */
+          <div className="space-y-4">
+            <div>
+              <p className="px-2.5 pb-1.5 text-[10px] font-semibold tracking-wider text-fg-muted uppercase">
+                Global Context
+              </p>
+              <nav className="space-y-0.5">
+                {globalNavItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.end}
+                      onClick={onMobileClose}
+                      className={({ isActive }) =>
+                        cn(
+                          "relative flex items-center justify-between gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-ring select-none",
+                          isActive
+                            ? "text-fg-primary font-semibold"
+                            : "text-fg-muted hover:text-fg-primary hover:bg-surface-2/60",
+                        )
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          {isActive && (
+                            <motion.div
+                              layoutId="activeNavPill"
+                              className="absolute inset-0 rounded-md bg-surface-2 border-l-2 border-primary"
+                              transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                            />
+                          )}
+                          <span className="relative z-10 flex items-center gap-2.5 truncate">
+                            <Icon size={14} className="shrink-0" strokeWidth={1.8} />
+                            <span className="truncate">{item.label}</span>
+                          </span>
+                          {item.badge ? (
+                            <span className="relative z-10 rounded bg-surface-2 px-1.5 py-0.2 text-[10px] font-mono text-fg-muted">
+                              {item.badge}
+                            </span>
+                          ) : null}
+                        </>
                       )}
-                      <Icon size={14} className="relative z-10 shrink-0" strokeWidth={1.8} />
-                      <span className="relative z-10 truncate">{item.label}</span>
-                    </>
-                  )}
-                </NavLink>
-              );
-            })}
-          </nav>
-        </div>
+                    </NavLink>
+                  );
+                })}
+              </nav>
+            </div>
+
+            {/* External Links Section */}
+            <div>
+              <p className="px-2.5 pb-1.5 text-[10px] font-semibold tracking-wider text-fg-muted uppercase">
+                Resources
+              </p>
+              <nav className="space-y-0.5">
+                {externalResourceLinks.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={onMobileClose}
+                      className="flex items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium text-fg-muted hover:text-fg-primary hover:bg-surface-2/60 transition-colors focus-ring select-none"
+                    >
+                      <span className="flex items-center gap-2.5 truncate">
+                        <Icon size={14} className="shrink-0" strokeWidth={1.8} />
+                        <span className="truncate">{item.label}</span>
+                      </span>
+                      <ExternalLink size={11} className="text-fg-muted shrink-0 opacity-60" />
+                    </a>
+                  );
+                })}
+              </nav>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 4. Footer: Spike Valve Live Telemetry & User Profile */}
+      {/* 4. Footer: Live Spike Valve Telemetry & User Account Menu */}
       <div className="shrink-0 border-t border-border-subtle p-2.5 space-y-2 bg-surface-1/40">
         {/* Spike Valve Status Widget */}
         <Tooltip>
@@ -429,7 +664,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
               <ChevronDown className="h-3 w-3 text-fg-muted shrink-0" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52 shadow-lg border border-border-subtle bg-surface-1">
+          <DropdownMenuContent align="end" className="w-56 shadow-lg border border-border-subtle bg-surface-1">
             <DropdownMenuLabel className="font-normal">
               <span className="text-2xs text-fg-muted">Signed in as</span>
               <p className="truncate text-xs font-semibold text-fg-primary">{user?.email ?? "…"}</p>
@@ -438,15 +673,39 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
             <DropdownMenuItem
               onSelect={() => {
                 onMobileClose?.();
+                navigate(userSettingsPath());
+              }}
+              className="text-xs cursor-pointer gap-2"
+            >
+              <UserCheck className="h-3.5 w-3.5 text-fg-muted" />
+              <span>User Settings</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                onMobileClose?.();
+                navigate(organizationsPath());
+              }}
+              className="text-xs cursor-pointer gap-2"
+            >
+              <Building2 className="h-3.5 w-3.5 text-fg-muted" />
+              <span>Organisations</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                onMobileClose?.();
                 navigate(workspaceSettingsPath());
               }}
-              className="text-xs"
+              className="text-xs cursor-pointer gap-2"
             >
-              <Settings className="mr-2 h-3.5 w-3.5" />
+              <Settings className="h-3.5 w-3.5 text-fg-muted" />
               <span>Workspace Settings</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void logout()} className="text-xs text-semantic-danger">
-              <LogOut className="mr-2 h-3.5 w-3.5" />
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => void logout()}
+              className="text-xs text-semantic-danger cursor-pointer gap-2"
+            >
+              <LogOut className="h-3.5 w-3.5" />
               <span>Log out</span>
             </DropdownMenuItem>
           </DropdownMenuContent>

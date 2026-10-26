@@ -35,3 +35,41 @@ export function Progress({
     </div>
   );
 }
+
+export interface SegmentedProgressSegment {
+  value: number;
+  className?: string;
+  title?: string;
+}
+
+export interface SegmentedProgressProps extends React.HTMLAttributes<HTMLDivElement> {
+  segments: SegmentedProgressSegment[];
+}
+
+export function SegmentedProgress({
+  segments,
+  className,
+  ...props
+}: SegmentedProgressProps) {
+  return (
+    <div
+      data-slot="segmented-progress"
+      className={cn(
+        "relative h-3 w-full overflow-hidden rounded-full bg-surface-2 border border-border-subtle/80 flex",
+        className
+      )}
+      {...props}
+    >
+      {segments.map((seg, i) =>
+        seg.value > 0 ? (
+          <div
+            key={i}
+            className={cn("h-full transition-all duration-500", seg.className)}
+            style={{ width: `${Math.max(0, Math.min(seg.value, 100))}%` }}
+            title={seg.title}
+          />
+        ) : null
+      )}
+    </div>
+  );
+}

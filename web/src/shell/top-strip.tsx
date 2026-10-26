@@ -1,11 +1,14 @@
 import {
   ArrowRight,
+  Building2,
   ChevronDown,
   FolderKanban,
   LogOut,
   Menu,
   Moon,
+  Settings,
   Sun,
+  UserCheck,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useThemeMode } from "../lib/style-theme";
@@ -19,9 +22,12 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import {
+  getNavigationContext,
   isProjectRoute,
+  organizationsPath,
   projectIdFromPath,
   projectPath,
+  userSettingsPath,
   workspacePath,
   workspaceSettingsPath,
 } from "../lib/paths";
@@ -31,6 +37,12 @@ import { useAppContext } from "./app-context";
 import { useLogout } from "../lib/use-logout";
 
 function getPageName(pathname: string): string {
+  if (pathname.startsWith("/organizations") || pathname.startsWith("/orgs")) return "Organisations";
+  if (pathname.startsWith("/user/settings/security")) return "User Settings › Security";
+  if (pathname.startsWith("/user/settings/agent")) return "User Settings › Personal Tokens";
+  if (pathname.startsWith("/user/settings/connected-apps")) return "User Settings › Connected Apps";
+  if (pathname.startsWith("/user/settings") || pathname.startsWith("/user")) return "User Settings";
+  if (pathname.includes("/channels")) return "Output Channels";
   if (pathname.includes("/issues")) return "Issues Feed";
   if (pathname.includes("/monitoring")) return "Monitoring";
   if (pathname.includes("/monitors")) return "Cron Monitors";
@@ -53,11 +65,7 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const inProject = isProjectRoute(pathname);
-  const {
-    projects,
-    user,
-    setProjectId,
-  } = useAppContext();
+  const { projects, user, setProjectId } = useAppContext();
   const logout = useLogout();
   const [themeMode, toggleTheme] = useThemeMode();
 
@@ -65,14 +73,76 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
   const safeProjects = Array.isArray(projects) ? projects : [];
   const activeProject =
     inProject && routeProjectId
-      ? safeProjects.find((project) => project && (project.id === routeProjectId || project.slug === routeProjectId)) ?? null
+      ? safeProjects.find(
+          (project) => project && (project.id === routeProjectId || project.slug === routeProjectId),
+        ) ?? null
       : null;
 
+  const navContext = getNavigationContext(pathname);
   const pageName = getPageName(pathname);
 
+  const projectSwitcher = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="flex h-7 items-center gap-1.5 px-2 py-1 text-xs font-semibold text-fg-primary"
+        >
+          <FolderKanban size={13} className="shrink-0 text-primary" />
+          <span className="max-w-[120px] truncate sm:max-w-[180px]">
+            {activeProject ? activeProject.name : "All Projects"}
+          </span>
+          <ChevronDown size={11} className="shrink-0 text-fg-muted" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-64 border border-border-subtle bg-surface-1 shadow-lg">
+        <DropdownMenuLabel className="flex items-center justify-between text-2xs uppercase tracking-wider text-fg-muted">
+          <span>Projects</span>
+        </DropdownMenuLabel>
+        {safeProjects.length === 0 ? (
+          <div className="px-2 py-2 text-2xs text-fg-muted">No projects configured</div>
+        ) : (
+          <div className="max-h-56 divide-y divide-border-subtle/40 overflow-y-auto">
+            {safeProjects.slice(0, 25).map((p) => {
+              const isActive = p.id === activeProject?.id;
+              return (
+                <DropdownMenuItem
+                  key={p.id}
+                  onSelect={() => {
+                    setProjectId(p.id);
+                    navigate(projectPath(p.id, "issues"));
+                  }}
+                  className={cn(
+                    "flex cursor-pointer items-center justify-between py-2 text-xs",
+                    isActive && "bg-primary/10 font-semibold text-fg-primary",
+                  )}
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="size-1.5 shrink-0 rounded-full bg-healthy" />
+                    <span className="truncate">{p.name}</span>
+                  </div>
+                  <span className="ml-2 shrink-0 font-mono text-[11px] text-fg-muted">/{p.slug}</span>
+                </DropdownMenuItem>
+              );
+            })}
+          </div>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={() => navigate(workspacePath())}
+          className="flex cursor-pointer items-center justify-between text-2xs text-fg-muted"
+        >
+          <span>Manage all projects</span>
+          <ArrowRight size={11} />
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
-    <header className="epure-top-strip flex h-11 shrink-0 items-center justify-between border-b border-border-subtle bg-surface-1 px-4 select-none">
-      {/* Left zone: Mobile trigger & Fast Workspace / Org Switcher Dropdown */}
+    <header className="epure-top-strip flex h-11 shrink-0 select-none items-center justify-between border-b border-border-subtle bg-surface-1 px-4">
       <div className="flex min-w-0 items-center gap-2">
         {onOpenMobileSidebar ? (
           <Button
@@ -80,81 +150,52 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
             variant="ghost"
             size="icon-xs"
             onClick={onOpenMobileSidebar}
-            className="md:hidden -ml-1 text-fg-muted hover:text-fg-primary"
+            className="-ml-1 text-fg-muted hover:text-fg-primary md:hidden"
             aria-label="Open navigation menu"
           >
             <Menu size={16} />
           </Button>
         ) : null}
 
-        {/* Project Switcher Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-fg-primary h-7"
-            >
-              <FolderKanban size={13} className="text-primary shrink-0" />
-              <span className="truncate max-w-[120px] sm:max-w-[180px]">
-                {activeProject ? activeProject.name : "All Projects"}
+        {navContext === "global" ? (
+          <>
+            <div className="flex h-7 items-center gap-1.5 px-2 py-1 text-xs font-semibold text-fg-primary">
+              <span className="rounded bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase text-primary">
+                Global
               </span>
-              <ChevronDown size={11} className="text-fg-muted shrink-0" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-64 shadow-lg border border-border-subtle bg-surface-1">
-            <DropdownMenuLabel className="flex items-center justify-between text-2xs uppercase tracking-wider text-fg-muted">
-              <span>Projects</span>
-            </DropdownMenuLabel>
-            {safeProjects.length === 0 ? (
-              <div className="px-2 py-2 text-2xs text-fg-muted">No projects configured</div>
-            ) : (
-              <div className="max-h-56 overflow-y-auto divide-y divide-border-subtle/40">
-                {safeProjects.slice(0, 25).map((p) => {
-                  const isActive = p.id === activeProject?.id;
-                  return (
-                    <DropdownMenuItem
-                      key={p.id}
-                      onSelect={() => {
-                        setProjectId(p.id);
-                        navigate(projectPath(p.id, "issues"));
-                      }}
-                      className={cn(
-                        "flex items-center justify-between text-xs py-2 cursor-pointer",
-                        isActive && "bg-primary/10 font-semibold text-fg-primary",
-                      )}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="size-1.5 rounded-full bg-healthy shrink-0" />
-                        <span className="truncate">{p.name}</span>
-                      </div>
-                      <span className="font-mono text-[11px] text-fg-muted shrink-0 ml-2">/{p.slug}</span>
-                    </DropdownMenuItem>
-                  );
-                })}
-              </div>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={() => navigate(workspacePath())}
-              className="text-2xs text-fg-muted flex items-center justify-between cursor-pointer"
-            >
-              <span>Manage all projects</span>
-              <ArrowRight size={11} />
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <span className="text-fg-muted text-xs" aria-hidden>/</span>
-        <span className="text-xs font-medium text-fg-muted truncate">
-          {pageName}
-        </span>
+            </div>
+            <span className="text-xs text-fg-muted" aria-hidden>
+              /
+            </span>
+            <span className="truncate text-xs font-medium text-fg-muted">{pageName}</span>
+            {user?.org_name ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(workspacePath())}
+                className="ml-1.5 hidden h-6 items-center gap-1.5 rounded border border-border-subtle bg-surface-2/40 px-2 py-0.5 text-2xs text-fg-muted hover:text-fg-primary sm:inline-flex"
+                title={`Return to ${user.org_name}`}
+              >
+                <span className="size-1.5 shrink-0 rounded-full bg-healthy" />
+                <span className="max-w-[120px] truncate">{user.org_name}</span>
+                <ArrowRight size={10} className="shrink-0 text-fg-muted" />
+              </Button>
+            ) : null}
+          </>
+        ) : (
+          <>
+            {navContext === "project" ? projectSwitcher : null}
+            {navContext === "organization" ? projectSwitcher : null}
+            <span className="text-xs text-fg-muted" aria-hidden>
+              /
+            </span>
+            <span className="truncate text-xs font-medium text-fg-muted">{pageName}</span>
+          </>
+        )}
       </div>
 
-      {/* Right zone: Feedback, Theme & Profile (Environment is stripped out and lives in FilterBar) */}
       <div className="flex shrink-0 items-center gap-2.5">
-
         {isCloudDeployment() ? (
           <a
             href="mailto:support@epure.sh?subject=Epure%20Cloud%20Feedback"
@@ -200,24 +241,50 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
               </span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52 shadow-md border border-border-subtle bg-surface-1">
+          <DropdownMenuContent align="end" className="w-56 border border-border-subtle bg-surface-1 shadow-md">
             <DropdownMenuLabel className="font-normal">
               <span className="text-2xs text-fg-muted">Signed in as</span>
               <p className="truncate text-xs font-semibold text-fg-primary">{user?.email ?? "…"}</p>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={toggleTheme} className="text-xs flex items-center justify-between cursor-pointer">
+            <DropdownMenuItem
+              onSelect={() => navigate(userSettingsPath())}
+              className="cursor-pointer gap-2 text-xs"
+            >
+              <UserCheck size={13} className="text-fg-muted" />
+              <span>User Settings</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => navigate(organizationsPath())}
+              className="cursor-pointer gap-2 text-xs"
+            >
+              <Building2 size={13} className="text-fg-muted" />
+              <span>Organisations</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => navigate(workspaceSettingsPath())}
+              className="cursor-pointer gap-2 text-xs"
+            >
+              <Settings size={13} className="text-fg-muted" />
+              <span>Workspace Settings</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={toggleTheme}
+              className="flex cursor-pointer items-center justify-between text-xs"
+            >
               <span className="flex items-center gap-2">
                 {themeMode === "dark" ? <Sun size={13} /> : <Moon size={13} />}
                 <span>Theme: {themeMode === "dark" ? "Dark" : "Light"}</span>
               </span>
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => navigate(workspaceSettingsPath())} className="text-xs">
-              Settings
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void logout()} className="text-xs text-semantic-danger">
-              <LogOut size={13} className="mr-2" />
-              Log out
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => void logout()}
+              className="cursor-pointer gap-2 text-xs text-semantic-danger"
+            >
+              <LogOut size={13} />
+              <span>Log out</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

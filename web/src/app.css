@@ -1,5 +1,17 @@
 @import "tailwindcss";
+@import "sonner/dist/styles.css";
 @config "../tailwind.config.ts";
+
+/* Sonner toast fixed portal overlay — never push dashboard or shift layout */
+[data-sonner-toaster] {
+  position: fixed !important;
+  z-index: 999999 !important;
+  pointer-events: none !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast] {
+  pointer-events: auto !important;
+}
 
 html,
 body,

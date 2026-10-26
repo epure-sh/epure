@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { Link, useParams } from "react-router-dom";
 import { fetchAlerts, fetchWebhooks, patchAlert, type AlertRow } from "../../lib/api";
 import { projectPath, projectSettingsPath } from "../../lib/paths";
+import { isDemoProject } from "../../lib/demo-utils";
 import { useAppContext } from "../../shell/app-context";
 import { ActionButton } from "../../ui/action-button";
 import { Button } from "../../ui/button";
@@ -75,7 +76,7 @@ export function AlertsPage() {
       const match = safeProjects.find((row) => row && (row.id === candidate || row.slug === candidate));
       if (match) return match;
     }
-    return safeProjects[0] ?? null;
+    return safeProjects.find((row) => row && !isDemoProject(row)) ?? safeProjects[0] ?? null;
   }, [routeProjectId, projectId, safeProjects]);
 
   const activeProjectId = activeProject?.id ?? null;

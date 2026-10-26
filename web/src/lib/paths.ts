@@ -96,6 +96,46 @@ export function projectSegmentFromPath(pathname: string): string | null {
   return match?.[1] ?? null;
 }
 
-export function isWorkspaceRoute(pathname: string): boolean {
-  return !isProjectRoute(pathname);
+export function isGlobalRoute(pathname: string): boolean {
+  return (
+    pathname === "/organizations" ||
+    pathname.startsWith("/organizations/") ||
+    pathname === "/orgs" ||
+    pathname.startsWith("/orgs/") ||
+    pathname === "/user/settings" ||
+    pathname.startsWith("/user/settings/") ||
+    pathname === "/user" ||
+    pathname.startsWith("/user/")
+  );
 }
+
+export function isWorkspaceRoute(pathname: string): boolean {
+  return !isProjectRoute(pathname) && !isGlobalRoute(pathname);
+}
+
+export function organizationsPath(): string {
+  return "/organizations";
+}
+
+export function userSettingsPath(
+  tab?: "general" | "security" | "agent" | "connected-apps",
+): string {
+  if (!tab || tab === "general") {
+    return "/user/settings";
+  }
+  return `/user/settings/${tab}`;
+}
+
+export type NavigationContext = "global" | "organization" | "project";
+
+export function getNavigationContext(pathname: string): NavigationContext {
+  if (isProjectRoute(pathname)) {
+    return "project";
+  }
+  if (isGlobalRoute(pathname)) {
+    return "global";
+  }
+  return "organization";
+}
+
+

@@ -14,7 +14,10 @@ import { ReleasesPage } from "../features/releases";
 import { MonitorsPage } from "../features/monitors";
 import { MonitoringPage } from "../features/monitoring";
 import { SettingsPage } from "../features/settings";
+import { OrganisationsPage } from "../features/organizations";
+import { UserSettingsPage } from "../features/user/user-settings-page";
 import { projectPath } from "../lib/paths";
+
 import { RouteErrorBoundary } from "../ui/route-error-boundary";
 import { useAppContext } from "./app-context";
 import { EnvironmentUrlSync } from "./environment-url-sync";
@@ -102,6 +105,26 @@ export function AppShell() {
         <EnvironmentUrlSync />
         <main className="epure-app-shell-main flex min-h-0 flex-1 flex-col overflow-hidden bg-bg">
               <Routes>
+                {/* Global scope */}
+                <Route
+                  path="/organizations"
+                  element={
+                    <BoundedRoute title="Organisations crashed" backHref="/">
+                      <OrganisationsPage />
+                    </BoundedRoute>
+                  }
+                />
+                <Route path="/orgs" element={<Navigate to="/organizations" replace />} />
+                <Route
+                  path="/user/settings/*"
+                  element={
+                    <BoundedRoute title="User settings crashed" backHref="/organizations">
+                      <UserSettingsPage />
+                    </BoundedRoute>
+                  }
+                />
+                <Route path="/user" element={<Navigate to="/user/settings" replace />} />
+
                 {/* Workspace scope */}
                 <Route
                   path="/"
@@ -111,6 +134,7 @@ export function AppShell() {
                     </BoundedRoute>
                   }
                 />
+
                 <Route
                   path="/team"
                   element={

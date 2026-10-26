@@ -77,7 +77,7 @@ const ROLE_DESCRIPTIONS: Record<MemberRole, string> = {
 
 export function OrgTeamPage() {
   const { currentOrg, user } = useAppContext();
-  const orgName = currentOrg?.name ?? user?.org_name ?? "Acme Corp";
+  const orgName = currentOrg?.name ?? user?.org_name ?? "Workspace";
 
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [invitations, setInvitations] = useState<InvitationRow[]>([]);
@@ -97,29 +97,20 @@ export function OrgTeamPage() {
     setLoading(true);
     try {
       const [memberRows, inviteRows] = await Promise.all([
-        fetchMembers().catch(() => [
-          {
-            user_id: user?.user_id ?? "usr_1",
-            email: user?.email ?? "dev@acmecorp.com",
-            display_name: user?.display_name ?? "Admin",
-            role: user?.role ?? "owner",
-            created_at: new Date(Date.now() - 86400000 * 30).toISOString(),
-          },
-          {
-            user_id: "usr_2",
-            email: "alex@acmecorp.com",
-            display_name: "Alex Rivera",
-            role: "admin",
-            created_at: new Date(Date.now() - 86400000 * 14).toISOString(),
-          },
-          {
-            user_id: "usr_3",
-            email: "sre@acmecorp.com",
-            display_name: "Elena Rostova",
-            role: "member",
-            created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-          },
-        ] as MemberRow[]),
+        fetchMembers().catch(() => {
+          if (user) {
+            return [
+              {
+                user_id: user.user_id,
+                email: user.email,
+                display_name: user.display_name,
+                role: user.role,
+                created_at: new Date().toISOString(),
+              },
+            ] as MemberRow[];
+          }
+          return [] as MemberRow[];
+        }),
         canManage ? fetchInvitations().catch(() => [] as InvitationRow[]) : Promise.resolve([]),
       ]);
 
@@ -149,12 +140,7 @@ export function OrgTeamPage() {
       toast.success("Invitation created. Share the link with your teammate.");
       await loadTeam();
     } catch {
-      // Local fallback for demo
-      const mockToken = `inv_${Math.random().toString(36).substring(2, 12)}`;
-      setRevealedInvite({ email: inviteEmail.trim(), token: mockToken });
-      setInviteEmail("");
-      setInviteModalOpen(false);
-      toast.success("Invitation created. Share the link with your teammate.");
+      toast.error("Failed to create invitation. Please verify the email and try again.");
     } finally {
       setInviting(false);
     }
