@@ -43,13 +43,15 @@ pub async fn build_agent_queue(
     let issues = issues::list_issues_filtered(pool, org_id, filter).await?;
     let alerts = alerts::list_alerts(
         pool,
-        org_id,
-        params.user_id,
-        200,
-        0,
-        params.project_id,
-        params.environment.as_deref(),
-        AlertListFilter::Unread,
+        alerts::ListAlertsParams {
+            org_id,
+            user_id: params.user_id,
+            limit: 200,
+            offset: 0,
+            project_id: params.project_id,
+            environment: params.environment.as_deref(),
+            filter: AlertListFilter::Unread,
+        },
     )
     .await?;
 

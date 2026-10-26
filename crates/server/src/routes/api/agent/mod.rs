@@ -307,13 +307,15 @@ async fn list_alerts(
     let offset = query.offset.unwrap_or(0).max(0);
     let rows = alerts::list_alerts(
         &state.pools.app,
-        dashboard.org_id,
-        dashboard.user_id,
-        limit,
-        offset,
-        query.project_id,
-        query.environment.as_deref(),
-        AlertListFilter::parse(query.view.as_deref()),
+        alerts::ListAlertsParams {
+            org_id: dashboard.org_id,
+            user_id: dashboard.user_id,
+            limit,
+            offset,
+            project_id: query.project_id,
+            environment: query.environment.as_deref(),
+            filter: AlertListFilter::parse(query.view.as_deref()),
+        },
     )
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;

@@ -110,16 +110,29 @@ pub async fn insert_alert_unless_suppressed(
     Ok(Some(insert_alert(pool, params).await?))
 }
 
+pub struct ListAlertsParams<'a> {
+    pub org_id: Uuid,
+    pub user_id: Uuid,
+    pub limit: i64,
+    pub offset: i64,
+    pub project_id: Option<Uuid>,
+    pub environment: Option<&'a str>,
+    pub filter: AlertListFilter,
+}
+
 pub async fn list_alerts(
     pool: &PgPool,
-    org_id: Uuid,
-    user_id: Uuid,
-    limit: i64,
-    offset: i64,
-    project_id: Option<Uuid>,
-    environment: Option<&str>,
-    filter: AlertListFilter,
+    params: ListAlertsParams<'_>,
 ) -> Result<Vec<AlertRow>, sqlx::Error> {
+    let ListAlertsParams {
+        org_id,
+        user_id,
+        limit,
+        offset,
+        project_id,
+        environment,
+        filter,
+    } = params;
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
     let filter_unread = matches!(filter, AlertListFilter::Unread);
     let filter_read = matches!(filter, AlertListFilter::Read);

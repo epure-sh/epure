@@ -97,13 +97,15 @@ async fn list_alerts(
 
     let rows = alerts::list_alerts(
         &state.pools.app,
-        dashboard.org_id,
-        dashboard.user_id,
-        limit,
-        offset,
-        project_id,
-        environment,
-        AlertListFilter::parse(query.view.as_deref()),
+        alerts::ListAlertsParams {
+            org_id: dashboard.org_id,
+            user_id: dashboard.user_id,
+            limit,
+            offset,
+            project_id,
+            environment,
+            filter: AlertListFilter::parse(query.view.as_deref()),
+        },
     )
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
