@@ -239,22 +239,26 @@ pub struct IssuedTokensResult {
     pub expires_in: i64,
 }
 
+#[derive(sqlx::FromRow)]
+struct IssuedOAuthRow {
+    authorization_id: Uuid,
+    agent_token_id: Uuid,
+}
+
 pub async fn issue_oauth_tokens(
     pool: &PgPool,
     params: IssueTokensTxParams,
 ) -> Result<IssuedTokensResult, sqlx::Error> {
-    let mut tx = pool.begin().await?;
     let now = Utc::now();
     let access_expires_at = now + Duration::days(OAUTH_ACCESS_TOKEN_LIFETIME_DAYS);
     let refresh_expires_at = now + Duration::days(OAUTH_REFRESH_TOKEN_LIFETIME_DAYS);
 
-    let authorization_id = sqlx::query_scalar::<_, Uuid>(
+    let row = sqlx::query_as::<_, IssuedOAuthRow>(
         r#"
-        INSERT INTO oauth_authorizations (
-            user_id, org_id, client_id, client_name, scopes, ip_address, user_agent, last_used_at
+        SELECT authorization_id, agent_token_id
+        FROM oauth_issue_tokens(
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING id
         "#,
     )
     .bind(params.user_id)
@@ -264,51 +268,18 @@ pub async fn issue_oauth_tokens(
     .bind(&params.scopes)
     .bind(&params.ip_address)
     .bind(&params.user_agent)
-    .bind(now)
-    .fetch_one(&mut *tx)
-    .await?;
-
-    let agent_token_label = format!("OAuth: {}", params.client_name);
-    let agent_token_id = sqlx::query_scalar::<_, Uuid>(
-        r#"
-        INSERT INTO agent_tokens (
-            org_id, user_id, label, token_prefix, secret_hash, scopes, expires_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id
-        "#,
-    )
-    .bind(params.org_id)
-    .bind(params.user_id)
-    .bind(agent_token_label)
     .bind(&params.access_token_prefix)
     .bind(&params.access_token_hash)
-    .bind(&params.scopes)
-    .bind(access_expires_at)
-    .fetch_one(&mut *tx)
-    .await?;
-
-    sqlx::query(
-        r#"
-        INSERT INTO oauth_tokens (
-            authorization_id, agent_token_id, refresh_token_prefix, refresh_token_hash, expires_at
-        )
-        VALUES ($1, $2, $3, $4, $5)
-        "#,
-    )
-    .bind(authorization_id)
-    .bind(agent_token_id)
     .bind(&params.refresh_token_prefix)
     .bind(&params.refresh_token_hash)
+    .bind(access_expires_at)
     .bind(refresh_expires_at)
-    .execute(&mut *tx)
+    .fetch_one(pool)
     .await?;
 
-    tx.commit().await?;
-
     Ok(IssuedTokensResult {
-        authorization_id,
-        agent_token_id,
+        authorization_id: row.authorization_id,
+        agent_token_id: row.agent_token_id,
         expires_in: OAUTH_ACCESS_TOKEN_LIFETIME_DAYS * 86400,
     })
 }

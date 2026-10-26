@@ -54,8 +54,8 @@ export function useAccountSettings() {
     newPassword: string;
     confirmPassword: string;
   }) {
-    if (input.newPassword.length < 8) {
-      throw new Error("Password must be at least 8 characters.");
+    if (input.newPassword.length < 12) {
+      throw new Error("Password must be at least 12 characters.");
     }
     if (input.newPassword !== input.confirmPassword) {
       throw new Error("New passwords do not match.");

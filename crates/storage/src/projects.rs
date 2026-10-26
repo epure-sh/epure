@@ -215,6 +215,18 @@ pub async fn project_id_for_dsn_segment(
         .await
 }
 
+/// Plan tier for an org on the ingest connection (RLS via `ingest_set_org_context`).
+pub async fn ingest_org_plan_tier(pool: &PgPool, org_id: Uuid) -> Result<String, sqlx::Error> {
+    let mut tx = crate::rls::begin_ingest_transaction(pool, org_id).await?;
+    let tier: Option<String> =
+        sqlx::query_scalar("SELECT plan_tier FROM organizations WHERE id = $1")
+            .bind(org_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    tx.commit().await?;
+    Ok(tier.unwrap_or_else(|| "oss".to_string()))
+}
+
 pub async fn project_ingest_meta(
     pool: &PgPool,
     project_id: Uuid,

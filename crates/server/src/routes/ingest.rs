@@ -548,6 +548,10 @@ async fn accept_payload(
     let client_ip = Some(client_ip_from_peer(peer, headers));
     let country_code_hint = country_code_from_headers(headers);
 
+    if let Err(response) = check_ingest_plan_limit(state, org_id).await {
+        return response;
+    }
+
     let job = match state
         .spike_valve
         .check_scoped(project_id, org_id, &fingerprint)
@@ -599,6 +603,27 @@ fn extract_auth(
         query.sentry_key.as_deref(),
         query.sentry_secret.as_deref(),
     )
+}
+
+#[allow(clippy::result_large_err)]
+async fn check_ingest_plan_limit(state: &AppState, org_id: Uuid) -> Result<(), Response> {
+    match state
+        .ingest_plan_limit
+        .allow_ingest(&state.pools.ingest, org_id)
+        .await
+    {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(error_response(
+            StatusCode::FORBIDDEN,
+            "ingest_plan_limit_exceeded",
+            "Organization monthly event limit exceeded",
+        )),
+        Err(_) => Err(error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "storage_error",
+            "Failed to check organization plan limit",
+        )),
+    }
 }
 
 #[allow(clippy::result_large_err)]

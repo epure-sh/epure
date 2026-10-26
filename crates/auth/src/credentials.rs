@@ -403,7 +403,7 @@ fn normalize_email(email: &str) -> String {
 }
 
 fn validate_password(password: &str) -> Result<(), CredentialError> {
-    if password.len() < 8 {
+    if password.len() < 12 {
         return Err(CredentialError::WeakPassword);
     }
     Ok(())

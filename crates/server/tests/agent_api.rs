@@ -53,17 +53,20 @@ async fn create_pat_with_secret(pool: &PgPool, scopes: &[&str], secret: &str) ->
     let prefix = secret[..TOKEN_PREFIX_DISPLAY_LEN].to_string();
     let hash = hash_password(&full).expect("hash");
     let scope_vec: Vec<String> = scopes.iter().map(|s| (*s).to_string()).collect();
-    agent_tokens::insert_token(
-        pool,
-        dev_org(),
-        dev_user(),
-        "test",
-        &prefix,
-        &hash,
-        &scope_vec,
-    )
-    .await
-    .expect("insert token");
+    epure_storage::rls::with_request_user(dev_user(), async {
+        agent_tokens::insert_token(
+            pool,
+            dev_org(),
+            dev_user(),
+            "test",
+            &prefix,
+            &hash,
+            &scope_vec,
+        )
+        .await
+        .expect("insert token");
+    })
+    .await;
     full
 }
 
@@ -309,9 +312,12 @@ async fn agent_rejects_malformed_and_invalid_tokens() {
     .fetch_one(&pool)
     .await
     .expect("token row");
-    agent_tokens::revoke_token(&migrate_pool, dev_org(), row.0)
-        .await
-        .expect("revoke");
+    epure_storage::rls::with_request_user(dev_user(), async {
+        agent_tokens::revoke_token(&migrate_pool, dev_org(), row.0)
+            .await
+            .expect("revoke");
+    })
+    .await;
 
     let revoked = client
         .get(&url)

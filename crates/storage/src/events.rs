@@ -720,3 +720,11 @@ pub async fn project_activity_timeline(
         as_trend_rows,
     ))
 }
+
+/// Stored events for the org in the current UTC calendar month (ingest pool).
+pub async fn org_monthly_event_count(pool: &PgPool, org_id: Uuid) -> Result<i64, sqlx::Error> {
+    sqlx::query_scalar("SELECT ingest_org_monthly_stored_events($1)")
+        .bind(org_id)
+        .fetch_one(pool)
+        .await
+}

@@ -15,7 +15,7 @@ pub fn router(state: Arc<AppState>) -> Router {
 pub fn router_with_extensions(state: Arc<AppState>, extensions: Router) -> Router {
     let session_layer = state.session_layer.clone();
     Router::new()
-        .merge(health::router())
+        .merge(health::router(state.clone()))
         .merge(api::oauth::top_level_router(state.clone()))
         .merge(ingest::router(state.clone()))
         .merge(api::mcp::router(state.clone()))

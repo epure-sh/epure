@@ -14,6 +14,7 @@ use epure_storage::{connect, connect_pools, run_migrations, PgPool, StoragePools
 use jobs::ttl::run_ttl_job;
 use lifecycle::velocity::VelocityTracker;
 use pipeline::ingest_cap::IngestCapTracker;
+use pipeline::ingest_plan_limit::IngestPlanLimitTracker;
 use pipeline::mpsc;
 use pipeline::spike::SpikeValve;
 use pipeline::worker::run_worker;
@@ -27,13 +28,31 @@ pub struct ServerRuntime {
     pub pools: StoragePools,
     pub state: Arc<AppState>,
     pub worker: JoinHandle<()>,
+    pub flusher: JoinHandle<()>,
     pub ttl: JoinHandle<()>,
     pub session_cleanup: JoinHandle<()>,
+    shutdown: Arc<tokio::sync::Notify>,
 }
 
 impl ServerRuntime {
     pub fn pool(&self) -> &PgPool {
         &self.pools.ingest
+    }
+
+    /// After HTTP graceful shutdown: signal flusher, close ingest, join worker and flusher.
+    pub async fn shutdown(self) {
+        tracing::info!("epure runtime shutting down");
+        self.shutdown.notify_waiters();
+        drop(self.state);
+        if let Err(err) = self.worker.await {
+            tracing::error!(error = %err, "ingest worker task failed");
+        }
+        if let Err(err) = self.flusher.await {
+            tracing::error!(error = %err, "spike flusher task failed");
+        }
+        self.ttl.abort();
+        self.session_cleanup.abort();
+        tracing::info!("epure runtime shutdown complete");
     }
 }
 
@@ -105,11 +124,19 @@ pub async fn init_runtime(
         .map(str::to_string)
         .collect::<Vec<_>>();
     epure_storage::reject_insecure_prod_config(&cors_origins)?;
+    if !epure_storage::allow_dev_db_fallback()
+        && std::env::var("EPURE_DEV_MOCK_CHECKOUT")
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false)
+    {
+        return Err("EPURE_DEV_MOCK_CHECKOUT must not be enabled in production".into());
+    }
 
     let (ingest_tx, ingest_rx) = mpsc::channel(10_000);
     let spike_valve = SpikeValve::new();
     let velocity_tracker = VelocityTracker::new();
     let ingest_cap = Arc::new(IngestCapTracker::new());
+    let ingest_plan_limit = Arc::new(IngestPlanLimitTracker::new());
     let dsn_validator = Arc::new(DsnValidator::new(ingest.clone()));
 
     let artifacts_dir = std::env::var("EPURE_ARTIFACTS_DIR")
@@ -138,10 +165,12 @@ pub async fn init_runtime(
         run_ttl_job(ttl_pool).await;
     });
 
+    let shutdown = Arc::new(tokio::sync::Notify::new());
     let flusher_pool = ingest.clone();
     let flusher_spike = spike_valve.clone();
-    let _flusher = tokio::spawn(async move {
-        pipeline::flusher::run_spike_flusher(flusher_pool, flusher_spike).await;
+    let flusher_shutdown = shutdown.clone();
+    let flusher = tokio::spawn(async move {
+        pipeline::flusher::run_spike_flusher(flusher_pool, flusher_spike, flusher_shutdown).await;
     });
 
     bootstrap_session_store(migrate_pool).await?;
@@ -161,6 +190,7 @@ pub async fn init_runtime(
         spike_valve,
         velocity_tracker,
         ingest_cap,
+        ingest_plan_limit,
         cors_origins,
         artifacts_dir,
         credentials,
@@ -174,8 +204,10 @@ pub async fn init_runtime(
         pools,
         state,
         worker,
+        flusher,
         ttl,
         session_cleanup,
+        shutdown,
     })
 }
 
@@ -188,6 +220,29 @@ pub fn router_for_with_extensions(
     extensions: axum::Router,
 ) -> axum::Router {
     routes::router_with_extensions(runtime.state.clone(), extensions)
+}
+
+pub async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+    tracing::info!("shutdown signal received");
 }
 
 #[cfg(test)]

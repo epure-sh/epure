@@ -60,6 +60,13 @@ jobs:
         working-directory: web
         run: npm ci && npm run build
 
+      - name: Web unit tests
+        working-directory: web
+        run: npm test
+
+      - name: CLI/MCP ingest integration (JS)
+        run: node --test tests/integration_cli_mcp_ingest.test.js
+
       - name: Verify @epure-sh/mcp package
         working-directory: packages/epure-mcp
         run: node bin/epure-mcp.js --help || true

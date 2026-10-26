@@ -21,6 +21,49 @@ struct RateLimiter {
 static LOGIN_LIMITER: LazyLock<Mutex<RateLimiter>> =
     LazyLock::new(|| Mutex::new(RateLimiter::default()));
 
+static OAUTH_PUBLIC_LIMITER: LazyLock<Mutex<RateLimiter>> =
+    LazyLock::new(|| Mutex::new(RateLimiter::default()));
+
+const OAUTH_PUBLIC_MAX: u32 = 60;
+
+async fn fixed_window_rate_limit(
+    limiter: &LazyLock<Mutex<RateLimiter>>,
+    key: String,
+    max_requests: u32,
+    request: Request,
+    next: Next,
+) -> Response {
+    let now = Instant::now();
+    let allowed = {
+        let mut guard = match limiter.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        guard
+            .buckets
+            .retain(|_, (started, _)| now.duration_since(*started) < WINDOW);
+        let entry = guard.buckets.entry(key).or_insert((now, 0));
+        if now.duration_since(entry.0) >= WINDOW {
+            *entry = (now, 0);
+        }
+        if entry.1 >= max_requests {
+            false
+        } else {
+            entry.1 += 1;
+            true
+        }
+    };
+    if allowed {
+        next.run(request).await
+    } else {
+        (
+            StatusCode::TOO_MANY_REQUESTS,
+            "Too many requests. Try again in a minute.",
+        )
+            .into_response()
+    }
+}
+
 pub async fn login_rate_limit(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     request: Request,
@@ -35,37 +78,24 @@ pub async fn login_rate_limit(
         .get("x-real-ip")
         .and_then(|value| value.to_str().ok());
     let key = client_ip_from_peer(addr.ip(), forwarded, real_ip).to_string();
-    let now = Instant::now();
+    fixed_window_rate_limit(&LOGIN_LIMITER, key, MAX_REQUESTS, request, next).await
+}
 
-    let allowed = {
-        let mut limiter = match LOGIN_LIMITER.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        limiter
-            .buckets
-            .retain(|_, (started, _)| now.duration_since(*started) < WINDOW);
-        let entry = limiter.buckets.entry(key).or_insert((now, 0));
-        if now.duration_since(entry.0) >= WINDOW {
-            *entry = (now, 0);
-        }
-        if entry.1 >= MAX_REQUESTS {
-            false
-        } else {
-            entry.1 += 1;
-            true
-        }
-    };
-
-    if allowed {
-        next.run(request).await
-    } else {
-        (
-            StatusCode::TOO_MANY_REQUESTS,
-            "Too many login attempts. Try again in a minute.",
-        )
-            .into_response()
-    }
+pub async fn oauth_public_rate_limit(
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    request: Request,
+    next: Next,
+) -> Response {
+    let forwarded = request
+        .headers()
+        .get("x-forwarded-for")
+        .and_then(|value| value.to_str().ok());
+    let real_ip = request
+        .headers()
+        .get("x-real-ip")
+        .and_then(|value| value.to_str().ok());
+    let key = client_ip_from_peer(addr.ip(), forwarded, real_ip).to_string();
+    fixed_window_rate_limit(&OAUTH_PUBLIC_LIMITER, key, OAUTH_PUBLIC_MAX, request, next).await
 }
 
 const AGENT_READ_MAX: u32 = 600;

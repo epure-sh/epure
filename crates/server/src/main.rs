@@ -1,5 +1,5 @@
 use clap::Parser;
-use epure_server::{init_runtime, router_for};
+use epure_server::{init_runtime, router_for, shutdown_signal};
 use std::net::SocketAddr;
 use tracing_subscriber::EnvFilter;
 
@@ -57,6 +57,9 @@ async fn main() {
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
+    .with_graceful_shutdown(shutdown_signal())
     .await
     .expect("HTTP server exited with error");
+
+    runtime.shutdown().await;
 }

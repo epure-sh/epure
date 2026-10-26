@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
 
+use crate::rate_limit::oauth_public_rate_limit;
 use crate::state::AppState;
 
 pub fn top_level_router(state: Arc<AppState>) -> Router {
@@ -29,6 +30,7 @@ pub fn top_level_router(state: Arc<AppState>) -> Router {
         )
         .route("/oauth/token", post(post_oauth_token))
         .route("/oauth/device/code", post(post_device_code))
+        .layer(axum::middleware::from_fn(oauth_public_rate_limit))
         .with_state(state)
 }
 

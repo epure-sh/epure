@@ -24,6 +24,8 @@ pub struct DashboardSession {
 pub enum SessionError {
     #[error("session missing required fields")]
     MissingFields,
+    #[error("session credentials revoked")]
+    StaleCredentials,
     #[error(transparent)]
     Store(#[from] tower_sessions::session::Error),
 }
@@ -150,4 +152,47 @@ pub async fn load_dashboard_session(session: &Session) -> Result<DashboardSessio
 pub async fn clear_dashboard_session(session: &Session) -> Result<(), SessionError> {
     session.flush().await?;
     Ok(())
+}
+
+/// Invalidate session when password or credential rotation bumped generation in DB.
+pub async fn ensure_session_credentials(
+    credentials: &crate::credentials::CredentialAuth,
+    session: &Session,
+    user_id: Uuid,
+) -> Result<(), SessionError> {
+    let presented = load_credential_generation(session).await?;
+    let current = credentials
+        .credential_generation(user_id)
+        .await
+        .map_err(|_| SessionError::MissingFields)?
+        .ok_or(SessionError::MissingFields)?;
+    if presented != current {
+        clear_dashboard_session(session).await?;
+        return Err(SessionError::StaleCredentials);
+    }
+    Ok(())
+}
+
+/// Cookie session with live credential check and current org role (dashboard API parity).
+pub async fn load_dashboard_session_for_api(
+    credentials: &crate::credentials::CredentialAuth,
+    app_pool: &PgPool,
+    session: &Session,
+) -> Result<DashboardSession, SessionError> {
+    let dashboard = load_dashboard_session(session).await?;
+    ensure_session_credentials(credentials, session, dashboard.user_id).await?;
+    epure_storage::rls::with_request_user(dashboard.user_id, async {
+        let role =
+            epure_storage::members::get_member_role(app_pool, dashboard.org_id, dashboard.user_id)
+                .await
+                .map_err(|_| SessionError::MissingFields)?
+                .ok_or(SessionError::MissingFields)?;
+        Ok(DashboardSession {
+            user_id: dashboard.user_id,
+            org_id: dashboard.org_id,
+            email: dashboard.email,
+            role,
+        })
+    })
+    .await
 }

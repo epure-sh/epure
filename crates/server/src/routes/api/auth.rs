@@ -446,9 +446,12 @@ async fn request_magic_link(
         "{}/api/v1/auth/magic-link/verify?token={}",
         public_url, token
     );
-    tracing::info!("magic link requested for {}: {}", body.email, link);
-
     let dev_mode = epure_storage::allow_dev_db_fallback();
+    if dev_mode {
+        tracing::debug!(email = %body.email, "magic link issued (dev)");
+    } else {
+        tracing::info!(email = %body.email, "magic link requested");
+    }
     Ok(Json(MagicLinkRequestResponse {
         sent: true,
         dev_link: if dev_mode { Some(link) } else { None },

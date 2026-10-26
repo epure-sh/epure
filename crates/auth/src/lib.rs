@@ -26,8 +26,9 @@ pub use password::{
 pub use registration::{registration_enabled, registration_enabled_from};
 pub use session::{
     bootstrap_session_store, build_session_layer, clear_dashboard_session,
-    establish_dashboard_session, init_session_store, load_credential_generation,
-    load_dashboard_session, session_secure_enabled, set_credential_generation,
-    spawn_session_cleanup, DashboardSession, SessionError,
+    ensure_session_credentials, establish_dashboard_session, init_session_store,
+    load_credential_generation, load_dashboard_session, load_dashboard_session_for_api,
+    session_secure_enabled, set_credential_generation, spawn_session_cleanup, DashboardSession,
+    SessionError,
 };
 pub use tower_sessions_sqlx_store::PostgresStore;

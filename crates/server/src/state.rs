@@ -7,6 +7,7 @@ use tower_sessions::SessionManagerLayer;
 
 use crate::lifecycle::velocity::VelocityTracker;
 use crate::pipeline::ingest_cap::IngestCapTracker;
+use crate::pipeline::ingest_plan_limit::IngestPlanLimitTracker;
 use crate::pipeline::mpsc::IngestJob;
 use crate::pipeline::spike::SpikeValve;
 
@@ -18,6 +19,7 @@ pub struct AppState {
     pub spike_valve: Arc<SpikeValve>,
     pub velocity_tracker: Arc<VelocityTracker>,
     pub ingest_cap: Arc<IngestCapTracker>,
+    pub ingest_plan_limit: Arc<IngestPlanLimitTracker>,
     pub cors_origins: Vec<String>,
     pub artifacts_dir: PathBuf,
     pub credentials: CredentialAuth,

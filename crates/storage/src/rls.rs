@@ -29,10 +29,9 @@ pub async fn set_org_context(
             .execute(&mut **tx)
             .await?;
     } else {
-        sqlx::query("SELECT ingest_set_org_context($1)")
-            .bind(org_id)
-            .execute(&mut **tx)
-            .await?;
+        return Err(sqlx::Error::Configuration(
+            "org transaction requires dashboard user context".into(),
+        ));
     }
     Ok(())
 }

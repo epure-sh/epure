@@ -81,12 +81,33 @@ pub async fn run_worker(
                         }
                     }
                     None => {
-                        warn!("ingest worker channel closed");
+                        warn!("ingest worker channel closed, draining remaining jobs");
+                        drain_pending_jobs(
+                            &pool,
+                            &artifacts_dir,
+                            &velocity_tracker,
+                            &mut rx,
+                        )
+                        .await;
                         break;
                     }
                 }
             }
             _ = flush_interval.tick() => {}
+        }
+    }
+}
+
+async fn drain_pending_jobs(
+    pool: &PgPool,
+    artifacts_dir: &Path,
+    velocity_tracker: &Arc<VelocityTracker>,
+    rx: &mut Receiver<IngestJob>,
+) {
+    while let Ok(job) = rx.try_recv() {
+        if let Err(err) = process_job_with_retry(pool, artifacts_dir, velocity_tracker, job).await {
+            tracing::error!("ingest worker processing error: {err}");
+            record_lost_event(&sanitize_error(err.as_ref()));
         }
     }
 }
