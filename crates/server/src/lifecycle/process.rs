@@ -54,16 +54,16 @@ pub async fn after_issue_event(
                 incoming_release.clone(),
             )
             .await?;
-        emit_custom_matches(
-            pool,
-            &issue,
-            &custom_rules,
-            "regression",
-            incoming_release.clone(),
-            None,
-            false,
-        )
-        .await?;
+            emit_custom_matches(
+                pool,
+                &issue,
+                &custom_rules,
+                "regression",
+                incoming_release.clone(),
+                None,
+                false,
+            )
+            .await?;
         }
     } else if is_new && !snoozed {
         emit_built_in_alert(
