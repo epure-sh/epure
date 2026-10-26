@@ -39,7 +39,6 @@ import {
   type IssueSortValue,
   type TimeWindowValue,
 } from "./query-utils";
-import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip";
 
 const SEARCH_DEBOUNCE_MS = 250;
