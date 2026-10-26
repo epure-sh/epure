@@ -26,6 +26,25 @@ pub struct UpdateProjectParams {
     pub ingest_cap_per_hour: Option<i32>,
 }
 
+/// Plan tier and project count for the current org, read inside an RLS-bound transaction.
+pub async fn org_plan_and_project_count(
+    pool: &PgPool,
+    org_id: Uuid,
+) -> Result<(String, i64), sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let plan_tier: String =
+        sqlx::query_scalar("SELECT plan_tier FROM organizations WHERE id = $1")
+            .bind(org_id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .unwrap_or_else(|| "oss".to_string());
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*)::bigint FROM projects")
+        .fetch_one(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    Ok((plan_tier, count))
+}
+
 pub async fn list_projects(pool: &PgPool, org_id: Uuid) -> Result<Vec<ProjectRow>, sqlx::Error> {
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
     let rows = sqlx::query_as::<_, ProjectRow>(

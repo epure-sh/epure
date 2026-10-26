@@ -737,6 +737,7 @@ dependencies = [
  "dashmap",
  "epure-agent-context",
  "epure-auth",
+ "epure-core",
  "epure-demangle",
  "epure-envelope",
  "epure-mcp",

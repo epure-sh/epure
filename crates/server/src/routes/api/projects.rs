@@ -8,6 +8,7 @@ use axum::{
     Extension, Json, Router,
 };
 use epure_auth::DashboardSession;
+use epure_core::PlanTier;
 use epure_storage::events;
 use epure_storage::projects::{self, CreateProjectParams, ProjectRow, UpdateProjectParams};
 use serde::{Deserialize, Serialize};
@@ -106,29 +107,15 @@ async fn create_project(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    // Enforce multi-tenant plan tier project limits
-    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM projects WHERE org_id = $1")
-        .bind(dashboard.org_id)
-        .fetch_one(&state.pools.app)
+    let (plan_tier, count) = projects::org_plan_and_project_count(&state.pools.app, dashboard.org_id)
         .await
-        .unwrap_or(0);
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let plan_tier: String = sqlx::query_scalar("SELECT plan_tier FROM organizations WHERE id = $1")
-        .bind(dashboard.org_id)
-        .fetch_optional(&state.pools.app)
-        .await
-        .unwrap_or(None)
-        .unwrap_or_else(|| "oss".to_string());
+    let max_projects = PlanTier::parse_tier(&plan_tier)
+        .map(|tier| tier.default_limits().max_projects)
+        .unwrap_or(u32::MAX);
 
-    let max_projects = match plan_tier.as_str() {
-        "builder_pro" => 3,
-        "multi_app_studio" => 15,
-        "boutique_agency" => 25,
-        "canary_sandbox" => 1,
-        _ => i64::MAX,
-    };
-
-    if count >= max_projects {
+    if max_projects != u32::MAX && count >= i64::from(max_projects) {
         return Err(StatusCode::PAYMENT_REQUIRED);
     }
 

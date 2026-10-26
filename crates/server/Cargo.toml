@@ -19,6 +19,7 @@ dashmap.workspace = true
 clap.workspace = true
 epure-agent-context.workspace = true
 epure-auth.workspace = true
+epure-core.workspace = true
 epure-demangle.workspace = true
 epure-envelope.workspace = true
 epure-mcp.workspace = true
