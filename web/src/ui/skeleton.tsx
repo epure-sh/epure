@@ -1,14 +1,6 @@
 import { type HTMLAttributes } from "react";
 import { cn } from "../lib/cn";
-import {
-  FEED_CELL_CHECKBOX,
-  FEED_CELL_ISSUE,
-  FEED_CELL_NUMERIC,
-  FEED_CELL_PRIORITY,
-  FEED_CELL_TEXT,
-  FEED_CELL_TREND,
-  FEED_GRID_FULL,
-} from "./issue-feed-layout";
+import { ISSUE_ROW_GRID } from "@/components/kit/issue-row-shell";
 export interface SkeletonProps extends HTMLAttributes<HTMLDivElement> {}
 
 export function Skeleton({ className, ...props }: SkeletonProps) {
@@ -37,26 +29,21 @@ export function IssueRowSkeleton() {
   return (
     <div
       className={cn(
-        "epure-issue-row-skeleton grid min-h-row items-center border-b border-l-2 border-l-transparent border-border-subtle",
-        FEED_GRID_FULL,
+        "epure-issue-row-skeleton grid min-h-14 items-center border-b border-border-subtle px-3",
+        ISSUE_ROW_GRID,
       )}
     >
-      <div className={cn("hidden lg:flex", FEED_CELL_CHECKBOX)}>
-        <Skeleton className="h-3.5 w-3.5" />
+      <Skeleton className="size-4" />
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <Skeleton className="h-3.5 w-[46%]" />
+        <Skeleton className="h-2.5 w-[62%]" />
       </div>
-      <div className={cn("flex flex-col gap-0.5", FEED_CELL_ISSUE)}>
-        <Skeleton className="h-3.5 w-[55%]" />
-        <Skeleton className="h-2.5 w-[72%]" />
-        <Skeleton className="hidden h-2 w-[40%] sm:block" />
-      </div>
-      <Skeleton className={cn("hidden h-3 lg:block", FEED_CELL_TEXT)} />
-      <Skeleton className={cn("hidden h-3 xl:block", FEED_CELL_TEXT)} />
-      <Skeleton className={cn("hidden h-6 lg:block", FEED_CELL_TREND)} />
-      <Skeleton className={cn("h-3", FEED_CELL_NUMERIC)} />
-      <Skeleton className={cn("hidden h-3 xl:block", FEED_CELL_NUMERIC)} />
-      <div className={cn("hidden xl:flex", FEED_CELL_PRIORITY)}>
-        <Skeleton className="h-3.5 w-3.5" />
-      </div>
+      <Skeleton className="ml-auto h-3 w-10" />
+      <Skeleton className="ml-auto h-3 w-8" />
+      <Skeleton className="ml-auto h-5 w-20" />
+      <Skeleton className="ml-auto h-3 w-8" />
+      <Skeleton className="ml-auto h-3 w-8" />
+      <Skeleton className="ml-auto h-3 w-12" />
     </div>
   );
 }

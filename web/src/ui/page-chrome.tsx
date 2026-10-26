@@ -22,7 +22,7 @@ export function PageChrome({
         className="epure-page-chrome-header flex h-12 items-center justify-between border-b border-border-subtle bg-surface-1/60 px-6 select-none"
       >
         <div className="flex items-baseline gap-3 min-w-0">
-          <h1 className="text-sm font-semibold tracking-tight text-fg-primary truncate">{title}</h1>
+          <h1 className="min-w-0 truncate text-sm font-semibold tracking-tight text-balance text-fg-primary">{title}</h1>
           {description ? (
             <p className="text-xs text-fg-muted truncate hidden sm:inline">{description}</p>
           ) : null}

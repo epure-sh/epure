@@ -54,7 +54,7 @@ export function FilterChip({
         <button
           type="button"
           className={cn(
-            "inline-flex shrink-0 items-center justify-center border-l px-1.5 cursor-pointer transition-colors duration-fast focus-ring",
+            "inline-flex shrink-0 cursor-pointer items-center justify-center border-l px-1.5 transition-[color,background-color] duration-150 ease-snap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong",
             variant === "query"
               ? "border-accent/20 text-accent/70 hover:bg-accent/10 hover:text-accent"
               : "border-border/80 text-ink-muted hover:bg-state-hover hover:text-ink",
@@ -78,7 +78,7 @@ export function FilterChip({
     <button
       type="button"
       className={cn(
-        "epure-filter-chip inline-flex h-control-sm max-w-full items-center gap-1 rounded-md border px-2.5 text-xs font-medium cursor-pointer select-none transition-colors duration-fast focus-ring",
+        "epure-filter-chip inline-flex h-7 max-w-full cursor-pointer select-none items-center gap-1 rounded-control border px-2.5 text-[13px] font-medium transition-[color,background-color,border-color] duration-150 ease-snap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong",
         active
           ? "border-transparent bg-accent-muted text-accent"
           : "border-border bg-surface text-ink-muted hover:bg-state-hover hover:text-ink",

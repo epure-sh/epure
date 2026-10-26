@@ -180,7 +180,7 @@ export function LoginPage() {
               variant="outline"
               size="lg"
               type="button"
-              className="w-full justify-center gap-2.5 border-border bg-surface text-ink font-medium transition-all hover:bg-bg-subtle hover:border-ink/20 active:scale-[0.99] shadow-2xs"
+              className="w-full justify-center gap-2.5 border-border bg-surface text-ink font-medium transition-[color,background-color,border-color,opacity,transform,box-shadow] hover:bg-bg-subtle hover:border-ink/20 active:scale-[0.99] shadow-2xs"
               disabled={cookieTrap}
               onClick={() => {
                 const githubUrl = inviteToken
@@ -200,7 +200,7 @@ export function LoginPage() {
               variant="outline"
               size="lg"
               type="button"
-              className="w-full justify-center gap-2.5 border-border bg-surface text-ink font-medium transition-all hover:bg-bg-subtle hover:border-ink/20 active:scale-[0.99] shadow-2xs"
+              className="w-full justify-center gap-2.5 border-border bg-surface text-ink font-medium transition-[color,background-color,border-color,opacity,transform,box-shadow] hover:bg-bg-subtle hover:border-ink/20 active:scale-[0.99] shadow-2xs"
               disabled={cookieTrap}
               onClick={() => {
                 const googleUrl = inviteToken

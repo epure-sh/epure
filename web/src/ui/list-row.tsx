@@ -29,11 +29,12 @@ export const ListRow = forwardRef<HTMLDivElement, ListRowProps>(
           "epure-list-row",
           variant === "airy" && [
             "epure-list-row--airy epure-issue-row--airy",
-            "flex w-full rounded-lg border border-border-subtle bg-surface-1 text-left transition-colors duration-fast",
-            "hover:border-border-strong hover:bg-state-hover focus-ring",
+            "flex w-full rounded-panel border border-border-subtle bg-surface-1 text-left",
+            "transition-[color,background-color,border-color] duration-150 ease-snap",
+            "hover:border-border-strong hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong",
           ],
           variant === "flat" &&
-            "flex w-full text-left transition-colors duration-fast hover:bg-state-hover focus-ring",
+            "flex w-full text-left transition-[color,background-color] duration-150 ease-snap hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong",
           accentClasses[accent],
           className,
         )}

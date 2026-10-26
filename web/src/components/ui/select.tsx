@@ -20,9 +20,11 @@ export function SelectTrigger({
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       className={cn(
-        "inline-flex items-center justify-between gap-2 rounded-control border border-border-subtle bg-surface-1 px-2.5 text-xs text-fg-primary cursor-pointer",
-        "transition-colors duration-100 select-none shadow-tactile hover:bg-surface-2 focus-visible:outline-none focus-visible:border-border-strong",
-        "disabled:cursor-not-allowed disabled:opacity-40",
+        "inline-flex items-center justify-between gap-2 rounded-control border border-border-subtle bg-surface-1 px-2.5 text-[13px] text-fg-primary cursor-pointer shadow-tactile select-none",
+        "transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-snap",
+        "hover:bg-surface-2 active:scale-[0.985]",
+        "focus-visible:outline-none focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-border-strong",
+        "disabled:pointer-events-none disabled:opacity-50",
         size === "sm" ? "h-7" : "h-8",
         className
       )}
@@ -93,7 +95,7 @@ export function SelectItem({
         "relative flex w-full cursor-pointer select-none items-center rounded-xs py-1.5 pl-7 pr-2 text-xs text-fg-secondary outline-none",
         "transition-colors duration-75 hover:bg-surface-2 hover:text-fg-primary focus:bg-surface-2 focus:text-fg-primary",
         "data-[highlighted]:bg-surface-2 data-[highlighted]:text-fg-primary",
-        "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
+        "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className
       )}
       {...props}

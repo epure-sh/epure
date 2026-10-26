@@ -189,7 +189,7 @@ function ProjectCard(props: {
 }) {
   const { editMode, selected, onToggleSelect, project } = props;
   const shellClass = cn(
-    "epure-card relative flex flex-col justify-between rounded-panel border border-border-subtle bg-surface-1 p-5 transition-all duration-100 shadow-tactile",
+    "epure-card relative flex flex-col justify-between rounded-panel border border-border-subtle bg-surface-1 p-5 transition-[color,background-color,border-color,opacity,transform,box-shadow] duration-100 shadow-tactile",
     editMode
       ? cn(
           "cursor-pointer focus-ring",

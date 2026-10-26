@@ -38,12 +38,12 @@ export function SectionCard({
         <div className="flex items-center justify-between border-b border-border-subtle px-5 py-3.5 bg-surface-1/50">
           <div className="space-y-0.5">
             {title && (
-              <h3 className="text-sm font-semibold tracking-tight text-fg-primary">
+              <h3 className="text-sm font-semibold tracking-tight text-balance text-fg-primary">
                 {title}
               </h3>
             )}
             {description && (
-              <p className="text-xs text-fg-muted">{description}</p>
+              <p className="text-pretty text-[13px] text-fg-secondary">{description}</p>
             )}
           </div>
           {headerActions && (

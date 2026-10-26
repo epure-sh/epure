@@ -83,7 +83,8 @@ export function IssueRowShell({
       data-priority={tone}
       onClick={onClick}
       className={cn(
-        "group relative grid min-h-14 w-full items-center border-b border-border-subtle px-3 py-2 text-xs transition-colors duration-100 cursor-pointer select-none",
+        "group relative grid min-h-14 w-full cursor-pointer select-none items-center border-b border-border-subtle px-3 py-2 text-[13px]",
+        "transition-[color,background-color] duration-150 ease-snap",
         ISSUE_ROW_GRID,
         selected ? "bg-surface-2/80" : "bg-surface-1 hover:bg-surface-2/50",
         className,

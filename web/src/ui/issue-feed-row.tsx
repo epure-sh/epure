@@ -91,13 +91,13 @@ export function IssueFeedRow({
   const isEscalating = trendStatus === "escalating";
   const statusIndicator = unhandled ? (
     <span
-      className="mt-1 h-2 w-2 shrink-0 rounded-full bg-escalating shadow-[0_0_8px_rgba(244,63,94,0.65)] ring-[3px] ring-escalating/25 animate-pulse"
+      className="mt-1 size-2 shrink-0 rounded-full bg-escalating"
       title="Fatal unhandled crash"
       aria-hidden
     />
   ) : unread ? (
     <span
-      className="mt-1 h-2 w-2 shrink-0 rounded-full bg-info shadow-[0_0_8px_rgba(56,189,248,0.55)] ring-[3px] ring-info/25"
+      className="mt-1 size-2 shrink-0 rounded-full bg-info"
       title="Unread issue"
       aria-hidden
     />

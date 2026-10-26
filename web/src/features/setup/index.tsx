@@ -191,7 +191,7 @@ sentry.Init(sentry.ClientOptions{
       <div className="mx-auto max-w-4xl space-y-6 p-6 w-full select-none">
         {/* Live Listening Status Banner */}
         <div
-          className={`rounded-panel border p-4 flex flex-wrap items-center justify-between gap-4 transition-all shadow-tactile ${
+          className={`rounded-panel border p-4 flex flex-wrap items-center justify-between gap-4 transition-[color,background-color,border-color,opacity,transform,box-shadow] shadow-tactile ${
             firstEventReceived
               ? "border-healthy/40 bg-healthy/10 text-healthy"
               : "border-accent/30 bg-accent/5 text-fg-primary"

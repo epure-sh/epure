@@ -129,7 +129,7 @@ export function DataTable<TData, TValue>({
                     }
                   }}
                   className={cn(
-                    "flex items-center px-3 text-xs text-fg-primary transition-colors duration-100 select-none tabular-nums",
+                    "flex select-none items-center px-3 text-[13px] tabular-nums text-fg-primary transition-[background-color] duration-150 ease-snap",
                     onRowClick && "cursor-pointer hover:bg-surface-2/60",
                     row.getIsSelected() ? "bg-surface-2" : "hover:bg-surface-2/40"
                   )}

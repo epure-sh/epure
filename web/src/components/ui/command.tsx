@@ -124,9 +124,10 @@ export function CommandItem({
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "relative flex cursor-pointer select-none items-center rounded-xs px-2 py-1.5 text-xs text-fg-secondary outline-none transition-colors",
+        "relative flex cursor-pointer select-none items-center rounded-xs px-2 py-1.5 text-[13px] text-fg-secondary outline-none",
+        "transition-[color,background-color] duration-150 ease-snap",
         "data-[selected=true]:bg-surface-2 data-[selected=true]:text-fg-primary",
-        "data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-40",
+        "data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50",
         className
       )}
       {...props}

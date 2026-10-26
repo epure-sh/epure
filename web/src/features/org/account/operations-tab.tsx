@@ -150,7 +150,7 @@ export function OperationsTab() {
     <div className="space-y-4 text-ink">
       {/* Clean Dismissible Monetization Status Banner */}
       {!bannerDismissed && (
-        <div className="relative rounded-lg border border-accent/40 bg-accent-muted/20 p-4 shadow-sm transition-all">
+        <div className="relative rounded-lg border border-accent/40 bg-accent-muted/20 p-4 shadow-sm transition-[color,background-color,border-color,opacity,transform,box-shadow]">
           <Button
             type="button"
             variant="ghost"

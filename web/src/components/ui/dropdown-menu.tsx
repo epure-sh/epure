@@ -24,7 +24,7 @@ export function DropdownMenuSubTrigger({
       data-slot="dropdown-menu-sub-trigger"
       className={cn(
         "flex cursor-pointer select-none items-center rounded-xs px-2 py-1.5 text-xs text-fg-secondary outline-none",
-        "transition-colors hover:bg-surface-2 hover:text-fg-primary focus:bg-surface-2 focus:text-fg-primary",
+        "transition-[color,background-color] duration-150 ease-snap hover:bg-surface-2 hover:text-fg-primary focus:bg-surface-2 focus:text-fg-primary",
         "data-[state=open]:bg-surface-2 data-[state=open]:text-fg-primary",
         inset && "pl-7",
         className
@@ -86,10 +86,11 @@ export function DropdownMenuItem({
     <DropdownMenuPrimitive.Item
       data-slot="dropdown-menu-item"
       className={cn(
-        "relative flex cursor-pointer select-none items-center rounded-xs px-2 py-1.5 text-xs text-fg-secondary outline-none transition-colors",
+        "relative flex cursor-pointer select-none items-center rounded-xs px-2 py-1.5 text-[13px] text-fg-secondary outline-none",
+        "transition-[color,background-color] duration-150 ease-snap",
         "hover:bg-surface-2 hover:text-fg-primary focus:bg-surface-2 focus:text-fg-primary",
         "data-[highlighted]:bg-surface-2 data-[highlighted]:text-fg-primary",
-        "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
+        "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         inset && "pl-7",
         className
       )}
@@ -108,10 +109,10 @@ export function DropdownMenuCheckboxItem({
     <DropdownMenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
       className={cn(
-        "relative flex cursor-pointer select-none items-center rounded-xs py-1.5 pl-7 pr-2 text-xs text-fg-secondary outline-none transition-colors",
+        "relative flex cursor-pointer select-none items-center rounded-xs py-1.5 pl-7 pr-2 text-xs text-fg-secondary outline-none transition-[color,background-color] duration-150 ease-snap",
         "hover:bg-surface-2 hover:text-fg-primary focus:bg-surface-2 focus:text-fg-primary",
         "data-[highlighted]:bg-surface-2 data-[highlighted]:text-fg-primary",
-        "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
+        "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className
       )}
       checked={checked}
@@ -136,10 +137,10 @@ export function DropdownMenuRadioItem({
     <DropdownMenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       className={cn(
-        "relative flex cursor-pointer select-none items-center rounded-xs py-1.5 pl-7 pr-2 text-xs text-fg-secondary outline-none transition-colors",
+        "relative flex cursor-pointer select-none items-center rounded-xs py-1.5 pl-7 pr-2 text-xs text-fg-secondary outline-none transition-[color,background-color] duration-150 ease-snap",
         "hover:bg-surface-2 hover:text-fg-primary focus:bg-surface-2 focus:text-fg-primary",
         "data-[highlighted]:bg-surface-2 data-[highlighted]:text-fg-primary",
-        "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
+        "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className
       )}
       {...props}

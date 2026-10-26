@@ -52,14 +52,14 @@ export function AskAgentCard({
           <span className="flex size-6 items-center justify-center rounded-xs bg-primary/10 text-primary">
             <Sparkle className="size-3.5" weight="fill" />
           </span>
-          <h4 className="text-xs font-semibold text-fg-primary">{title}</h4>
+          <h4 className="text-sm font-medium tracking-tight text-fg-primary">{title}</h4>
         </div>
         {docsUrl && (
           <a
             href={docsUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-[11px] text-fg-muted hover:text-fg-primary transition-colors"
+            className="inline-flex items-center gap-1 text-[11px] text-fg-muted transition-[color] duration-150 ease-snap hover:text-fg-primary"
           >
             <span>Docs</span>
             <ArrowSquareOut className="size-3" />
@@ -67,7 +67,7 @@ export function AskAgentCard({
         )}
       </div>
 
-      <p className="text-xs text-fg-muted leading-relaxed">{description}</p>
+      <p className="text-pretty text-[13px] leading-relaxed text-fg-secondary">{description}</p>
 
       <div className="flex items-center gap-2 pt-1">
         <Button

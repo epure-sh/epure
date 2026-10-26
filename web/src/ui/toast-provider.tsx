@@ -58,8 +58,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 message={message}
                 className={
                   visible
-                    ? "translate-y-0 opacity-100 transition-all duration-panel ease-mechanical"
-                    : "translate-y-2 opacity-0 transition-all duration-panel ease-mechanical"
+                    ? "translate-y-0 opacity-100 transition-[color,background-color,border-color,opacity,transform,box-shadow] duration-panel ease-mechanical"
+                    : "translate-y-2 opacity-0 transition-[color,background-color,border-color,opacity,transform,box-shadow] duration-panel ease-mechanical"
                 }
               />
             </div>,

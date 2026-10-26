@@ -67,7 +67,7 @@ export function SheetContent({
         {children}
         <DialogPrimitive.Close
           data-slot="sheet-close"
-          className="absolute right-4 top-4 rounded-xs p-1 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong"
+          className="absolute right-4 top-4 rounded-xs p-1 text-fg-muted transition-[color,background-color] duration-150 ease-snap hover:bg-surface-2 hover:text-fg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong"
         >
           <X className="size-3.5" weight="bold" />
           <span className="sr-only">Close</span>

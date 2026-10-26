@@ -176,7 +176,7 @@ export function AlertBuilder({
                 key={preset.id}
                 onClick={() => setSelectedTrigger(preset.id)}
                 className={cn(
-                  "flex flex-col justify-between rounded-lg border p-3.5 transition-all cursor-pointer",
+                  "flex flex-col justify-between rounded-lg border p-3.5 transition-[color,background-color,border-color,opacity,transform,box-shadow] cursor-pointer",
                   selected
                     ? "border-accent bg-accent/10 shadow-xs ring-1 ring-accent/30"
                     : "border-border-subtle bg-surface-2/40 hover:border-border-strong hover:bg-surface-2/80"

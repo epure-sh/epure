@@ -32,9 +32,9 @@ export function EmptyState({
       <div className="mb-3 flex size-9 items-center justify-center rounded-control bg-surface-2 text-fg-muted">
         {icon || <Tray className="size-5" weight="regular" />}
       </div>
-      <h3 className="text-xs font-semibold text-fg-primary">{title}</h3>
+      <h3 className="text-sm font-medium tracking-tight text-balance text-fg-primary">{title}</h3>
       {description && (
-        <p className="mt-1 max-w-sm text-xs text-fg-muted">{description}</p>
+        <p className="mt-1 max-w-sm text-pretty text-[13px] text-fg-secondary">{description}</p>
       )}
       {actionLabel && onAction && (
         <div className="mt-4">
