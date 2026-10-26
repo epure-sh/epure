@@ -1,14 +1,4 @@
-export type PlanId =
-  | "oss"
-  | "pro"
-  | "scale"
-  | "canary_sandbox"
-  | "builder_pro"
-  | "multi_app_studio"
-  | "team_plus"
-  | "boutique_agency"
-  | "agency"
-  | "dedicated_sovereign";
+export type PlanId = "oss" | "pro" | "scale";
 
 export interface PlanDefinition {
   id: PlanId;
@@ -28,29 +18,23 @@ export interface PlanDefinition {
   };
   highlighted?: boolean;
   cloudOnly?: boolean;
-  tierCode?: "pro" | "scale" | "team_plus" | "agency" | "dedicated";
+  tierCode?: "pro" | "scale";
   comingSoon?: boolean;
 }
 
+/** Map stored plan_tier (Polar legacy + aliases) to oss | pro | scale. */
 export function normalizePlanId(id: string | null | undefined): PlanId {
   if (!id) return "pro";
   const lower = id.toLowerCase();
-  if (lower === "pro" || lower === "builder_pro") return "pro";
-  if (
-    lower === "scale" ||
-    lower === "team_plus" ||
-    lower === "multi_app_studio" ||
-    lower === "plus" ||
-    lower === "agency" ||
-    lower === "boutique_agency" ||
-    lower === "dedicated" ||
-    lower === "dedicated_sovereign" ||
-    lower === "enterprise"
-  ) {
+  if (lower === "oss" || lower === "self_hosted") return "oss";
+  if (lower === "pro" || lower === "builder_pro" || lower === "canary_sandbox" || lower === "canary") {
+    return "pro";
+  }
+  if (lower === "scale" || lower === "multi_app_studio" || lower === "team_plus" || lower === "plus" || lower === "studio") {
     return "scale";
   }
-  if (lower === "canary_sandbox") return "canary_sandbox";
-  if (lower === "oss" || lower === "self_hosted") return "oss";
+  if (lower === "agency" || lower === "boutique_agency") return "scale";
+  if (lower === "dedicated" || lower === "dedicated_sovereign" || lower === "enterprise") return "scale";
   return "pro";
 }
 
@@ -75,30 +59,6 @@ export const PLANS: PlanDefinition[] = [
     },
   },
   {
-    id: "canary_sandbox",
-    name: "Cloud 7-Day Trial",
-    price: "$0",
-    priceMonthly: "$0",
-    priceAnnual: "$0",
-    period: "7-day pilot",
-    tierCode: "pro",
-    description: "Full-featured Epure Cloud canary workspace with active Spike Valve protection and native AI agent triage.",
-    features: [
-      "100,000 events included during 7-day trial",
-      "Spike Valve crash loop immunity active",
-      "Full Source Map demangling + epure-mcp",
-      "Native Claude Code & Cursor MCP triage",
-      "Pre-seeded production error context & breadcrumbs",
-      "Instant 1-click upgrade to Pro",
-    ],
-    limits: {
-      maxProjects: 1,
-      eventsPerMonth: 100_000,
-      retentionDays: 14,
-    },
-    cloudOnly: false,
-  },
-  {
     id: "pro",
     name: "Cloud Pro",
     price: "$29",
@@ -106,7 +66,8 @@ export const PLANS: PlanDefinition[] = [
     priceAnnual: "$24",
     period: "/ mo",
     tierCode: "pro",
-    description: "Production-ready error tracking with zero-maintenance hosting, guaranteed $0 overage protection, and surgical AI triage.",
+    description:
+      "Production-ready error tracking with zero-maintenance hosting, guaranteed $0 overage protection, and surgical AI triage.",
     features: [
       "200,000 events / mo included",
       "$0 overage guarantee (Spike Valve protection)",
@@ -135,7 +96,8 @@ export const PLANS: PlanDefinition[] = [
     priceAnnual: "$74",
     period: "/ mo",
     tierCode: "scale",
-    description: "High-volume systems and growing engineering organizations needing expanded retention, multi-org isolation, and unlimited scale.",
+    description:
+      "High-volume systems and growing engineering organizations needing expanded retention, multi-org isolation, and unlimited scale.",
     features: [
       "1,500,000 events / mo included",
       "$0 overage guarantee (Spike Valve protection)",
@@ -155,7 +117,6 @@ export const PLANS: PlanDefinition[] = [
     },
     highlighted: false,
     cloudOnly: true,
-    comingSoon: true,
   },
 ];
 

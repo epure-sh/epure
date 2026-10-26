@@ -101,8 +101,8 @@ async fn seed_agency_hierarchy(pool: &PgPool) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         INSERT INTO organizations (id, name, plan_tier)
-        VALUES ($1, 'Acme Agency', 'boutique_agency')
-        ON CONFLICT (id) DO UPDATE SET plan_tier = 'boutique_agency'
+        VALUES ($1, 'Acme Agency', 'scale')
+        ON CONFLICT (id) DO UPDATE SET plan_tier = 'scale'
         "#,
     )
     .bind(agency_org())
@@ -112,8 +112,8 @@ async fn seed_agency_hierarchy(pool: &PgPool) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         INSERT INTO organizations (id, name, plan_tier, parent_agency_id)
-        VALUES ($1, 'Client Alpha', 'boutique_agency', $3),
-               ($2, 'Client Beta', 'boutique_agency', $3)
+        VALUES ($1, 'Client Alpha', 'scale', $3),
+               ($2, 'Client Beta', 'scale', $3)
         ON CONFLICT (id) DO UPDATE SET parent_agency_id = EXCLUDED.parent_agency_id
         "#,
     )

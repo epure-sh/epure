@@ -345,11 +345,7 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
 
   const activePlanId = normalizePlanId(billingStatus?.plan_tier ?? CLOUD_CURRENT_PLAN);
   const activePlan = planById(activePlanId);
-  const isTrial = Boolean(
-    activePlanId === "canary_sandbox" ||
-    billingStatus?.plan_tier === "canary_sandbox" ||
-    billingStatus?.canary_expires_at
-  );
+  const isTrial = Boolean(billingStatus?.canary_expires_at);
 
   const isPaused = Boolean(
     billingStatus?.subscription_status === "paused" ||
@@ -457,7 +453,7 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
                 }}
                 disabled={upgradingId !== null || !isOwner}
               >
-                {upgradingId === "pro" || upgradingId === "builder_pro" ? (
+                {upgradingId === "pro" ? (
                   <Loader2 className="size-3.5 animate-spin" />
                 ) : (
                   <>
@@ -501,7 +497,7 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
                 }}
                 disabled={upgradingId !== null || !isOwner}
               >
-                {upgradingId === "pro" || upgradingId === "builder_pro" ? (
+                {upgradingId === "pro" ? (
                   <Loader2 className="size-3.5 animate-spin" />
                 ) : (
                   <>

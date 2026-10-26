@@ -16,6 +16,7 @@ pub enum CoreError {
     Billing(String),
 }
 
+/// Product tiers: self-hosted OSS and Cloud Pro / Scale only.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum PlanTier {
@@ -23,10 +24,6 @@ pub enum PlanTier {
     Oss,
     Pro,
     Scale,
-    BuilderPro,
-    MultiAppStudio,
-    BoutiqueAgency,
-    CanarySandbox,
 }
 
 impl PlanTier {
@@ -35,10 +32,6 @@ impl PlanTier {
             Self::Oss => "oss",
             Self::Pro => "pro",
             Self::Scale => "scale",
-            Self::BuilderPro => "builder_pro",
-            Self::MultiAppStudio => "multi_app_studio",
-            Self::BoutiqueAgency => "boutique_agency",
-            Self::CanarySandbox => "canary_sandbox",
         }
     }
 
@@ -72,38 +65,6 @@ impl PlanTier {
                 max_sub_tenants: u32::MAX,
                 spike_valve_rate_per_min: 100.0,
             },
-            Self::BuilderPro => TenantLimits {
-                plan_tier: *self,
-                max_projects: 3,
-                retention_days: 30,
-                allows_sub_tenants: false,
-                max_sub_tenants: 0,
-                spike_valve_rate_per_min: 100.0,
-            },
-            Self::MultiAppStudio => TenantLimits {
-                plan_tier: *self,
-                max_projects: 15,
-                retention_days: 60,
-                allows_sub_tenants: false,
-                max_sub_tenants: 0,
-                spike_valve_rate_per_min: 100.0,
-            },
-            Self::BoutiqueAgency => TenantLimits {
-                plan_tier: *self,
-                max_projects: 50,
-                retention_days: 90,
-                allows_sub_tenants: true,
-                max_sub_tenants: 25,
-                spike_valve_rate_per_min: 100.0,
-            },
-            Self::CanarySandbox => TenantLimits {
-                plan_tier: *self,
-                max_projects: 1,
-                retention_days: 14,
-                allows_sub_tenants: false,
-                max_sub_tenants: 0,
-                spike_valve_rate_per_min: 100.0,
-            },
         }
     }
 
@@ -112,10 +73,6 @@ impl PlanTier {
             Self::Oss => u64::MAX,
             Self::Pro => 200_000,
             Self::Scale => 1_500_000,
-            Self::BuilderPro => 500_000,
-            Self::MultiAppStudio => 2_500_000,
-            Self::BoutiqueAgency => 10_000_000,
-            Self::CanarySandbox => 100_000,
         }
     }
 
@@ -124,10 +81,6 @@ impl PlanTier {
             Self::Oss => u32::MAX,
             Self::Pro => 5,
             Self::Scale => u32::MAX,
-            Self::BuilderPro => 5,
-            Self::MultiAppStudio => u32::MAX,
-            Self::BoutiqueAgency => u32::MAX,
-            Self::CanarySandbox => 3,
         }
     }
 
@@ -136,10 +89,6 @@ impl PlanTier {
             Self::Oss => u32::MAX,
             Self::Pro => 1,
             Self::Scale => u32::MAX,
-            Self::BuilderPro => 1,
-            Self::MultiAppStudio => 5,
-            Self::BoutiqueAgency => 25,
-            Self::CanarySandbox => 1,
         }
     }
 }
@@ -154,14 +103,13 @@ impl std::str::FromStr for PlanTier {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Polar active SKUs: pro | scale (+ legacy strings → same). See cloud-billing polar_paid_tier.
         match s.trim().to_lowercase().as_str() {
             "oss" | "self_hosted" => Ok(Self::Oss),
-            "pro" => Ok(Self::Pro),
-            "scale" => Ok(Self::Scale),
-            "builder_pro" => Ok(Self::BuilderPro),
-            "multi_app_studio" | "studio" => Ok(Self::MultiAppStudio),
-            "boutique_agency" | "agency" => Ok(Self::BoutiqueAgency),
-            "canary_sandbox" | "canary" => Ok(Self::CanarySandbox),
+            "pro" | "builder_pro" | "canary_sandbox" | "canary" => Ok(Self::Pro),
+            "scale" | "team_plus" | "plus" | "studio" | "multi_app_studio" => Ok(Self::Scale),
+            "agency" | "boutique_agency" => Ok(Self::Scale),
+            "dedicated" | "enterprise" | "dedicated_sovereign" => Ok(Self::Scale),
             _ => Err(()),
         }
     }
@@ -289,6 +237,8 @@ mod tests {
         assert_eq!("pro".parse::<PlanTier>(), Ok(PlanTier::Pro));
         assert_eq!("scale".parse::<PlanTier>(), Ok(PlanTier::Scale));
         assert_eq!("oss".parse::<PlanTier>(), Ok(PlanTier::Oss));
-        assert_eq!("builder_pro".parse::<PlanTier>(), Ok(PlanTier::BuilderPro));
+        assert_eq!("builder_pro".parse::<PlanTier>(), Ok(PlanTier::Pro));
+        assert_eq!("canary_sandbox".parse::<PlanTier>(), Ok(PlanTier::Pro));
+        assert_eq!("boutique_agency".parse::<PlanTier>(), Ok(PlanTier::Scale));
     }
 }
