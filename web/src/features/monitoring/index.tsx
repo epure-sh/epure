@@ -1,223 +1,283 @@
 import * as React from "react";
 import { useParams } from "react-router-dom";
 import { PageShell } from "@/components/kit/page-shell";
-import { TelemetryChart, type TelemetryPoint } from "@/components/kit/telemetry-chart";
+import { TelemetryChart } from "@/components/kit/telemetry-chart";
+import { EmptyState } from "@/components/kit/empty-state";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/shell/app-context";
-import { copyText } from "@/lib/copy-text";
-import { toast } from "@/components/ui/sonner";
 import {
-  ArrowUpRight,
-  CheckCircle2,
-  Copy,
-  Share2,
-  ShieldCheck,
-  Users,
-} from "lucide-react";
+  fetchHeadlineStats,
+  fetchIssues,
+  fetchProjectActivity,
+  fetchReleases,
+  type HeadlineStats,
+  type IssueSummary,
+  type ReleaseSummary,
+  type TimelineBucket,
+} from "@/lib/api";
+import { formatRelativeTime } from "@/lib/format-time";
+import { formatCompactCount } from "@/lib/format-count";
+import { bucketsToTelemetry } from "@/features/org/project-usage";
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, Users } from "lucide-react";
+
+interface MonitoringData {
+  stats24h: HeadlineStats;
+  stats7d: HeadlineStats | null;
+  issues24h: IssueSummary[];
+  activity: TimelineBucket[];
+  latestRelease: ReleaseSummary | null;
+}
+
+function latestRelease(releases: ReleaseSummary[]): ReleaseSummary | null {
+  const seen = (release: ReleaseSummary) =>
+    new Date(release.last_seen_at ?? release.first_seen_at ?? 0).getTime();
+  return releases.reduce<ReleaseSummary | null>(
+    (latest, release) => (!latest || seen(release) > seen(latest) ? release : latest),
+    null,
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  unit,
+  hint,
+  aside,
+  loading,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  hint?: React.ReactNode;
+  aside?: React.ReactNode;
+  loading: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-border-subtle bg-surface-1 p-4 shadow-xs">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-fg-muted">{label}</span>
+        {aside}
+      </div>
+      <div className="mt-2 flex items-baseline gap-2">
+        <span className="font-mono text-2xl font-bold tracking-tight tabular-nums text-fg-primary">
+          {loading ? "…" : value}
+        </span>
+        <span className="font-mono text-xs text-fg-muted">{unit}</span>
+      </div>
+      {hint ? <p className="mt-1 text-[11px] text-fg-muted">{hint}</p> : null}
+    </div>
+  );
+}
 
 export function MonitoringPage({ isEmbed = false }: { isEmbed?: boolean }) {
   const { projectId } = useParams<{ projectId: string }>();
-  const { projects } = useAppContext();
+  const { projects, environment } = useAppContext();
   const safeProjects = Array.isArray(projects) ? projects : [];
-  const project = safeProjects.find((p) => p && (p.id === projectId || p.slug === projectId)) ?? safeProjects[0] ?? null;
+  const project =
+    safeProjects.find((p) => p && (p.id === projectId || p.slug === projectId)) ??
+    safeProjects[0] ??
+    null;
+  const activeProjectId = project?.id ?? null;
 
-  const [shareOpen, setShareOpen] = React.useState(false);
-  const [embedCopied, setEmbedCopied] = React.useState(false);
+  const [data, setData] = React.useState<MonitoringData | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = React.useState(0);
 
-  // Generate 72h telemetry points
-  const telemetryData: TelemetryPoint[] = React.useMemo(() => {
-    const points: TelemetryPoint[] = [];
-    const now = Date.now();
-    for (let i = 24; i >= 0; i--) {
-      const time = new Date(now - i * 3600000).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      // realistic diurnal wave with occasional spikes
-      const base = 80 + Math.sin(i / 3) * 40;
-      const spike = i === 4 ? 320 : i === 12 ? 190 : 0;
-      points.push({
-        time,
-        value: Math.max(10, Math.floor(base + spike)),
-      });
+  React.useEffect(() => {
+    if (!activeProjectId) {
+      setData(null);
+      setLoading(false);
+      return;
     }
-    return points;
-  }, []);
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    void Promise.all([
+      fetchHeadlineStats(activeProjectId, environment, "24h"),
+      fetchHeadlineStats(activeProjectId, environment, "7d").catch(() => null),
+      fetchIssues("", activeProjectId, "24h", undefined, environment).catch(() => [] as IssueSummary[]),
+      fetchProjectActivity(activeProjectId).catch(() => [] as TimelineBucket[]),
+      fetchReleases(activeProjectId).catch(() => [] as ReleaseSummary[]),
+    ])
+      .then(([stats24h, stats7d, issues24h, activity, releases]) => {
+        if (cancelled) return;
+        setData({ stats24h, stats7d, issues24h, activity, latestRelease: latestRelease(releases) });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setData(null);
+          setError("Could not load monitoring data for this project.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProjectId, environment, reloadNonce]);
 
-  const embedToken = `tok_mon_${(project?.id ?? "demo").slice(0, 8)}`;
-  const origin = typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
-  const embedUrl = `${origin}/embed/monitoring/${embedToken}`;
-  const iframeSnippet = `<iframe src="${embedUrl}" width="100%" height="480" frameborder="0"></iframe>`;
+  const events24h = data?.stats24h.events_7d ?? 0;
+  const dailyBaseline = data?.stats7d ? data.stats7d.events_7d / 7 : null;
+  const changeVsBaseline =
+    dailyBaseline && dailyBaseline > 0 ? ((events24h - dailyBaseline) / dailyBaseline) * 100 : null;
+  const affectedUsers = (data?.issues24h ?? []).reduce(
+    (sum, issue) => sum + (issue.affected_users_count ?? issue.unique_user_count ?? 0),
+    0,
+  );
+  const regressions = data?.stats24h.regressions ?? 0;
+  const unresolved = data?.stats24h.unresolved ?? 0;
+  const snoozed = data?.stats24h.snoozed ?? 0;
+  const health: "calm" | "attention" | "regressions" =
+    regressions > 0 ? "regressions" : unresolved > 0 ? "attention" : "calm";
+  const chartData = React.useMemo(() => bucketsToTelemetry(data?.activity ?? []), [data?.activity]);
+  const hasActivity = (data?.activity ?? []).some((bucket) => bucket.count > 0);
 
-  const handleCopyLink = () => {
-    void copyText(embedUrl);
-    toast.success("Embed link copied to clipboard");
-  };
-
-  const handleCopySnippet = () => {
-    void copyText(iframeSnippet);
-    setEmbedCopied(true);
-    setTimeout(() => setEmbedCopied(false), 2000);
-    toast.success("iframe embed snippet copied to clipboard");
-  };
-
-  const content = (
+  const content = !activeProjectId ? (
+    <EmptyState title="No project selected" description="Create or select a project to see its health." />
+  ) : error ? (
+    <EmptyState
+      title="Monitoring unavailable"
+      description={error}
+      actionLabel="Retry"
+      onAction={() => setReloadNonce((value) => value + 1)}
+    />
+  ) : (
     <div className="flex flex-col gap-6">
-      {/* 1. Top Status Header: Error Health Score (99.2%) with emerald dot */}
       <div className="rounded-lg border border-border-subtle bg-surface-1 p-5 shadow-xs">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3.5">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-healthy/15 text-healthy">
-              <CheckCircle2 className="size-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="size-2 rounded-full bg-healthy animate-pulse" />
-                <h2 className="text-base font-semibold text-fg-primary">
-                  System Health Score: <span className="font-mono text-healthy font-bold">99.2%</span>
-                </h2>
-                <Badge variant="healthy" size="sm">
-                  Calm
+        <div className="flex items-start gap-3.5">
+          <div
+            className={
+              health === "calm"
+                ? "flex size-10 shrink-0 items-center justify-center rounded-full bg-healthy/15 text-healthy"
+                : health === "attention"
+                  ? "flex size-10 shrink-0 items-center justify-center rounded-full bg-regression/15 text-regression"
+                  : "flex size-10 shrink-0 items-center justify-center rounded-full bg-escalating/15 text-escalating"
+            }
+          >
+            {health === "calm" ? <CheckCircle2 className="size-5" /> : <AlertTriangle className="size-5" />}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-fg-primary">
+                {loading
+                  ? "Checking project health…"
+                  : health === "calm"
+                    ? "All calm"
+                    : health === "attention"
+                      ? "Needs attention"
+                      : "Regressions detected"}
+              </h2>
+              {!loading ? (
+                <Badge
+                  variant={health === "calm" ? "healthy" : health === "attention" ? "regression" : "escalating"}
+                  size="sm"
+                >
+                  {environment}
                 </Badge>
-              </div>
-              <p className="mt-1 text-xs text-fg-muted">
-                Production is calm. 0 active regressions across release <span className="font-mono font-medium text-fg-secondary">v2.4.1</span>.
-              </p>
+              ) : null}
             </div>
+            {!loading ? (
+              <p className="mt-1 text-xs text-fg-muted">
+                <span className="tabular-nums">{unresolved}</span> unresolved ·{" "}
+                <span className="tabular-nums">{regressions}</span> came back ·{" "}
+                <span className="tabular-nums">{snoozed}</span> snoozed
+                {data?.latestRelease ? (
+                  <>
+                    {" "}
+                    · latest release{" "}
+                    <span className="font-mono font-medium text-fg-secondary">{data.latestRelease.version}</span>
+                  </>
+                ) : null}
+              </p>
+            ) : null}
           </div>
-
-          {!isEmbed && (
-            <Dialog open={shareOpen} onOpenChange={setShareOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5 self-start sm:self-auto">
-                  <Share2 className="size-3.5" />
-                  <span>Share / Embed</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Share Public Telemetry</DialogTitle>
-                  <DialogDescription>
-                    Provide a read-only live monitoring dashboard for status pages or customer portals.
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="space-y-4 pt-2">
-                  <div>
-                    <label className="text-xs font-semibold text-fg-primary block mb-1.5">
-                      Direct Read-Only Link
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Input readOnly value={embedUrl} size="sm" className="font-mono text-xs" />
-                      <Button variant="outline" size="sm" onClick={handleCopyLink}>
-                        <Copy className="size-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-fg-primary block mb-1.5">
-                      Embeddable HTML iframe Snippet
-                    </label>
-                    <div className="relative">
-                      <textarea
-                        readOnly
-                        value={iframeSnippet}
-                        rows={3}
-                        className="w-full rounded-md border border-border-subtle bg-surface-2 p-2.5 font-mono text-xs text-fg-secondary resize-none focus:outline-none"
-                      />
-                      <Button
-                        variant="secondary"
-                        size="xs"
-                        onClick={handleCopySnippet}
-                        className="absolute bottom-2 right-2 gap-1"
-                      >
-                        <Copy className="size-3" />
-                        <span>{embedCopied ? "Copied" : "Copy"}</span>
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
         </div>
       </div>
 
-      {/* 2. Three Key Metric Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {/* Total Exceptions */}
-        <div className="rounded-lg border border-border-subtle bg-surface-1 p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-fg-muted">Total Exceptions (24h)</span>
-            <span className="flex items-center text-xs font-medium text-escalating gap-0.5">
-              +4.2% <ArrowUpRight className="size-3" />
-            </span>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="font-mono text-2xl font-bold tracking-tight text-fg-primary">12,842</span>
-            <span className="text-xs text-fg-muted font-mono">events</span>
-          </div>
-          <p className="mt-1 text-[11px] text-fg-muted">Baseline avg: 12,320 events / day</p>
-        </div>
-
-        {/* Affected Users */}
-        <div className="rounded-lg border border-border-subtle bg-surface-1 p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-fg-muted">Affected Users</span>
-            <Users className="size-3.5 text-fg-muted" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="font-mono text-2xl font-bold tracking-tight text-fg-primary">420</span>
-            <span className="text-xs text-fg-muted font-mono">distinct IDs</span>
-          </div>
-          <p className="mt-1 text-[11px] text-fg-muted">0.18% of active sessions impacted</p>
-        </div>
-
-        {/* Spike Valve Absorbed Events */}
-        <div className="rounded-lg border border-border-subtle bg-surface-1 p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-fg-muted">Spike Valve Flood Protection</span>
-            <ShieldCheck className="size-3.5 text-healthy" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="font-mono text-2xl font-bold tracking-tight text-healthy">3,200</span>
-            <span className="text-xs text-healthy font-mono">soft-sampled</span>
-          </div>
-          <p className="mt-1 text-[11px] text-healthy/80 font-medium">$0 quota overage · 100% telemetry preserved</p>
-        </div>
+        <MetricCard
+          label="Exceptions (24h)"
+          value={events24h.toLocaleString()}
+          unit="events"
+          loading={loading}
+          aside={
+            changeVsBaseline !== null && !loading ? (
+              <span
+                className={
+                  changeVsBaseline > 0
+                    ? "flex items-center gap-0.5 text-xs font-medium tabular-nums text-escalating"
+                    : "flex items-center gap-0.5 text-xs font-medium tabular-nums text-healthy"
+                }
+              >
+                {changeVsBaseline > 0 ? "+" : ""}
+                {changeVsBaseline.toFixed(1)}%
+                {changeVsBaseline > 0 ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
+              </span>
+            ) : null
+          }
+          hint={
+            dailyBaseline !== null ? (
+              <>
+                7-day daily average:{" "}
+                <span className="tabular-nums">{formatCompactCount(Math.round(dailyBaseline))}</span> events
+              </>
+            ) : undefined
+          }
+        />
+        <MetricCard
+          label="Affected users (24h)"
+          value={affectedUsers.toLocaleString()}
+          unit="users"
+          loading={loading}
+          aside={<Users className="size-3.5 text-fg-muted" />}
+          hint={
+            <>
+              Summed across <span className="tabular-nums">{data?.issues24h.length ?? 0}</span> issues seen in
+              the last 24h
+            </>
+          }
+        />
+        <MetricCard
+          label="Open issues"
+          value={(unresolved + regressions).toLocaleString()}
+          unit="issues"
+          loading={loading}
+          hint={
+            <>
+              <span className="tabular-nums">{regressions}</span> came back after being resolved
+            </>
+          }
+        />
       </div>
 
-      {/* 3. Vercel-Style Telemetry Histogram with Release Deployment Marker */}
       <div className="rounded-lg border border-border-subtle bg-surface-1 p-5 shadow-xs">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-4">
+        <div className="flex flex-col gap-2 pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
-              Exception Volume Over Time (24h)
+              Exception volume (last 30 days)
             </h3>
-            <p className="text-xs text-fg-muted mt-0.5">
-              1-minute step area histogram with deployment crosshair correlation
-            </p>
+            <p className="mt-0.5 text-xs text-fg-muted">Daily stored events across all environments</p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface-2 px-2.5 py-0.5 text-2xs font-mono text-fg-secondary">
+          {data?.latestRelease ? (
+            <span className="flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface-2 px-2.5 py-0.5 font-mono text-2xs text-fg-secondary">
               <span className="size-1.5 rounded-full bg-intent-primary" />
-              v2.4.1 deployed 6h ago
+              {data.latestRelease.version}
+              {data.latestRelease.last_seen_at
+                ? ` · seen ${formatRelativeTime(data.latestRelease.last_seen_at)}`
+                : ""}
             </span>
-          </div>
+          ) : null}
         </div>
 
-        <TelemetryChart data={telemetryData} height={200} color="primary" />
+        {loading ? (
+          <div className="h-[200px] animate-pulse rounded-md bg-surface-2/60" />
+        ) : hasActivity ? (
+          <TelemetryChart data={chartData} height={200} color="primary" />
+        ) : (
+          <p className="py-16 text-center text-xs text-fg-muted">No events in the last 30 days.</p>
+        )}
       </div>
     </div>
   );
@@ -232,8 +292,8 @@ export function MonitoringPage({ isEmbed = false }: { isEmbed?: boolean }) {
 
   return (
     <PageShell
-      title="Peaceful Monitoring"
-      description="Zero-noise health telemetry, error rates, and Spike Valve flood protection."
+      title="Monitoring"
+      description={project ? `Live health and exception volume for ${project.name}.` : "Live project health."}
       density="standard"
     >
       {content}

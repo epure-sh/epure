@@ -1,7 +1,11 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { PageShell } from "@/components/kit/page-shell";
 import { SectionCard } from "@/components/kit/section-card";
 import { AskAgentCard } from "@/components/kit/ask-agent-card";
+import { EmptyState } from "@/components/kit/empty-state";
+import { TelemetryChart } from "@/components/kit/telemetry-chart";
+import { UsageMeterCard } from "@/components/kit/usage-meter-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -19,51 +23,100 @@ import {
   createBillingPortalSession,
   createCheckoutSession,
   fetchBillingStatus,
+  syncCheckout,
   type BillingStatus,
 } from "@/lib/api";
-import {
-  Check,
-  CreditCard,
-  Loader2,
-  Receipt,
-  ShieldCheck,
-  Zap,
-} from "lucide-react";
+import { isCloudDeployment } from "@/lib/deployment";
+import { Check, CreditCard, Loader2, Receipt, Zap } from "lucide-react";
 import { CLOUD_PLANS, type PlanDefinition } from "./billing-data";
+import {
+  bucketsToTelemetry,
+  loadProjectEventUsage,
+  monthlyEventLimit,
+  planForBillingStatus,
+  type ProjectEventUsage,
+} from "./project-usage";
 
-interface ProjectBillingRow {
-  id: string;
-  name: string;
-  slug: string;
-  isDemo: boolean;
-  events30d: number;
-  spikeValveAbsorbed: number;
-  sparkline: number[];
-  status: "billable" | "excluded";
+function subscriptionBadgeVariant(status: string): "healthy" | "info" | "regression" | "neutral" {
+  switch (status) {
+    case "active":
+      return "healthy";
+    case "trialing":
+    case "canary":
+      return "info";
+    case "":
+    case "none":
+      return "neutral";
+    default:
+      return "regression";
+  }
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
 }
 
 export function BillingPage() {
   const { currentOrg, projects, user } = useAppContext();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
+  const [billingLoading, setBillingLoading] = useState(true);
+  const [usage, setUsage] = useState<ProjectEventUsage[]>([]);
+  const [usageLoading, setUsageLoading] = useState(true);
   const [loadingPortal, setLoadingPortal] = useState(false);
   const [upgradingPlanId, setUpgradingPlanId] = useState<string | null>(null);
 
   const isOwner = user?.role === "owner";
+  const cloud = isCloudDeployment();
+  const checkoutId = searchParams.get("checkout_id");
+  const safeProjects = useMemo(() => (Array.isArray(projects) ? projects : []), [projects]);
+
+  const loadBilling = useCallback(async () => {
+    setBillingLoading(true);
+    let status: BillingStatus | null = null;
+    if (checkoutId) {
+      status = await syncCheckout(checkoutId).catch(() => null);
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          next.delete("checkout_id");
+          return next;
+        },
+        { replace: true },
+      );
+    }
+    if (!status) {
+      status = await fetchBillingStatus();
+    }
+    setBillingStatus(status);
+    setBillingLoading(false);
+  }, [checkoutId, setSearchParams]);
+
+  useEffect(() => {
+    void loadBilling();
+  }, [loadBilling]);
 
   useEffect(() => {
     let cancelled = false;
-    void fetchBillingStatus()
-      .then((status) => {
-        if (!cancelled && status) {
-          setBillingStatus(status);
-        }
+    setUsageLoading(true);
+    void loadProjectEventUsage(safeProjects, "30d")
+      .then((rows) => {
+        if (!cancelled) setUsage(rows);
       })
-      .catch(() => {});
-
+      .finally(() => {
+        if (!cancelled) setUsageLoading(false);
+      });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [safeProjects]);
+
+  const plan = planForBillingStatus(billingStatus);
+  const eventLimit = monthlyEventLimit(billingStatus, plan);
+  const billableEvents = usage.filter((row) => !row.isDemo).reduce((sum, row) => sum + row.events, 0);
+  const demoEvents = usage.filter((row) => row.isDemo).reduce((sum, row) => sum + row.events, 0);
+  const trialEndsAt = billingStatus?.canary_expires_at ?? null;
+  const maxProjects = billingStatus?.max_projects ?? 0;
 
   const handleOpenPortal = async () => {
     setLoadingPortal(true);
@@ -71,9 +124,9 @@ export function BillingPage() {
       const res = await createBillingPortalSession(window.location.href);
       if (res?.url) {
         window.location.href = res.url;
-      } else {
-        toast.info("Polar customer portal session ready (simulation)");
+        return;
       }
+      toast.error("Billing portal did not return a session.");
     } catch {
       toast.error("Billing portal is currently unreachable.");
     } finally {
@@ -81,460 +134,340 @@ export function BillingPage() {
     }
   };
 
-  const handleSelectPlan = async (plan: PlanDefinition) => {
+  const handleSelectPlan = async (target: PlanDefinition) => {
     if (!isOwner) {
       toast.error("Only workspace owners can modify subscriptions");
       return;
     }
-    setUpgradingPlanId(plan.id);
+    setUpgradingPlanId(target.id);
     try {
       const res = await createCheckoutSession({
-        plan_tier: plan.tierCode ?? "pro",
+        plan_tier: target.tierCode ?? "pro",
         interval: "annual",
         success_url: `${window.location.origin}/billing?checkout=success`,
         cancel_url: `${window.location.origin}/billing?checkout=canceled`,
       });
       if (res?.url) {
         window.location.href = res.url;
-      } else {
-        toast.success(`Upgraded to ${plan.name} ($0 overage guarantee active)`);
+        return;
       }
+      toast.error("Checkout did not return a session.");
     } catch {
-      toast.success(`Upgraded to ${plan.name} ($0 overage guarantee active)`);
+      toast.error("Could not start checkout. Please try again.");
     } finally {
       setUpgradingPlanId(null);
     }
   };
 
-  // Quota Metrics
-  const monthlyLimit = 200_000;
-  const realIngestCount = 142_810;
-  const spikeValveAbsorbedCount = 482_100;
-  const demoExcludedCount = 38_400;
-
-  const realIngestPercent = Math.min(100, Math.round((realIngestCount / monthlyLimit) * 100));
-
-  const safeProjects = Array.isArray(projects) ? projects : [];
-  const nonDemoCount = safeProjects.filter((pr) => pr && !pr.is_demo).length;
-
-  // Projects Breakdown Data
-  const projectRows: ProjectBillingRow[] = safeProjects.map((p, idx) => {
-    const isDemo = Boolean(p?.is_demo || p?.id?.startsWith("acme") || p?.id?.startsWith("prj_seed"));
-    const events = isDemo
-      ? idx === 0
-        ? 28_400
-        : 10_000
-      : Math.round(realIngestCount / Math.max(1, nonDemoCount || 1));
-    const valve = isDemo ? (idx === 0 ? 12_800 : 4_200) : 482_100;
-
-    // 7-point sparkline heights (normalized 0..100)
-    const sparkline = isDemo
-      ? [20, 35, 40, 25, 60, 50, 45]
-      : [15, 30, 45, 65, 80, 95, 85];
-
-    return {
-      id: p?.id ?? `project-${idx}`,
-      name: p?.name ?? "Untitled project",
-      slug: p?.slug ?? p?.id ?? `project-${idx}`,
-      isDemo,
-      events30d: events,
-      spikeValveAbsorbed: valve,
-      sparkline,
-      status: isDemo ? "excluded" : "billable",
-    };
-  });
-
-  const totalBillableEvents = projectRows
-    .filter((r) => r.status === "billable")
-    .reduce((sum, r) => sum + r.events30d, 0) || realIngestCount;
-
   return (
     <PageShell
       title="Usage & Billing"
-      description="Zero-overage volume monitoring, active subscription tier, and per-project event telemetry."
+      description="Your subscription, event quota, and per-project event volume."
       actions={
-        <div className="flex items-center gap-2">
-          {isOwner && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void handleOpenPortal()}
-              disabled={loadingPortal}
-              className="gap-1.5"
-            >
-              {loadingPortal ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <Receipt className="size-3.5" />
-              )}
-              <span>Manage Invoices</span>
-            </Button>
-          )}
-        </div>
+        isOwner && billingStatus?.subscription_id ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void handleOpenPortal()}
+            disabled={loadingPortal}
+          >
+            {loadingPortal ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Receipt className="size-3.5" />
+            )}
+            <span>Manage Invoices</span>
+          </Button>
+        ) : null
       }
       density="standard"
     >
-      <div className="mx-auto max-w-6xl space-y-6 p-6 w-full">
-        {/* Top 2-Column Grid: Plan Details & Monthly Event Meter */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          {/* Left Card: Plan Details */}
-          <div className="lg:col-span-5 flex flex-col justify-between rounded-panel border border-border-subtle bg-surface-1 p-5 shadow-tactile select-none">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="flex size-7 items-center justify-center rounded-md bg-accent/15 text-accent border border-accent/20">
-                    <Zap className="size-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-fg-primary">
-                      {billingStatus?.plan_tier ? `Cloud ${billingStatus.plan_tier}` : "Cloud Pro"}
-                    </h3>
-                    <p className="text-[11px] text-fg-muted">
-                      {currentOrg?.name ?? "Acme Corp"} Workspace
-                    </p>
-                  </div>
-                </div>
-
-                <Badge variant="healthy" size="sm" dot>
-                  Active Subscription
-                </Badge>
-              </div>
-
-              <div>
-                <div className="flex items-baseline gap-1.5 font-mono">
-                  <span className="text-3xl font-semibold text-fg-primary tabular-nums">
-                    $24
-                  </span>
-                  <span className="text-xs text-fg-muted font-sans font-normal">
-                    / mo flat (billed annually)
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-fg-muted">
-                  Next scheduled renewal: <span className="text-fg-secondary font-medium">Nov 1, 2026</span>
-                </p>
-              </div>
-
-              <div className="border-t border-border-subtle/80 pt-3 space-y-2 text-xs text-fg-secondary">
-                <div className="flex items-center gap-2">
-                  <Check className="size-3.5 text-healthy shrink-0 stroke-[2.5]" />
-                  <span>200,000 monthly events included</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Check className="size-3.5 text-healthy shrink-0 stroke-[2.5]" />
-                  <span>
-                    <strong className="text-fg-primary font-medium">$0 overage guarantee:</strong> In-memory Spike Valve blocks flood charges
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Check className="size-3.5 text-healthy shrink-0 stroke-[2.5]" />
-                  <span>Unlimited projects & team members</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Check className="size-3.5 text-healthy shrink-0 stroke-[2.5]" />
-                  <span>Surgical Claude Code & Cursor MCP triage</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-5 pt-4 border-t border-border-subtle flex items-center justify-between gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleOpenPortal()}
-                disabled={loadingPortal || !isOwner}
-                className="w-full justify-center gap-1.5 text-xs font-medium"
-              >
-                <CreditCard className="size-3.5" />
-                <span>Manage Plan & Payment</span>
-              </Button>
-            </div>
+      <div className="mx-auto w-full max-w-6xl space-y-6 p-6">
+        {billingLoading ? (
+          <div className="flex items-center gap-2 text-xs text-fg-muted">
+            <Loader2 className="size-3.5 animate-spin" />
+            <span>Loading billing status…</span>
           </div>
+        ) : !billingStatus ? (
+          cloud ? (
+            <EmptyState
+              title="Billing status unavailable"
+              description="We could not load your subscription. Event usage below is still live."
+              actionLabel="Retry"
+              onAction={() => void loadBilling()}
+            />
+          ) : (
+            <SectionCard
+              title="Self-hosted"
+              description="This instance is not metered. There is no subscription, quota, or invoice."
+            >
+              <p className="text-xs text-fg-muted">
+                Event volume per project is shown below for capacity planning.
+              </p>
+            </SectionCard>
+          )
+        ) : (
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+            <div className="flex flex-col justify-between rounded-panel border border-border-subtle bg-surface-1 p-5 shadow-tactile lg:col-span-5">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex size-7 items-center justify-center rounded-md border border-accent/20 bg-accent/15 text-accent">
+                      <Zap className="size-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-fg-primary">
+                        {plan?.name ?? billingStatus.plan_tier}
+                      </h3>
+                      {currentOrg?.name ? (
+                        <p className="text-[11px] text-fg-muted">{currentOrg.name}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                  <Badge variant={subscriptionBadgeVariant(billingStatus.subscription_status)} size="sm" dot>
+                    {billingStatus.subscription_status || "No subscription"}
+                  </Badge>
+                </div>
 
-          {/* Right Card: Monthly Event Meter */}
-          <div className="lg:col-span-7 flex flex-col justify-between rounded-panel border border-border-subtle bg-surface-1 p-5 shadow-tactile select-none">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-fg-primary">
-                    Monthly Event Quota
-                  </h3>
-                  <p className="text-[11px] text-fg-muted">
-                    Razor-sharp tiered ingest with flood immunity
+                {plan?.price ? (
+                  <div className="flex items-baseline gap-1.5 font-mono">
+                    <span className="text-3xl font-semibold tabular-nums text-fg-primary">
+                      {plan.priceMonthly ?? plan.price}
+                    </span>
+                    {plan.period ? (
+                      <span className="font-sans text-xs font-normal text-fg-muted">{plan.period}</span>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <div className="space-y-1 text-xs text-fg-muted">
+                  {trialEndsAt ? (
+                    <p>
+                      Trial {new Date(trialEndsAt).getTime() <= Date.now() ? "ended" : "ends"}{" "}
+                      <span className="font-medium tabular-nums text-fg-secondary">{formatDate(trialEndsAt)}</span>
+                    </p>
+                  ) : null}
+                  <p>
+                    Projects:{" "}
+                    <span className="font-medium tabular-nums text-fg-secondary">
+                      {billingStatus.project_count}
+                      {maxProjects > 0 ? ` / ${maxProjects}` : " (unlimited)"}
+                    </span>
                   </p>
                 </div>
 
-                <Badge variant="neutral" size="sm" className="font-mono">
-                  Cycle ends in 7 days
-                </Badge>
+                {plan ? (
+                  <div className="space-y-2 border-t border-border-subtle/80 pt-3 text-xs text-fg-secondary">
+                    {plan.features.slice(0, 4).map((feature) => (
+                      <div key={feature} className="flex items-center gap-2">
+                        <Check className="size-3.5 shrink-0 stroke-[2.5] text-healthy" />
+                        <span>{feature}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
 
-              {/* Numbers Header */}
-              <div className="flex items-baseline justify-between font-mono">
-                <div>
-                  <span className="text-2xl font-bold text-fg-primary tabular-nums">
-                    {realIngestCount.toLocaleString()}
-                  </span>
-                  <span className="text-xs text-fg-muted font-normal ml-1.5">
-                    / {monthlyLimit.toLocaleString()} events
-                  </span>
+              {isOwner && billingStatus.subscription_id ? (
+                <div className="mt-5 border-t border-border-subtle pt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleOpenPortal()}
+                    disabled={loadingPortal}
+                  >
+                    <CreditCard className="size-3.5" />
+                    <span>Manage Plan & Payment</span>
+                  </Button>
                 </div>
-                <span className="text-sm font-semibold text-accent tabular-nums">
-                  {realIngestPercent}% consumed
-                </span>
-              </div>
-
-              {/* Segmented Progress Bar */}
-              <div className="space-y-1.5">
-                <div className="relative h-3 w-full overflow-hidden rounded-full bg-surface-2 border border-border-subtle/80 flex">
-                  {/* Segment 1: Real Ingest */}
-                  <div
-                    className="h-full w-[71%] bg-accent transition-all duration-500"
-                    title={`Real Ingest: ${realIngestCount.toLocaleString()} events`}
-                  />
-                  {/* Segment 2: Spike Valve Absorbed (Protected) */}
-                  <div
-                    className="h-full w-[22%] bg-healthy/80 transition-all duration-500"
-                    title={`Spike Valve Absorbed: ${spikeValveAbsorbedCount.toLocaleString()} events ($0 overage)`}
-                  />
-                  {/* Segment 3: Demo Excluded */}
-                  <div
-                    className="h-full w-[7%] bg-surface-3 transition-all duration-500 opacity-60"
-                    title={`Acme Demo: ${demoExcludedCount.toLocaleString()} events (Excluded)`}
-                  />
-                </div>
-
-                {/* Legend */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 text-[11px]">
-                  <div className="flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-accent shrink-0" />
-                    <span className="text-fg-secondary truncate">
-                      Real Ingest: <strong className="text-fg-primary font-medium">{realIngestCount.toLocaleString()}</strong>
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-healthy/80 shrink-0" />
-                    <span className="text-fg-secondary truncate">
-                      Spike Valve: <strong className="text-healthy font-medium">482k ($0)</strong>
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-surface-3 shrink-0" />
-                    <span className="text-fg-secondary truncate">
-                      Acme Demo: <strong className="text-fg-muted font-medium">Excluded</strong>
-                    </span>
-                  </div>
-                </div>
-              </div>
+              ) : null}
             </div>
 
-            {/* Spike Valve Guarantee Callout */}
-            <div className="mt-4 rounded-md border border-healthy/20 bg-healthy/5 p-3 flex items-start gap-2.5 text-xs">
-              <ShieldCheck className="size-4 text-healthy shrink-0 mt-0.5" />
-              <div className="text-fg-secondary leading-relaxed">
-                <span className="font-medium text-fg-primary">Spike Valve Overage Immunity:</span>{" "}
-                When an infinite loop or DDoS surge strikes, the in-memory valve absorbs redundant events at 0 CPU overhead. You will <strong>never</strong> be billed surprise overage fees.
-              </div>
+            <div className="flex flex-col gap-3 lg:col-span-7">
+              {eventLimit ? (
+                <UsageMeterCard label="Billable events (last 30 days)" used={billableEvents} limit={eventLimit} />
+              ) : (
+                <div className="rounded-panel border border-border-subtle bg-surface-1 p-4 text-xs text-fg-muted shadow-tactile">
+                  <span className="font-mono text-2xl font-semibold tabular-nums text-fg-primary">
+                    {billableEvents.toLocaleString()}
+                  </span>{" "}
+                  billable events in the last 30 days · no monthly cap on this plan
+                </div>
+              )}
+              <p className="text-[11px] text-fg-muted">
+                Counted from stored events over a rolling 30-day window
+                {usageLoading ? " (loading…)" : ""}.
+                {demoEvents > 0 ? (
+                  <>
+                    {" "}
+                    Demo projects (
+                    <span className="tabular-nums">{demoEvents.toLocaleString()}</span> events) are excluded.
+                  </>
+                ) : null}
+              </p>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Breakdown Table: Per-Project Consumption */}
         <SectionCard
-          title="Per-Project Event Consumption (Last 30 Days)"
-          description="Demo projects (acme) are strictly excluded from billable volume."
+          title="Per-project event volume (last 30 days)"
+          description="Demo projects are excluded from billable volume."
           contentClassName="p-0"
         >
-          <Table className="select-none">
-            <TableHeader className="bg-surface-2/40 text-[11px] font-semibold text-fg-muted">
-              <TableRow>
-                <TableHead>Project</TableHead>
-                <TableHead>Classification</TableHead>
-                <TableHead className="text-right">30d Events</TableHead>
-                <TableHead className="text-right">Spike Valve Filtered</TableHead>
-                <TableHead className="text-center">30d Velocity Trend</TableHead>
-                <TableHead className="text-right">Billable Impact</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody className="divide-y divide-border-subtle/80 font-mono">
-              {projectRows.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell>
-                    <div className="font-sans font-medium text-fg-primary">
-                      {row.name}
-                    </div>
-                    <div className="text-[10px] text-fg-muted font-mono">{row.slug}</div>
-                  </TableCell>
-
-                  <TableCell className="font-sans">
-                    {row.isDemo ? (
-                      <Badge variant="neutral" size="sm" className="text-[10px] bg-surface-2">
-                        Demo Sandbox
-                      </Badge>
-                    ) : (
-                      <Badge variant="healthy" size="sm" className="text-[10px]">
-                        Production Billable
-                      </Badge>
-                    )}
-                  </TableCell>
-
-                  <TableCell className="text-right text-fg-primary font-medium">
-                    {row.events30d.toLocaleString()}
-                  </TableCell>
-
-                  <TableCell className="text-right text-healthy">
-                    {row.spikeValveAbsorbed.toLocaleString()}
-                  </TableCell>
-
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center">
-                      {/* Mini Sparkline SVG */}
-                      <svg className="w-20 h-5" viewBox="0 0 70 20">
-                        <polyline
-                          fill="none"
-                          stroke={row.isDemo ? "var(--color-fg-muted)" : "var(--color-accent)"}
-                          strokeWidth="1.75"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          points={row.sparkline
-                            .map((val, i) => `${i * 10 + 5},${20 - (val / 100) * 16}`)
-                            .join(" ")}
-                        />
-                      </svg>
-                    </div>
-                  </TableCell>
-
-                  <TableCell className="text-right font-sans">
-                    {row.isDemo ? (
-                      <span className="text-[11px] font-medium text-fg-muted">
-                        Excluded ($0.00)
-                      </span>
-                    ) : (
-                      <span className="text-[11px] font-semibold text-fg-primary">
-                        Included in Quota
-                      </span>
-                    )}
-                  </TableCell>
+          {usageLoading ? (
+            <div className="flex items-center gap-2 p-4 text-xs text-fg-muted">
+              <Loader2 className="size-3.5 animate-spin" />
+              <span>Loading project usage…</span>
+            </div>
+          ) : usage.length === 0 ? (
+            <p className="p-4 text-xs text-fg-muted">No projects yet.</p>
+          ) : (
+            <Table>
+              <TableHeader className="bg-surface-2/40 text-[11px] font-semibold text-fg-muted">
+                <TableRow>
+                  <TableHead>Project</TableHead>
+                  <TableHead>Classification</TableHead>
+                  <TableHead className="text-right">30d events</TableHead>
+                  <TableHead className="text-center">30d trend</TableHead>
+                  <TableHead className="text-right">Unresolved</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-            <TableFooter className="font-semibold text-xs">
-              <TableRow>
-                <TableCell className="font-sans text-fg-primary" colSpan={2}>
-                  Total Billable Ingest (Excluding Demos)
-                </TableCell>
-                <TableCell className="text-right font-mono text-fg-primary">
-                  {totalBillableEvents.toLocaleString()}
-                </TableCell>
-                <TableCell className="text-right font-mono text-healthy">
-                  482,100
-                </TableCell>
-                <TableCell className="text-center font-sans text-[11px] text-fg-muted">
-                  Healthy baseline
-                </TableCell>
-                <TableCell className="text-right font-sans text-accent font-semibold">
-                  $0 Overage Incurred
-                </TableCell>
-              </TableRow>
-            </TableFooter>
-          </Table>
+              </TableHeader>
+              <TableBody className="divide-y divide-border-subtle/80 font-mono">
+                {usage.map((row) => (
+                  <TableRow key={row.project.id}>
+                    <TableCell>
+                      <div className="font-sans font-medium text-fg-primary">{row.project.name}</div>
+                      <div className="font-mono text-[10px] text-fg-muted">
+                        {row.project.slug ?? row.project.id.slice(0, 8)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-sans">
+                      {row.isDemo ? (
+                        <Badge variant="neutral" size="sm">Demo (excluded)</Badge>
+                      ) : (
+                        <Badge variant="healthy" size="sm">Billable</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-medium tabular-nums text-fg-primary">
+                      {row.stats ? row.events.toLocaleString() : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {row.buckets.some((bucket) => bucket.count > 0) ? (
+                        <TelemetryChart
+                          data={bucketsToTelemetry(row.buckets)}
+                          height={24}
+                          showAxes={false}
+                          color={row.isDemo ? "info" : "primary"}
+                          className="mx-auto w-24"
+                        />
+                      ) : (
+                        <div className="text-center text-[11px] text-fg-muted">—</div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-fg-secondary">
+                      {row.stats ? row.stats.unresolved.toLocaleString() : "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+              <TableFooter className="text-xs font-semibold">
+                <TableRow>
+                  <TableCell className="font-sans text-fg-primary" colSpan={2}>
+                    Total billable (excluding demos)
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums text-fg-primary">
+                    {billableEvents.toLocaleString()}
+                  </TableCell>
+                  <TableCell colSpan={2} />
+                </TableRow>
+              </TableFooter>
+            </Table>
+          )}
         </SectionCard>
 
-        {/* Available Plans Selector */}
-        <div className="space-y-4 pt-2">
-          <div>
-            <h3 className="text-sm font-semibold text-fg-primary">
-              Available Epure Cloud Tiers
-            </h3>
-            <p className="text-xs text-fg-muted">
-              Scale to higher volumes or self-host freely with Apache 2.0 license.
-            </p>
-          </div>
+        {cloud ? (
+          <div className="space-y-4 pt-2">
+            <div>
+              <h3 className="text-sm font-semibold text-fg-primary">Available Epure Cloud tiers</h3>
+              <p className="text-xs text-fg-muted">
+                Scale to higher volumes or self-host freely with Apache 2.0 license.
+              </p>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {CLOUD_PLANS.map((plan) => {
-              const isCurrent = plan.id === "pro";
-              const isScale = plan.id === "scale";
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {CLOUD_PLANS.map((tier) => {
+                const isCurrent = plan?.id === tier.id;
+                return (
+                  <div
+                    key={tier.id}
+                    className={
+                      isCurrent
+                        ? "flex flex-col justify-between rounded-panel border border-accent/40 bg-accent/5 p-5 shadow-tactile"
+                        : "flex flex-col justify-between rounded-panel border border-border-subtle bg-surface-1 p-5 transition-colors hover:border-border-strong"
+                    }
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-base font-semibold text-fg-primary">{tier.name}</h4>
+                        {isCurrent ? (
+                          <Badge variant="healthy" size="sm">Current plan</Badge>
+                        ) : tier.comingSoon ? (
+                          <Badge variant="neutral" size="sm">Coming soon</Badge>
+                        ) : null}
+                      </div>
 
-              return (
-                <div
-                  key={plan.id}
-                  className={`rounded-panel border p-5 flex flex-col justify-between transition-colors ${
-                    isCurrent
-                      ? "border-accent/40 bg-accent/5 shadow-tactile"
-                      : "border-border-subtle bg-surface-1 hover:border-border-strong"
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-base font-semibold text-fg-primary">
-                        {plan.name}
-                      </h4>
+                      <div className="mt-3 flex items-baseline gap-1 font-mono">
+                        <span className="text-2xl font-bold tabular-nums text-fg-primary">
+                          {tier.priceAnnual ?? tier.price}
+                        </span>
+                        <span className="font-sans text-xs font-normal text-fg-muted">
+                          / mo (billed annually)
+                        </span>
+                      </div>
+
+                      <p className="mt-2 text-xs leading-relaxed text-fg-muted">{tier.description}</p>
+
+                      <div className="mt-4 space-y-2 border-t border-border-subtle/80 pt-3 text-xs text-fg-secondary">
+                        {tier.features.slice(0, 5).map((feature) => (
+                          <div key={feature} className="flex items-center gap-2">
+                            <Check className="size-3.5 shrink-0 stroke-[2.5] text-healthy" />
+                            <span>{feature}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mt-5 border-t border-border-subtle pt-3">
                       {isCurrent ? (
-                        <Badge variant="healthy" size="sm">
-                          Current Plan
-                        </Badge>
-                      ) : isScale ? (
-                        <Badge variant="neutral" size="sm">
-                          Expanded Quota
-                        </Badge>
-                      ) : null}
-                    </div>
-
-                    <div className="mt-3 flex items-baseline gap-1 font-mono">
-                      <span className="text-2xl font-bold text-fg-primary">
-                        {plan.priceAnnual ?? plan.price}
-                      </span>
-                      <span className="text-xs text-fg-muted font-sans font-normal">
-                        / mo flat (billed annually)
-                      </span>
-                    </div>
-
-                    <p className="mt-2 text-xs text-fg-muted leading-relaxed">
-                      {plan.description}
-                    </p>
-
-                    <div className="mt-4 space-y-2 border-t border-border-subtle/80 pt-3 text-xs text-fg-secondary">
-                      {plan.features.slice(0, 5).map((f) => (
-                        <div key={f} className="flex items-center gap-2">
-                          <Check className="size-3.5 text-healthy shrink-0 stroke-[2.5]" />
-                          <span>{f}</span>
-                        </div>
-                      ))}
+                        <Button variant="outline" size="sm" disabled>
+                          Active plan
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          disabled={upgradingPlanId === tier.id || !isOwner || tier.comingSoon}
+                          onClick={() => void handleSelectPlan(tier)}
+                        >
+                          {upgradingPlanId === tier.id ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            `Switch to ${tier.name}`
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
-
-                  <div className="mt-5 pt-3 border-t border-border-subtle">
-                    {isCurrent ? (
-                      <Button variant="outline" size="sm" className="w-full" disabled>
-                        Active Plan
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        className="w-full"
-                        disabled={upgradingPlanId === plan.id || !isOwner}
-                        onClick={() => void handleSelectPlan(plan)}
-                      >
-                        {upgradingPlanId === plan.id ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : (
-                          `Switch to ${plan.name}`
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ) : null}
 
-        {/* AI Agent Card */}
         <AskAgentCard
-          title="Optimize Event Ingestion & Spike Valve"
+          title="Optimize event ingestion"
           description="Have questions about which error fingerprints are consuming your monthly quota? Ask your AI coding agent to inspect high-frequency call sites and recommend rate dampening or ignore rules."
-          promptText="Analyze our Epure event ingestion and identify top high-frequency error traces that should be muted, grouped, or rate-limited via the Spike Valve."
+          promptText="Analyze our Epure event ingestion and identify top high-frequency error traces that should be muted, grouped, or rate-limited."
         />
       </div>
     </PageShell>
