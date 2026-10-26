@@ -107,9 +107,10 @@ async fn create_project(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    let (plan_tier, count) = projects::org_plan_and_project_count(&state.pools.app, dashboard.org_id)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let (plan_tier, count) =
+        projects::org_plan_and_project_count(&state.pools.app, dashboard.org_id)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let max_projects = PlanTier::parse_tier(&plan_tier)
         .map(|tier| tier.default_limits().max_projects)

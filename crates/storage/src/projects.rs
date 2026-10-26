@@ -32,12 +32,11 @@ pub async fn org_plan_and_project_count(
     org_id: Uuid,
 ) -> Result<(String, i64), sqlx::Error> {
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
-    let plan_tier: String =
-        sqlx::query_scalar("SELECT plan_tier FROM organizations WHERE id = $1")
-            .bind(org_id)
-            .fetch_optional(&mut *tx)
-            .await?
-            .unwrap_or_else(|| "oss".to_string());
+    let plan_tier: String = sqlx::query_scalar("SELECT plan_tier FROM organizations WHERE id = $1")
+        .bind(org_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .unwrap_or_else(|| "oss".to_string());
     let count: i64 = sqlx::query_scalar("SELECT COUNT(*)::bigint FROM projects")
         .fetch_one(&mut *tx)
         .await?;

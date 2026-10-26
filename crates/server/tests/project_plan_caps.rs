@@ -19,12 +19,8 @@ async fn org_plan_and_project_count_respects_rls_for_capped_tier() {
     let migrate_pool = epure_storage::connect(&database_url)
         .await
         .expect("connect migrate pool");
-    run_migrations(&migrate_pool)
-        .await
-        .expect("run migrations");
-    let pools = connect_pools(&database_url)
-        .await
-        .expect("connect pools");
+    run_migrations(&migrate_pool).await.expect("run migrations");
+    let pools = connect_pools(&database_url).await.expect("connect pools");
 
     sqlx::query(
         r#"
