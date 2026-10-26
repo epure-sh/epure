@@ -1,5 +1,4 @@
 import type { EventDetail, IssueSummary, IssueTimeline } from "../lib/api";
-import { cn } from "../lib/cn";
 import { Badge } from "./badge";
 import { IssueAiCopilotCard } from "./issue-ai-copilot-card";
 import { IssueImpactMetrics } from "./issue-impact-strip";
@@ -9,7 +8,7 @@ import {
   type TimelineWindowValue,
 } from "./issue-occurrence-timeline";
 import { IssueRecentOccurrences } from "./issue-recent-occurrences";
-import { Section, SectionHeader } from "./section";
+import { Section } from "./section";
 
 export interface IssueOverviewPanelProps {
   issue: IssueSummary;
@@ -141,31 +140,21 @@ export function IssueOverviewPanel({
 
   return (
     <div className="epure-overview">
-      {snoozeBanner ? (
-        <div className="border-b border-border bg-surface-inset px-5 py-2.5 border-l-4 border-l-semantic-info">
-          <p className="text-sm text-ink">{snoozeBanner}</p>
-        </div>
-      ) : null}
-
-      {issue.status === "regression" ? (
-        <div
-          className={cn(
-            "border-b border-border bg-surface-inset px-5 py-2.5 border-l-4 border-l-semantic-warning bg-semantic-warning/5",
-          )}
-        >
-          <p className="text-sm text-ink">{formatRegressionCopy(issue)}</p>
-        </div>
-      ) : null}
-
-      <div className="px-5 pt-3 pb-1">
-        <IssueAiCopilotCard issue={issue} event={event} />
-      </div>
-
       <Section className="px-5 py-2.5">
-        <SectionHeader title="Context" className="mb-2" />
-        <div className="epure-inset-well px-4 py-3">
+        <p className="mb-3 text-sm text-fg-secondary">
+          {issue.status === "regression"
+            ? formatRegressionCopy(issue)
+            : issue.snoozed
+              ? (snoozeBanner ?? "Snoozed")
+              : issue.status === "resolved"
+                ? "Resolved. Reopen it if it is still happening."
+                : issue.is_escalating_3d
+                  ? "Rising fast. Resolve it or snooze it if you already know the cause."
+                  : "Still open. Resolve it once the fix is out, or snooze it if it can wait."}
+        </p>
+        <div className="rounded-md border border-border-subtle bg-surface-2/40 px-4 py-3">
           <IssueImpactMetrics issue={issue} />
-          <div className="mt-3 border-t border-border pt-3">
+          <div className="mt-3 border-t border-border-subtle pt-3">
             <ContextFields issue={issue} event={event} tags={tags} />
           </div>
         </div>
@@ -186,6 +175,10 @@ export function IssueOverviewPanel({
         onSelectEvent={onSelectEvent}
         spacious={false}
       />
+
+      <div className="px-5 pb-4 pt-1">
+        <IssueAiCopilotCard issue={issue} event={event} />
+      </div>
     </div>
   );
 }

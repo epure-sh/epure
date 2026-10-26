@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  fetchBillingStatus,
   fetchHeadlineStats,
   fetchIssues,
+  type BillingStatus,
   type HeadlineStats,
   type IssueSummary,
   type ProjectRow,
@@ -15,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { OccurrenceLineChart } from "../../../ui/occurrence-line-chart";
 import { Skeleton } from "../../../ui/skeleton";
 import { Progress } from "../../../components/ui/progress";
-import { CLOUD_PLANS, type PlanId } from "../billing-data";
+import { monthlyEventLimit, planForBillingStatus } from "../project-usage";
 import {
   buildActivityBuckets,
   buildUsageSummaryText,
@@ -29,8 +31,6 @@ import {
   type UsageTimeWindow,
   usageWindowDays,
 } from "./usage-utils";
-
-const CLOUD_CURRENT_PLAN: PlanId = "pro";
 
 interface OrgUsageSettingsProps {
   window: UsageTimeWindow;
@@ -130,6 +130,19 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
     ReturnType<typeof buildActivityBuckets>
   >([]);
   const [loading, setLoading] = useState(true);
+  const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
+  const cloud = isCloudDeployment();
+
+  useEffect(() => {
+    if (!cloud) return;
+    let cancelled = false;
+    void fetchBillingStatus().then((status) => {
+      if (!cancelled) setBillingStatus(status);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [cloud]);
 
   useEffect(() => {
     let cancelled = false;
@@ -234,9 +247,8 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
     );
   }, [loading, onSummaryChange, tableRows, totals, window, windowLabel]);
 
-  const cloud = isCloudDeployment();
-  const cloudPlan = CLOUD_PLANS.find((plan) => plan.id === CLOUD_CURRENT_PLAN) ?? CLOUD_PLANS[0];
-  const eventLimit = cloudPlan.limits.eventsPerMonth;
+  const cloudPlan = planForBillingStatus(billingStatus);
+  const eventLimit = monthlyEventLimit(billingStatus, cloudPlan);
   const projectedEvents = totals.monthlyEventProjection;
 
   return (
@@ -323,7 +335,7 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
                 used={projectedEvents}
                 limit={eventLimit}
                 formatValue={(value) => formatCompactCount(value)}
-                hint={`Based on ${window} ingest rate · ${cloudPlan.name} plan`}
+                hint={`Based on ${window} ingest rate${cloudPlan ? ` · ${cloudPlan.name} plan` : ""}`}
               />
             </CardContent>
           </Card>

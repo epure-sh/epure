@@ -1,31 +1,25 @@
-import { ChevronLeft, MoreHorizontal } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronUp } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
-import { cn } from "../lib/cn";
 import { Button } from "./button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "./dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
 
-const DETAIL_TABS = ["overview", "breadcrumbs", "stack", "more"] as const;
-const OVERFLOW_TABS = ["stack", "more"] as const;
-export type IssueDetailTab = (typeof DETAIL_TABS)[number];
+const DETAIL_TABS = ["overview", "breadcrumbs", "stack"] as const;
+export type IssueDetailTab = (typeof DETAIL_TABS)[number] | "more";
 export const DETAIL_TOOLBAR_BUTTON_CLASS = "h-control-sm gap-1 px-2 text-xs";
-
-const DETAIL_TAB_TRIGGER = "h-7 px-2.5 text-2xs";
 
 export interface IssueDetailTabsProps {
   overview: ReactNode;
   stack: ReactNode;
   breadcrumbs: ReactNode;
-  more: ReactNode;
+  more?: ReactNode;
   tab?: IssueDetailTab;
   onTabChange?: (tab: IssueDetailTab) => void;
   defaultTab?: IssueDetailTab;
   onClose?: () => void;
+  onPrevious?: () => void;
+  onNext?: () => void;
+  hasPrevious?: boolean;
+  hasNext?: boolean;
   showBackLink?: boolean;
   issueTitle?: string;
   statusBadges?: ReactNode;
@@ -37,18 +31,20 @@ export function IssueDetailTabs({
   overview,
   stack,
   breadcrumbs,
-  more,
   tab,
   onTabChange,
   defaultTab = "overview",
   onClose,
-  showBackLink = true,
+  onPrevious,
+  onNext,
+  hasPrevious = false,
+  hasNext = false,
   issueTitle,
   statusBadges,
   actions,
 }: IssueDetailTabsProps) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const overflowActive = tab ? OVERFLOW_TABS.includes(tab as (typeof OVERFLOW_TABS)[number]) : false;
+  const activeTab = tab === "more" ? "stack" : tab;
 
   useEffect(() => {
     const root = rootRef.current;
@@ -84,8 +80,8 @@ export function IssueDetailTabs({
   }, [onTabChange]);
 
   const tabsProps =
-    tab && onTabChange
-      ? { value: tab, onValueChange: (value: string) => onTabChange(value as IssueDetailTab) }
+    activeTab && onTabChange
+      ? { value: activeTab, onValueChange: (value: string) => onTabChange(value as IssueDetailTab) }
       : { defaultValue: defaultTab };
 
   return (
@@ -95,103 +91,49 @@ export function IssueDetailTabs({
       tabIndex={-1}
       onMouseDown={() => rootRef.current?.focus()}
     >
-      {/* Optional top back link for non-overlay views */}
-      {onClose && showBackLink ? (
-        <div className="shrink-0 border-b border-border px-4 py-1.5 md:px-6">
-          <Button variant="ghost" size="toolbar" className="text-ink-muted" onClick={onClose}>
-            <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
-            Back to list
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle bg-surface-1 px-3 py-1.5">
+        <div className="flex items-center gap-1">
+          {onClose ? (
+            <Button variant="ghost" size="xs" onClick={onClose}>
+              <ChevronLeft className="size-3.5" aria-hidden />
+              Issues
+            </Button>
+          ) : null}
+          <Button variant="outline" size="icon-xs" onClick={onPrevious} disabled={!hasPrevious} aria-label="Previous issue">
+            <ChevronUp className="size-3.5" />
+          </Button>
+          <Button variant="outline" size="icon-xs" onClick={onNext} disabled={!hasNext} aria-label="Next issue">
+            <ChevronDown className="size-3.5" />
           </Button>
         </div>
-      ) : null}
+        {actions ? <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">{actions}</div> : null}
+      </div>
 
-      {/* Hero Header Zone: Badges, Title, and Dedicated Action Ribbon */}
       {issueTitle ? (
-        <div className="shrink-0 border-b border-border bg-surface px-5 py-4 md:px-7 select-none">
+        <div className="shrink-0 bg-surface-1 px-4 pb-3 pt-3">
           {statusBadges ? (
-            <div className="flex min-h-5 w-full flex-wrap items-center gap-1.5 mb-2.5">
-              {statusBadges}
-            </div>
+            <div className="mb-1.5 flex min-h-5 flex-wrap items-center gap-1.5">{statusBadges}</div>
           ) : null}
-
-          <h2
-            className="w-full text-base md:text-lg font-bold tracking-tight text-ink select-text break-words leading-snug"
-            title={issueTitle}
-          >
+          <h2 className="break-words text-base font-semibold leading-snug tracking-tight text-fg-primary" title={issueTitle}>
             {issueTitle}
           </h2>
-
-          {/* High-Visibility Hero Action Toolbar */}
-          {actions ? (
-            <div className="mt-3.5 flex flex-wrap items-center gap-2 pt-3 border-t border-border/60">
-              {actions}
-            </div>
-          ) : null}
         </div>
       ) : null}
 
-      {/* Navigation Tabs Bar */}
-      <Tabs variant="line" {...tabsProps} className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex h-7 shrink-0 items-center justify-between border-b border-border/80 bg-surface px-4 md:px-6 select-none">
-          <TabsList className="flex h-full items-stretch gap-1 border-b-0 bg-transparent p-0">
-            <TabsTrigger value="overview" className={DETAIL_TAB_TRIGGER}>
-              Overview
-            </TabsTrigger>
-            <TabsTrigger
-              value="breadcrumbs"
-              className={DETAIL_TAB_TRIGGER}
-            >
-              Breadcrumbs
-            </TabsTrigger>
-            <TabsTrigger value="stack" className={DETAIL_TAB_TRIGGER}>
-              Stack Trace
-            </TabsTrigger>
-            <TabsTrigger
-              value="more"
-              className={cn(DETAIL_TAB_TRIGGER, "hidden sm:inline-flex")}
-            >
-              Grouping & Diff
-            </TabsTrigger>
-          </TabsList>
-
-          {onTabChange ? (
-            <div className="flex items-center sm:hidden">
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="toolbar"
-                    className={cn("h-7 px-2", overflowActive && "font-semibold text-ink")}
-                    aria-label="More tabs"
-                  >
-                    <MoreHorizontal className="h-4 w-4" aria-hidden />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => onTabChange("stack")}>
-                    Stack Trace
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => onTabChange("more")}>
-                    Grouping & Diff
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          ) : null}
-        </div>
-
-        {/* Tab Panels */}
-        <TabsContent value="overview" className="flex min-h-0 flex-1 flex-col overflow-auto">
+      <Tabs variant="folder" {...tabsProps} className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+        <TabsList className="shrink-0">
+          <TabsTrigger value="overview">Context</TabsTrigger>
+          <TabsTrigger value="breadcrumbs">Breadcrumbs</TabsTrigger>
+          <TabsTrigger value="stack">Stack trace</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview" className="flex min-h-0 flex-1 flex-col overflow-auto bg-surface-1">
           {overview}
         </TabsContent>
-        <TabsContent value="breadcrumbs" className="flex min-h-0 flex-1 flex-col overflow-auto">
+        <TabsContent value="breadcrumbs" className="flex min-h-0 flex-1 flex-col overflow-auto bg-surface-1">
           {breadcrumbs}
         </TabsContent>
-        <TabsContent value="stack" className="flex min-h-0 flex-1 flex-col overflow-auto">
+        <TabsContent value="stack" className="flex min-h-0 flex-1 flex-col overflow-auto bg-surface-1">
           {stack}
-        </TabsContent>
-        <TabsContent value="more" className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {more}
         </TabsContent>
       </Tabs>
     </div>

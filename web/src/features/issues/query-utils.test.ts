@@ -6,12 +6,14 @@ import {
   getEnvironmentFilter,
   getFilterPresetLabel,
   getLevelFilter,
+  getSearchText,
   hasActiveFilters,
   parseQuery,
   resetQuery,
   setEnvironmentFilter,
   setLevelFilter,
   toggleToken,
+  withSearchText,
 } from "./query-utils";
 
 describe("query-utils pre-filters & parsing", () => {
@@ -107,5 +109,22 @@ describe("query-utils pre-filters & parsing", () => {
     assert.equal(getFilterPresetLabel("env:production"), "Production");
     assert.equal(getFilterPresetLabel("user.email:@"), "Affecting Users");
     assert.equal(getFilterPresetLabel("custom:value"), "value");
+  });
+});
+
+describe("query-utils search text", () => {
+  it("keeps filter tokens when replacing the search text", () => {
+    assert.equal(withSearchText("is:resolved level:error", "Type Error"), "is:resolved level:error Type Error");
+    assert.equal(withSearchText("is:resolved old text", "new"), "is:resolved new");
+  });
+
+  it("does not fall back to is:unresolved when the search is cleared", () => {
+    assert.equal(withSearchText("is:resolved foo", ""), "is:resolved");
+    assert.equal(withSearchText("foo", ""), "");
+  });
+
+  it("extracts only the free text", () => {
+    assert.equal(getSearchText("is:unresolved TypeError env:prod in checkout"), "TypeError in checkout");
+    assert.equal(getSearchText("is:unresolved"), "");
   });
 });

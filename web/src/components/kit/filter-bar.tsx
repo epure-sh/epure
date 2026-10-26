@@ -1,3 +1,4 @@
+import type { Ref } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,8 @@ export interface FilterBarProps {
   onReleaseChange?: (release: string | null) => void;
   search?: string;
   onSearchChange?: (search: string) => void;
+  searchPlaceholder?: string;
+  searchInputRef?: Ref<HTMLInputElement>;
   stats?: {
     unresolved?: number;
     regressions?: number;
@@ -78,6 +81,8 @@ export function FilterBar({
   onReleaseChange,
   search,
   onSearchChange,
+  searchPlaceholder = "Search issues…",
+  searchInputRef,
   stats,
 }: FilterBarProps) {
   // If only options are passed, render standard segmented filter bar
@@ -380,15 +385,22 @@ export function FilterBar({
 
       {/* 8. Text Search Input */}
       {onSearchChange && (
-        <div className="ml-auto min-w-[180px] max-w-[280px]">
+        <div className="w-48 shrink-0">
           <Input
+            ref={searchInputRef}
             size="sm"
             leadingIcon={<MagnifyingGlass className="size-3.5" />}
             trailingShortcut="/"
-            placeholder="Filter issues…"
+            placeholder={searchPlaceholder}
+            aria-label="Search issues"
             value={search ?? ""}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="h-7 text-xs bg-surface-1"
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                if (search) onSearchChange("");
+                e.currentTarget.blur();
+              }
+            }}
           />
         </div>
       )}

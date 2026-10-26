@@ -2,9 +2,7 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle2,
-  Clock,
   Code2,
-  History,
   Plus,
   RefreshCw,
   Search,
@@ -24,6 +22,14 @@ import {
 import { cn } from "../../lib/cn";
 import { formatRelativeTime } from "../../lib/format-time";
 import { useAppContext } from "../../shell/app-context";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { ActionButton } from "../../ui/action-button";
 import { Button } from "../../ui/button";
 import { CopyButton } from "../../ui/copy-button";
@@ -593,80 +599,57 @@ try {
               />
             )
           ) : (
-            <StackedCardList>
-              {filteredMonitors.map((m) => (
-                <li
-                  key={m.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-subtle bg-surface-1 px-4 py-3 transition-colors hover:bg-surface-2/60 last:border-b-0"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Monitor</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Schedule</TableHead>
+                  <TableHead>Last run</TableHead>
+                  <TableHead>Duration</TableHead>
+                  <TableHead className="w-24" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredMonitors.map((m) => (
+                  <TableRow key={m.id} className="cursor-pointer" onClick={() => void handleOpenDetails(m)}>
+                    <TableCell>
+                      <div className="font-mono text-sm font-medium text-fg-primary">{m.slug}</div>
+                      {m.environment ? (
+                        <div className="font-mono text-[11px] text-fg-muted">{m.environment}</div>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
                       <StatusBadge status={m.status} />
-                      <Button
-                        variant="link"
-                        size="xs"
-                        onClick={() => void handleOpenDetails(m)}
-                        className="truncate font-mono text-sm font-semibold text-fg-primary hover:underline text-left p-0 h-auto"
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-fg-secondary">
+                      {m.schedule || "heartbeat"}
+                    </TableCell>
+                    <TableCell className="text-xs tabular-nums text-fg-secondary">
+                      {m.last_check_in_at ? formatRelativeTime(m.last_check_in_at) : "never"}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs tabular-nums text-fg-secondary">
+                      {formatDuration(m.last_duration_ms)}
+                    </TableCell>
+                    <TableCell>
+                      <ActionButton
+                        type="button"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-fg-muted hover:text-escalating"
+                        disabled={deletingId === m.id}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleDelete(m.id, m.slug);
+                        }}
+                        tooltip="Delete monitor"
                       >
-                        {m.slug}
-                      </Button>
-                      {m.environment && (
-                        <span className="rounded border border-border-subtle bg-surface-2 px-1.5 py-0.5 text-2xs font-mono text-fg-muted">
-                          {m.environment}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-fg-muted">
-                      <span className="flex items-center gap-1 font-mono">
-                        <Clock size={12} className="shrink-0 text-fg-muted/80" />
-                        {m.schedule || "heartbeat"}
-                      </span>
-                      <span>·</span>
-                      <span>
-                        Last run:{" "}
-                        <span className="text-fg-primary">
-                          {m.last_check_in_at ? formatRelativeTime(m.last_check_in_at) : "never"}
-                        </span>
-                      </span>
-                      {m.last_duration_ms !== null && (
-                        <>
-                          <span>·</span>
-                          <span>
-                            Duration:{" "}
-                            <span className="font-mono text-fg-primary">
-                              {formatDuration(m.last_duration_ms)}
-                            </span>
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="h-8 gap-1.5 text-xs"
-                      onClick={() => void handleOpenDetails(m)}
-                    >
-                      <History size={13} />
-                      History
-                    </Button>
-                    <ActionButton
-                      type="button"
-                      variant="ghost"
-                      className="h-8 w-8 p-0 text-fg-muted hover:text-escalating"
-                      disabled={deletingId === m.id}
-                      onClick={() => void handleDelete(m.id, m.slug)}
-                      tooltip="Delete monitor"
-                    >
-                      <Trash2 size={14} />
-                    </ActionButton>
-                  </div>
-                </li>
-              ))}
-            </StackedCardList>
+                        <Trash2 size={14} />
+                      </ActionButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </div>
       </FeedListBody>
