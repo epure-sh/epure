@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { Navigate, Route, Routes, useParams } from "react-router-dom";
+import { useEffect, useState, type ReactNode } from "react";
+import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { AlertsPage } from "../features/alerts";
 import { IssuesPage } from "../features/issues";
 import { NotFoundPage } from "../features/not-found";
@@ -14,7 +14,6 @@ import { ReleasesPage } from "../features/releases";
 import { MonitorsPage } from "../features/monitors";
 import { MonitoringPage } from "../features/monitoring";
 import { SettingsPage } from "../features/settings";
-import { OrganisationsPage } from "../features/organizations";
 import { UserSettingsPage } from "../features/user/user-settings-page";
 import { projectPath } from "../lib/paths";
 
@@ -93,32 +92,47 @@ function LegacyProjectRedirect({
 
 export function AppShell() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const { pathname } = useLocation();
+
+  const closeMobileSidebar = () => setMobileSidebarOpen(false);
+
+  useEffect(() => {
+    closeMobileSidebar();
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileSidebarOpen) {
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeMobileSidebar();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [mobileSidebarOpen]);
 
   return (
     <div className="epure-app-shell flex h-full min-h-0 flex-row bg-bg text-ink overflow-hidden">
-      <AppSidebar
-        mobileOpen={mobileSidebarOpen}
-        onMobileClose={() => setMobileSidebarOpen(false)}
-      />
+      <AppSidebar mobileOpen={mobileSidebarOpen} onMobileClose={closeMobileSidebar} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <TopStrip onOpenMobileSidebar={() => setMobileSidebarOpen(true)} />
         <EnvironmentUrlSync />
         <main className="epure-app-shell-main flex min-h-0 flex-1 flex-col overflow-hidden bg-bg">
               <Routes>
                 {/* Global scope */}
-                <Route
-                  path="/organizations"
-                  element={
-                    <BoundedRoute title="Organisations crashed" backHref="/">
-                      <OrganisationsPage />
-                    </BoundedRoute>
-                  }
-                />
-                <Route path="/orgs" element={<Navigate to="/organizations" replace />} />
+                <Route path="/organizations/*" element={<Navigate to="/" replace />} />
+                <Route path="/orgs/*" element={<Navigate to="/" replace />} />
                 <Route
                   path="/user/settings/*"
                   element={
-                    <BoundedRoute title="User settings crashed" backHref="/organizations">
+                    <BoundedRoute title="User settings crashed" backHref="/">
                       <UserSettingsPage />
                     </BoundedRoute>
                   }

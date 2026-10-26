@@ -366,7 +366,7 @@ export function OrgHomePage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pr-8">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <Badge variant="env" className="border-accent/40 text-accent font-semibold">
+                    <Badge variant="accent" className="font-semibold">
                       <Sparkles size={11} className="mr-1 inline-block" />
                       Canary Pilot Workspace
                     </Badge>
@@ -397,10 +397,10 @@ export function OrgHomePage() {
             <div className="flex flex-wrap items-center justify-between gap-3 pb-1 select-none">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-fg-primary">Active Projects</span>
-                <span className="rounded-full bg-surface-2 px-2 py-0.5 font-mono text-[11px] font-medium text-fg-muted border border-border-subtle">
+                <Badge variant="neutral" size="compact" className="font-mono font-medium">
                   {filteredProjects.length}
                   {filteredProjects.length !== projects.length ? ` of ${projects.length}` : ""}
-                </span>
+                </Badge>
               </div>
 
               {projects.length >= 2 ? (

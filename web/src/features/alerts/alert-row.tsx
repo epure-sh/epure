@@ -1,38 +1,48 @@
-import { ChevronRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useRef } from "react";
 import type { AlertRow } from "../../lib/api";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "../../lib/cn";
-import { ActionButton } from "../../ui/action-button";
-import { Badge } from "../../ui/badge";
-import { ListRow } from "../../ui/list-row";
+import { AlertStateBadge } from "./alert-state-badge";
 import {
   formatAlertListTime,
   getAlertDetail,
-  getAlertRuleName,
-  getAlertSeverityForAlert,
+  getAlertRuleDisplayName,
+  getAlertSignalState,
   getAlertTitle,
-  getIssueLink,
   isAlertUnread,
 } from "./alert-utils";
 
 export interface AlertListRowProps {
   alert: AlertRow;
-  projectId: string;
-  selected?: boolean;
-  onMarkRead: () => void;
-  onMarkUnread?: () => void;
-  onIgnore: () => void;
-  onUnignore: () => void;
+  detailActive?: boolean;
+  bulkSelected?: boolean;
+  /** `embedded` drops outer list padding (design kit / split panes). */
+  layout?: "feed" | "embedded";
+  onBulkSelectChange?: (selected: boolean, options?: { shiftKey?: boolean }) => void;
+  onActivate?: () => void;
+}
+
+function rowTone(state: ReturnType<typeof getAlertSignalState>): string {
+  switch (state) {
+    case "firing":
+      return "border-border-subtle border-l-2 border-l-accent bg-surface-1";
+    case "fired":
+      return "border-border-subtle border-l-2 border-l-border-strong bg-surface-1";
+    case "acknowledged":
+      return "border-border-subtle border-l-2 border-l-transparent bg-bg-subtle/30";
+    case "muted":
+      return "border-border-subtle border-l-2 border-l-transparent bg-transparent opacity-80";
+  }
 }
 
 export function AlertListRow({
   alert,
-  projectId,
-  selected = false,
-  onMarkRead,
-  onMarkUnread,
-  onIgnore,
-  onUnignore,
+  bulkSelected = false,
+  detailActive = false,
+  layout = "feed",
+  onBulkSelectChange,
+  onActivate,
 }: AlertListRowProps) {
   if (!alert) {
     return null;
@@ -40,130 +50,63 @@ export function AlertListRow({
 
   const title = getAlertTitle(alert);
   const detail = getAlertDetail(alert);
-  const ruleName = getAlertRuleName(alert.kind);
-  const severity = getAlertSeverityForAlert(alert);
+  const ruleName = getAlertRuleDisplayName(alert);
   const firedAt = formatAlertListTime(alert.fired_at);
-  const to = getIssueLink(alert, alert.project_id || projectId);
   const unread = isAlertUnread(alert);
-  const isIgnored = Boolean(alert.ignored);
+  const state = getAlertSignalState(alert);
+  const shiftKeyRef = useRef(false);
 
-  return (
-    <li className="border-b border-border-subtle last:border-b-0">
-      <ListRow
-        variant="flat"
-        accent={unread ? "signal" : severity === "danger" ? "danger" : "none"}
+  const article = (
+      <article
         data-alert-id={alert.id}
         className={cn(
-          "group items-center gap-3 px-4 py-2.5",
-          selected ? "bg-surface-2" : "bg-surface-1 hover:bg-surface-2/60",
-          unread && "font-medium",
-          isIgnored && "opacity-60",
+          "flex items-stretch gap-2 rounded-md border px-2.5 py-2 transition-colors",
+          rowTone(state),
+          detailActive && "bg-accent-muted/30 ring-1 ring-accent/25",
+          bulkSelected && !detailActive && "bg-accent-muted/20",
         )}
       >
-        <Link to={to} className="flex min-w-0 flex-1 items-center gap-3 focus-ring rounded-md">
-          <span className="w-24 sm:w-28 shrink-0 font-mono text-2xs tabular-nums text-fg-muted whitespace-nowrap">
-            {firedAt}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <p className="text-2xs font-medium uppercase tracking-wide text-fg-muted">{ruleName}</p>
-              {isIgnored ? (
-                <Badge variant="warning" size="compact" className="text-[10px] h-4">
-                  Muted
-                </Badge>
-              ) : !unread ? (
-                <Badge variant="neutral" size="compact" className="text-[10px] h-4">
-                  Resolved
-                </Badge>
-              ) : null}
-            </div>
-            <p
-              className={cn(
-                "truncate font-mono text-sm",
-                unread ? "font-semibold text-fg-primary" : "font-medium text-fg-secondary",
-              )}
-            >
-              {title}
-            </p>
-            <p className="mt-0.5 truncate text-xs text-fg-muted">{detail}</p>
-          </div>
-          <ChevronRight
-            size={16}
-            strokeWidth={1.5}
-            className="shrink-0 text-fg-muted transition-transform group-hover:translate-x-0.5 group-hover:text-fg-primary"
-            aria-hidden
+        <div className="flex shrink-0 items-start pt-0.5">
+          <Checkbox
+            checked={bulkSelected}
+            aria-label={`Select alert ${title}`}
+            onPointerDown={(event) => {
+              shiftKeyRef.current = event.shiftKey;
+            }}
+            onCheckedChange={(value) => {
+              onBulkSelectChange?.(value === true, { shiftKey: shiftKeyRef.current });
+            }}
+            onClick={(event) => event.stopPropagation()}
           />
-        </Link>
-        <div
-          className={cn(
-            "flex shrink-0 items-center gap-1 transition-opacity",
-            selected
-              ? "opacity-100"
-              : "opacity-100 sm:opacity-70 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-within:opacity-100",
-          )}
-        >
-          {isIgnored ? (
-            <ActionButton
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs text-fg-muted hover:text-fg-primary"
-              onClick={onUnignore}
-              title="Unmute alert rule"
-              aria-label="Unmute alert"
-            >
-              Unmute
-            </ActionButton>
-          ) : unread ? (
-            <>
-              <ActionButton
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs"
-                onClick={onMarkRead}
-                title="Resolve alert (mark as read)"
-                aria-label="Resolve alert"
-              >
-                Resolve
-              </ActionButton>
-              <ActionButton
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs text-fg-muted hover:text-fg-primary"
-                onClick={onIgnore}
-                title="Mute alert rule for this issue"
-                aria-label="Mute alert"
-              >
-                Mute
-              </ActionButton>
-            </>
-          ) : (
-            <>
-              {onMarkUnread ? (
-                <ActionButton
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs text-fg-muted hover:text-fg-primary"
-                  onClick={onMarkUnread}
-                  title="Unresolve alert (mark as unread)"
-                  aria-label="Unresolve alert"
-                >
-                  Unresolve
-                </ActionButton>
-              ) : null}
-              <ActionButton
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs text-fg-muted hover:text-fg-primary"
-                onClick={onIgnore}
-                title="Mute alert rule for this issue"
-                aria-label="Mute alert"
-              >
-                Mute
-              </ActionButton>
-            </>
-          )}
         </div>
-      </ListRow>
-    </li>
+
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onActivate}
+          className="h-auto min-w-0 flex-1 flex-col items-start gap-0.5 rounded-sm py-0.5 text-left active:translate-y-0"
+        >
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <AlertStateBadge alert={alert} />
+            <span className="font-mono text-2xs tabular-nums text-fg-muted">{firedAt}</span>
+            <span className="truncate text-2xs text-fg-muted">{ruleName}</span>
+          </div>
+          <p
+            className={cn(
+              "text-sm leading-snug [overflow-wrap:anywhere]",
+              unread ? "font-semibold text-fg-primary" : "font-medium text-fg-secondary",
+            )}
+          >
+            {title}
+          </p>
+          <p className="line-clamp-1 text-xs text-fg-muted">{detail}</p>
+        </Button>
+      </article>
   );
+
+  if (layout === "embedded") {
+    return article;
+  }
+
+  return <li className="px-4 md:px-6">{article}</li>;
 }

@@ -52,7 +52,7 @@ export function UsageMeterCard({
     >
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-fg-primary">{label}</span>
-        <Badge variant={status} size="sm" dot>
+        <Badge variant={status} size="sm">
           {statusText}
         </Badge>
       </div>

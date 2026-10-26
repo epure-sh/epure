@@ -23,7 +23,7 @@ import { useAppContext } from "../../../shell/app-context";
 import { Badge } from "../../../ui/badge";
 import { Button } from "../../../ui/button";
 import { Card, CardContent } from "../../../ui/card";
-import { Progress } from "../../../components/ui/progress";
+import { Progress } from "@/components/ui/progress";
 import { SectionHeader } from "../../../ui/section";
 import { StatBar } from "../../../ui/stat-bar";
 
@@ -233,7 +233,7 @@ function PlanOptionCard({
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-base font-semibold text-fg-primary">{plan.name}</h3>
           {isCurrent ? (
-            <Badge variant="env" className="border-healthy/30 text-healthy">
+            <Badge variant="healthy">
               Active Plan
             </Badge>
           ) : null}
@@ -471,7 +471,7 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <Badge variant="env" className="border-regression/40 bg-regression/10 text-regression font-semibold">
+                <Badge variant="regression" className="font-semibold">
                   <Zap size={11} className="mr-1 inline-block" />
                   7-Day Pilot Trial
                 </Badge>
@@ -517,7 +517,7 @@ function CloudBilling({ isOwner }: { isOwner: boolean }) {
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-semibold text-fg-primary">{activePlan.name}</h2>
-              <Badge variant="env" className="border-accent/30 text-accent font-medium">
+              <Badge variant="accent" className="font-medium">
                 {isTrial ? "Pilot Trial" : "Official Epure Cloud"}
               </Badge>
               {billingStatus?.subscription_status && (

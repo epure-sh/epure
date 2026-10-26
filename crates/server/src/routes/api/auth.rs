@@ -9,7 +9,7 @@ use axum::{
 };
 use epure_auth::{
     clear_dashboard_session, establish_dashboard_session, load_credential_generation,
-    load_dashboard_session, registration_enabled, session_secure_enabled,
+    load_dashboard_session, password_auth_enabled, registration_enabled, session_secure_enabled,
     set_credential_generation, CredentialError, DashboardSession, GitHubAuth, GitHubAuthError,
     GoogleAuth, GoogleAuthError,
 };
@@ -167,7 +167,7 @@ async fn auth_config(State(state): State<Arc<AppState>>) -> Json<AuthConfigRespo
     Json(AuthConfigResponse {
         google_enabled: state.google.is_some(),
         github_enabled: state.github.is_some(),
-        password_enabled: true,
+        password_enabled: password_auth_enabled(),
         registration_enabled: registration_enabled(),
         session_secure: session_secure_enabled(),
         mcp_enabled: state.mcp_enabled,
@@ -179,6 +179,9 @@ async fn register(
     session: Session,
     Json(body): Json<CredentialsBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    if !password_auth_enabled() {
+        return Err(StatusCode::NOT_FOUND);
+    }
     let invite_token = body
         .invite_token
         .as_deref()
@@ -207,6 +210,9 @@ async fn login(
     session: Session,
     Json(body): Json<CredentialsBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    if !password_auth_enabled() {
+        return Err(StatusCode::NOT_FOUND);
+    }
     let dashboard = state
         .credentials
         .login(&body.email, &body.password)
@@ -604,6 +610,9 @@ async fn change_password(
     session: Session,
     Json(body): Json<ChangePasswordBody>,
 ) -> Result<StatusCode, StatusCode> {
+    if !password_auth_enabled() {
+        return Err(StatusCode::NOT_FOUND);
+    }
     let dashboard = fresh_session(&state, &session).await?;
 
     let generation = state

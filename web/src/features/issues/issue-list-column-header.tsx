@@ -47,7 +47,7 @@ export function IssueListColumnHeader({
       <div className="text-right">Age</div>
       <div className="text-right">Trend</div>
       <div className="text-right tabular-nums" title={`Events in the last ${windowLabel}`}>
-        {windowLabel}
+        Events
       </div>
       <div className="text-right">Users</div>
       <div className="text-right">Priority</div>

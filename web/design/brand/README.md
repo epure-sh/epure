@@ -78,11 +78,13 @@ Thick L-frame with open top-right corner + small square in the gap — purity th
 
 ```
 web/design/brand/
-  README.md           this guide
-  marks/01–09.svg     export-ready marks
+  README.md           strategy + legacy marks (this file)
+  epure-mark.svg      quick-import symbol (synced from kit)
+  marks/              exploration SVGs (01–25)
+  kit/                canonical chain-link exports → see kit/README.md
 web/public/
-  favicon.svg         Pure Spike (#7)
-web/src/ui/logo.tsx   React components (source of truth)
+  favicon.svg         synced from kit/favicon/ on generate
+web/src/ui/logo.tsx   in-app React logo (geometry ↔ kit/source/mark.svg)
 ```
 
 ---
@@ -99,8 +101,8 @@ import { LogoMark, LogoLockup, LogoNavButton } from "@/ui/logo";
 
 - **Navbar:** mark only at 22×22 (`LogoNavButton`, default `variant={7}`)
 - **Login / auth screens:** lockup (28px mark + wordmark)
-- **Favicon:** `public/favicon.svg` (synced to `PURE_SPIKE_GEOMETRY`)
-- **Compare directions:** `<LogoExplorationRow />` renders all 9 variants
+- **Favicon:** `public/favicon.svg` (synced from `kit/favicon/` on `generate.py`)
+- **Compare directions:** `<LogoExplorationRow />` for legacy variants; production uses chain link
 
 ---
 

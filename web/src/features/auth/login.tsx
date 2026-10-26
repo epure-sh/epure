@@ -1,18 +1,20 @@
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { acceptInvitation, fetchMe } from "../../lib/api";
+import {
+  acceptInvitation,
+  fetchAuthConfig,
+  fetchMe,
+  loginWithPassword,
+  registerWithPassword,
+} from "../../lib/api";
+import { apiErrorMessage } from "../../lib/api-error";
+import { isCloudSocialSignInVisible } from "../../lib/deployment";
 import { HTTP_SESSION_COOKIE_MESSAGE, httpSecureCookieTrap } from "../../lib/session-cookie";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
+import { Field } from "../../ui/field";
+import { Input } from "../../ui/input";
 import { EpureBrandMark } from "../../ui/logo";
-
-interface AuthConfig {
-  google_enabled: boolean;
-  github_enabled: boolean;
-  password_enabled: boolean;
-  registration_enabled?: boolean;
-  session_secure?: boolean;
-}
 
 function GitHubIcon({ className }: { className?: string }) {
   return (
@@ -65,50 +67,60 @@ function GoogleIcon({ className }: { className?: string }) {
 export function LoginPage() {
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite")?.trim() || null;
-  const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
+  const from = searchParams.get("from")?.trim() || "/";
+
+  const [authConfig, setAuthConfig] = useState<Awaited<ReturnType<typeof fetchAuthConfig>> | null>(
+    null,
+  );
+  const [configError, setConfigError] = useState(false);
   const [acceptingInvite, setAcceptingInvite] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
 
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [formBusy, setFormBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
   useEffect(() => {
-    // If the user already has a valid session and clicks an invite link, automatically accept and join
     if (inviteToken) {
       void fetchMe()
         .then(async (me) => {
-          if (me && me.user_id) {
+          if (me?.user_id) {
             setAcceptingInvite(true);
             try {
               await acceptInvitation(inviteToken);
               window.location.href = "/";
             } catch {
               setAcceptingInvite(false);
-              setInviteError("Failed to accept invitation. The invitation may be expired or for a different email.");
+              setInviteError(
+                "Failed to accept invitation. The invitation may be expired or for a different email.",
+              );
             }
           }
         })
         .catch(() => {});
     }
 
-    fetch("/api/v1/auth/config", { credentials: "include" })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((body: AuthConfig | null) => {
-        if (body) {
-          setAuthConfig(body);
-        }
-      })
+    void fetchAuthConfig()
+      .then(setAuthConfig)
       .catch(() => {
+        setConfigError(true);
         setAuthConfig({
-          google_enabled: true,
-          github_enabled: true,
-          password_enabled: false,
+          google_enabled: false,
+          github_enabled: false,
+          password_enabled: true,
           registration_enabled: true,
+          session_secure: false,
+          mcp_enabled: false,
         });
       });
-  }, []);
+  }, [inviteToken]);
 
   const oauthError = searchParams.get("error");
   const oauthErrorMessage =
     oauthError === "oauth_state"
-      ? "Sign-in session expired. Clear site cookies for app.epure.sh and try again."
+      ? "Sign-in session expired. Clear site cookies and try again."
       : oauthError === "oauth_github"
         ? "GitHub sign-in failed at the server. Please try again or use Google."
         : oauthError === "oauth_google"
@@ -117,15 +129,49 @@ export function LoginPage() {
             ? "Sign-in was cancelled at the provider."
             : oauthError === "oauth_invalid"
               ? "Invalid sign-in response from the provider."
-              : null;
+              : oauthError === "registration_closed"
+                ? "Registration is closed on this instance. Use an invitation link."
+                : null;
 
   const cookieTrap = httpSecureCookieTrap(
     window.location.protocol,
     authConfig?.session_secure === true,
   );
 
-  const githubEnabled = authConfig ? authConfig.github_enabled : true;
-  const googleEnabled = authConfig ? authConfig.google_enabled : true;
+  const passwordEnabled = authConfig?.password_enabled ?? false;
+  const registrationOpen = authConfig?.registration_enabled !== false;
+  const showRegister = passwordEnabled && registrationOpen && !inviteToken;
+  const githubEnabled = isCloudSocialSignInVisible(authConfig?.github_enabled);
+  const googleEnabled = isCloudSocialSignInVisible(authConfig?.google_enabled);
+  const socialEnabled = githubEnabled || googleEnabled;
+
+  async function handlePasswordSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError(null);
+    setFormBusy(true);
+    try {
+      if (mode === "register") {
+        await registerWithPassword(email.trim(), password, inviteToken ?? undefined);
+      } else {
+        await loginWithPassword(email.trim(), password);
+      }
+      window.location.assign(from.startsWith("/") ? from : "/");
+    } catch (error) {
+      setFormError(apiErrorMessage(error, "Sign-in failed. Check your email and password."));
+    } finally {
+      setFormBusy(false);
+    }
+  }
+
+  const subtitle = inviteToken
+    ? socialEnabled
+      ? "Accept your workspace invite, then continue with GitHub or Google."
+      : "Create an account or sign in with the invited email."
+    : passwordEnabled && !socialEnabled
+      ? "Self-hosted — sign in with email and password."
+      : passwordEnabled && socialEnabled
+        ? "Sign in with email or continue with a social provider."
+        : "Sign in with GitHub or Google.";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg p-6">
@@ -135,17 +181,13 @@ export function LoginPage() {
             <EpureBrandMark size={44} />
           </div>
           <h1 className="epure-page-title mt-4 text-base font-semibold tracking-ui text-ink">
-            Sign in to Epure
+            {mode === "register" ? "Create your account" : "Sign in to Epure"}
           </h1>
-          <p className="mt-1.5 text-xs text-ink-muted">
-            {inviteToken
-              ? "Accept your workspace invite and continue with GitHub or Google."
-              : "Exception tracking with surgical token-capped AI triage."}
-          </p>
+          <p className="mt-1.5 text-xs text-ink-muted">{subtitle}</p>
         </div>
 
         <div className="mt-6 flex flex-col gap-3">
-          {inviteToken && (
+          {inviteToken ? (
             <div className="flex items-center justify-center gap-2 rounded-lg border border-border bg-bg-subtle px-3 py-2 text-xs text-ink-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
               <span>
@@ -154,28 +196,103 @@ export function LoginPage() {
                   : "Workspace invitation link active"}
               </span>
             </div>
-          )}
+          ) : null}
 
-          {inviteError && (
+          {inviteError ? (
             <div className="rounded-lg border border-semantic-danger/40 bg-surface p-3 text-xs text-semantic-danger">
               {inviteError}
             </div>
-          )}
+          ) : null}
 
-          {cookieTrap && (
+          {configError ? (
+            <div className="rounded-lg border border-semantic-warning/40 bg-surface p-3 text-xs text-ink-muted">
+              Could not reach the server for auth settings. Using self-hosted defaults (email/password).
+            </div>
+          ) : null}
+
+          {cookieTrap ? (
             <div className="rounded-lg border border-semantic-warning/40 bg-surface p-3 text-xs text-ink">
               {HTTP_SESSION_COOKIE_MESSAGE}
             </div>
-          )}
+          ) : null}
 
-          {oauthErrorMessage && (
+          {oauthErrorMessage ? (
             <div className="rounded-lg border border-semantic-danger/30 bg-semantic-danger/10 p-3 text-center text-xs text-semantic-danger">
               {oauthErrorMessage}
             </div>
-          )}
+          ) : null}
 
-          {/* Official GitHub OAuth Button */}
-          {githubEnabled && (
+          {authConfig === null ? (
+            <p className="py-6 text-center text-xs text-ink-muted">Loading sign-in options…</p>
+          ) : null}
+
+          {authConfig && passwordEnabled ? (
+            <form className="flex flex-col gap-3" onSubmit={(event) => void handlePasswordSubmit(event)}>
+              <Field label="Email" htmlFor="login-email">
+                <Input
+                  id="login-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  disabled={formBusy || cookieTrap}
+                />
+              </Field>
+              <Field label="Password" htmlFor="login-password">
+                <Input
+                  id="login-password"
+                  type="password"
+                  autoComplete={mode === "register" ? "new-password" : "current-password"}
+                  required
+                  minLength={8}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  disabled={formBusy || cookieTrap}
+                />
+              </Field>
+              {formError ? (
+                <p className="text-xs text-semantic-danger" role="alert">
+                  {formError}
+                </p>
+              ) : null}
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                className="w-full"
+                disabled={formBusy || cookieTrap}
+                loading={formBusy}
+              >
+                {mode === "register" ? "Create account" : "Sign in"}
+              </Button>
+              {showRegister ? (
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto w-full text-xs text-ink-muted hover:text-ink"
+                  onClick={() => {
+                    setMode((current) => (current === "login" ? "register" : "login"));
+                    setFormError(null);
+                  }}
+                >
+                  {mode === "login"
+                    ? "Need an account? Register"
+                    : "Already have an account? Sign in"}
+                </Button>
+              ) : null}
+            </form>
+          ) : null}
+
+          {authConfig && passwordEnabled && socialEnabled ? (
+            <div className="flex items-center gap-3 py-1">
+              <span className="h-px flex-1 bg-border" />
+              <span className="text-2xs uppercase tracking-wide text-ink-muted">or</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          ) : null}
+
+          {authConfig && githubEnabled ? (
             <Button
               variant="outline"
               size="lg"
@@ -192,10 +309,9 @@ export function LoginPage() {
               <GitHubIcon className="size-4 shrink-0 text-ink" />
               <span>Continue with GitHub</span>
             </Button>
-          )}
+          ) : null}
 
-          {/* Official Google OAuth Button */}
-          {googleEnabled && (
+          {authConfig && googleEnabled ? (
             <Button
               variant="outline"
               size="lg"
@@ -212,17 +328,20 @@ export function LoginPage() {
               <GoogleIcon className="size-4 shrink-0" />
               <span>Continue with Google</span>
             </Button>
-          )}
+          ) : null}
 
-          {!githubEnabled && !googleEnabled && (
+          {authConfig && !passwordEnabled && !socialEnabled ? (
             <div className="rounded-lg border border-border bg-bg-subtle p-3 text-center text-xs text-ink-muted">
-              No OAuth providers currently enabled. Contact your workspace administrator.
+              No sign-in methods are configured. Set OAuth client IDs or enable password auth on the
+              server.
             </div>
-          )}
+          ) : null}
 
-          <p className="mt-3 text-center text-2xs text-ink-muted/80">
-            Password authentication is disabled. Sign in via your GitHub or Google account.
-          </p>
+          {authConfig && !passwordEnabled && socialEnabled ? (
+            <p className="text-center text-2xs text-ink-muted/80">
+              Email and password sign-in is disabled on this instance. Use GitHub or Google.
+            </p>
+          ) : null}
         </div>
       </Card>
     </div>

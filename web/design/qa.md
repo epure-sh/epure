@@ -8,6 +8,8 @@ Ship a product UI slice only if all pass:
 - [ ] Accent < ~10% of pixels on issue list — do not flood rows with indigo
 - [ ] DSN, stack paths, hashes use `font-mono` only
 - [ ] Button radius = `rounded-md` / 8px — **no 9999px pills** on buttons, badges, chips, or checkboxes. Edit `button.tsx` / theme, not per-screen
+- [ ] **No ad-hoc UI:** use `@/components/ui/*` + `@/components/kit/*` (or registered `src/ui/*` composites). No raw `<button>` / badge-like `<span>` / semantic `bg-*/10` chips in features or shell
+- [ ] Status chips → `Badge` variants; filter toggles → `Button` (`filterEscalating` / `filterRegression`) or `FilterChip`; tables → `Table` / `DataTable`
 - [ ] Ghost buttons have **no** forced border
 - [ ] Default control height `h-8` (buttons, inputs, selects) unless `size="sm"`
 - [ ] Filter chips 5–6px, not capsules

@@ -6,21 +6,22 @@ import { cn } from "@/lib/utils";
 export const badgeVariants = cva(
   [
     "inline-flex items-center justify-center font-medium select-none tabular-nums rounded-control",
-    "border transition-colors duration-100",
+    "border border-solid bg-opacity-100 transition-colors duration-100",
   ],
   {
     variants: {
       variant: {
         neutral: "bg-surface-2 text-fg-secondary border-border-subtle",
-        escalating: "bg-escalating/15 text-escalating border-escalating/30",
-        regression: "bg-regression/15 text-regression border-regression/30",
-        healthy: "bg-healthy/15 text-healthy border-healthy/30",
-        info: "bg-info/15 text-info border-info/30",
-        warning: "bg-regression/15 text-regression border-regression/30",
-        error: "bg-escalating/15 text-escalating border-escalating/30",
+        escalating: "bg-badge-escalating-bg text-escalating border-badge-escalating-border",
+        regression: "bg-badge-regression-bg text-regression border-badge-regression-border",
+        healthy: "bg-badge-healthy-bg text-healthy border-badge-healthy-border",
+        info: "bg-badge-info-bg text-info border-badge-info-border",
+        warning: "bg-badge-regression-bg text-regression border-badge-regression-border",
+        error: "bg-badge-escalating-bg text-escalating border-badge-escalating-border",
+        accent: "bg-badge-accent-bg text-badge-accent-fg border-badge-accent-border",
         env: "bg-surface-2 text-fg-secondary border-border-subtle",
         flat: "bg-surface-2 text-fg-secondary border-transparent",
-        resolved: "bg-healthy/15 text-healthy border-healthy/30",
+        resolved: "bg-badge-healthy-bg text-healthy border-badge-healthy-border",
         default: "bg-surface-2 text-fg-secondary border-border-subtle",
         secondary: "bg-surface-2 text-fg-secondary border-border-subtle",
       },
@@ -40,14 +41,11 @@ export const badgeVariants = cva(
 
 export interface BadgeProps
   extends React.HTMLAttributes<HTMLSpanElement>,
-    VariantProps<typeof badgeVariants> {
-  dot?: boolean;
-}
+    VariantProps<typeof badgeVariants> {}
 
 export function Badge({
   variant,
   size,
-  dot = false,
   className,
   children,
   ...props
@@ -58,12 +56,6 @@ export function Badge({
       className={cn(badgeVariants({ variant, size }), className)}
       {...props}
     >
-      {dot && (
-        <span
-          data-slot="badge-dot"
-          className="size-1.5 rounded-full bg-current shrink-0"
-        />
-      )}
       {children}
     </span>
   );

@@ -1,8 +1,15 @@
+import type { ReactNode } from "react";
+import { Archive, Ban, Check, Eye, RotateCcw, Sparkles } from "lucide-react";
 import type { SnoozeMode } from "../../lib/api";
 import type { BulkTriageAvailability } from "./issue-triage-utils";
 import { BulkSnoozeMenu } from "./snooze-menu";
-import { ActionButton } from "../../ui/action-button";
-import { Button } from "../../ui/button";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 export interface BulkActionsProps {
   selectedIds: Set<string>;
@@ -11,14 +18,88 @@ export interface BulkActionsProps {
   canSplit: boolean;
   onResolve: () => void;
   onIgnore: () => void;
-  onResolveWithAi: () => void;
+  onAskAi: () => void;
+  onMarkRead: () => void;
   onReopen: () => void;
   onSnooze: (mode: SnoozeMode) => Promise<void>;
-  onDelete: () => void;
   onMerge?: () => void;
   onSplit?: () => void;
   onClear: () => void;
   busy?: boolean;
+  className?: string;
+}
+
+function BarButton({
+  children,
+  tooltip,
+  disabled,
+  variant = "ghost",
+  onClick,
+}: {
+  children: ReactNode;
+  tooltip?: string;
+  disabled?: boolean;
+  variant?: "primary" | "ghost" | "secondary";
+  onClick?: () => void;
+}) {
+  const button = (
+    <Button variant={variant} size="sm" disabled={disabled} onClick={onClick}>
+      {children}
+    </Button>
+  );
+
+  if (!tooltip) {
+    return button;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className={disabled ? "inline-flex cursor-not-allowed" : "inline-flex"}>
+          {button}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-xs text-xs">
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function BarIconButton({
+  label,
+  tooltip,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  tooltip?: string;
+  disabled?: boolean;
+  onClick?: () => void;
+  children: ReactNode;
+}) {
+  const tip = tooltip ?? label;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className={disabled ? "inline-flex cursor-not-allowed" : "inline-flex"}>
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={disabled}
+            aria-label={label}
+            onClick={onClick}
+          >
+            {children}
+          </Button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="text-xs">
+        {tip}
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 export function BulkActions({
@@ -28,14 +109,15 @@ export function BulkActions({
   canSplit,
   onResolve,
   onIgnore,
-  onResolveWithAi,
+  onAskAi,
+  onMarkRead,
   onReopen,
   onSnooze,
-  onDelete,
   onMerge,
   onSplit,
   onClear,
   busy = false,
+  className,
 }: BulkActionsProps) {
   const count = selectedIds.size;
   const showBulk = count > 0;
@@ -45,90 +127,102 @@ export function BulkActions({
     return null;
   }
 
-  const busyTooltip = busy ? "Saving changes…" : undefined;
+  const busyTip = busy ? "Saving changes…" : undefined;
 
   return (
     <div
-      className="sticky top-0 z-10 border-b border-border bg-surface-elevated px-3 py-2 epure-filter-panel"
+      className={cn(
+        "sticky top-0 z-10 bg-surface-1 px-3 py-1.5",
+        className,
+      )}
       aria-busy={busy || undefined}
+      role="toolbar"
+      aria-label="Bulk issue actions"
     >
       {showBulk ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-ink">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="pr-1 text-xs font-medium tabular-nums text-fg-primary">
             {count} selected
           </span>
+
           {availability.resolve ? (
-            <ActionButton
+            <BarButton
               variant="primary"
-              className="text-xs"
               disabled={busy}
-              tooltip={busyTooltip}
+              tooltip={busyTip ?? "Mark resolved"}
               onClick={onResolve}
             >
-              {busy ? "Saving…" : "Mark resolved"}
-            </ActionButton>
+              <Check className="size-3.5" aria-hidden />
+              <span>{busy ? "Saving…" : "Mark resolved"}</span>
+            </BarButton>
           ) : null}
+
+          <BarButton
+            disabled={busy}
+            tooltip={busyTip ?? "Mark read"}
+            onClick={onMarkRead}
+          >
+            <Eye className="size-3.5" aria-hidden />
+            <span>Mark read</span>
+          </BarButton>
+
+          <BarButton
+            disabled={busy}
+            tooltip={busyTip ?? "Ask AI"}
+            onClick={onAskAi}
+          >
+            <Sparkles className="size-3.5" aria-hidden />
+            <span>Ask AI</span>
+          </BarButton>
+
+          {availability.snooze ? (
+            <BulkSnoozeMenu disabled={busy} iconOnly onSnooze={onSnooze} />
+          ) : null}
+
           {availability.ignore ? (
-            <ActionButton
-              variant="ghost"
-              className="text-xs"
+            <BarIconButton
+              label="Archive"
               disabled={busy}
-              tooltip={busyTooltip}
+              tooltip={busyTip ?? "Archive"}
               onClick={onIgnore}
             >
-              Ignore
-            </ActionButton>
+              <Archive className="size-3.5" aria-hidden />
+            </BarIconButton>
           ) : null}
+
           {availability.ignore ? (
-            <ActionButton
-              variant="ghost"
-              className="text-xs"
+            <BarIconButton
+              label="Ignore"
               disabled={busy}
-              tooltip={
-                busy
-                  ? busyTooltip
-                  : "Copy selected issues for your editor, then mark them ignored"
-              }
-              onClick={onResolveWithAi}
+              tooltip={busyTip ?? "Ignore"}
+              onClick={onIgnore}
             >
-              Resolve all with AI
-            </ActionButton>
+              <Ban className="size-3.5" aria-hidden />
+            </BarIconButton>
           ) : null}
+
           {availability.reopen ? (
-            <ActionButton
-              variant="ghost"
-              className="text-xs"
+            <BarButton
               disabled={busy}
-              tooltip={busyTooltip}
+              tooltip={busyTip ?? "Unresolve"}
               onClick={onReopen}
             >
-              Unresolve
-            </ActionButton>
+              <RotateCcw className="size-3.5" aria-hidden />
+              <span>Unresolve</span>
+            </BarButton>
           ) : null}
-          {availability.snooze ? (
-            <BulkSnoozeMenu disabled={busy} onSnooze={onSnooze} />
-          ) : null}
+
           {canMerge && onMerge ? (
-            <ActionButton
-              variant="ghost"
-              className="text-xs"
+            <BarButton
               disabled={busy}
-              tooltip={busy ? busyTooltip : "Merge selected issues into the focused issue"}
+              tooltip={busyTip ?? "Merge"}
               onClick={onMerge}
             >
-              Merge
-            </ActionButton>
+              <span>Merge</span>
+            </BarButton>
           ) : null}
-          <ActionButton
-            variant="danger"
-            className="text-xs"
-            disabled={busy}
-            tooltip={busyTooltip}
-            onClick={onDelete}
-          >
-            Delete
-          </ActionButton>
-          <Button variant="ghost" className="ml-auto text-xs" disabled={busy} onClick={onClear}>
+
+          <Button variant="ghost" size="sm" className="ml-auto" disabled={busy} onClick={onClear}>
             Clear
           </Button>
         </div>
@@ -136,16 +230,10 @@ export function BulkActions({
 
       {showSplit && onSplit ? (
         <div className="flex items-center gap-2">
-          <span className="text-xs text-ink-muted">Merged issues in view</span>
-          <ActionButton
-            variant="secondary"
-            className="text-xs"
-            disabled={busy}
-            tooltip={busyTooltip}
-            onClick={onSplit}
-          >
-            Split all merged
-          </ActionButton>
+          <span className="text-xs text-fg-muted">Merged issues in view</span>
+          <BarButton variant="secondary" disabled={busy} tooltip={busyTip ?? "Split merged"} onClick={onSplit}>
+            <span>Split merged</span>
+          </BarButton>
         </div>
       ) : null}
     </div>

@@ -27,23 +27,18 @@ export function AlertsRulesPanel({
         : `${webhookCount} endpoint${webhookCount === 1 ? "" : "s"} forwarding subscribed events.`;
 
   return (
-    <footer className="shrink-0 border-t border-border-subtle bg-surface-1/40 px-4 py-2.5 md:px-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-fg-muted">
-        <p className="min-w-0 leading-relaxed">
-          <span className="font-medium text-fg-primary">
-            {builtInRulesCount} built-in rules.
-          </span>{" "}
-          Add project rules under Alert rules. Ignore an alert to stop that rule for the issue.
-          <span className="mx-1.5 text-fg-muted/40" aria-hidden>·</span>
-          {webhookHint}
+    <footer className="shrink-0 border-t border-border-subtle px-4 py-2 md:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-2xs text-fg-muted">
+        <p className="min-w-0 truncate">
+          {builtInRulesCount} built-in · {webhookHint}
         </p>
         {canManageWebhooks ? (
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-0.5">
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" asChild>
-              <Link to={rulesPath}>Configure Rules</Link>
+              <Link to={webhooksPath}>Webhooks</Link>
             </Button>
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" asChild>
-              <Link to={webhooksPath}>Notifications</Link>
+              <Link to={rulesPath}>Rules</Link>
             </Button>
           </div>
         ) : (

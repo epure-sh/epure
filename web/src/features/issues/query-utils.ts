@@ -1,11 +1,26 @@
 export interface ParsedQuery {
   status?: string;
+  /** Volume spike / 3d trend (client-refined; stripped for API list fetch). */
+  escalating?: boolean;
+  /** Derived priority bucket (client-refined; stripped for API list fetch). */
+  priority?: string;
   environment?: string;
   release?: string;
   userEmail?: string;
   level?: string;
   freeText?: string;
 }
+
+/** Mutually exclusive lifecycle `is:` tokens. */
+export const LIFECYCLE_IS_TOKENS = [
+  "is:unresolved",
+  "is:resolved",
+  "is:ignored",
+  "is:regression",
+  "is:snoozed",
+] as const;
+
+export const ADDITIVE_IS_TOKENS = ["is:escalating"] as const;
 
 export type TimeWindowValue = "24h" | "7d" | "14d" | "30d" | "90d";
 
@@ -49,6 +64,30 @@ export function getIssueSortLabel(value: IssueSortValue): string {
     ISSUE_SORT_OPTIONS.find((option) => option.value === value)?.label ??
     "Last seen (newest first)"
   );
+}
+
+/** Compact feed toolbar label (matches inbox column headers). */
+export function getIssueSortShortLabel(value: IssueSortValue): string {
+  switch (value) {
+    case "last_seen_desc":
+    case "last_seen_asc":
+      return "Last seen";
+    case "events_desc":
+    case "events_asc":
+      return "Events";
+    case "first_seen_desc":
+    case "first_seen_asc":
+      return "Age";
+    case "title_asc":
+      return "Title";
+    default:
+      return "Last seen";
+  }
+}
+
+/** Short horizon label for the feed toolbar (e.g. `90D`). */
+export function getTimeWindowShortLabel(value: TimeWindowValue): string {
+  return value.toUpperCase();
 }
 
 export const TIME_WINDOW_OPTIONS: ReadonlyArray<{
@@ -106,7 +145,14 @@ export function parseQuery(raw: string): ParsedQuery {
 
   for (const token of raw.trim().split(/\s+/).filter(Boolean)) {
     if (token.startsWith("is:")) {
-      parsed.status = normalizeStatus(token.slice(3));
+      const value = token.slice(3);
+      if (value === "escalating") {
+        parsed.escalating = true;
+      } else {
+        parsed.status = normalizeStatus(value);
+      }
+    } else if (token.startsWith("priority:")) {
+      parsed.priority = token.slice(9);
     } else if (token.startsWith("env:")) {
       parsed.environment = token.slice(4);
     } else if (token.startsWith("release:")) {
@@ -132,6 +178,12 @@ function structuredTokens(parsed: ParsedQuery): string[] {
   if (parsed.status) {
     tokens.push(`is:${parsed.status}`);
   }
+  if (parsed.escalating) {
+    tokens.push("is:escalating");
+  }
+  if (parsed.priority) {
+    tokens.push(`priority:${parsed.priority}`);
+  }
   if (parsed.level) {
     tokens.push(`level:${parsed.level}`);
   }
@@ -152,7 +204,7 @@ export function composeQuery(parsed: ParsedQuery, freeText?: string): string {
   const tokens = structuredTokens(parsed);
   const text = (freeText ?? parsed.freeText ?? "").trim();
   const combined = [...tokens, text].filter(Boolean).join(" ").trim();
-  return combined || "is:unresolved";
+  return combined || ALL_QUERY;
 }
 
 /** Keep structured filter tokens; replace only the free-text portion. */
@@ -160,10 +212,38 @@ export function replaceFreeText(query: string, freeText: string): string {
   return composeQuery(parseQuery(query), freeText);
 }
 
-const STRUCTURED_PREFIXES = ["is:", "env:", "release:", "user.email:", "level:"] as const;
-
 function isStructuredToken(token: string): boolean {
-  return STRUCTURED_PREFIXES.some((prefix) => token.startsWith(prefix));
+  return (
+    token.startsWith("is:") ||
+    token.startsWith("env:") ||
+    token.startsWith("release:") ||
+    token.startsWith("user.email:") ||
+    token.startsWith("level:") ||
+    token.startsWith("priority:")
+  );
+}
+
+function removeExactTokens(query: string, tokens: Iterable<string>): string {
+  const drop = new Set(tokens);
+  return query
+    .split(/\s+/)
+    .filter((part) => part && !drop.has(part))
+    .join(" ")
+    .trim();
+}
+
+/** Query sent to the issues API (drops client-only refine tokens). */
+export function toApiQuery(query: string): string {
+  return query
+    .split(/\s+/)
+    .filter(
+      (token) =>
+        token &&
+        token !== "is:escalating" &&
+        !token.startsWith("priority:"),
+    )
+    .join(" ")
+    .trim();
 }
 
 /** Free-text portion of a query (everything that is not a `key:value` filter token). */
@@ -198,22 +278,66 @@ export function setToken(query: string, token: string): string {
   return without ? `${without} ${token}` : token;
 }
 
-export function toggleToken(query: string, token: string): string {
-  const prefix = `${token.split(":")[0]}:`;
-  const has = query.split(/\s+/).some((part) => part === token);
-  if (has) {
-    return removeToken(query, prefix);
+/** Add or remove a filter token; lifecycle states replace each other, modifiers stack. */
+export function applyFilterToken(query: string, token: string): string {
+  const parts = query.split(/\s+/).filter(Boolean);
+  if (parts.includes(token)) {
+    return removeExactTokens(query, [token]);
   }
-  return setToken(query, token);
+
+  let next = query.trim();
+  if ((LIFECYCLE_IS_TOKENS as readonly string[]).includes(token)) {
+    next = removeExactTokens(next, LIFECYCLE_IS_TOKENS);
+  } else if (token.startsWith("level:")) {
+    next = removeToken(next, "level:");
+  } else if (token.startsWith("env:")) {
+    next = removeToken(next, "env:");
+  } else if (token.startsWith("priority:")) {
+    next = removeToken(next, "priority:");
+  } else if (token.startsWith("release:")) {
+    next = removeToken(next, "release:");
+  } else if (token.startsWith("user.email:")) {
+    next = removeToken(next, "user.email:");
+  }
+
+  return next ? `${next} ${token}` : token;
+}
+
+export function toggleToken(query: string, token: string): string {
+  return applyFilterToken(query, token);
 }
 
 /** Remove a structured filter token (e.g. `is:unresolved`) from the query. */
 export function removeChipToken(query: string, token: string): string {
+  if (token.startsWith("is:")) {
+    return removeExactTokens(query, [token]);
+  }
   const prefix = `${token.split(":")[0]}:`;
   return removeToken(query, prefix);
 }
 
+/** Default unresolved tab preset (explicit filter). */
 export const DEFAULT_QUERY = "is:unresolved";
+
+/** Empty query — no lifecycle or search filters; list shows every status in the time window. */
+export const ALL_QUERY = "";
+
+export function isAllIssuesQuery(query: string): boolean {
+  if (query.trim() === ALL_QUERY) {
+    return true;
+  }
+  const parsed = parseQuery(query);
+  return (
+    !parsed.status &&
+    !parsed.escalating &&
+    !parsed.priority &&
+    !parsed.level &&
+    !parsed.environment &&
+    !parsed.release &&
+    !parsed.userEmail &&
+    !parsed.freeText
+  );
+}
 
 export interface FilterPreset {
   label: string;
@@ -250,9 +374,24 @@ export const IMPACT_FILTER_PRESETS: readonly FilterPreset[] = [
   { label: "Affecting Users", token: "user.email:@" },
 ];
 
+/** Signal / trend filters (refined on the client after fetch). */
+export const SIGNAL_FILTER_PRESETS: readonly FilterPreset[] = [
+  { label: "Escalating (3d)", token: "is:escalating" },
+];
+
+/** Priority buckets (derived from level + status). */
+export const PRIORITY_FILTER_PRESETS: readonly FilterPreset[] = [
+  { label: "Critical", token: "priority:critical" },
+  { label: "High", token: "priority:high" },
+  { label: "Medium", token: "priority:medium" },
+  { label: "Low", token: "priority:low" },
+];
+
 /** Label lookup for tokens typed manually or from advanced filters. */
 export const PRESET_FILTERS: readonly FilterPreset[] = [
   ...STATUS_FILTER_PRESETS,
+  ...SIGNAL_FILTER_PRESETS,
+  ...PRIORITY_FILTER_PRESETS,
   ...LEVEL_FILTER_PRESETS,
   ...ENVIRONMENT_FILTER_PRESETS,
   ...IMPACT_FILTER_PRESETS,
@@ -289,6 +428,22 @@ export function extractChips(query: string): QueryChip[] {
       label: getFilterPresetLabel(token),
       token,
       plain: true,
+    });
+  }
+  if (parsed.escalating) {
+    chips.push({
+      key: "signal",
+      label: getFilterPresetLabel("is:escalating"),
+      token: "is:escalating",
+      plain: true,
+    });
+  }
+  if (parsed.priority) {
+    const token = `priority:${parsed.priority}`;
+    chips.push({
+      key: "priority",
+      label: getFilterPresetLabel(token),
+      token,
     });
   }
   if (parsed.level) {
@@ -329,12 +484,14 @@ export function extractChips(query: string): QueryChip[] {
 
 export interface FilterHelperGroup {
   label: string;
-  category: "status" | "level" | "environment" | "impact";
+  category: "status" | "signal" | "priority" | "level" | "environment" | "impact";
   presets: readonly FilterPreset[];
 }
 
 export const FILTER_HELPER_GROUPS: readonly FilterHelperGroup[] = [
   { label: "Lifecycle State", category: "status", presets: STATUS_FILTER_PRESETS },
+  { label: "Signal", category: "signal", presets: SIGNAL_FILTER_PRESETS },
+  { label: "Priority", category: "priority", presets: PRIORITY_FILTER_PRESETS },
   { label: "Severity Level", category: "level", presets: LEVEL_FILTER_PRESETS },
   { label: "Environment", category: "environment", presets: ENVIRONMENT_FILTER_PRESETS },
   { label: "Impact & Users", category: "impact", presets: IMPACT_FILTER_PRESETS },
@@ -365,20 +522,11 @@ export function setEnvironmentFilter(query: string, environment: string | null):
 }
 
 export function hasActiveFilters(query: string): boolean {
-  const parsed = parseQuery(query);
-  const isDefault =
-    query.trim() === DEFAULT_QUERY ||
-    (parsed.status === "unresolved" &&
-      !parsed.level &&
-      !parsed.environment &&
-      !parsed.release &&
-      !parsed.userEmail &&
-      !parsed.freeText);
-  return !isDefault && query.trim().length > 0;
+  return !isAllIssuesQuery(query);
 }
 
 export function resetQuery(): string {
-  return DEFAULT_QUERY;
+  return ALL_QUERY;
 }
 
 export function queryHasToken(query: string, token: string): boolean {

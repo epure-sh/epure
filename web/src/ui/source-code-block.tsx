@@ -16,8 +16,10 @@ export interface SourceCodeBlockProps {
   lines: SourceCodeLine[];
   className?: string;
   showHeader?: boolean;
-  density?: "default" | "compact";
+  density?: "default" | "compact" | "stack";
   copyValue?: string;
+  /** Fault-line emphasis in stack traces (default danger). */
+  faultTone?: "danger" | "accent" | "neutral";
 }
 
 function formatLocation(
@@ -58,7 +60,7 @@ function InlineCopyButton({ value }: { value: string }) {
         event.stopPropagation();
         void handleCopy();
       }}
-      className="shrink-0 rounded p-0.5 text-ink-muted transition-colors hover:bg-state-hover hover:text-ink focus-ring"
+      className="shrink-0 rounded p-0.5 text-fg-muted transition-colors hover:bg-state-hover hover:text-fg-primary focus-ring"
       aria-label={copied ? "Copied frame location" : "Copy frame location"}
     >
       {copied ? <Check className="h-3 w-3" aria-hidden /> : <Copy className="h-3 w-3" aria-hidden />}
@@ -76,18 +78,36 @@ export function SourceCodeBlock({
   showHeader = true,
   density = "default",
   copyValue,
+  faultTone = "danger",
 }: SourceCodeBlockProps) {
   const compact = density === "compact";
+  const stack = density === "stack";
   const location = formatLocation(filename, lineno, colno, functionName);
+  const faultLineClass =
+    faultTone === "accent"
+      ? "bg-accent-muted text-fg-primary"
+      : faultTone === "neutral"
+        ? "border-l-2 border-l-border bg-surface-2/50"
+        : "border-l-2 border-l-semantic-danger bg-semantic-danger/10 text-semantic-danger";
+  const faultGutterClass =
+    faultTone === "accent"
+      ? "font-semibold text-accent"
+      : faultTone === "neutral"
+        ? "font-semibold text-fg-primary"
+        : "font-medium text-semantic-danger";
 
   return (
     <div
       className={cn(
-        "epure-source-code-block epure-code-well overflow-hidden font-mono text-ink",
-        compact ? "text-xs leading-[1.35rem]" : "text-sm leading-5",
+        "epure-source-code-block epure-code-well overflow-hidden font-mono text-fg-primary",
+        stack
+          ? "text-sm leading-6"
+          : compact
+            ? "text-xs leading-[1.35rem]"
+            : "text-sm leading-5",
         showHeader
           ? "rounded-md border border-border bg-bg-subtle"
-          : "border-t border-border/80 bg-surface-inset",
+          : "border-0 bg-transparent",
         className,
       )}
     >
@@ -98,36 +118,43 @@ export function SourceCodeBlock({
             compact ? "px-3 py-1.5" : "px-4 py-2.5",
           )}
         >
-          <span className={cn("min-w-0 flex-1 truncate text-ink-muted", compact ? "text-xs" : "text-sm")}>
+          <span className={cn("min-w-0 flex-1 truncate text-fg-muted", compact ? "text-xs" : "text-sm")}>
             {location}
           </span>
           {copyValue ? <InlineCopyButton value={copyValue} /> : null}
         </div>
       ) : null}
-      <div className={cn("overflow-x-auto", compact ? "py-1" : "py-1.5")}>
+      <div className={cn("overflow-x-auto", stack ? "py-1.5" : compact ? "py-1" : "py-1.5")}>
         {lines.map((line, lineIndex) => (
           <div
             key={`${line.number}-${lineIndex}`}
             className={cn(
               "flex items-start",
-              compact ? "min-h-[1.35rem]" : "min-h-5",
-              line.fault && "border-l-2 border-l-semantic-danger bg-semantic-danger/10",
+              stack ? "min-h-6" : compact ? "min-h-[1.35rem]" : "min-h-5",
+              line.fault && faultLineClass,
             )}
           >
             <span
               className={cn(
                 "shrink-0 select-none text-right tabular-nums",
-                compact ? "w-9 pr-2 text-2xs" : "w-12 pr-3 text-xs",
-                line.fault ? "font-medium text-semantic-danger" : "text-ink-muted",
+                stack
+                  ? "w-11 border-r border-border-subtle bg-surface-2/30 pr-2.5 text-xs"
+                  : "bg-surface-2/40",
+                !stack && (compact ? "w-10 pr-2 text-2xs" : "w-12 pr-3 text-xs"),
+                line.fault ? faultGutterClass : "text-fg-muted",
               )}
             >
-              {line.number}
+              {String(line.number).padStart(stack ? 3 : 2, " ")}
             </span>
             <pre
               className={cn(
                 "m-0 flex-1 whitespace-pre",
-                compact ? "pr-3" : "pr-4",
-                line.fault ? "font-medium text-semantic-danger" : "text-ink",
+                stack ? "px-3" : compact ? "pr-3" : "pr-4",
+                line.fault
+                  ? faultTone === "danger"
+                    ? "font-medium text-semantic-danger"
+                    : "font-medium text-fg-primary"
+                  : "text-fg-primary",
               )}
             >
               {line.text || " "}

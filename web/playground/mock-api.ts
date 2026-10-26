@@ -14,9 +14,12 @@ import type {
   SetupProgress,
   SnoozeMode,
   CreatedWebhook,
+  MonitorItem,
   WebhookRow,
 } from "../src/lib/api";
+import { alertMatchesEnvironmentFilter } from "./alert-environment";
 import {
+  alertRules,
   alerts,
   buildEvents,
   buildIssues,
@@ -101,7 +104,7 @@ function filterIssues(
 }
 
 let store: MockStore = createStore();
-let mockMonitors = [
+const INITIAL_MOCK_MONITORS: MonitorItem[] = [
   {
     id: "mon_nightly",
     org_id: "org",
@@ -129,6 +132,8 @@ let mockMonitors = [
     updated_at: new Date().toISOString(),
   },
 ];
+
+let mockMonitors: MonitorItem[] = clone(INITIAL_MOCK_MONITORS);
 let teamMembers: MemberRow[] = clone(members);
 let teamInvitations: InvitationRow[] = clone(invitations);
 let mockProjects: ProjectRow[] = clone(projects);
@@ -177,7 +182,7 @@ function createStore(): MockStore {
     setup: clone(setupProgress),
     webhooks: clone(webhooks),
     alerts: clone(alerts),
-    alertRules: [],
+    alertRules: clone(alertRules),
     mergeParents: new Map(),
   };
 }
@@ -191,6 +196,7 @@ function resetStore(): void {
   setupByProject = new Map();
   setupByProject.set(setupProgress.project_id, clone(setupProgress));
   setupByProject.set(setupProgressPending.project_id, clone(setupProgressPending));
+  mockMonitors = clone(INITIAL_MOCK_MONITORS);
 }
 
 function issueById(id: string): MockIssue | undefined {
@@ -314,6 +320,21 @@ function handleGet(path: string, url: URL): Response {
     });
   }
 
+  if (path === "/api/v1/auth/organizations") {
+    return jsonResponse({
+      organizations: [
+        {
+          org_id: me.org_id,
+          name: "Acme Corp",
+          slug: "acme-corp",
+          role: me.role,
+          plan: "pro",
+          is_current: true,
+        },
+      ],
+    });
+  }
+
   if (path === "/api/v1/projects") {
     return jsonResponse({
       projects: mockProjects.map((project) => ({ ...project, role: me.role })),
@@ -400,13 +421,14 @@ function handleGet(path: string, url: URL): Response {
       rows = rows.filter((row) => row.project_id === projectId);
     }
     if (environment) {
-      rows = rows.filter((row) => {
-        const issue = issueById(row.issue_id ?? "");
-        return issue?.environment === environment;
-      });
+      rows = rows.filter((row) =>
+        alertMatchesEnvironmentFilter(row, environment, (id) => issueById(id)),
+      );
     }
     if (view === "unread") {
       rows = rows.filter((row) => !row.read_at && !row.ignored);
+    } else if (view === "resolved") {
+      rows = rows.filter((row) => Boolean(row.read_at) && !row.ignored);
     } else if (view === "ignored") {
       rows = rows.filter((row) => row.ignored);
     }
@@ -658,6 +680,9 @@ async function handlePatch(path: string, init: RequestInit): Promise<Response> {
     if (body.threshold !== undefined) {
       rule.threshold = body.threshold;
     }
+    if (body.filters_json !== undefined) {
+      rule.filters_json = body.filters_json;
+    }
     return jsonResponse(rule);
   }
 
@@ -895,6 +920,7 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
       kind: body.kind,
       environment: body.environment ?? null,
       threshold: body.threshold ?? null,
+      filters_json: body.filters_json ?? {},
       created_at: new Date().toISOString(),
     };
     store.alertRules.push(created);
@@ -1025,13 +1051,13 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
   }
 
   if (path === "/api/v1/monitors") {
-    const monitor = {
+    const monitor: MonitorItem = {
       id: crypto.randomUUID(),
       org_id: "org",
       project_id: String(body.project_id ?? projects[0]?.id ?? ""),
       slug: String(body.slug ?? "monitor"),
       schedule: body.schedule ? String(body.schedule) : null,
-      status: "ok" as const,
+      status: "ok",
       last_check_in_at: null,
       last_duration_ms: null,
       environment: body.environment ? String(body.environment) : null,
@@ -1125,7 +1151,9 @@ async function mockFetch(
   return jsonResponse({ error: "method not allowed" }, 405);
 }
 
-const nativeFetch = window.fetch.bind(window);
+function nativeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  return window.fetch.bind(window)(input, init);
+}
 
 export function installMockApi(): void {
   window.fetch = mockFetch as typeof fetch;

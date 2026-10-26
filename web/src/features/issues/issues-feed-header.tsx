@@ -1,18 +1,21 @@
-import { Clock, Download, SlidersHorizontal, Sparkles } from "lucide-react";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { CircleHelp, Clock, Download, Flame, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { HeadlineStats } from "../../lib/api";
-import { formatCompactCount } from "../../lib/format-count";
 import { ActionButton } from "../../ui/action-button";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FilterBar } from "@/components/kit/filter-bar";
-import { startAcmeProductTour } from "@/components/kit/product-tour";
-import { useAppContext } from "../../shell/app-context";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../../ui/dropdown-menu";
+} from "@/components/ui/dropdown-menu";
+import { CaretDown, Check } from "@/components/ui/icon";
+import {
+  startEpureProductTour,
+  tryAutoStartEpureProductTour,
+} from "@/components/kit/product-tour";
+import { useAppContext } from "../../shell/app-context";
 import {
   Select,
   SelectContent,
@@ -20,24 +23,66 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../ui/select";
+import { IssuesFeedQueryBar } from "./issues-feed-query-bar";
 import {
-  extractChips,
-  getEventsStatLabel,
+  applyFilterToken,
   getIssueSortLabel,
+  getIssueSortShortLabel,
   getSearchText,
+  getTimeWindowShortLabel,
   ISSUE_SORT_OPTIONS,
-  queryHasToken,
-  removeChipToken,
+  isAllIssuesQuery,
+  parseQuery,
   resetQuery,
-  setToken,
   TIME_WINDOW_OPTIONS,
-  toggleToken,
   withSearchText,
   type IssueSortValue,
   type TimeWindowValue,
 } from "./query-utils";
+import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip";
 
 const SEARCH_DEBOUNCE_MS = 250;
+
+function FeedFilterIconButton({
+  label,
+  tooltip,
+  active,
+  activeVariant = "secondary",
+  onClick,
+  children,
+  dataTour,
+}: {
+  label: string;
+  tooltip: string;
+  active: boolean;
+  activeVariant?: "secondary" | "filterEscalating" | "filterRegression";
+  onClick: () => void;
+  children: ReactNode;
+  dataTour?: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant={active ? activeVariant : "outline"}
+          size="icon"
+          className="size-7 shrink-0"
+          aria-label={label}
+          aria-pressed={active}
+          data-tour={dataTour}
+          onClick={onClick}
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="text-xs">
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 export interface IssuesFeedHeaderProps {
   query: string;
@@ -50,6 +95,8 @@ export interface IssuesFeedHeaderProps {
   filterInputRef?: RefObject<HTMLInputElement | null>;
   issueCount?: number;
   loading?: boolean;
+  /** When true, first visit may auto-start the tour (requires issues in the feed). */
+  tourAutoStartReady?: boolean;
   stats?: HeadlineStats | null;
   statsLoading?: boolean;
   onFilterToken?: (token: string) => void;
@@ -66,32 +113,38 @@ export function IssuesFeedHeader({
   onIssueSortChange,
   filterInputRef,
   issueCount,
+  loading = false,
+  tourAutoStartReady = false,
   stats,
-  statsLoading = false,
-  onFilterToken,
-  selectedCount = 0,
   onExportCsv,
+  selectedCount = 0,
 }: IssuesFeedHeaderProps) {
-  const { environment, setEnvironment, projectId, projects } = useAppContext();
-  const currentProject = projects.find((p) => p.id === projectId);
-  const isAcmeDemo = Boolean(currentProject?.is_demo || projectId?.startsWith("acme") || projectId?.includes("acme"));
+  const { environment, setEnvironment, user, userLoading } = useAppContext();
+
+  const userId = user?.user_id;
+
+  const launchTour = useCallback(() => {
+    startEpureProductTour(undefined, userId, { force: true });
+  }, [userId]);
 
   useEffect(() => {
-    if (isAcmeDemo && typeof window !== "undefined") {
-      const tourSeen = localStorage.getItem("epure.acme_tour_seen");
-      if (!tourSeen) {
-        localStorage.setItem("epure.acme_tour_seen", "true");
-        const timer = setTimeout(() => {
-          startAcmeProductTour();
-        }, 1200);
-        return () => clearTimeout(timer);
-      }
+    if (userLoading || !userId || loading || !tourAutoStartReady) {
+      return;
     }
-  }, [isAcmeDemo]);
-  const chips = extractChips(query);
-  const isUnresolvedActive = queryHasToken(query, "is:unresolved");
-  const isRegressionActive = queryHasToken(query, "is:regression");
-  const isSnoozedActive = queryHasToken(query, "is:snoozed");
+    const timer = window.setTimeout(() => {
+      tryAutoStartEpureProductTour(userId, tourAutoStartReady);
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [userId, userLoading, loading, tourAutoStartReady]);
+
+  const parsed = parseQuery(query);
+  const isUnresolvedActive = parsed.status === "unresolved";
+  const isResolvedActive = parsed.status === "resolved";
+  const isRegressionActive = parsed.status === "regression";
+  const isSnoozedActive = parsed.status === "snoozed";
+  const isEscalatingActive = Boolean(parsed.escalating);
+  const isAllActive = isAllIssuesQuery(query);
+  const unresolvedCount = stats?.unresolved;
 
   const latestQueryRef = useRef(query);
   latestQueryRef.current = query;
@@ -127,23 +180,6 @@ export function IssuesFeedHeader({
     }, SEARCH_DEBOUNCE_MS);
   }
 
-  function setDirectStateFilter(token: string | null) {
-    if (token && onFilterToken) {
-      onFilterToken(token);
-      return;
-    }
-    let nextQuery = query;
-    for (const chip of chips) {
-      if (chip.key === "is") {
-        nextQuery = removeChipToken(nextQuery, chip.token);
-      }
-    }
-    if (token) {
-      nextQuery = `${nextQuery.trim()} ${token}`.trim();
-    }
-    onQueryChange(nextQuery);
-  }
-
   function handleResetAll() {
     if (searchTimerRef.current !== null) {
       window.clearTimeout(searchTimerRef.current);
@@ -153,91 +189,149 @@ export function IssuesFeedHeader({
     onQueryChange(resetQuery());
   }
 
-  const eventsCount = statsLoading ? "…" : formatCompactCount(stats?.events_7d ?? 0);
+  function handleToggleUnresolved() {
+    onQueryChange(applyFilterToken(query, "is:unresolved"));
+  }
+
+  function handleToggleToken(token: string) {
+    onQueryChange(applyFilterToken(query, token));
+  }
+
+  const envLabel =
+    environment === "local"
+      ? "Local"
+      : environment.charAt(0).toUpperCase() + environment.slice(1);
 
   return (
     <header className="epure-issues-feed-header shrink-0 border-b border-border bg-bg select-none">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2 md:px-6">
-        <FilterBar
-          environment={environment}
-          onEnvironmentChange={(env) => setEnvironment(env as any)}
-          status={
-            isRegressionActive
-              ? "regression"
-              : isSnoozedActive
-                ? "snoozed"
-                : isUnresolvedActive
-                  ? "unresolved"
-                  : "all"
-          }
-          onStatusChange={(nextStatus) => {
-            if (nextStatus === "all") setDirectStateFilter(null);
-            else if (nextStatus === "unresolved") setDirectStateFilter("is:unresolved");
-            else if (nextStatus === "resolved") setDirectStateFilter("is:resolved");
-            else if (nextStatus === "snoozed") setDirectStateFilter("is:snoozed");
-          }}
-          escalating={queryHasToken(query, "is:escalating")}
-          onToggleEscalating={() => onQueryChange(toggleToken(query, "is:escalating"))}
-          regression={isRegressionActive}
-          onToggleRegression={() =>
-            setDirectStateFilter(isRegressionActive ? "is:unresolved" : "is:regression")
-          }
-          priority={
-            queryHasToken(query, "level:error")
-              ? "critical"
-              : queryHasToken(query, "level:warning")
-                ? "medium"
-                : ""
-          }
-          onPriorityChange={(p) => {
-            if (!p) {
-              onQueryChange(removeChipToken(removeChipToken(query, "level:error"), "level:warning"));
-            } else if (p === "critical" || p === "high") {
-              onQueryChange(setToken(query, "level:error"));
-            } else {
-              onQueryChange(setToken(query, "level:warning"));
+      <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-2 md:px-6">
+        <h2 className="text-sm font-medium tracking-ui text-fg-primary">Feed</h2>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          data-tour="issues-feed-help"
+          className="size-7 shrink-0 text-fg-muted hover:text-fg-primary"
+          aria-label="Product tour"
+          title="Product tour"
+          onClick={launchTour}
+        >
+          <CircleHelp className="size-3.5" aria-hidden />
+        </Button>
+      </div>
+
+      <div
+        data-slot="filter-bar"
+        className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2 md:px-6"
+      >
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button
+            variant={isAllActive ? "primary" : "outline"}
+            size="xs"
+            className="h-7 text-xs font-medium"
+            data-tour="issues-feed-all"
+            onClick={handleResetAll}
+          >
+            All
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="xs" className="h-7 gap-1 text-xs font-medium">
+                <span>{envLabel}</span>
+                <CaretDown className="size-3 text-fg-muted" weight="bold" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-40">
+              <DropdownMenuItem onSelect={() => setEnvironment("production" as typeof environment)}>
+                <span>Production</span>
+                {environment === "production" ? (
+                  <Check className="ml-auto size-3" weight="bold" />
+                ) : null}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setEnvironment("staging" as typeof environment)}>
+                <span>Staging</span>
+                {environment === "staging" ? (
+                  <Check className="ml-auto size-3" weight="bold" />
+                ) : null}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setEnvironment("local" as typeof environment)}>
+                <span>Local / dev</span>
+                {environment === "local" ? (
+                  <Check className="ml-auto size-3" weight="bold" />
+                ) : null}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button
+            variant={isUnresolvedActive ? "secondary" : "outline"}
+            size="xs"
+            className="h-7 gap-1 text-xs"
+            data-tour="issues-feed-unresolved"
+            onClick={handleToggleUnresolved}
+          >
+            <span>Unresolved</span>
+            {typeof unresolvedCount === "number" ? (
+              <Badge variant="neutral" size="sm" className="h-4 px-1 text-[10px] tabular-nums">
+                {unresolvedCount}
+              </Badge>
+            ) : null}
+          </Button>
+
+          <Button
+            variant={isResolvedActive ? "secondary" : "outline"}
+            size="xs"
+            className="h-7 text-xs"
+            onClick={() => handleToggleToken("is:resolved")}
+          >
+            Resolved
+          </Button>
+
+          <FeedFilterIconButton
+            label="Came back"
+            tooltip={
+              typeof stats?.regressions === "number" && stats.regressions > 0
+                ? `Came back · ${stats.regressions}`
+                : "Came back"
             }
-          }}
-          stats={{
-            unresolved: stats?.unresolved,
-            regressions: stats?.regressions,
-            snoozed: stats?.snoozed,
-          }}
-          onReset={handleResetAll}
-          search={searchText}
-          onSearchChange={handleSearchChange}
-          searchInputRef={filterInputRef}
-        />
+            active={isRegressionActive}
+            activeVariant="filterRegression"
+            onClick={() => handleToggleToken("is:regression")}
+            dataTour="issues-feed-came-back"
+          >
+            <RotateCcw className="size-3.5" aria-hidden />
+          </FeedFilterIconButton>
 
-        <div className="flex items-center gap-2">
-          <span className="hidden items-center gap-1.5 text-2xs text-fg-muted xl:flex">
-            <span className="font-mono font-medium tabular-nums text-fg-primary">{eventsCount}</span>
-            <span>{getEventsStatLabel(timeWindow).toLowerCase()}</span>
-          </span>
+          <FeedFilterIconButton
+            label="Escalating"
+            tooltip="Escalating (3d)"
+            active={isEscalatingActive}
+            activeVariant="filterEscalating"
+            onClick={() => handleToggleToken("is:escalating")}
+          >
+            <Flame className="size-3.5" aria-hidden />
+          </FeedFilterIconButton>
 
-          {/* Sort Selector */}
-          <Select value={issueSort} onValueChange={(value) => onIssueSortChange(value as IssueSortValue)}>
-            <SelectTrigger aria-label="Sort issues" className="h-7 w-auto min-w-[8rem] text-xs btn-tactile">
-              <SlidersHorizontal className="mr-1.5 h-3 w-3 text-ink-muted shrink-0" />
-              <SelectValue>{getIssueSortLabel(issueSort)}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {ISSUE_SORT_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value} className="text-xs">
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <FeedFilterIconButton
+            label="Snoozed"
+            tooltip={
+              typeof stats?.snoozed === "number" && stats.snoozed > 0
+                ? `Snoozed · ${stats.snoozed}`
+                : "Snoozed"
+            }
+            active={isSnoozedActive}
+            onClick={() => handleToggleToken("is:snoozed")}
+          >
+            <Clock className="size-3.5" aria-hidden />
+          </FeedFilterIconButton>
 
-          {/* Time Window Selector */}
-          <Select value={timeWindow} onValueChange={(value) => onTimeWindowChange(value as TimeWindowValue)}>
-            <SelectTrigger aria-label="Time range" className="h-7 w-auto min-w-[4.8rem] text-xs btn-tactile">
-              <Clock className="mr-1.5 h-3 w-3 text-ink-muted shrink-0" />
-              <SelectValue>
-                {TIME_WINDOW_OPTIONS.find((option) => option.value === timeWindow)?.label.replace("Last ", "") ??
-                  timeWindow.toUpperCase()}
-              </SelectValue>
+          <Select
+            value={timeWindow}
+            onValueChange={(value) => onTimeWindowChange(value as TimeWindowValue)}
+          >
+            <SelectTrigger aria-label="Time range" className="h-7 w-auto min-w-[4.25rem] text-xs">
+              <SelectValue>{getTimeWindowShortLabel(timeWindow)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {TIME_WINDOW_OPTIONS.map((option) => (
@@ -247,21 +341,32 @@ export function IssuesFeedHeader({
               ))}
             </SelectContent>
           </Select>
+        </div>
 
-          {/* Export Action */}
+        <div className="flex items-center gap-2">
+          <Select value={issueSort} onValueChange={(value) => onIssueSortChange(value as IssueSortValue)}>
+            <SelectTrigger aria-label="Sort issues" className="h-7 w-auto min-w-[7.5rem] text-xs">
+              <SelectValue>{getIssueSortShortLabel(issueSort)}</SelectValue>
+            </SelectTrigger>
+            <SelectContent align="end">
+              {ISSUE_SORT_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value} className="text-xs">
+                  {getIssueSortLabel(option.value)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           {onExportCsv ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <ActionButton variant="ghost" size="toolbar" className="h-7 text-xs btn-tactile">
+                <ActionButton variant="ghost" size="toolbar" className="h-7 text-xs">
                   <Download className="mr-1 h-3 w-3 text-ink-muted" />
                   <span>Export</span>
                 </ActionButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuItem
-                  disabled={!issueCount}
-                  onSelect={() => onExportCsv("view")}
-                >
+                <DropdownMenuItem disabled={!issueCount} onSelect={() => onExportCsv("view")}>
                   CSV · Current view {issueCount ? `(${issueCount})` : ""}
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -273,21 +378,17 @@ export function IssuesFeedHeader({
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
-
-          {/* Acme Spotlight Product Tour Trigger */}
-          {isAcmeDemo && (
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => startAcmeProductTour()}
-              className="h-7 text-xs gap-1 font-medium text-accent hover:text-accent border-accent/30 bg-accent/5 shadow-2xs"
-              title="Start Acme interactive tour"
-            >
-              <Sparkles className="size-3" />
-              <span>Product Tour</span>
-            </Button>
-          )}
         </div>
+      </div>
+
+      <div className="px-4 pb-2 md:px-6 md:pb-3">
+        <IssuesFeedQueryBar
+          query={query}
+          searchText={searchText}
+          onSearchChange={handleSearchChange}
+          onQueryChange={onQueryChange}
+          searchInputRef={filterInputRef}
+        />
       </div>
     </header>
   );

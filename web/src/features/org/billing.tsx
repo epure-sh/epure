@@ -224,7 +224,7 @@ export function BillingPage() {
                       ) : null}
                     </div>
                   </div>
-                  <Badge variant={subscriptionBadgeVariant(billingStatus.subscription_status)} size="sm" dot>
+                  <Badge variant={subscriptionBadgeVariant(billingStatus.subscription_status)} size="sm">
                     {billingStatus.subscription_status || "No subscription"}
                   </Badge>
                 </div>

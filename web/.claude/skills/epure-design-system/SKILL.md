@@ -19,7 +19,7 @@ When adding or editing a primitive in `src/components/ui/`:
 When a pattern combines multiple primitives (e.g., a card, filter bar, row, or chart):
 - Create it in `src/components/kit/<name>.tsx` using ONLY `@/components/ui/*` primitives.
 - Register the new component and its props in `src/components/INDEX.md`.
-- Add a live preview instance of the component to `src/pages/dev/design-system-playground.tsx`.
+- Register in `src/pages/dev/design-kit/registry.ts` and add a matching `previews/ui/*.preview.tsx` or `previews/kit/*.preview.tsx` (playground `/__design` only; `npm test` enforces catalog sync).
 
 ## Step 4: Verify Zero Violations
 Run `npm run lint && npm run typecheck` and resolve all AST errors before finishing.

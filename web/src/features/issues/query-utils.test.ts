@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  ALL_QUERY,
+  applyFilterToken,
   DEFAULT_QUERY,
+  isAllIssuesQuery,
   extractChips,
   getEnvironmentFilter,
   getFilterPresetLabel,
@@ -13,6 +16,7 @@ import {
   setEnvironmentFilter,
   setLevelFilter,
   toggleToken,
+  toApiQuery,
   withSearchText,
 } from "./query-utils";
 
@@ -91,16 +95,44 @@ describe("query-utils pre-filters & parsing", () => {
     assert.ok(!query.includes("env:production"));
   });
 
-  it("detects customized active filters vs default query", () => {
-    assert.equal(hasActiveFilters(DEFAULT_QUERY), false);
-    assert.equal(hasActiveFilters("is:unresolved"), false);
+  it("stacks escalating on unresolved without dropping lifecycle state", () => {
+    let query = "is:unresolved";
+    query = applyFilterToken(query, "is:escalating");
+    assert.ok(query.includes("is:unresolved"));
+    assert.ok(query.includes("is:escalating"));
+    query = applyFilterToken(query, "is:regression");
+    assert.ok(!query.includes("is:unresolved"));
+    assert.ok(query.includes("is:regression"));
+    assert.ok(query.includes("is:escalating"));
+  });
+
+  it("strips client-only tokens for API fetch", () => {
+    assert.equal(
+      toApiQuery("is:unresolved is:escalating priority:high level:error"),
+      "is:unresolved level:error",
+    );
+  });
+
+  it("parses escalating and priority modifiers", () => {
+    const parsed = parseQuery("is:unresolved is:escalating priority:critical");
+    assert.equal(parsed.status, "unresolved");
+    assert.equal(parsed.escalating, true);
+    assert.equal(parsed.priority, "critical");
+  });
+
+  it("detects customized active filters vs all-issues query", () => {
+    assert.equal(hasActiveFilters(ALL_QUERY), false);
+    assert.equal(hasActiveFilters(DEFAULT_QUERY), true);
+    assert.equal(hasActiveFilters("is:unresolved"), true);
     assert.equal(hasActiveFilters("is:unresolved level:error"), true);
     assert.equal(hasActiveFilters("is:regression"), true);
     assert.equal(hasActiveFilters("is:unresolved env:staging"), true);
   });
 
-  it("resets query to default unresolved status", () => {
-    assert.equal(resetQuery(), "is:unresolved");
+  it("resets query to all issues (no filters)", () => {
+    assert.equal(resetQuery(), ALL_QUERY);
+    assert.equal(isAllIssuesQuery(ALL_QUERY), true);
+    assert.equal(isAllIssuesQuery("is:unresolved level:error"), false);
   });
 
   it("looks up labels for presets", () => {

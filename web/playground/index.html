@@ -1,9 +1,28 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="light" data-theme="light" data-style="calm-ledger">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Epure playground</title>
+    <script>
+      try {
+        const m = localStorage.getItem("epure-theme-mode");
+        const root = document.documentElement;
+        if (m === "dark") {
+          root.classList.add("dark");
+          root.classList.remove("light");
+          root.setAttribute("data-theme", "dark");
+        } else {
+          root.classList.add("light");
+          root.classList.remove("dark");
+          root.setAttribute("data-theme", "light");
+        }
+        const style = localStorage.getItem("epure-style-theme");
+        if (style) {
+          root.setAttribute("data-style", style === "calm-ledger" ? style : "calm-ledger");
+        }
+      } catch {}
+    </script>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -14,6 +33,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="./main.tsx"></script>
+    <script type="module" src="/playground/main.tsx"></script>
   </body>
 </html>

@@ -112,34 +112,30 @@ function ProjectCardBody({
 
         {/* Platform Pill */}
         <div className="flex shrink-0 items-center gap-2 pt-0.5">
-          <span className="rounded-control bg-surface-2 px-2 py-0.5 font-mono text-[11px] font-medium text-fg-muted border border-border-subtle">
+          <Badge variant="env" size="compact" className="font-mono font-normal">
             {platform}
-          </span>
+          </Badge>
         </div>
       </div>
 
       {/* 2. Middle Zone: High-Density Telemetry Chips */}
       <div className="flex flex-wrap items-center gap-2 text-[11px]">
-        <span
-          className={cn(
-            "font-mono font-medium tabular-nums px-2.5 py-1 rounded-control border flex items-center gap-1.5 shadow-tactile",
-            unresolved > 0
-              ? "bg-escalating/10 text-escalating border-escalating/25 font-semibold"
-              : "bg-healthy/10 text-healthy border-healthy/20",
-          )}
+        <Badge
+          variant={unresolved > 0 ? "escalating" : "healthy"}
+          size="sm"
+          className={cn("font-mono tabular-nums shadow-tactile", unresolved > 0 && "font-semibold")}
         >
-          <span className={cn("size-1.5 rounded-full shrink-0", unresolved > 0 ? "bg-escalating" : "bg-healthy")} />
-          <span>{statsLoading ? "…" : formatCompactCount(unresolved)} unresolved</span>
-        </span>
+          {statsLoading ? "…" : formatCompactCount(unresolved)} unresolved
+        </Badge>
 
-        <span className="font-mono tabular-nums px-2.5 py-1 rounded-control bg-surface-2 text-fg-muted border border-border-subtle shadow-tactile">
+        <Badge variant="neutral" size="sm" className="font-mono tabular-nums text-fg-muted shadow-tactile">
           {statsLoading ? "…" : formatCompactCount(events7d)} events (7d)
-        </span>
+        </Badge>
 
         {regressions > 0 ? (
-          <span className="font-mono tabular-nums px-2.5 py-1 rounded-control bg-regression/10 text-regression border border-regression/20 shadow-tactile">
+          <Badge variant="regression" size="sm" className="font-mono tabular-nums shadow-tactile">
             ⚡ {formatCompactCount(regressions)} came back
-          </span>
+          </Badge>
         ) : null}
       </div>
 

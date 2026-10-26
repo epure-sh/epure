@@ -2,7 +2,6 @@ import {
   Activity,
   BarChart3,
   Bell,
-  Building2,
   CircleDot,
   Clock,
   CreditCard,
@@ -26,7 +25,6 @@ import {
 import {
   billingPath,
   isProjectRoute,
-  organizationsPath,
   projectIdFromPath,
   projectPath,
   projectSegmentFromPath,
@@ -118,11 +116,7 @@ export function CommandPalette() {
       <CommandInput placeholder="Jump to…" />
       <CommandList>
         <CommandEmpty>No results.</CommandEmpty>
-        <CommandGroup heading="Global Context">
-          <CommandItem onSelect={() => run(() => navigate(organizationsPath()))}>
-            <Building2 className="h-4 w-4 text-ink-muted" />
-            Organisations
-          </CommandItem>
+        <CommandGroup heading="Account">
           <CommandItem onSelect={() => run(() => navigate(userSettingsPath()))}>
             <SlidersHorizontal className="h-4 w-4 text-ink-muted" />
             User Settings

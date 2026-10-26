@@ -1,5 +1,6 @@
 import { cn } from "../../lib/cn";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Select,
   SelectContent,
@@ -48,42 +49,40 @@ export function AlertsToolbar({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-surface-1 px-4 py-2 md:px-6">
-      <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Alert views">
+      <ToggleGroup
+        type="single"
+        value={viewMode}
+        onValueChange={(value) => {
+          if (value === "all" || value === "unread" || value === "resolved" || value === "ignored") {
+            onViewModeChange(value);
+          }
+        }}
+        aria-label="Alert views"
+        className="flex-wrap"
+      >
         {ALERT_VIEW_MODES.map((option) => {
           const count = counts[option.value] ?? 0;
-          const active = viewMode === option.value;
-
           return (
-            <Button
+            <ToggleGroupItem
               key={option.value}
-              variant={active ? "secondary" : "ghost"}
-              size="xs"
-              role="tab"
-              aria-selected={active}
+              value={option.value}
+              size="sm"
               title={option.description}
-              onClick={() => onViewModeChange(option.value)}
-              className={cn(
-                "h-7 gap-1.5 px-2.5 text-xs font-medium",
-                active
-                  ? "bg-surface-2 text-fg-primary border border-border-strong shadow-tactile"
-                  : "text-fg-muted hover:text-fg-primary hover:bg-surface-2/60",
-              )}
+              className="gap-1.5"
             >
               <span>{option.label}</span>
               <span
                 className={cn(
-                  "font-mono text-[10px] tabular-nums rounded px-1.5 py-0.5",
-                  active
-                    ? "bg-surface-3 text-fg-primary"
-                    : "bg-surface-2 text-fg-muted",
+                  "font-mono text-[10px] tabular-nums rounded px-1 py-px",
+                  viewMode === option.value ? "bg-surface-2 text-fg-primary" : "text-fg-muted",
                 )}
               >
                 {count}
               </span>
-            </Button>
+            </ToggleGroupItem>
           );
         })}
-      </div>
+      </ToggleGroup>
 
       <div className="flex flex-wrap items-center gap-2">
         {/* Kind filter */}

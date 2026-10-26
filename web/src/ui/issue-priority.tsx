@@ -1,4 +1,5 @@
 import { cn } from "../lib/cn";
+import { Badge, type BadgeVariant } from "./badge";
 
 export type IssuePriority = "critical" | "high" | "medium" | "low";
 
@@ -143,6 +144,18 @@ export interface IssuePriorityBadgeProps {
 }
 
 /** Overview / header chip with icon + level name */
+function priorityBadgeVariant(priority: IssuePriority): BadgeVariant {
+  switch (priority) {
+    case "critical":
+    case "high":
+      return "error";
+    case "medium":
+      return "warning";
+    default:
+      return "neutral";
+  }
+}
+
 export function IssuePriorityBadge({
   level,
   status,
@@ -152,23 +165,17 @@ export function IssuePriorityBadge({
   const priority = resolveIssuePriority(level, status);
 
   return (
-    <span
-      className={cn(
-        "epure-priority-badge inline-flex items-center rounded-md border font-medium",
-        compact ? "h-4 gap-1 px-1.5 text-2xs leading-none" : "gap-1.5 px-2 py-0.5 text-xs",
-        priority === "critical" && "border-semantic-danger/30 bg-semantic-danger/10 text-semantic-danger",
-        priority === "high" && "border-semantic-danger/20 bg-semantic-danger/5 text-semantic-danger",
-        priority === "medium" && "border-semantic-warning/30 bg-semantic-warning/10 text-semantic-warning",
-        priority === "low" && "border-border bg-bg-subtle text-ink-muted",
-        className,
-      )}
+    <Badge
+      variant={priorityBadgeVariant(priority)}
+      size={compact ? "compact" : "sm"}
+      className={cn("epure-priority-badge font-medium", className)}
     >
       <PriorityBars priority={priority} size={compact ? 10 : 14} />
       {PRIORITY_LABEL[priority]}
       {!compact && level ? (
-        <span className="font-normal opacity-80">· {level}</span>
+        <span className="font-normal text-fg-secondary">· {level}</span>
       ) : null}
-    </span>
+    </Badge>
   );
 }
 

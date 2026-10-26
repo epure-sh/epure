@@ -1,8 +1,7 @@
-import { Building2, Key, Laptop, ShieldCheck, SlidersHorizontal } from "lucide-react";
-import { Link, Navigate, NavLink, Route, Routes } from "react-router-dom";
+import { Key, Laptop, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 import { cn } from "../../lib/cn";
-import { organizationsPath, userSettingsPath } from "../../lib/paths";
-import { Button } from "../../ui/button";
+import { userSettingsPath } from "../../lib/paths";
 import { PageChrome } from "../../ui/page-chrome";
 import { RouteErrorBoundary } from "../../ui/route-error-boundary";
 import { AgentTokensTab } from "../org/account/agent-tokens-tab";
@@ -50,14 +49,6 @@ export function UserSettingsPage() {
       <PageChrome
         title="User Settings"
         description="Manage your personal profile, credentials, access tokens, and connected CLI applications."
-        actions={
-          <Button asChild variant="outline" size="sm" className="h-8 gap-1.5 text-xs font-medium">
-            <Link to={organizationsPath()}>
-              <Building2 size={13} className="text-fg-muted" />
-              <span>All Organisations</span>
-            </Link>
-          </Button>
-        }
       />
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
@@ -82,7 +73,7 @@ export function UserSettingsPage() {
                       cn(
                         "group flex items-start gap-2.5 rounded-md px-2.5 py-2 text-xs transition-colors focus-ring",
                         isActive
-                          ? "bg-primary/10 text-fg-primary font-semibold border-l-2 border-primary"
+                          ? "bg-state-selected text-fg-primary font-semibold border-l-2 border-primary"
                           : "text-fg-muted hover:bg-surface-2 hover:text-fg-primary border-l-2 border-transparent",
                       )
                     }

@@ -1,8 +1,21 @@
 # Epure logo kit — chain link
 
-Complete export set for the Epure chain-link mark. Colors from **Calm Ledger** (`themes/calm-ledger.css`). Typography: IBM Plex Sans Medium, title case **Epure**.
+Complete export set for the Epure chain-link mark. Typography: IBM Plex Sans Medium, title case **Epure**.
 
 This kit lives in the **product** repo. It does not write files into the marketing site.
+
+**Parent index:** [`../../README.md`](../../README.md) · **Brand strategy:** [`../README.md`](../README.md) · **In-app colors:** [`../../themes/calm-ledger.css`](../../themes/calm-ledger.css)
+
+## Sync with the design system
+
+| Change | Update first | Then |
+|--------|----------------|------|
+| Product UI colors | `themes/calm-ledger.css` (+ `tokens.json`) | Copy hex into `palette.json` if exports must match |
+| Logo export colors only | `palette.json` | `python3 generate.py` |
+| Mark geometry | `generate.py` + `source/mark.svg` | `generate.py`; align `src/ui/logo.tsx` |
+| Favicon in running app | — | `generate.py` → `web/public/favicon.svg` |
+
+Do not hand-edit files under `mark/`, `lockup/`, `icon/`, `favicon/`, or `social/` — regenerate.
 
 Regenerate everything:
 

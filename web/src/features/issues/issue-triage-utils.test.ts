@@ -68,6 +68,7 @@ assert.equal(snoozedForOccurrences.snooze_until_count, 142);
 assert.equal(snoozedForOccurrences.snooze_until_users, null);
 
 assert.equal(issueMatchesStatusFilter({ status: "resolved", snoozed: false }, "unresolved"), false);
+assert.equal(issueMatchesStatusFilter({ status: "regression", snoozed: false }, "unresolved"), true);
 assert.equal(issueMatchesStatusFilter({ status: "unresolved", snoozed: true }, "unresolved"), false);
 assert.equal(issueMatchesStatusFilter({ status: "unresolved", snoozed: true }, "snoozed"), true);
 assert.equal(issueMatchesStatusFilter({ status: "resolved", snoozed: false }, "resolved"), true);

@@ -34,12 +34,23 @@ export function IssueDetailOverlay({
         onClose();
       }
     };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    };
     const timer = setTimeout(() => {
       document.addEventListener("mousedown", handleOutsideClick);
     }, 50);
+    window.addEventListener("keydown", handleEscape);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     return () => {
       clearTimeout(timer);
       document.removeEventListener("mousedown", handleOutsideClick);
+      window.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = previousOverflow;
     };
   }, [open, onClose]);
 

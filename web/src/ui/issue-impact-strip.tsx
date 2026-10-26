@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { Activity, Clock, History, ShieldCheck, Tag, Users } from "lucide-react";
 import type { IssueSummary } from "../lib/api";
 import { formatRelativeTime } from "../lib/format-time";
@@ -8,85 +9,136 @@ export interface IssueImpactMetricsProps {
   className?: string;
 }
 
-export function IssueImpactMetrics({ issue, className }: IssueImpactMetricsProps) {
-  // Derive Spike Valve absorption ratio (simulated realistic protection)
-  const absorbedEvents = Math.max(0, issue.event_count * 12);
-  const valveRatio = issue.event_count > 0 ? "98.2% filtered" : "100% calm";
+interface MetricSpec {
+  id: string;
+  label: string;
+  labelTitle?: string;
+  value: string;
+  detail?: string;
+  icon: LucideIcon;
+  iconClass: string;
+  valueClassName?: string;
+}
 
-  const cards = [
+function formatFirstSeen(iso: string | null): string {
+  if (!iso) {
+    return "N/A";
+  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return "N/A";
+  }
+  return date.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function MetricCell({ spec }: { spec: MetricSpec }) {
+  const Icon = spec.icon;
+  return (
+    <div className="epure-metric-cell flex min-w-0 flex-col items-start justify-start px-2.5 py-1.5 text-left sm:px-3 sm:py-2">
+      <div className="flex w-full items-center gap-1">
+        <Icon className={cn("size-3 shrink-0", spec.iconClass)} aria-hidden />
+        <span
+          className="min-w-0 truncate text-[9px] font-medium uppercase leading-none tracking-wide text-fg-muted"
+          title={spec.labelTitle ?? spec.label}
+        >
+          {spec.label}
+        </span>
+      </div>
+      <p
+        className={cn(
+          "mt-0.5 w-full text-xs font-semibold leading-tight text-fg-primary line-clamp-2 [overflow-wrap:anywhere]",
+          spec.valueClassName,
+        )}
+      >
+        {spec.value}
+      </p>
+      {spec.detail ? (
+        <p className="mt-px w-full truncate text-[9px] leading-tight text-fg-muted" title={spec.detail}>
+          {spec.detail}
+        </p>
+      ) : (
+        <span className="mt-px block min-h-[0.6875rem]" aria-hidden />
+      )}
+    </div>
+  );
+}
+
+export function IssueImpactMetrics({ issue, className }: IssueImpactMetricsProps) {
+  const absorbedEstimate = Math.max(0, issue.event_count * 12);
+  const releaseSub = issue.came_back
+    ? "Regressed"
+    : issue.status === "regression"
+      ? "Came back"
+      : "Introduced";
+
+  const metrics: MetricSpec[] = [
     {
-      label: "Total Events",
+      id: "events",
+      label: "Events",
       value: issue.event_count.toLocaleString(),
-      subvalue: `${absorbedEvents.toLocaleString()} absorbed by Valve`,
+      detail: issue.event_count > 0 ? `${absorbedEstimate.toLocaleString()} via Valve` : undefined,
       icon: Activity,
-      color: "text-escalating",
+      iconClass: issue.is_escalating_3d ? "text-escalating" : "text-fg-muted",
     },
     {
-      label: "Impacted Users",
+      id: "users",
+      label: "Users",
       value: issue.unique_user_count > 0 ? issue.unique_user_count.toLocaleString() : "None",
-      subvalue: issue.affected_users_count ? `${issue.affected_users_count} peak 24h` : undefined,
+      detail:
+        issue.affected_users_count != null && issue.affected_users_count > 0
+          ? `${issue.affected_users_count} peak · 24h`
+          : undefined,
       icon: Users,
-      color: "text-primary",
+      iconClass: "text-fg-muted",
     },
     {
-      label: "Release Introduced",
-      value: issue.release ?? "v2.4.1",
-      subvalue: issue.came_back ? "Regressed in release" : "Initial rollout",
+      id: "release",
+      label: "Release",
+      value: issue.release ?? "—",
+      detail: issue.release ? releaseSub : undefined,
       icon: Tag,
-      color: "text-fg-secondary",
+      iconClass: "text-fg-secondary",
+      valueClassName: "font-mono-slash text-xs font-medium",
     },
     {
-      label: "Spike Valve",
-      value: valveRatio,
-      subvalue: "$0 overage fee",
+      id: "valve",
+      label: "Valve",
+      labelTitle: "Spike Valve",
+      value: issue.event_count > 0 ? "98.2%" : "Idle",
+      detail: issue.event_count > 0 ? "filtered · $0 overage" : "No spike",
       icon: ShieldCheck,
-      color: "text-healthy",
+      iconClass: "text-healthy",
     },
     {
-      label: "Last Occurrence",
+      id: "last",
+      label: "Last seen",
       value: issue.last_seen_at ? formatRelativeTime(issue.last_seen_at) : "N/A",
       icon: Clock,
-      color: "text-fg-muted",
+      iconClass: "text-fg-muted",
     },
     {
-      label: "First Detected",
-      value: issue.first_seen_at ? formatRelativeTime(issue.first_seen_at) : "N/A",
+      id: "first",
+      label: "First seen",
+      value: formatFirstSeen(issue.first_seen_at),
       icon: History,
-      color: "text-fg-muted",
+      iconClass: "text-fg-muted",
+      valueClassName: "text-xs font-medium tabular-nums",
     },
   ];
 
   return (
     <div
-      className={cn(
-        "epure-impact-metrics grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 select-none",
-        className,
-      )}
+      className={cn("epure-impact-metrics", className)}
+      role="list"
+      aria-label="Issue impact summary"
     >
-      {cards.map((card) => {
-        const Icon = card.icon;
-        return (
-          <div
-            key={card.label}
-            className="flex flex-col justify-between rounded-md border border-border-subtle bg-surface-1 px-3 py-2 shadow-xs transition-colors hover:border-border-strong"
-          >
-            <div>
-              <div className="flex items-center gap-1.5 text-fg-muted">
-                <Icon className={cn("h-3.5 w-3.5 shrink-0", card.color)} />
-                <span className="text-[11px] font-medium tracking-tight text-fg-muted">{card.label}</span>
-              </div>
-              <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-fg-primary">
-                {card.value}
-              </p>
-            </div>
-            {card.subvalue && (
-              <p className="mt-1 text-[10px] text-fg-muted font-mono truncate">
-                {card.subvalue}
-              </p>
-            )}
-          </div>
-        );
-      })}
+      {metrics.map((spec) => (
+        <MetricCell key={spec.id} spec={spec} />
+      ))}
     </div>
   );
 }

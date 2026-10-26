@@ -9,6 +9,7 @@ Publish steps mirror [Syllogic’s Railway guide](https://github.com/syllogic-ai
 | `POSTGRES_PASSWORD` | `${{secret(32, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")}}` | Same value on `postgres` and in `DATABASE_URL`. |
 | `EPURE_INGEST_PASSWORD` | `${{secret(32, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")}}` | Role `epure_ingest`. |
 | `EPURE_APP_PASSWORD` | `${{secret(32, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")}}` | Role `epure_app`. |
+| `EPURE_PASSWORD_AUTH` | `false` | Cloud: social-only. OSS/self-hosted leave unset or `true`. |
 
 Do **not** inline `${{secret()}}` on each service field — that creates mismatched passwords.
 

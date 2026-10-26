@@ -7,6 +7,7 @@ initStyleTheme();
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "@design/tokens.css";
+import "../src/styles/tokens.css";
 import "../src/app.css";
 import { PlaygroundApp } from "./app";
 

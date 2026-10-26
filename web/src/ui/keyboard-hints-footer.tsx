@@ -16,6 +16,7 @@ export function KeyboardHintsFooter() {
       <PopoverTrigger asChild>
         <button
           type="button"
+          data-tour="keyboard-hints"
           className="epure-keyboard-hints inline-flex h-8 w-8 items-center justify-center rounded-md text-sm tracking-ui text-ink-muted transition-colors hover:bg-bg-subtle/60 hover:text-ink focus-ring"
           aria-label="Keyboard shortcuts"
         >

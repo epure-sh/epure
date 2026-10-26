@@ -291,11 +291,11 @@ export function OrgTeamPage() {
                   // Mock subscription status for rich visualization
                   const subscriptionBadge =
                     idx === 0 ? (
-                      <Badge variant="healthy" size="sm" dot>
+                      <Badge variant="healthy" size="sm">
                         All Signals &amp; Spikes
                       </Badge>
                     ) : idx === 1 ? (
-                      <Badge variant="neutral" size="sm" dot>
+                      <Badge variant="neutral" size="sm">
                         Regressions Only
                       </Badge>
                     ) : (

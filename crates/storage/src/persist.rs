@@ -218,7 +218,7 @@ pub async fn get_issue_by_fingerprint_in_tx(
     sqlx::query_as::<_, IssueLifecycleState>(
         r#"
         SELECT
-            id, org_id, project_id, title, status, release, environment,
+            id, org_id, project_id, title, level, status, release, environment,
             event_count, unique_user_count,
             resolved_in_release, snooze_until, snooze_until_count, snooze_until_users,
             pre_snooze_status

@@ -53,13 +53,13 @@ describe("paths helpers for settings and releases", () => {
   });
 
   it("computes global routes and contextual navigation correctly", () => {
-    assert.equal(organizationsPath(), "/organizations");
+    assert.equal(organizationsPath(), "/");
     assert.equal(userSettingsPath(), "/user/settings");
     assert.equal(userSettingsPath("security"), "/user/settings/security");
     assert.equal(userSettingsPath("agent"), "/user/settings/agent");
 
-    assert.equal(isGlobalRoute("/organizations"), true);
-    assert.equal(isGlobalRoute("/orgs"), true);
+    assert.equal(isGlobalRoute("/organizations"), false);
+    assert.equal(isGlobalRoute("/orgs"), false);
     assert.equal(isGlobalRoute("/user/settings"), true);
     assert.equal(isGlobalRoute("/user/settings/security"), true);
     assert.equal(isGlobalRoute("/user"), true);
@@ -68,7 +68,6 @@ describe("paths helpers for settings and releases", () => {
     assert.equal(isGlobalRoute("/settings"), false);
     assert.equal(isGlobalRoute("/p/proj-123/issues"), false);
 
-    assert.equal(getNavigationContext("/organizations"), "global");
     assert.equal(getNavigationContext("/user/settings"), "global");
     assert.equal(getNavigationContext("/"), "organization");
     assert.equal(getNavigationContext("/team"), "organization");

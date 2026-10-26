@@ -1,20 +1,22 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { fetchAlerts, fetchWebhooks, patchAlert, type AlertRow } from "../../lib/api";
-import { projectPath, projectSettingsPath } from "../../lib/paths";
+import { projectPath } from "../../lib/paths";
 import { isDemoProject } from "../../lib/demo-utils";
 import { useAppContext } from "../../shell/app-context";
-import { ActionButton } from "../../ui/action-button";
 import { Button } from "../../ui/button";
 import { Empty } from "../../ui/empty";
 import { FeedListBody, StackedCardList } from "../../ui/feed-list-shell";
+import { AlertsHistoryBulkBar } from "./alerts-history-bulk-bar";
 import { PageShell } from "@/components/kit/page-shell";
 import { CardRowSkeleton } from "../../ui/skeleton";
 import { useToast } from "../../ui/toast-provider";
+import { AlertDetailPanel } from "./alert-detail-panel";
 import { AlertListRow } from "./alert-row";
 import { AlertRulesManager } from "./alert-rules-manager";
 import {
   ALERT_VIEW_MODES,
+  buildLastTriggeredByKind,
   countAlertsForViewModes,
   filterAlerts,
   filterAlertsByViewMode,
@@ -29,7 +31,9 @@ import {
   type AlertsPreferences,
 } from "./alert-utils";
 import { AlertsRulesPanel } from "./alerts-rules-panel";
+import { AlertsSectionToggle, type AlertsSection } from "./alerts-section-toggle";
 import { AlertsToolbar } from "./alerts-toolbar";
+import { cn } from "../../lib/cn";
 
 function AlertsDayGroup({
   label,
@@ -66,8 +70,11 @@ export function AlertsPage() {
   const [sort, setSort] = useState<AlertSort>("newest");
   const [retrying, setRetrying] = useState(false);
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [selectedAlertIds, setSelectedAlertIds] = useState<Set<string>>(() => new Set());
+  const lastBulkAnchorId = useRef<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [section, setSection] = useState<"rules" | "history">("rules");
+  const [section, setSection] = useState<AlertsSection>("history");
 
   const safeProjects = Array.isArray(projects) ? projects : [];
   const activeProject = useMemo(() => {
@@ -183,6 +190,71 @@ export function AlertsPage() {
     }
   }, [filteredAlerts, focusedId]);
 
+  useEffect(() => {
+    const visible = new Set(filteredAlerts.map((row) => row.id));
+    setSelectedAlertIds((prev) => {
+      const next = new Set([...prev].filter((id) => visible.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [filteredAlerts]);
+
+  const filteredIds = useMemo(() => filteredAlerts.map((row) => row.id), [filteredAlerts]);
+  const allFilteredSelected =
+    filteredIds.length > 0 && filteredIds.every((id) => selectedAlertIds.has(id));
+  const someFilteredSelected = filteredIds.some((id) => selectedAlertIds.has(id));
+
+  const bulkSelectionAllMuted = useMemo(() => {
+    if (selectedAlertIds.size === 0) return false;
+    return [...selectedAlertIds].every((id) => {
+      const row = filteredAlerts.find((alert) => alert.id === id);
+      return row?.ignored === true;
+    });
+  }, [filteredAlerts, selectedAlertIds]);
+
+  const handleBulkSelect = useCallback(
+    (alertId: string, selected: boolean, options?: { shiftKey?: boolean }) => {
+      const ids = filteredAlerts.map((row) => row.id);
+      if (options?.shiftKey && lastBulkAnchorId.current) {
+        const start = ids.indexOf(lastBulkAnchorId.current);
+        const end = ids.indexOf(alertId);
+        if (start >= 0 && end >= 0) {
+          const lo = Math.min(start, end);
+          const hi = Math.max(start, end);
+          setSelectedAlertIds((prev) => {
+            const next = new Set(prev);
+            for (let i = lo; i <= hi; i += 1) {
+              const id = ids[i];
+              if (id) next.add(id);
+            }
+            return next;
+          });
+          lastBulkAnchorId.current = alertId;
+          return;
+        }
+      }
+      lastBulkAnchorId.current = alertId;
+      setSelectedAlertIds((prev) => {
+        const next = new Set(prev);
+        if (selected) next.add(alertId);
+        else next.delete(alertId);
+        return next;
+      });
+    },
+    [filteredAlerts],
+  );
+
+  const toggleSelectAllFiltered = () => {
+    setSelectedAlertIds((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        for (const id of filteredIds) next.delete(id);
+      } else {
+        for (const id of filteredIds) next.add(id);
+      }
+      return next;
+    });
+  };
+
   const applyAlertPatch = useCallback(
     async (alertId: string, patch: { read?: boolean; ignored?: boolean }) => {
       const previous = alerts;
@@ -224,6 +296,21 @@ export function AlertsPage() {
       }
     },
     [alerts, toast],
+  );
+
+  const applyBulkPatch = useCallback(
+    async (patch: { read?: boolean; ignored?: boolean }) => {
+      const ids = [...selectedAlertIds];
+      if (ids.length === 0) return;
+      setBulkBusy(true);
+      try {
+        await Promise.all(ids.map((id) => applyAlertPatch(id, patch)));
+        setSelectedAlertIds(new Set());
+      } finally {
+        setBulkBusy(false);
+      }
+    },
+    [applyAlertPatch, selectedAlertIds],
   );
 
   useEffect(() => {
@@ -289,40 +376,8 @@ export function AlertsPage() {
   return (
     <PageShell
       title="Alerts"
-      description="Rules say when to notify you. History shows what actually fired."
       actions={
-        activeProjectId ? (
-          <div className="flex items-center gap-2">
-            <Button
-              variant={section === "rules" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setSection("rules")}
-            >
-              Rules
-            </Button>
-            <Button
-              variant={section === "history" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setSection("history")}
-            >
-              History
-            </Button>
-            {canManageWebhooks ? (
-              <Button variant="secondary" size="sm" asChild>
-                <Link to={projectSettingsPath(activeProjectId, "alerts")}>Configure Rules</Link>
-              </Button>
-            ) : (
-              <ActionButton
-                variant="secondary"
-                size="sm"
-                disabled
-                tooltip="Admin or owner required to manage alert rules"
-              >
-                Configure Rules
-              </ActionButton>
-            )}
-          </div>
-        ) : null
+        activeProjectId ? <AlertsSectionToggle value={section} onChange={setSection} /> : null
       }
       density="full-bleed"
     >
@@ -340,14 +395,20 @@ export function AlertsPage() {
         </FeedListBody>
       ) : (
         <>
-          {section === "rules" ? (
+          {section === "configure" ? (
             <div className="px-4 py-4 md:px-6">
-              <AlertRulesManager projectId={activeProjectId} canManage={canManageWebhooks} />
+              <AlertRulesManager
+                projectId={activeProjectId}
+                canManage={canManageWebhooks}
+                lastTriggered={buildLastTriggeredByKind(safeAlerts)}
+              />
             </div>
           ) : null}
 
           {section === "history" ? (
           <>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:max-w-[min(100%,28rem)] lg:border-r lg:border-border-subtle">
           <AlertsToolbar
             viewMode={viewMode}
             onViewModeChange={handleViewModeChange}
@@ -359,6 +420,20 @@ export function AlertsPage() {
             sort={sort}
             onSortChange={setSort}
             onResetFilters={handleResetFilters}
+          />
+
+          <AlertsHistoryBulkBar
+            selectedCount={selectedAlertIds.size}
+            totalCount={filteredAlerts.length}
+            allSelected={allFilteredSelected}
+            someSelected={someFilteredSelected}
+            busy={bulkBusy}
+            onToggleSelectAll={toggleSelectAllFiltered}
+            onClear={() => setSelectedAlertIds(new Set())}
+            onAcknowledge={() => void applyBulkPatch({ read: true })}
+            onMute={() => void applyBulkPatch({ ignored: true })}
+            showUnmute={bulkSelectionAllMuted}
+            onUnmute={() => void applyBulkPatch({ ignored: false, read: false })}
           />
 
           <FeedListBody>
@@ -390,14 +465,9 @@ export function AlertsPage() {
                 description="Alerts fire when event velocity spikes, a resolved exception comes back, or volume thresholds are crossed."
               >
                 <div className="flex flex-wrap items-center justify-center gap-2">
-                  <Button variant="primary" size="sm" onClick={() => setSection("rules")}>
+                  <Button variant="primary" size="sm" onClick={() => setSection("configure")}>
                     Create alert
                   </Button>
-                  {canManageWebhooks ? (
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to={projectSettingsPath(activeProjectId, "alerts")}>Configure Rules</Link>
-                    </Button>
-                  ) : null}
                   <Button variant="ghost" size="sm" asChild>
                     <Link to={projectPath(activeProjectId, "issues")}>Open Issues</Link>
                   </Button>
@@ -409,16 +479,16 @@ export function AlertsPage() {
                   viewMode === "unread"
                     ? "Caught up"
                     : viewMode === "resolved"
-                      ? "No resolved alerts"
+                      ? "Nothing resolved yet"
                       : viewMode === "ignored"
                         ? "Nothing muted"
                         : "No activity in this window"
                 }
                 description={
                   viewMode === "unread"
-                    ? "No unresolved alerts in this range."
+                    ? "No alerts need attention in this range."
                     : viewMode === "resolved"
-                      ? "No alerts have been marked as resolved in this range."
+                      ? "No resolved alerts in this range."
                       : viewMode === "ignored"
                         ? "No alerts are currently muted."
                         : activeView?.description ?? "Try widening the time range or switching views."
@@ -458,28 +528,62 @@ export function AlertsPage() {
                 </div>
               </Empty>
             ) : (
-              <div className="space-y-5">
+              <div className="space-y-4 -mx-4 md:-mx-6">
                 {(groupedAlerts ?? []).map((group) => (
                   <AlertsDayGroup key={group.key} label={group.label} count={group.alerts?.length ?? 0}>
-                    <StackedCardList>
-                      {(group.alerts ?? []).map((alert, alertIdx) => alert ? (
-                        <AlertListRow
-                          key={alert.id || `alert-${alertIdx}`}
-                          alert={alert}
-                          projectId={alert.project_id || activeProjectId || ""}
-                          selected={alert.id === focusedId}
-                          onMarkRead={() => void applyAlertPatch(alert.id, { read: true })}
-                          onMarkUnread={() => void applyAlertPatch(alert.id, { read: false })}
-                          onIgnore={() => void applyAlertPatch(alert.id, { ignored: true })}
-                          onUnignore={() => void applyAlertPatch(alert.id, { ignored: false, read: false })}
-                        />
-                      ) : null)}
-                    </StackedCardList>
+                    <ul className="space-y-2">
+                      {(group.alerts ?? []).map((alert, alertIdx) =>
+                        alert ? (
+                          <AlertListRow
+                            key={alert.id || `alert-${alertIdx}`}
+                            alert={alert}
+                            detailActive={alert.id === focusedId}
+                            bulkSelected={selectedAlertIds.has(alert.id)}
+                            onBulkSelectChange={(checked, options) =>
+                              handleBulkSelect(alert.id, checked, options)
+                            }
+                            onActivate={() => setFocusedId(alert.id)}
+                          />
+                        ) : null,
+                      )}
+                    </ul>
                   </AlertsDayGroup>
                 ))}
               </div>
             )}
           </FeedListBody>
+          </div>
+
+          <aside
+            className={cn(
+              "hidden min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-border-subtle bg-surface-1 lg:flex lg:max-w-none lg:flex-1 lg:border-t-0",
+              focusedId && "max-lg:flex max-lg:min-h-[40vh]",
+            )}
+          >
+            <AlertDetailPanel
+              alert={filteredAlerts.find((row) => row.id === focusedId) ?? null}
+              projectId={activeProjectId ?? ""}
+              webhookCount={webhookCount}
+              busy={busyId != null}
+              onAcknowledge={() => {
+                const id = focusedId;
+                if (id) void applyAlertPatch(id, { read: true });
+              }}
+              onReopen={() => {
+                const id = focusedId;
+                if (id) void applyAlertPatch(id, { read: false });
+              }}
+              onMute={() => {
+                const id = focusedId;
+                if (id) void applyAlertPatch(id, { ignored: true });
+              }}
+              onUnmute={() => {
+                const id = focusedId;
+                if (id) void applyAlertPatch(id, { ignored: false, read: false });
+              }}
+            />
+          </aside>
+          </div>
 
           <AlertsRulesPanel
             projectId={activeProjectId ?? ""}

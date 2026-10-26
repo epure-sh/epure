@@ -7,8 +7,10 @@ import {
   filterAlertsByViewMode,
   getAlertDetail,
   groupAlertsByDay,
+  getAlertSignalState,
   isAlertUnread,
   sortAlerts,
+  ALERT_FIRING_WINDOW_MS,
 } from "./alert-utils";
 
 const baseDate = new Date("2026-10-22T14:00:00.000Z");
@@ -165,3 +167,18 @@ const severityGroups = groupAlertsByDay([day1Older, day2NewerDanger, day2NewerWa
 assert.equal(severityGroups.length, 2);
 assert.equal(severityGroups[0]?.alerts[0]?.id, "alert-day2-danger");
 assert.equal(severityGroups[0]?.alerts[1]?.id, "alert-day2-warning");
+
+const signalNow = baseDate.getTime();
+assert.equal(getAlertSignalState(sampleAlert({ fired_at: baseDate.toISOString() }), signalNow), "firing");
+assert.equal(
+  getAlertSignalState(
+    sampleAlert({ fired_at: new Date(signalNow - ALERT_FIRING_WINDOW_MS - 1).toISOString() }),
+    signalNow,
+  ),
+  "fired",
+);
+assert.equal(
+  getAlertSignalState(sampleAlert({ read_at: baseDate.toISOString() }), signalNow),
+  "acknowledged",
+);
+assert.equal(getAlertSignalState(sampleAlert({ ignored: true }), signalNow), "muted");

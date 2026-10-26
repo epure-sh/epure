@@ -50,6 +50,7 @@ mod tests {
             org_id: Uuid::nil(),
             project_id: Uuid::nil(),
             title: None,
+            level: None,
             status: status.to_string(),
             release: None,
             environment: None,

@@ -116,11 +116,7 @@ export function FilterBar({
             >
               <span>{option.label}</span>
               {typeof option.count === "number" && (
-                <Badge
-                  variant="neutral"
-                  size="sm"
-                  className="h-4 px-1 text-[10px] tabular-nums"
-                >
+                <Badge variant="neutral" size="compact" className="tabular-nums">
                   {option.count}
                 </Badge>
               )}
@@ -235,7 +231,7 @@ export function FilterBar({
           >
             <span>Unresolved</span>
             {typeof stats?.unresolved === "number" && (
-              <Badge variant="neutral" size="sm" className="h-4 px-1 text-[10px] tabular-nums">
+              <Badge variant="neutral" size="compact" className="tabular-nums">
                 {stats.unresolved}
               </Badge>
             )}
@@ -258,7 +254,7 @@ export function FilterBar({
           >
             <span>Snoozed</span>
             {typeof stats?.snoozed === "number" && stats.snoozed > 0 && (
-              <Badge variant="neutral" size="sm" className="h-4 px-1 text-[10px] tabular-nums">
+              <Badge variant="neutral" size="compact" className="tabular-nums">
                 {stats.snoozed}
               </Badge>
             )}
@@ -269,14 +265,9 @@ export function FilterBar({
       {/* 4. Escalating (3d) Toggle Pill */}
       {onToggleEscalating && (
         <Button
-          variant={escalating ? "secondary" : "outline"}
+          variant={escalating ? "filterEscalating" : "outline"}
           size="xs"
-          className={cn(
-            "h-7 text-xs gap-1 font-medium transition-colors",
-            escalating
-              ? "border-escalating/60 bg-escalating/15 text-escalating"
-              : "text-fg-secondary hover:text-fg-primary"
-          )}
+          className="h-7 gap-1 text-xs font-medium"
           onClick={onToggleEscalating}
         >
           <Flame
@@ -290,14 +281,9 @@ export function FilterBar({
       {/* 5. Came Back (Regression) Toggle Pill */}
       {onToggleRegression && (
         <Button
-          variant={regression ? "secondary" : "outline"}
+          variant={regression ? "filterRegression" : "outline"}
           size="xs"
-          className={cn(
-            "h-7 text-xs gap-1 font-medium transition-colors",
-            regression
-              ? "border-warning/60 bg-warning/15 text-warning"
-              : "text-fg-secondary hover:text-fg-primary"
-          )}
+          className="h-7 gap-1 text-xs font-medium"
           onClick={onToggleRegression}
         >
           <Warning
@@ -306,7 +292,7 @@ export function FilterBar({
           />
           <span>Came Back</span>
           {typeof stats?.regressions === "number" && stats.regressions > 0 && (
-            <Badge variant="warning" size="sm" className="h-4 px-1 text-[10px] tabular-nums">
+            <Badge variant="warning" size="compact" className="tabular-nums">
               {stats.regressions}
             </Badge>
           )}

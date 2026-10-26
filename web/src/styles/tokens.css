@@ -1,128 +1,50 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Explicit scan paths — required when Vite root is not `src/` (playground dev). */
+@source "../**/*.{js,ts,jsx,tsx}";
+@source "../../playground/**/*.{js,ts,jsx,tsx}";
+
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *, .dark, .dark *));
 
+/**
+ * Tailwind v4 bridge only — palette is Calm Ledger in @design/themes/calm-ledger.css.
+ * Do not define competing hex/oklch here (legacy “Obsidian” layer removed).
+ */
 :root,
-.dark,
-[data-theme="dark"] {
-  /* Architectural Obsidian Surfaces */
-  --surface-canvas: oklch(0.125 0.005 260);
-  --surface-1: oklch(0.155 0.006 260);
-  --surface-2: oklch(0.195 0.008 260);
-  --surface-3: oklch(0.235 0.010 260);
-  --surface-overlay: oklch(0.155 0.006 260 / 0.88);
+[data-style="calm-ledger"],
+[data-theme="light"],
+.light {
+  --surface-canvas: var(--bg);
+  --surface-1: var(--surface);
+  --surface-2: var(--bg-subtle);
+  --surface-3: var(--state-pressed);
+  --surface-overlay: color-mix(in oklch, var(--surface) 92%, transparent);
 
-  /* Hairline Borders */
-  --border-subtle: oklch(0.225 0.008 260);
-  --border-strong: oklch(0.315 0.012 260);
+  --border-subtle: var(--border);
+  --border-strong: var(--border-strong);
 
-  /* Typography Hierarchy */
-  --fg-primary: oklch(0.965 0.003 260);
-  --fg-secondary: oklch(0.735 0.008 260);
-  --fg-muted: oklch(0.525 0.010 260);
+  --fg-primary: var(--text);
+  --fg-secondary: var(--text-muted);
+  --fg-muted: var(--text-subtle);
 
-  /* Semantic Status & Brand Accents */
-  --intent-primary: oklch(0.965 0.003 260);
-  --intent-primary-fg: oklch(0.125 0.005 260);
-  --status-escalating: oklch(0.65 0.22 28);
-  --status-regression: oklch(0.76 0.16 75);
-  --status-healthy: oklch(0.72 0.17 152);
-  --status-info: oklch(0.68 0.15 250);
+  /* Primary control = indigo accent, not ink */
+  --intent-primary: var(--accent);
+  --intent-primary-fg: var(--accent-contrast);
 
-  /* Geometry & Tactile Shadows */
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --shadow-bevel: inset 0 1px 0 0 oklch(1 0 0 / 0.10), 0 1px 2px 0 oklch(0 0 0 / 0.35);
-  --shadow-popover: 0 12px 32px -4px oklch(0 0 0 / 0.65), 0 0 0 1px var(--border-strong);
+  --status-escalating: var(--danger);
+  --status-regression: var(--warning);
+  --status-healthy: var(--success);
+  --status-info: var(--info);
 
-  /* Aliases for backwards compatibility during refactor */
-  --bg: var(--surface-canvas);
-  --bg-subtle: var(--surface-1);
-  --surface: var(--surface-1);
-  --surface-inset: var(--surface-canvas);
-  --surface-elevated: var(--surface-2);
-  --surface-raised: var(--surface-3);
-  --surface-muted: var(--surface-2);
-  --border: var(--border-subtle);
-  --text: var(--fg-primary);
-  --text-muted: var(--fg-muted);
-  --text-subtle: var(--fg-secondary);
-  --accent: var(--intent-primary);
-  --accent-muted: oklch(0.240 0.040 265);
-  --accent-contrast: var(--intent-primary-fg);
-  --signal: var(--status-escalating);
-  --signal-muted: var(--surface-2);
-  --signal-contrast: var(--intent-primary-fg);
-  --success: var(--status-healthy);
-  --warning: var(--status-regression);
-  --danger: var(--status-escalating);
-  --info: var(--status-info);
-  --state-hover: var(--surface-2);
-  --state-selected: var(--surface-3);
-  --state-pressed: var(--surface-1);
-  --state-error: var(--status-escalating);
-  --state-success: var(--status-healthy);
-  --unread-bar-width: 2px;
-  --focus-ring: var(--intent-primary);
+  --state-error: var(--danger);
+  --state-success: var(--success);
 }
 
-/* Light mode override when explicitly toggled to light */
-html.light,
-html[data-theme="light"],
-[data-theme="light"] {
-  --surface-canvas: oklch(0.985 0.002 240);
-  --surface-1: #ffffff;
-  --surface-2: oklch(0.965 0.004 240);
-  --surface-3: oklch(0.935 0.005 240);
-  --surface-overlay: oklch(0.985 0.002 240 / 0.88);
-
-  --border-subtle: rgba(26, 22, 18, 0.08);
-  --border-strong: rgba(26, 22, 18, 0.16);
-
-  --fg-primary: oklch(0.140 0.008 240);
-  --fg-secondary: oklch(0.440 0.012 240);
-  --fg-muted: oklch(0.600 0.010 240);
-
-  --intent-primary: oklch(0.140 0.008 240);
-  --intent-primary-fg: #ffffff;
-  --status-escalating: #be4444;
-  --status-regression: #b45309;
-  --status-healthy: #0d7a62;
-  --status-info: #4f6b8a;
-
-  --shadow-bevel: inset 0 1px 0 0 oklch(1 0 0 / 0.40), 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-popover: 0 12px 32px -4px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--border-strong);
-
-  --bg: var(--surface-canvas);
-  --bg-subtle: var(--surface-2);
-  --surface: var(--surface-1);
-  --surface-inset: var(--surface-canvas);
-  --surface-elevated: var(--surface-1);
-  --surface-raised: var(--surface-1);
-  --surface-muted: var(--surface-2);
-  --border: var(--border-subtle);
-  --text: var(--fg-primary);
-  --text-muted: var(--fg-muted);
-  --text-subtle: var(--fg-secondary);
-  --accent: #4f46e5;
-  --accent-muted: #eceafd;
-  --accent-contrast: #ffffff;
-  --signal: var(--accent);
-  --signal-muted: var(--accent-muted);
-  --signal-contrast: var(--accent-contrast);
-  --success: var(--status-healthy);
-  --warning: var(--status-regression);
-  --danger: var(--status-escalating);
-  --info: var(--status-info);
-  --state-hover: var(--surface-2);
-  --state-selected: var(--accent-muted);
-  --state-pressed: var(--surface-3);
-  --state-error: var(--status-escalating);
-  --state-success: var(--status-healthy);
-  --unread-bar-width: 2px;
-  --focus-ring: var(--accent);
+[data-theme="dark"],
+.dark,
+[data-style="calm-ledger"][data-theme="dark"] {
+  --surface-overlay: color-mix(in oklch, var(--surface) 88%, transparent);
 }
 
 @theme inline {
@@ -151,20 +73,30 @@ html[data-theme="light"],
   --color-regression: var(--status-regression);
   --color-healthy: var(--status-healthy);
   --color-info: var(--status-info);
+  --color-badge-escalating-bg: var(--badge-escalating-bg);
+  --color-badge-escalating-border: var(--badge-escalating-border);
+  --color-badge-regression-bg: var(--badge-regression-bg);
+  --color-badge-regression-border: var(--badge-regression-border);
+  --color-badge-healthy-bg: var(--badge-healthy-bg);
+  --color-badge-healthy-border: var(--badge-healthy-border);
+  --color-badge-info-bg: var(--badge-info-bg);
+  --color-badge-info-border: var(--badge-info-border);
+  --color-badge-accent-bg: var(--badge-accent-bg);
+  --color-badge-accent-border: var(--badge-accent-border);
+  --color-badge-accent-fg: var(--badge-accent-fg);
 
-  /* Legacy & semantic aliases mapped to Layer 0 tokens */
   --color-bg: var(--bg);
   --color-bg-subtle: var(--bg-subtle);
   --color-surface: var(--surface);
   --color-surface-inset: var(--surface-inset);
   --color-surface-elevated: var(--surface-elevated);
   --color-surface-raised: var(--surface-raised);
-  --color-surface-muted: var(--surface-muted);
+  --color-surface-muted: var(--bg-subtle);
   --color-border: var(--border);
   --color-ink: var(--text);
   --color-ink-muted: var(--text-muted);
   --color-ink-subtle: var(--text-subtle);
-  --color-ink-inverse: var(--surface-canvas);
+  --color-ink-inverse: var(--text-inverse);
   --color-accent: var(--accent);
   --color-accent-muted: var(--accent-muted);
   --color-accent-contrast: var(--accent-contrast);
@@ -184,17 +116,17 @@ html[data-theme="light"],
   --color-state-error: var(--state-error);
   --color-state-success: var(--state-success);
 
-  --radius-xs: var(--radius-xs);
-  --radius-control: var(--radius-sm);
-  --radius-panel: var(--radius-md);
+  --radius-xs: 4px;
+  --radius-control: var(--radius-md);
+  --radius-panel: var(--radius-lg);
 
   --shadow-tactile: var(--shadow-bevel);
   --shadow-float: var(--shadow-popover);
-  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.15);
-  --shadow-2xs: 0 1px 0 0 rgba(0, 0, 0, 0.10);
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.08);
+  --shadow-2xs: 0 1px 0 0 rgba(0, 0, 0, 0.06);
 
-  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
 @layer base {
@@ -204,8 +136,8 @@ html[data-theme="light"],
   }
   html,
   body {
-    background-color: var(--surface-canvas);
-    color: var(--fg-primary);
+    background-color: var(--bg);
+    color: var(--text);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }

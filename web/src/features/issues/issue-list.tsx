@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import type { IssueSummary, ProjectRow, TimelineBucket } from "../../lib/api";
 import { cn } from "../../lib/cn";
 import { Badge } from "@/components/ui/badge";
@@ -9,14 +9,14 @@ import { IssueListColumnHeader } from "./issue-list-column-header";
 import { OccurrenceLineChart } from "../../ui/occurrence-line-chart";
 import { resolveIssuePriority } from "../../ui/issue-priority";
 import { formatCompactCount } from "../../lib/format-count";
-import { formatAge } from "../../lib/format-time";
+import { formatAge, formatRelativeTime } from "../../lib/format-time";
 import { copyText } from "../../lib/copy-text";
 import { toast } from "@/components/ui/sonner";
-import { Check, Clock, Sparkles, RotateCcw, BellRing } from "lucide-react";
 import {
   inferTrendStatus,
   issueLocationHint,
   parseIssueTitle,
+  projectIssueCode,
 } from "./issue-feed-utils";
 import {
   canIgnoreIssue,
@@ -50,11 +50,14 @@ export interface IssueListProps {
   windowLabel?: string;
   isIssueUnread?: (issue: IssueSummary) => boolean;
   trendBucketsByIssueId?: Record<string, TimelineBucket[]>;
+  /** Render inside a parent card (no outer border / margin). */
+  embedded?: boolean;
+  bulkToolbar?: ReactNode;
 }
 
 export function IssueList({
   issues,
-  projects: _projects,
+  projects,
   focusedId,
   selectedId,
   selectedIds,
@@ -76,8 +79,10 @@ export function IssueList({
   filtersActive = false,
   onResetFilters,
   windowLabel = "7d",
-  isIssueUnread: _isIssueUnread,
+  isIssueUnread,
   trendBucketsByIssueId = {},
+  embedded = false,
+  bulkToolbar,
 }: IssueListProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -273,20 +278,25 @@ export function IssueList({
   return (
     <div
       className={cn(
-        "mb-3 w-full",
-        isEmpty ? "shrink-0" : "flex min-h-0 min-w-0 flex-1 flex-col",
+        "w-full",
+        embedded ? "flex min-h-0 min-w-0 flex-1 flex-col" : "mb-3",
+        !embedded && (isEmpty ? "shrink-0" : "flex min-h-0 min-w-0 flex-1 flex-col"),
       )}
     >
       <div
         ref={listRef}
         data-slot="issue-feed-list"
         className={cn(
-          "epure-issue-list flex flex-col rounded-lg border border-border bg-surface-1 shadow-xs",
-          isEmpty
-            ? "shrink-0 overflow-hidden"
-            : "min-h-0 flex-1 overflow-x-hidden overflow-y-auto",
+          "epure-issue-list flex flex-col bg-surface-1",
+          embedded
+            ? "min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+            : cn(
+                "rounded-lg border border-border shadow-xs",
+                isEmpty ? "shrink-0 overflow-hidden" : "min-h-0 flex-1 overflow-x-hidden overflow-y-auto",
+              ),
         )}
       >
+        {bulkToolbar}
         <IssueListColumnHeader
           compact={compact}
           selectAllChecked={selectAllChecked}
@@ -301,74 +311,43 @@ export function IssueList({
           </div>
         ) : null}
 
-        {issues.map((issue) => {
+        {issues.map((issue, index) => {
           const title = issue.title ?? "Untitled issue";
           const { shortTitle, subtitle } = parseIssueTitle(title);
-          const checked = selectedIds.has(issue.id);
-          const rowSelected = issue.id === (selectedId ?? focusedId);
+          const bulkSelected = selectedIds.has(issue.id);
+          const focused = issue.id === focusedId;
+          const detailActive = issue.id === selectedId;
           const buckets = trendBucketsByIssueId[issue.id] ?? [];
           const trendStatus = inferTrendStatus(issue, buckets);
           const isEscalating = Boolean(issue.is_escalating_3d || trendStatus === "escalating");
           const windowEvents = buckets.reduce((sum, bucket) => sum + bucket.count, 0);
           const priority = resolveIssuePriority(issue.level, issue.status);
+          const project = projects.find((row) => row.id === issue.project_id);
+          const projectCode = project?.slug
+            ? projectIssueCode(project.slug, issue.id)
+            : null;
+          const location = issueLocationHint(issue);
 
-          // Quick Action buttons on hover/focus (Sprint 4: Resolve, Snooze, Ask Agent)
-          const quickActions = (
-            <div
-              className="flex items-center justify-end gap-1"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {issue.status === "resolved" ? (
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  className="h-6 w-6 p-0 text-fg-muted hover:text-healthy hover:bg-healthy/10"
-                  title="Unresolve / Reopen (R)"
-                  onClick={() => onReopen?.(issue.id)}
-                >
-                  <RotateCcw className="size-3.5" />
-                </Button>
-              ) : canResolveIssue(issue.status) ? (
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  className="h-6 w-6 p-0 text-fg-muted hover:text-healthy hover:bg-healthy/10"
-                  title="Resolve (R)"
-                  onClick={() => onResolve(issue.id)}
-                >
-                  <Check className="size-3.5" />
-                </Button>
+          const metaRow = (
+            <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-fg-muted">
+              {issue.environment ? (
+                <Badge variant="env" size="compact" className="font-mono uppercase">
+                  {issue.environment.slice(0, 4)}
+                </Badge>
               ) : null}
-              {issue.snoozed || issue.status === "snoozed" ? (
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  className="h-6 w-6 p-0 text-accent hover:text-accent hover:bg-accent/10"
-                  title="Unsnooze (S)"
-                  onClick={() => onUnsnooze?.(issue.id)}
-                >
-                  <BellRing className="size-3.5" />
-                </Button>
-              ) : canSnoozeIssue(issue) ? (
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  className="h-6 w-6 p-0 text-fg-muted hover:text-fg-primary hover:bg-surface-3"
-                  title="Snooze (S)"
-                  onClick={() => onSnooze?.(issue.id)}
-                >
-                  <Clock className="size-3.5" />
-                </Button>
+              {projectCode ? (
+                <span className="font-mono font-medium">{projectCode}</span>
               ) : null}
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                className="h-6 w-6 p-0 text-fg-muted hover:text-accent hover:bg-accent/10"
-                title="Ask Agent to Fix (C)"
-                onClick={() => handleCopyAgentPrompt(issue)}
-              >
-                <Sparkles className="size-3.5" />
-              </Button>
+              {location ? (
+                <span className="max-w-[12rem] truncate rounded-sm border border-border-subtle bg-surface-2 px-1 font-mono">
+                  {location}
+                </span>
+              ) : null}
+              {issue.status === "unresolved" && issue.level === "error" ? (
+                <Badge variant="escalating" size="compact" className="font-mono font-semibold uppercase">
+                  Unhandled
+                </Badge>
+              ) : null}
             </div>
           );
 
@@ -376,7 +355,11 @@ export function IssueList({
             <div key={issue.id} data-issue-id={issue.id}>
               <IssueRowShell
                 id={issue.id}
-                selected={checked || rowSelected}
+                bulkSelected={bulkSelected}
+                focused={focused}
+                detailActive={detailActive}
+                tourAnchor={index === 0}
+                unread={isIssueUnread?.(issue) ?? false}
                 onSelectChange={() => onToggleSelect(issue.id)}
                 escalating={isEscalating}
                 priority={priority}
@@ -387,30 +370,29 @@ export function IssueList({
                     <Badge variant="info" size="sm">Snoozed</Badge>
                   ) : null
                 }
-                title={
-                  <span className="flex items-center gap-1.5 min-w-0 truncate">
-                    <span className="truncate">{shortTitle}</span>
-                    {(issue.snoozed || issue.status === "snoozed") && (
-                      <Badge variant="info" size="compact" className="shrink-0 font-medium text-[10px] px-1.5 py-0 h-4 bg-sky-500/15 text-sky-400 border border-sky-500/30">
-                        Snoozed
-                      </Badge>
-                    )}
-                  </span>
-                }
-                subtitle={subtitle || issueLocationHint(issue)}
+                title={shortTitle}
+                subtitle={subtitle}
+                meta={metaRow}
                 sparkline={
-                  <OccurrenceLineChart
-                    buckets={buckets}
-                    height={22}
-                    className="w-24"
-                  />
+                  buckets.length > 0 ? (
+                    <OccurrenceLineChart
+                      buckets={buckets}
+                      height={22}
+                      className="w-24"
+                      interactive={false}
+                      emphasizeVariation
+                    />
+                  ) : null
                 }
-                eventsCount={buckets.length > 0 ? formatCompactCount(windowEvents) : formatCompactCount(issue.event_count)}
+                eventsCount={
+                  buckets.length > 0
+                    ? formatCompactCount(windowEvents)
+                    : formatCompactCount(issue.event_count)
+                }
                 usersCount={formatCompactCount(issue.unique_user_count)}
-                timeAgo={issue.last_seen_at ? formatAge(issue.last_seen_at) : "—"}
+                timeAgo={issue.last_seen_at ? formatRelativeTime(issue.last_seen_at) : "—"}
                 age={issue.first_seen_at ? formatAge(issue.first_seen_at) : "—"}
                 onClick={() => onSelect(issue.id)}
-                actions={quickActions}
               />
             </div>
           );

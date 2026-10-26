@@ -9,8 +9,9 @@
     "build": "tsc -b tsconfig.app.json && vite build",
     "build:playground": "tsc -b tsconfig.playground.json && vite build --config vite.playground.config.ts",
     "preview": "vite preview",
-    "test": "node --import tsx --test 'src/**/*.test.ts'",
+    "test": "node --import tsx --test 'src/**/*.test.ts' 'playground/**/*.test.ts'",
     "test:e2e": "playwright test",
+    "test:playground-smoke": "playwright test --config playwright.playground.config.ts",
     "lint": "eslint .",
     "typecheck": "tsc -b tsconfig.app.json"
   },
@@ -25,7 +26,10 @@
     "@radix-ui/react-select": "^2.3.7",
     "@radix-ui/react-separator": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.4.1",
     "@radix-ui/react-tabs": "^1.1.21",
+    "@radix-ui/react-toggle": "^1.2.1",
+    "@radix-ui/react-toggle-group": "^1.2.1",
     "@radix-ui/react-tooltip": "^1.2.16",
     "@tanstack/react-query": "^5.104.5",
     "@tanstack/react-table": "^8.21.3",
@@ -52,6 +56,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "@tailwindcss/vite": "^4.1.12",
     "@types/node": "^24.3.0",
     "@types/react": "^19.1.12",

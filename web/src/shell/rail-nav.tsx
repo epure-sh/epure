@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import { cn } from "../lib/cn";
+import { sidebarNavItemClass, sidebarNavIconClass } from "./sidebar-nav-link";
 import { Badge } from "../ui/badge";
 import { RailAccountFooter } from "./rail-account";
 
@@ -55,19 +55,30 @@ export function RailNav({
                 to={item.to}
                 end={item.end ?? false}
                 className={({ isActive }) =>
-                  cn(
-                    "epure-nav-item flex items-center justify-center gap-2.5 focus-ring lg:justify-start",
-                    isActive && "epure-nav-item--active",
+                  sidebarNavItemClass(
+                    isActive,
+                    "epure-nav-item w-full justify-center lg:justify-start",
                   )
                 }
               >
-                <Icon size={17} strokeWidth={1.75} className="epure-nav-item-icon shrink-0" />
-                <span className="hidden min-w-0 flex-1 truncate lg:inline">{item.label}</span>
-                {item.badge ? (
-                  <Badge variant="secondary" className="hidden px-1.5 py-0 text-2xs uppercase lg:inline-flex">
-                    {item.badge}
-                  </Badge>
-                ) : null}
+                {({ isActive }) => (
+                  <>
+                    <Icon
+                      size={17}
+                      strokeWidth={isActive ? 2.1 : 1.75}
+                      className={sidebarNavIconClass(isActive)}
+                    />
+                    <span className="hidden min-w-0 flex-1 truncate lg:inline">{item.label}</span>
+                    {item.badge ? (
+                      <Badge
+                        variant="secondary"
+                        className="hidden px-1.5 py-0 text-2xs uppercase lg:inline-flex"
+                      >
+                        {item.badge}
+                      </Badge>
+                    ) : null}
+                  </>
+                )}
               </NavLink>
             </li>
           );

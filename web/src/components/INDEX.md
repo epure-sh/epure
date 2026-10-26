@@ -1,10 +1,10 @@
 # Epure Design System Catalog (src/components/INDEX.md)
 
 ## Layer 1: Personalized Primitives (`@/components/ui/*`)
-- `Button` (`@/components/ui/button`): `variant="primary|secondary|outline|ghost|danger"`, `size="xs|sm|md|icon|icon-xs"`, `hotkey?: string`, `loading?: boolean` (No `className` prop allowed)
+- `Button` (`@/components/ui/button`): `variant="primary|secondary|outline|ghost|danger|filterEscalating|filterRegression|link|signal"`, `size="xs|sm|md|icon|icon-xs"`, `hotkey?: string`, `loading?: boolean`, `className?` for layout only (not one-off colors)
 - `Input` (`@/components/ui/input`): `size="sm|md"`, `leadingIcon?: ReactNode`, `trailingShortcut?: string`
 - `Checkbox` (`@/components/ui/checkbox`): Zero-shift 16x16px checkbox (`checked`, `onCheckedChange`)
-- `Badge` (`@/components/ui/badge`): `variant="neutral|escalating|regression|healthy|info"`, `dot?: boolean`
+- `Badge` (`@/components/ui/badge`): `variant="neutral|escalating|regression|healthy|info|…"`, solid semantic fills
 - `Icon` (`@/components/ui/icon`): Unified wrapper over `@phosphor-icons/react` (`name`, `size=15`, `weight="regular"|"fill"|"bold"|"duotone"`)
 - `Select` (`@/components/ui/select`): `Select`, `SelectTrigger`, `SelectContent`, `SelectItem`, `SelectValue`
 - `Dialog` (`@/components/ui/dialog`): `Dialog`, `DialogTrigger`, `DialogContent`, `DialogHeader`, `DialogTitle`, `DialogDescription`, `DialogClose`
@@ -25,13 +25,17 @@
 - `SectionCard` (`@/components/kit/section-card`): Standard settings/billing panel with header, body, and footer slots
 - `CommandBar` (`@/components/kit/command-bar`): Unified `⌘K` search palette & trigger input
 - `FilterBar` (`@/components/kit/filter-bar`): URL-synced filter pills + leading `[All]` reset button; optional inline compact search (`search`, `onSearchChange`, `searchPlaceholder`, `searchInputRef`)
-- `IssueRowShell` (`@/components/kit/issue-row-shell`): Locked CSS Grid issue row (issue, last seen, age, trend, windowed events, users, priority) with a 3px priority bar and zero-shift checkbox
+- `IssueRowShell` (`@/components/kit/issue-row-shell`): Locked CSS Grid feed row (issue, last seen, age, trend, events, users, priority) — checkbox is bulk-select only; unread indigo dot clears after detail view
 - `TelemetryChart` (`@/components/kit/telemetry-chart`): Vercel-style Recharts wrapper with locked dark crosshair tooltip
 - `AskAgentCard` (`@/components/kit/ask-agent-card`): Primary `[Ask Agent]` copy button + secondary `Check docs ↗` link
 - `UsageMeterCard` (`@/components/kit/usage-meter-card`): Resource usage quota meter card with status thresholds
 - `EmptyState` (`@/components/kit/empty-state`): Standard zero-data / empty state display
 - `DataTable` (`@/components/kit/data-table`): High-performance table combining `@tanstack/react-table` v8 and `@tanstack/react-virtual`
 - `CodeFrame` (`@/components/kit/code-frame`): Syntax-highlighted code block wrapping `shiki` with copy actions and target line highlighting
-- `ProductTour` / `startProductTour` (`@/components/kit/product-tour`): Guided onboarding tour wrapper over `driver.js` with Layer 0 obsidian popover styling
+- `ProductTour` / `startEpureProductTour` (`@/components/kit/product-tour`): Issues feed tour (driver.js) styled with Calm Ledger tokens in `app.css`
 - `useEpureShortcut` (`@/components/kit/use-epure-shortcut`): Hotkey hook wrapping `react-hotkeys-hook` with automatic form and dialog suppression
+
+## Playground design kit
+
+`npm run dev:playground` → **`/__design`** (not shipped on production builds). Catalog: `src/pages/dev/design-kit/` — register `@/components/ui` + `@/components/kit` in `registry.ts` + `previews/ui|kit/*.preview.tsx`; register `src/ui/*` in `feature-ui-registry.ts` + `previews/feature-ui/feature-ui-group-previews.tsx`. `npm test` fails if any module is missing.
 

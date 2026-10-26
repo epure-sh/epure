@@ -31,6 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ActionButton } from "../../ui/action-button";
+import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { CopyButton } from "../../ui/copy-button";
 import {
@@ -72,62 +73,37 @@ function StatusBadge({
   switch (status) {
     case "ok":
       return (
-        <span
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-control border border-healthy/30 bg-healthy/15 px-2 py-0.5 text-xs font-medium text-healthy",
-            className,
-          )}
-        >
+        <Badge variant="healthy" size="md" className={className}>
           <CheckCircle2 size={13} className="shrink-0" />
           Healthy
-        </span>
+        </Badge>
       );
     case "in_progress":
       return (
-        <span
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-control border border-info/30 bg-info/15 px-2 py-0.5 text-xs font-medium text-info",
-            className,
-          )}
-        >
+        <Badge variant="info" size="md" className={className}>
           <Activity size={13} className="shrink-0 animate-pulse" />
           Running
-        </span>
+        </Badge>
       );
     case "error":
       return (
-        <span
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-md border border-semantic-danger/30 bg-semantic-danger/10 px-2 py-0.5 text-xs font-medium text-semantic-danger",
-            className,
-          )}
-        >
+        <Badge variant="error" size="md" className={className}>
           <XCircle size={13} className="shrink-0" />
           Error
-        </span>
+        </Badge>
       );
     case "missed":
       return (
-        <span
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-md border border-semantic-warning/30 bg-semantic-warning/10 px-2 py-0.5 text-xs font-medium text-semantic-warning",
-            className,
-          )}
-        >
+        <Badge variant="warning" size="md" className={className}>
           <AlertTriangle size={13} className="shrink-0" />
           Missed
-        </span>
+        </Badge>
       );
     default:
       return (
-        <span
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-surface-2 px-2 py-0.5 text-xs font-medium text-fg-muted",
-            className,
-          )}
-        >
+        <Badge variant="neutral" size="md" className={cn("text-fg-muted", className)}>
           {status}
-        </span>
+        </Badge>
       );
   }
 }
@@ -760,34 +736,34 @@ try {
               </p>
             ) : (
               <div className="overflow-hidden rounded-md border border-border-subtle bg-surface-1">
-                <table className="w-full text-left text-xs">
-                  <thead className="border-b border-border-subtle bg-surface-2 text-fg-muted font-medium">
-                    <tr>
-                      <th className="px-3 py-2">Status</th>
-                      <th className="px-3 py-2">Duration</th>
-                      <th className="px-3 py-2">Timestamp</th>
-                      <th className="px-3 py-2 font-mono text-2xs">Check-in ID</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border-subtle">
+                <Table className="text-xs">
+                  <TableHeader className="bg-surface-2 text-fg-muted">
+                    <TableRow>
+                      <TableHead className="font-medium">Status</TableHead>
+                      <TableHead className="font-medium">Duration</TableHead>
+                      <TableHead className="font-medium">Timestamp</TableHead>
+                      <TableHead className="font-mono text-2xs font-medium">Check-in ID</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {historyCheckIns.map((ci) => (
-                      <tr key={ci.id} className="hover:bg-surface-2/60">
-                        <td className="px-3 py-2">
+                      <TableRow key={ci.id} className="hover:bg-state-hover">
+                        <TableCell>
                           <StatusBadge status={ci.status} />
-                        </td>
-                        <td className="px-3 py-2 font-mono text-fg-primary">
+                        </TableCell>
+                        <TableCell className="font-mono text-fg-primary">
                           {formatDuration(ci.duration_ms)}
-                        </td>
-                        <td className="px-3 py-2 text-fg-muted whitespace-nowrap">
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-fg-muted">
                           {formatRelativeTime(ci.created_at)}
-                        </td>
-                        <td className="px-3 py-2 font-mono text-2xs text-fg-muted truncate max-w-[120px]">
+                        </TableCell>
+                        <TableCell className="max-w-[120px] truncate font-mono text-2xs text-fg-muted">
                           {ci.check_in_id || ci.id.slice(0, 8)}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </div>

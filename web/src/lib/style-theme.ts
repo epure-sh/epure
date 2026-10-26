@@ -63,9 +63,13 @@ export function applyStyleTheme(id: StyleThemeId = DEFAULT_STYLE): void {
   }
 }
 
+const DEFAULT_THEME_MODE: ThemeMode = "light";
+
 export function getStoredThemeMode(): ThemeMode {
-  if (typeof window === "undefined") return "dark";
   try {
+    if (typeof localStorage === "undefined") {
+      return DEFAULT_THEME_MODE;
+    }
     const stored = localStorage.getItem(THEME_MODE_STORAGE_KEY);
     if (stored === "dark" || stored === "light") {
       return stored;
@@ -73,10 +77,10 @@ export function getStoredThemeMode(): ThemeMode {
   } catch {
     /* localStorage unavailable */
   }
-  return "dark";
+  return DEFAULT_THEME_MODE;
 }
 
-export function applyThemeMode(mode: ThemeMode = "dark"): void {
+export function applyThemeMode(mode: ThemeMode = DEFAULT_THEME_MODE): void {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
   if (mode === "dark") {
@@ -96,7 +100,7 @@ export function applyThemeMode(mode: ThemeMode = "dark"): void {
 }
 
 export function getThemeMode(): ThemeMode {
-  if (typeof document === "undefined") return "dark";
+  if (typeof document === "undefined") return DEFAULT_THEME_MODE;
   return document.documentElement.classList.contains("light") ||
     document.documentElement.getAttribute("data-theme") === "light"
     ? "light"
@@ -121,7 +125,11 @@ function subscribeThemeMode(onStoreChange: () => void): () => void {
 }
 
 export function useThemeMode(): [ThemeMode, () => void] {
-  const mode = useSyncExternalStore<ThemeMode>(subscribeThemeMode, getThemeMode, () => "dark");
+  const mode = useSyncExternalStore<ThemeMode>(
+    subscribeThemeMode,
+    getThemeMode,
+    () => DEFAULT_THEME_MODE,
+  );
   return [mode, toggleThemeMode];
 }
 

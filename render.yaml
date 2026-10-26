@@ -45,6 +45,9 @@ services:
       - key: EPURE_REGISTRATION
         value: "true"
         sync: false
+      # Epure Cloud: social-only sign-in (configure GOOGLE_* / GITHUB_* in the dashboard).
+      - key: EPURE_PASSWORD_AUTH
+        value: "false"
       - key: EPURE_ARTIFACTS_DIR
         value: /data/artifacts
       - key: EPURE_PUBLIC_URL

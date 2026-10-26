@@ -1,6 +1,5 @@
 import {
   ArrowRight,
-  Building2,
   ChevronDown,
   FolderKanban,
   LogOut,
@@ -12,6 +11,7 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useThemeMode } from "../lib/style-theme";
+import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {
   DropdownMenu,
@@ -24,7 +24,6 @@ import {
 import {
   getNavigationContext,
   isProjectRoute,
-  organizationsPath,
   projectIdFromPath,
   projectPath,
   userSettingsPath,
@@ -37,7 +36,6 @@ import { useAppContext } from "./app-context";
 import { useLogout } from "../lib/use-logout";
 
 function getPageName(pathname: string): string {
-  if (pathname.startsWith("/organizations") || pathname.startsWith("/orgs")) return "Organisations";
   if (pathname.startsWith("/user/settings/security")) return "User Settings › Security";
   if (pathname.startsWith("/user/settings/agent")) return "User Settings › Personal Tokens";
   if (pathname.startsWith("/user/settings/connected-apps")) return "User Settings › Connected Apps";
@@ -116,7 +114,7 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
                   }}
                   className={cn(
                     "flex cursor-pointer items-center justify-between py-2 text-xs",
-                    isActive && "bg-primary/10 font-semibold text-fg-primary",
+                    isActive && "bg-state-selected font-semibold text-fg-primary",
                   )}
                 >
                   <div className="flex min-w-0 items-center gap-2">
@@ -160,9 +158,9 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
         {navContext === "global" ? (
           <>
             <div className="flex h-7 items-center gap-1.5 px-2 py-1 text-xs font-semibold text-fg-primary">
-              <span className="rounded bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase text-primary">
+              <Badge variant="accent" size="compact" className="font-mono uppercase text-[9px]">
                 Global
-              </span>
+              </Badge>
             </div>
             <span className="text-xs text-fg-muted" aria-hidden>
               /
@@ -253,13 +251,6 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
             >
               <UserCheck size={13} className="text-fg-muted" />
               <span>User Settings</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => navigate(organizationsPath())}
-              className="cursor-pointer gap-2 text-xs"
-            >
-              <Building2 size={13} className="text-fg-muted" />
-              <span>Organisations</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() => navigate(workspaceSettingsPath())}

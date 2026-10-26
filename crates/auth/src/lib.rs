@@ -7,6 +7,7 @@ pub mod google;
 pub mod magic_link;
 pub mod oauth;
 pub mod password;
+pub mod password_auth;
 pub mod registration;
 pub mod session;
 
@@ -23,6 +24,7 @@ pub use password::{
     dev_seed_password_hash, hash_password, hash_password_blocking, is_stored_password_hash,
     verify_password, verify_password_blocking, PasswordError,
 };
+pub use password_auth::{password_auth_enabled, password_auth_enabled_from};
 pub use registration::{registration_enabled, registration_enabled_from};
 pub use session::{
     bootstrap_session_store, build_session_layer, clear_dashboard_session,

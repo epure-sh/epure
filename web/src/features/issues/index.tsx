@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BellRing, Check, RotateCcw, Sparkles } from "lucide-react";
+import { BellRing, Check, EyeOff, RotateCcw, Sparkles } from "lucide-react";
 import { Navigate, useParams } from "react-router-dom";
 import { setupNeedsWizard } from "../../lib/api";
 import { projectPath } from "../../lib/paths";
@@ -12,7 +12,11 @@ import { ActionButton } from "../../ui/action-button";
 import { BreadcrumbTimeline } from "../../ui/breadcrumb-timeline";
 import { ErrorState, ForbiddenState } from "../../ui/error-state";
 import { IssueDetailOverlay } from "../../ui/issue-detail-overlay";
-import { IssueDetailTabs, type IssueDetailTab } from "../../ui/issue-detail-tabs";
+import {
+  DETAIL_INLINE_ACTION_CLASS,
+  IssueDetailTabs,
+  type IssueDetailTab,
+} from "../../ui/issue-detail-tabs";
 import { IssueOverviewPanel } from "../../ui/issue-overview-panel";
 import { IssueMorePanel } from "../../ui/issue-more-panel";
 import { KeyboardHintsFooter } from "../../ui/keyboard-hints-footer";
@@ -46,7 +50,7 @@ import { SnoozeMenu } from "./snooze-menu";
 import { useResizableIssueDetail } from "./use-resizable-issue-detail";
 import { useIssueTriageMachine } from "./use-issue-triage-machine";
 
-const DEFAULT_QUERY = "is:unresolved";
+import { DEFAULT_QUERY, isAllIssuesQuery } from "./query-utils";
 
 
 export function IssuesPage() {
@@ -125,6 +129,7 @@ export function IssuesPage() {
     handleUnsnooze,
     handleBulk,
     handleBulkSnooze,
+    handleBulkMarkRead,
     handleClearSelection,
     handleToggleSelectAll,
     handleMoveSelection,
@@ -144,6 +149,15 @@ export function IssuesPage() {
   const handleConfirmBulkDelete = useCallback(() => {
     void handleBulk("delete").finally(() => setDeleteConfirmOpen(false));
   }, [handleBulk]);
+
+  const handleBulkAskAi = useCallback(() => {
+    if (selectedIssues.length === 0) {
+      return;
+    }
+    void copyBulkIssueExport(selectedIssues).then(() =>
+      toast("Copied. Paste into Cursor or your AI assistant."),
+    );
+  }, [selectedIssues, toast]);
 
   const handleExportCsv = useCallback(
     (scope: "view" | "selected") => {
@@ -195,7 +209,7 @@ export function IssuesPage() {
     Boolean(setup) &&
     waitingForFirstIssue &&
     issues.length === 0 &&
-    query === DEFAULT_QUERY;
+    isAllIssuesQuery(query) || query === DEFAULT_QUERY;
 
   const showTestDataBanner = Boolean(setup?.seeded);
 
@@ -276,7 +290,7 @@ export function IssuesPage() {
   }, [selectedId]);
 
   const filtersActive =
-    query !== DEFAULT_QUERY ||
+    !isAllIssuesQuery(query) ||
     timeWindow !== DEFAULT_TIME_WINDOW ||
     issueSort !== DEFAULT_ISSUE_SORT;
 
@@ -365,11 +379,12 @@ export function IssuesPage() {
           const index = issues.findIndex((issue) => issue.id === selectedIssue.id);
           return index >= 0 && index < issues.length - 1;
         })()}
-        actions={
-          <div className="flex flex-wrap items-center gap-1.5">
+        inlineActions={
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
             <ActionButton
-              variant="outline"
+              variant="ghost"
               size="sm"
+              className={DETAIL_INLINE_ACTION_CLASS}
               disabled={actionsDisabled}
               tooltip="Copy a diagnostic brief for your coding agent (C)"
               onClick={handleExport}
@@ -381,6 +396,7 @@ export function IssuesPage() {
               <ActionButton
                 variant="primary"
                 size="sm"
+                className={DETAIL_INLINE_ACTION_CLASS}
                 disabled={actionsDisabled}
                 onClick={() => void handleResolve(selectedIssue.id)}
               >
@@ -390,8 +406,9 @@ export function IssuesPage() {
             ) : null}
             {canReopenIssue(selectedIssue.status) ? (
               <ActionButton
-                variant="outline"
+                variant="ghost"
                 size="sm"
+                className={DETAIL_INLINE_ACTION_CLASS}
                 disabled={actionsDisabled}
                 onClick={() => void handleReopen(selectedIssue.id)}
               >
@@ -399,22 +416,37 @@ export function IssuesPage() {
                 <span>{pendingIds.has(selectedIssue.id) ? "Saving…" : "Reopen"}</span>
               </ActionButton>
             ) : null}
+            {canIgnoreIssue(selectedIssue.status) ? (
+              <ActionButton
+                variant="ghost"
+                size="icon"
+                tooltip="Ignore (I)"
+                disabled={actionsDisabled}
+                aria-label="Ignore issue"
+                onClick={() => void handleIgnore(selectedIssue.id)}
+              >
+                <EyeOff className="size-3.5" aria-hidden />
+              </ActionButton>
+            ) : null}
             {selectedIssue.snoozed || selectedIssue.status === "snoozed" ? (
               <ActionButton
-                variant="outline"
-                size="sm"
+                variant="ghost"
+                size="icon"
+                tooltip="Unsnooze"
                 disabled={actionsDisabled}
+                aria-label="Unsnooze issue"
                 onClick={() => void handleUnsnooze(selectedIssue.id)}
               >
-                <BellRing className="size-3.5" />
-                <span>Unsnooze</span>
+                <BellRing className="size-3.5" aria-hidden />
               </ActionButton>
             ) : (
               <SnoozeMenu
                 issue={selectedIssue}
                 disabled={actionsDisabled}
-                buttonSize="sm"
-                variant="outline"
+                variant="ghost"
+                iconOnly
+                iconSize="icon"
+                showShortcutHint
                 onSnooze={handleSnooze}
               />
             )}
@@ -512,6 +544,7 @@ export function IssuesPage() {
         filterInputRef={filterInputRef}
         issueCount={issues.length}
         loading={loading}
+        tourAutoStartReady={issues.length > 0 && !loading}
         stats={headlineStats}
         statsLoading={statsLoading}
         onFilterToken={applyFilter}
@@ -528,7 +561,7 @@ export function IssuesPage() {
       >
         <aside
           className={cn(
-            "epure-issues-layout__list flex min-h-0 flex-col overflow-hidden px-4 md:px-6",
+            "epure-issues-layout__list flex min-h-0 flex-col overflow-hidden px-4 pt-3 md:px-6 md:pt-4",
             issues.length === 0 && !loading ? "w-full shrink-0 grow-0" : "min-h-0 flex-1",
             isOverlayLayout
               ? "min-w-0 flex-1 bg-bg"
@@ -538,27 +571,9 @@ export function IssuesPage() {
             selectedIssue && (isOverlayLayout ? "hidden lg:flex" : "max-lg:hidden"),
           )}
         >
-          <BulkActions
-            selectedIds={selectedIds}
-            availability={bulkAvailability}
-            canMerge={canMerge}
-            canSplit={canSplit}
-            onResolve={() => void handleBulk("resolve")}
-            onIgnore={() => void handleBulk("ignore")}
-            onResolveWithAi={() => setResolveWithAiOpen(true)}
-            onReopen={() => void handleBulk("reopen")}
-            onSnooze={handleBulkSnooze}
-            onDelete={() => setDeleteConfirmOpen(true)}
-            onMerge={() => void handleMerge()}
-            onSplit={() =>
-              void handleSplit(mergedChildren.map((child) => child.id))
-            }
-            onClear={handleClearSelection}
-            busy={actionsDisabled}
-          />
           {loading ? (
-            <div className="mb-3 flex min-h-0 min-w-0 w-full flex-1 flex-col">
-              <div className="epure-issue-list flex min-h-0 flex-1 flex-col overflow-auto rounded-lg border border-border bg-surface">
+            <div className="mb-3 flex min-h-0 min-w-0 w-full flex-1 flex-col rounded-lg border border-border bg-surface-1 shadow-xs overflow-hidden">
+              <div className="epure-issue-list flex min-h-0 flex-1 flex-col overflow-auto">
                 {Array.from({ length: 8 }).map((_, index) => (
                   <IssueRowSkeleton key={index} />
                 ))}
@@ -576,34 +591,57 @@ export function IssuesPage() {
               />
             </div>
           ) : (
-            <IssueList
-              issues={issues}
-              projects={projects}
-              focusedId={focusedId}
-              selectedId={selectedId}
-              selectedIds={selectedIds}
-              onSelect={handleSelect}
-              onToggleSelect={handleToggleSelect}
-              onResolve={handleResolve}
-              onReopen={handleReopen}
-              onIgnore={handleIgnore}
-              onSnooze={(id) => void handleSnooze("hours", id)}
-              onUnsnooze={(id) => void handleUnsnooze(id)}
-              actionsDisabled={actionsDisabled}
-              onMoveSelection={handleMoveSelection}
-              onOpenDetail={handleOpenDetail}
-              onFocusQuery={() => {
-                window.requestAnimationFrame(() => filterInputRef.current?.focus());
-              }}
-              selectAllChecked={allSelected}
-              selectAllIndeterminate={someSelected}
-              onToggleSelectAll={issues.length > 0 ? handleToggleSelectAll : undefined}
-              filtersActive={filtersActive}
-              onResetFilters={handleResetFilters}
-              windowLabel={timeWindow}
-              isIssueUnread={isIssueUnread}
-              trendBucketsByIssueId={issueTrends}
-            />
+            <div className="mb-3 flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded-lg border border-border bg-surface-1 shadow-xs">
+              <IssueList
+                embedded
+                bulkToolbar={
+                  <BulkActions
+                    selectedIds={selectedIds}
+                    availability={bulkAvailability}
+                    canMerge={canMerge}
+                    canSplit={canSplit}
+                    onResolve={() => void handleBulk("resolve")}
+                    onIgnore={() => void handleBulk("ignore")}
+                    onAskAi={handleBulkAskAi}
+                    onMarkRead={handleBulkMarkRead}
+                    onReopen={() => void handleBulk("reopen")}
+                    onSnooze={handleBulkSnooze}
+                    onMerge={() => void handleMerge()}
+                    onSplit={() =>
+                      void handleSplit(mergedChildren.map((child) => child.id))
+                    }
+                    onClear={handleClearSelection}
+                    busy={actionsDisabled}
+                  />
+                }
+                issues={issues}
+                projects={projects}
+                focusedId={focusedId}
+                selectedId={selectedId}
+                selectedIds={selectedIds}
+                onSelect={handleSelect}
+                onToggleSelect={handleToggleSelect}
+                onResolve={handleResolve}
+                onReopen={handleReopen}
+                onIgnore={handleIgnore}
+                onSnooze={(id) => void handleSnooze("hours", id)}
+                onUnsnooze={(id) => void handleUnsnooze(id)}
+                actionsDisabled={actionsDisabled}
+                onMoveSelection={handleMoveSelection}
+                onOpenDetail={handleOpenDetail}
+                onFocusQuery={() => {
+                  window.requestAnimationFrame(() => filterInputRef.current?.focus());
+                }}
+                selectAllChecked={allSelected}
+                selectAllIndeterminate={someSelected}
+                onToggleSelectAll={issues.length > 0 ? handleToggleSelectAll : undefined}
+                filtersActive={filtersActive}
+                onResetFilters={handleResetFilters}
+                windowLabel={timeWindow}
+                isIssueUnread={isIssueUnread}
+                trendBucketsByIssueId={issueTrends}
+              />
+            </div>
           )}
           <div className="flex shrink-0 justify-end py-1">
             <KeyboardHintsFooter />

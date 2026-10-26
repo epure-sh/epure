@@ -17,13 +17,18 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: "bg-primary text-primary-fg shadow-tactile hover:bg-primary/90",
-        secondary: "bg-surface-2 text-fg-primary border border-border-strong shadow-tactile hover:bg-surface-3",
+        primary: "bg-accent text-accent-contrast shadow-tactile hover:opacity-90",
+        secondary: "bg-accent-muted text-accent border border-transparent shadow-tactile hover:bg-state-hover",
         outline: "bg-transparent text-fg-secondary border border-border-subtle hover:bg-surface-2 hover:text-fg-primary hover:border-border-strong",
         ghost: "bg-transparent text-fg-secondary hover:bg-surface-2 hover:text-fg-primary active:translate-y-0",
-        danger: "bg-escalating/15 text-escalating border border-escalating/30 hover:bg-escalating/25",
-        signal: "bg-escalating text-primary-fg shadow-tactile hover:bg-escalating/90",
+        danger:
+          "bg-badge-escalating-bg text-escalating border border-badge-escalating-border hover:bg-badge-escalating-border/40",
+        signal: "bg-accent text-accent-contrast shadow-tactile hover:opacity-90",
         link: "bg-transparent text-fg-primary underline-offset-4 hover:underline",
+        filterEscalating:
+          "bg-badge-escalating-bg text-escalating border border-badge-escalating-border shadow-tactile hover:bg-badge-escalating-border/40",
+        filterRegression:
+          "bg-badge-regression-bg text-regression border border-badge-regression-border shadow-tactile hover:bg-badge-regression-border/40",
       },
       size: {
         xs: "h-6 px-2 text-[11px] rounded-xs",

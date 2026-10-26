@@ -8,20 +8,6 @@ export const ISSUE_ROW_GRID =
 
 export type IssueRowPriority = "critical" | "high" | "medium" | "low";
 
-const PRIORITY_BAR: Record<IssueRowPriority, string> = {
-  critical: "bg-escalating",
-  high: "bg-escalating",
-  medium: "bg-regression",
-  low: "bg-border-strong",
-};
-
-const PRIORITY_DOT: Record<IssueRowPriority, string> = {
-  critical: "bg-escalating",
-  high: "bg-escalating",
-  medium: "bg-regression",
-  low: "bg-fg-muted",
-};
-
 const PRIORITY_TEXT: Record<IssueRowPriority, string> = {
   critical: "text-escalating",
   high: "text-escalating",
@@ -38,13 +24,19 @@ const PRIORITY_LABEL: Record<IssueRowPriority, string> = {
 
 export interface IssueRowShellProps {
   id: string;
-  selected?: boolean;
+  /** Bulk selection (X / header checkbox). */
+  bulkSelected?: boolean;
+  /** Keyboard focus — checks the row checkbox without a row wash. */
+  focused?: boolean;
+  /** Detail pane open on this issue — indigo selected wash. */
+  detailActive?: boolean;
   onSelectChange?: (selected: boolean) => void;
   escalating?: boolean;
   priority?: IssueRowPriority;
   statusBadge?: React.ReactNode;
   title: React.ReactNode;
   subtitle?: React.ReactNode;
+  meta?: React.ReactNode;
   sparkline?: React.ReactNode;
   eventsCount?: number | string;
   usersCount?: number | string;
@@ -52,18 +44,24 @@ export interface IssueRowShellProps {
   age?: string;
   onClick?: () => void;
   className?: string;
-  actions?: React.ReactNode;
+  /** First visible row — product tour anchor. */
+  tourAnchor?: boolean;
+  /** Unread since last detail view — indigo cue, cleared when detail is opened. */
+  unread?: boolean;
 }
 
 export function IssueRowShell({
   id: _id,
-  selected = false,
+  bulkSelected = false,
+  focused = false,
+  detailActive = false,
   onSelectChange,
   escalating = false,
   priority = "low",
   statusBadge,
   title,
   subtitle,
+  meta,
   sparkline,
   eventsCount,
   usersCount,
@@ -71,48 +69,67 @@ export function IssueRowShell({
   age,
   onClick,
   className,
-  actions,
+  tourAnchor = false,
+  unread = false,
 }: IssueRowShellProps) {
   const tone = escalating ? "critical" : priority;
+  const checkboxChecked = bulkSelected;
 
   return (
     <div
       data-slot="issue-row-shell"
       data-escalating={escalating}
-      data-selected={selected}
+      data-focused={focused}
+      data-detail-active={detailActive}
       data-priority={tone}
+      data-tour={tourAnchor ? "issue-row-sample" : undefined}
       onClick={onClick}
       className={cn(
-        "group relative grid min-h-14 w-full items-center border-b border-border-subtle px-3 py-2 text-xs transition-colors duration-100 cursor-pointer select-none",
+        "relative grid min-h-[3.25rem] w-full items-center border-b border-border-subtle px-3 py-2 text-xs transition-colors duration-100 cursor-pointer select-none",
         ISSUE_ROW_GRID,
-        selected ? "bg-surface-2/80" : "bg-surface-1 hover:bg-surface-2/50",
+        detailActive && "bg-accent-muted",
+        bulkSelected && !detailActive && "bg-accent-muted/70",
         className,
       )}
     >
-      <span
-        data-slot="priority-indicator"
-        className={cn("absolute inset-y-0 left-0 w-[3px]", PRIORITY_BAR[tone])}
-      />
-
       <div
         className="flex size-4 shrink-0 items-center justify-center"
         onClick={(event) => event.stopPropagation()}
       >
         <Checkbox
-          checked={selected}
+          checked={checkboxChecked}
           onCheckedChange={(value) => onSelectChange?.(Boolean(value))}
+          aria-label={checkboxChecked ? "Deselect issue" : "Select issue"}
         />
       </div>
 
-      <div className="min-w-0">
+      <div className="flex min-w-0 items-center gap-2 self-stretch py-0.5 pr-2">
+        {unread ? (
+          <span
+            className="size-2 shrink-0 rounded-full bg-accent shadow-[0_0_6px_color-mix(in_srgb,var(--accent)_55%,transparent)] ring-[3px] ring-accent/20"
+            title="Unread"
+            aria-hidden
+          />
+        ) : (
+          <span className="size-2 shrink-0" aria-hidden />
+        )}
+        <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
-          <span className={cn("size-2 shrink-0 rounded-full", PRIORITY_DOT[tone])} aria-hidden />
-          <span className="truncate text-sm font-medium text-fg-primary">{title}</span>
+          <span
+            className={cn(
+              "min-w-0 truncate text-sm text-fg-primary",
+              unread ? "font-semibold" : "font-medium",
+            )}
+          >
+            {title}
+          </span>
           {statusBadge ? <span className="shrink-0">{statusBadge}</span> : null}
         </div>
         {subtitle ? (
-          <p className="mt-0.5 truncate pl-4 font-mono text-[11px] text-fg-muted">{subtitle}</p>
+          <p className="mt-0.5 truncate font-mono text-[11px] leading-tight text-fg-muted">{subtitle}</p>
         ) : null}
+        {meta ? <div className="mt-1">{meta}</div> : null}
+        </div>
       </div>
 
       <div className="text-right font-mono text-[11px] tabular-nums text-fg-secondary">{timeAgo}</div>
@@ -127,18 +144,10 @@ export function IssueRowShell({
         {usersCount !== undefined ? <span>{usersCount}</span> : null}
       </div>
 
-      <div className="relative flex items-center justify-end">
-        <span className={cn("font-medium", PRIORITY_TEXT[tone], actions && "group-hover:invisible")}>
+      <div className="flex items-center justify-end">
+        <span className={cn("font-medium tabular-nums", PRIORITY_TEXT[tone])}>
           {PRIORITY_LABEL[tone]}
         </span>
-        {actions ? (
-          <div
-            className="absolute inset-y-0 right-0 hidden items-center justify-end group-hover:flex"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {actions}
-          </div>
-        ) : null}
       </div>
     </div>
   );

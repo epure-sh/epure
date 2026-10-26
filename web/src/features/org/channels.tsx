@@ -328,12 +328,14 @@ export function OrgChannelsPage() {
                         <span className="text-[11px] text-fg-muted">Recipients:</span>
                         <div className="mt-1 flex flex-wrap gap-1">
                           {channel.memberEmails?.map((email) => (
-                            <span
+                            <Badge
                               key={email}
-                              className="inline-flex items-center rounded-xs bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-fg-secondary border border-border-subtle"
+                              variant="env"
+                              size="compact"
+                              className="font-mono text-[10px]"
                             >
                               {email}
-                            </span>
+                            </Badge>
                           ))}
                         </div>
                       </div>

@@ -2,6 +2,8 @@
 
 Visual law for the Epure dashboard (`web/`). This folder is the only design source for the product repo. The marketing site has its own `design/` and is not imported here.
 
+**Folder index:** [`README.md`](./README.md) (file map, edit workflow, kit vs tokens).
+
 ## Layers
 
 ```
@@ -60,4 +62,4 @@ Collapsing `--signal` onto `--accent` must **not** make unread look like selecte
 - Kit before feature CSS
 - Do not import or vendor marketing `marketing.css`
 
-Recipes: [`components.md`](./components.md) · QA: [`qa.md`](./qa.md) · Brand kit: [`brand/kit/README.md`](./brand/kit/README.md)
+Recipes: [`components.md`](./components.md) · QA: [`qa.md`](./qa.md) · Alerts: [`alerts-ui.md`](./alerts-ui.md) · Brand kit: [`brand/kit/README.md`](./brand/kit/README.md)

@@ -30,9 +30,9 @@ export function FilterChip({
         className={cn(
           "epure-filter-chip epure-filter-chip--query group/chip inline-flex max-w-full items-stretch overflow-hidden rounded-md border text-xs select-none",
           variant === "query"
-            ? "border-accent/30 bg-accent-muted/60 text-accent"
+            ? "border-badge-accent-border bg-badge-accent-bg text-badge-accent-fg"
             : active
-              ? "border-transparent bg-accent-muted text-accent"
+              ? "border-transparent bg-badge-accent-bg text-badge-accent-fg"
               : "border-border bg-surface text-ink-muted",
           className,
         )}
@@ -56,7 +56,7 @@ export function FilterChip({
           className={cn(
             "inline-flex shrink-0 items-center justify-center border-l px-1.5 cursor-pointer transition-colors duration-fast focus-ring",
             variant === "query"
-              ? "border-accent/20 text-accent/70 hover:bg-accent/10 hover:text-accent"
+              ? "border-badge-accent-border text-badge-accent-fg hover:bg-state-hover"
               : "border-border/80 text-ink-muted hover:bg-state-hover hover:text-ink",
           )}
           aria-label={`Remove ${label} filter`}

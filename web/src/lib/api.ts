@@ -254,6 +254,11 @@ export async function patchAlert(
   });
 }
 
+export interface AlertRuleFilters {
+  min_level?: "any" | "error" | "fatal" | string | null;
+  first_seen?: "any" | "new" | string | null;
+}
+
 export interface AlertRuleRow {
   id: string;
   org_id: string;
@@ -263,6 +268,7 @@ export interface AlertRuleRow {
   kind: "velocity_spike" | "regression" | "issue_created" | string;
   environment: string | null;
   threshold: number | null;
+  filters_json?: AlertRuleFilters;
   created_at: string;
 }
 
@@ -283,6 +289,7 @@ export async function createAlertRule(input: {
   kind: string;
   environment?: string | null;
   threshold?: number | null;
+  filters_json?: AlertRuleFilters;
   enabled?: boolean;
 }): Promise<AlertRuleRow> {
   return apiFetch<AlertRuleRow>("/api/v1/alert-rules", {
@@ -298,6 +305,7 @@ export async function updateAlertRule(
     enabled?: boolean;
     environment?: string | null;
     threshold?: number | null;
+    filters_json?: AlertRuleFilters;
   },
 ): Promise<AlertRuleRow> {
   return apiFetch<AlertRuleRow>(`/api/v1/alert-rules/${id}`, {
@@ -618,6 +626,30 @@ export async function fetchMe(): Promise<MeResponse> {
 
 export async function fetchAuthConfig(): Promise<AuthConfig> {
   return apiFetch<AuthConfig>("/api/v1/auth/config");
+}
+
+export async function loginWithPassword(email: string, password: string): Promise<void> {
+  await apiFetch<void>("/api/v1/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function registerWithPassword(
+  email: string,
+  password: string,
+  inviteToken?: string,
+): Promise<void> {
+  await apiFetch<void>("/api/v1/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email,
+      password,
+      invite_token: inviteToken ?? null,
+    }),
+  });
 }
 
 export async function updateProfile(input: { display_name: string | null }): Promise<void> {

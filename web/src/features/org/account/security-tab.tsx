@@ -52,8 +52,9 @@ function SettingsRow({
 
 export function SecurityTab({ settings }: { settings: AccountSettingsContext }) {
   const { profile, authConfig, logout, savePassword, removeAccount } = settings;
+  const passwordAuthEnabled = authConfig?.password_enabled !== false;
   const googleEnabled = isGoogleSignInVisible(authConfig?.google_enabled);
-  const githubEnabled = Boolean(authConfig?.github_enabled);
+  const githubEnabled = isGoogleSignInVisible(authConfig?.github_enabled);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -141,26 +142,28 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
   return (
     <div className="space-y-3">
       <div className="overflow-hidden rounded-lg border border-border bg-surface divide-y divide-border">
-        <SettingsRow
-          title="Password"
-          description={
-            profile?.has_password
-              ? "Email and password sign-in is enabled."
-              : googleEnabled || githubEnabled
-                ? `No password set — use ${[googleEnabled && "Google", githubEnabled && "GitHub"].filter(Boolean).join(" or ")} or set one.`
-                : "No password set — set one to sign in with email."
-          }
-          badge={
-            <Badge variant="env" size="compact">
-              {profile?.has_password ? "Active" : "Not set"}
-            </Badge>
-          }
-          action={
-            <Button variant="secondary" size="sm" onClick={() => setPasswordOpen(true)}>
-              {profile?.has_password ? "Change" : "Set password"}
-            </Button>
-          }
-        />
+        {passwordAuthEnabled ? (
+          <SettingsRow
+            title="Password"
+            description={
+              profile?.has_password
+                ? "Email and password sign-in is enabled."
+                : googleEnabled || githubEnabled
+                  ? `No password set — use ${[googleEnabled && "Google", githubEnabled && "GitHub"].filter(Boolean).join(" or ")} or set one.`
+                  : "No password set — set one to sign in with email."
+            }
+            badge={
+              <Badge variant="env" size="compact">
+                {profile?.has_password ? "Active" : "Not set"}
+              </Badge>
+            }
+            action={
+              <Button variant="secondary" size="sm" onClick={() => setPasswordOpen(true)}>
+                {profile?.has_password ? "Change" : "Set password"}
+              </Button>
+            }
+          />
+        ) : null}
 
         {googleEnabled ? (
           <SettingsRow

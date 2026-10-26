@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Clock } from "lucide-react";
 import type { IssueSummary, SnoozeMode } from "../../lib/api";
 import { cn } from "../../lib/cn";
-import { Button, type ButtonProps } from "../../ui/button";
+import { Button, type ButtonProps } from "@/components/ui/button";
+import { CaretDown } from "@/components/ui/icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +19,8 @@ interface SnoozeMenuProps {
   buttonSize?: ButtonProps["size"];
   variant?: ButtonProps["variant"];
   showShortcutHint?: boolean;
+  iconOnly?: boolean;
+  iconSize?: Extract<ButtonProps["size"], "icon" | "icon-xs">;
   className?: string;
   onSnooze: (mode: SnoozeMode) => Promise<void>;
 }
@@ -30,11 +33,13 @@ const OPTIONS: { mode: SnoozeMode; label: string }[] = [
 
 interface BulkSnoozeMenuProps {
   disabled?: boolean;
+  iconOnly?: boolean;
   onSnooze: (mode: SnoozeMode) => Promise<void>;
 }
 
 export function BulkSnoozeMenu({
   disabled = false,
+  iconOnly = false,
   onSnooze,
 }: BulkSnoozeMenuProps) {
   const [pending, setPending] = useState(false);
@@ -53,38 +58,49 @@ export function BulkSnoozeMenu({
   }
 
   const label = pending ? "Snoozing…" : "Snooze";
-  const tooltip = pending ? "Snoozing…" : disabled ? "Saving changes…" : undefined;
+  const tooltip = pending ? "Snoozing…" : disabled ? "Saving changes…" : label;
 
-  const trigger = (
+  const trigger = iconOnly ? (
     <Button
       variant="ghost"
-      size="toolbar"
-      className="h-control shrink-0 text-xs"
+      size="icon"
+      className="shrink-0"
+      disabled={triggerDisabled}
+      aria-busy={pending || undefined}
+      aria-label={label}
+    >
+      <Clock className="size-3.5" aria-hidden />
+    </Button>
+  ) : (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="shrink-0"
       disabled={triggerDisabled}
       aria-busy={pending || undefined}
     >
-      {label}
+      <Clock className="size-3.5 text-fg-muted" aria-hidden />
+      <span>{label}</span>
+      <CaretDown className="size-3 text-fg-muted" weight="bold" aria-hidden />
     </Button>
   );
 
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild disabled={triggerDisabled}>
-        {tooltip ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span
-                className={triggerDisabled ? "inline-flex cursor-not-allowed" : "inline-flex"}
-                tabIndex={triggerDisabled ? 0 : undefined}
-              >
-                {trigger}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>{tooltip}</TooltipContent>
-          </Tooltip>
-        ) : (
-          trigger
-        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className={triggerDisabled ? "inline-flex cursor-not-allowed" : "inline-flex"}
+              tabIndex={triggerDisabled ? 0 : undefined}
+            >
+              {trigger}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">
+            {tooltip}
+          </TooltipContent>
+        </Tooltip>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={6} className="min-w-[11rem]">
         {OPTIONS.map((option) => (
@@ -107,6 +123,8 @@ export function SnoozeMenu({
   buttonSize = "toolbar",
   variant = "ghost",
   showShortcutHint = false,
+  iconOnly = false,
+  iconSize = "icon-xs",
   className,
   onSnooze,
 }: SnoozeMenuProps) {
@@ -138,11 +156,23 @@ export function SnoozeMenu({
     ? "Snoozing…"
     : issue.snoozed
       ? "Snoozed"
-      : showShortcutHint
+      : showShortcutHint || iconOnly
         ? "Snooze (S)"
         : "Snooze";
 
-  const trigger = (
+  const trigger = iconOnly ? (
+    <Button
+      variant={variant}
+      size={iconSize}
+      className={cn("shrink-0", className)}
+      disabled={triggerDisabled}
+      aria-busy={pending || undefined}
+      aria-pressed={issue.snoozed || undefined}
+      aria-label={label}
+    >
+      <Clock className="size-3.5 text-fg-muted" aria-hidden />
+    </Button>
+  ) : (
     <Button
       variant={variant}
       size={buttonSize}

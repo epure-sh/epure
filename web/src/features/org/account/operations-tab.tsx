@@ -69,7 +69,7 @@ export function OperationsTab() {
                 <span>Managed Cloud Infrastructure</span>
               </CardTitle>
               <div className="flex items-center gap-1.5">
-                <Badge variant="env" className="border-healthy/30 text-healthy">
+                <Badge variant="healthy">
                   99.9% SLA Active
                 </Badge>
                 <Badge variant="secondary">Frankfurt (EU)</Badge>
@@ -127,7 +127,7 @@ export function OperationsTab() {
                 <p className="font-medium text-ink">Point-in-Time Recovery (PITR)</p>
                 <p className="text-ink-muted">Continuous delta sync with 30-day restore capability.</p>
               </div>
-              <Badge variant="env" className="border-healthy/30 text-healthy">
+              <Badge variant="healthy">
                 Operational
               </Badge>
             </div>
@@ -136,7 +136,7 @@ export function OperationsTab() {
                 <p className="font-medium text-ink">Encryption at Rest & In Transit</p>
                 <p className="text-ink-muted">AES-256 encrypted volumes and enforced TLS 1.3 endpoints.</p>
               </div>
-              <Badge variant="env" className="border-healthy/30 text-healthy">
+              <Badge variant="healthy">
                 Enforced
               </Badge>
             </div>
@@ -310,15 +310,12 @@ export function OperationsTab() {
             </p>
           </div>
 
-          <a
-            href={CLOUD_UPGRADE_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="btn-tactile inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-accent/90 focus-ring"
-          >
-            <span>Explore Epure Cloud Plans</span>
-            <ExternalLink size={13} />
-          </a>
+          <Button asChild size="sm" variant="primary">
+            <a href={CLOUD_UPGRADE_URL} target="_blank" rel="noreferrer">
+              <span>Explore Epure Cloud Plans</span>
+              <ExternalLink size={13} />
+            </a>
+          </Button>
         </CardContent>
       </Card>
     </div>

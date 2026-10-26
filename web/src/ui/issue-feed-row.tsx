@@ -51,12 +51,14 @@ const TREND_STATUS_LABEL: Record<TrendStatus, string> = {
 
 function PlatformBadge({ label }: { label: string }) {
   return (
-    <span
-      className="epure-platform-badge inline-flex h-4 min-w-4 items-center justify-center rounded-sm bg-surface-2 px-1 font-mono text-2xs font-medium uppercase text-fg-muted"
+    <Badge
+      variant="env"
+      size="compact"
+      className="epure-platform-badge min-w-4 font-mono uppercase"
       aria-hidden
     >
       {label}
-    </span>
+    </Badge>
   );
 }
 
@@ -187,14 +189,14 @@ export function IssueFeedRow({
                 <span className="font-mono text-2xs font-medium text-fg-muted">{projectCode}</span>
               ) : null}
               {location ? (
-                <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-surface-2 text-fg-muted border border-border-subtle truncate max-w-sm">
+                <Badge variant="neutral" size="compact" className="max-w-sm truncate font-mono">
                   {location}
-                </span>
+                </Badge>
               ) : null}
               {unhandled ? (
-                <span className="rounded bg-signal-muted px-1.5 py-0.2 font-mono text-[10px] font-semibold uppercase text-signal">
+                <Badge variant="escalating" size="compact" className="font-mono font-semibold uppercase">
                   Unhandled
-                </span>
+                </Badge>
               ) : null}
             </div>
           </div>

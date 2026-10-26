@@ -88,7 +88,7 @@ export function AgentTokensTab() {
                 Manual API token generation has been removed. Epure now enforces 100% OAuth 2.0 Device Flow &amp; PKCE consent.
               </CardDescription>
             </div>
-            <Badge variant="healthy" size="sm" dot>
+            <Badge variant="healthy" size="sm">
               100% OAuth-Only
             </Badge>
           </div>

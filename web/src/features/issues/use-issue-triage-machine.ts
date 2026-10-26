@@ -41,13 +41,17 @@ import {
   issueMatchesStatusFilter,
   type HeadlineStatsDelta,
 } from "./issue-triage-utils";
+import { inferTrendStatus } from "./issue-feed-utils";
+import { resolveIssuePriority } from "../../ui/issue-priority";
 import {
   DEFAULT_ISSUE_SORT,
   DEFAULT_TIME_WINDOW,
+  ALL_QUERY,
+  applyFilterToken,
   parseIssueSort,
   parseQuery,
   parseTimeWindow,
-  setToken,
+  toApiQuery,
   withSearchText,
   type IssueSortValue,
   type TimeWindowValue,
@@ -55,7 +59,7 @@ import {
 import { useIssueReadState } from "./use-issue-read-state";
 import type { TimelineWindowValue } from "../../ui/issue-occurrence-timeline";
 
-export const DEFAULT_QUERY = "is:unresolved";
+export { ALL_QUERY, DEFAULT_QUERY } from "./query-utils";
 
 export type TriageFeedStatus = "loading" | "idle" | "empty" | "error" | "forbidden";
 
@@ -84,7 +88,30 @@ interface PendingStatsDelta {
   settledAt: number | null;
 }
 
-function issueMatchesLoadedQuery(issue: IssueSummary, query: string): boolean {
+function issueMatchesClientRefiners(
+  issue: IssueSummary,
+  parsed: ReturnType<typeof parseQuery>,
+  trends: Record<string, TimelineBucket[]>,
+): boolean {
+  if (parsed.escalating) {
+    const buckets = trends[issue.id] ?? [];
+    const escalating =
+      Boolean(issue.is_escalating_3d) || inferTrendStatus(issue, buckets) === "escalating";
+    if (!escalating) return false;
+  }
+  if (parsed.priority) {
+    if (resolveIssuePriority(issue.level, issue.status) !== parsed.priority) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function issueMatchesLoadedQuery(
+  issue: IssueSummary,
+  query: string,
+  trends: Record<string, TimelineBucket[]>,
+): boolean {
   const parsed = parseQuery(query);
   if (!issueMatchesStatusFilter(issue, parsed.status)) return false;
   if (parsed.release || parsed.userEmail) return false;
@@ -93,6 +120,7 @@ function issueMatchesLoadedQuery(issue: IssueSummary, query: string): boolean {
   if (parsed.freeText && !(issue.title ?? "").toLowerCase().includes(parsed.freeText.toLowerCase())) {
     return false;
   }
+  if (!issueMatchesClientRefiners(issue, parsed, trends)) return false;
   return true;
 }
 
@@ -112,7 +140,7 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
   const { issueId: routeIssueId } = useParams<{ issueId?: string }>();
   const urlIssueId = routeIssueId ?? searchParams.get("issue");
 
-  const [query, setQuery] = useState(() => searchParams.get("q") ?? DEFAULT_QUERY);
+  const [query, setQuery] = useState(() => searchParams.get("q") ?? ALL_QUERY);
   const [rawIssues, setRawIssues] = useState<IssueSummary[]>([]);
   const [loadedQuery, setLoadedQuery] = useState(query);
   const [overrides, setOverrides] = useState<Map<string, IssueOverride>>(() => new Map());
@@ -173,21 +201,25 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
   }, [overrides, rawIssues]);
 
   const issues = useMemo(() => {
-    const status = parseQuery(loadedQuery).status;
-    const visible = knownIssues.filter((issue) => issueMatchesStatusFilter(issue, status));
+    const parsed = parseQuery(loadedQuery);
+    const visible = knownIssues.filter(
+      (issue) =>
+        issueMatchesStatusFilter(issue, parsed.status) &&
+        issueMatchesClientRefiners(issue, parsed, issueTrends),
+    );
     const rawIds = new Set(rawIssues.map((row) => row.id));
     const movedIn: IssueSummary[] = [];
     for (const override of overrides.values()) {
       if (
         override.issue &&
         !rawIds.has(override.issue.id) &&
-        issueMatchesLoadedQuery(override.issue, loadedQuery)
+        issueMatchesLoadedQuery(override.issue, loadedQuery, issueTrends)
       ) {
         movedIn.push(override.issue);
       }
     }
     return movedIn.length > 0 ? [...movedIn, ...visible] : visible;
-  }, [knownIssues, loadedQuery, overrides, rawIssues]);
+  }, [knownIssues, issueTrends, loadedQuery, overrides, rawIssues]);
 
   const pendingIds = useMemo(() => {
     const ids = new Set<string>();
@@ -224,11 +256,14 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
   );
 
   useEffect(() => {
-    if (!selectedId) {
+    if (!selectedId || !selectedIssue) {
       return;
     }
-    markIssueRead(selectedId);
-  }, [markIssueRead, selectedId, selectedIssue?.last_seen_at]);
+    markIssueRead(
+      selectedId,
+      selectedIssue.last_seen_at ?? new Date().toISOString(),
+    );
+  }, [markIssueRead, selectedId, selectedIssue]);
 
   const selectedEvent = useMemo(() => {
     if (selectedEventRecord?.id === selectedEventId) {
@@ -268,7 +303,7 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
     }
     setLoadError(null);
     try {
-      const scopedQuery = buildQuery(nextQuery);
+      const scopedQuery = buildQuery(toApiQuery(nextQuery));
       let rows = await fetchIssues(
         scopedQuery,
         scopedProjectId ?? undefined,
@@ -394,7 +429,7 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
           (prevParams) => {
             const params = new URLSearchParams(prevParams);
             const trimmed = nextQuery.trim();
-            if (trimmed === DEFAULT_QUERY) {
+            if (trimmed === ALL_QUERY) {
               params.delete("q");
             } else {
               params.set("q", trimmed);
@@ -411,13 +446,13 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
 
   useEffect(() => {
     const urlQuery = searchParams.get("q");
-    const normalized = urlQuery === null ? DEFAULT_QUERY : urlQuery.trim();
+    const normalized = urlQuery === null ? ALL_QUERY : urlQuery.trim();
     setQuery((current) => (current !== normalized ? normalized : current));
   }, [searchParams]);
 
   useEffect(() => {
     const loadKey = [
-      withSearchText(query, ""),
+      withSearchText(toApiQuery(query), ""),
       timeWindow,
       issueSort,
       environment ?? "",
@@ -1135,6 +1170,17 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
     },
     [actionsDisabled, issueById, runOptimistic, selectedIds],
   );
+  const handleBulkMarkRead = useCallback(() => {
+    if (selectedIds.size === 0) {
+      return;
+    }
+    for (const id of selectedIds) {
+      const issue = issueById.get(id);
+      markIssueRead(id, issue?.last_seen_at ?? new Date().toISOString());
+    }
+    toast(`Marked ${selectedIds.size} issue${selectedIds.size === 1 ? "" : "s"} as read`);
+  }, [issueById, markIssueRead, selectedIds]);
+
   const handleClearSelection = useCallback(() => {
     setSelectedIds(new Set());
   }, []);
@@ -1199,13 +1245,13 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
 
   const applyFilter = useCallback(
     (token: string) => {
-      handleSetQuery((current) => setToken(current, token));
+      handleSetQuery((current) => applyFilterToken(current, token));
     },
     [handleSetQuery],
   );
 
   const handleResetFilters = useCallback(() => {
-    handleSetQuery(DEFAULT_QUERY);
+    handleSetQuery(ALL_QUERY);
     setSearchParams(
       (current) => {
         const params = new URLSearchParams(current);
@@ -1278,6 +1324,7 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
     handleUnsnooze,
     handleBulk,
     handleBulkSnooze,
+    handleBulkMarkRead,
     handleClearSelection,
     handleToggleSelectAll,
     handleMoveSelection,

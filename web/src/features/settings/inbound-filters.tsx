@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { updateProject } from "../../lib/api";
 import { useAppContext } from "../../shell/app-context";
 import { Badge } from "../../ui/badge";
@@ -502,11 +503,12 @@ export function InboundFiltersSettings() {
 
               {simResult ? (
             <div
-              className={`flex items-start gap-2.5 rounded-md border p-3 text-xs ${
+              className={cn(
+                "flex items-start gap-2.5 rounded-md border p-3 text-xs",
                 simResult.dropped
-                  ? "border-regression/30 bg-regression/10 text-regression"
-                  : "border-healthy/30 bg-healthy/10 text-healthy"
-              }`}
+                  ? "border-badge-regression-border bg-badge-regression-bg text-regression"
+                  : "border-badge-healthy-border bg-badge-healthy-bg text-healthy",
+              )}
             >
               {simResult.dropped ? (
                 <XCircle size={16} className="text-regression shrink-0 mt-0.5" />

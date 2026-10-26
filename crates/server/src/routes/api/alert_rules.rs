@@ -8,7 +8,7 @@ use axum::{
     Extension, Json, Router,
 };
 use epure_auth::DashboardSession;
-use epure_storage::alert_rules::{self, CreateAlertRuleParams, UpdateAlertRuleParams};
+use epure_storage::alert_rules::{self, AlertRuleFilters, CreateAlertRuleParams, UpdateAlertRuleParams};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -130,6 +130,7 @@ async fn create_rule(
             threshold: body.threshold,
             enabled: body.enabled.unwrap_or(true),
         },
+            filters_json: body.filters_json.unwrap_or_default(),
     )
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -161,6 +162,7 @@ async fn update_rule(
             threshold: body.threshold,
         },
     )
+            filters_json: body.filters_json,
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     .ok_or(StatusCode::NOT_FOUND)?;

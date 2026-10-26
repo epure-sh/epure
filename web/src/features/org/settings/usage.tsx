@@ -16,7 +16,15 @@ import { Badge } from "../../../ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../ui/card";
 import { OccurrenceLineChart } from "../../../ui/occurrence-line-chart";
 import { Skeleton } from "../../../ui/skeleton";
-import { Progress } from "../../../components/ui/progress";
+import { Progress } from "@/components/ui/progress";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { monthlyEventLimit, planForBillingStatus } from "../project-usage";
 import {
   buildActivityBuckets,
@@ -402,32 +410,32 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
               <p className="text-sm text-fg-muted">No projects yet.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[44rem] text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-border-subtle text-xs text-fg-muted">
-                      <th className="pb-2 pr-4 font-medium">Project</th>
-                      <th className="pb-2 pr-4 font-medium">Events</th>
-                      <th className="pb-2 pr-4 font-medium">Trend</th>
-                      <th className="pb-2 pr-4 font-medium">Users</th>
-                      <th className="pb-2 pr-4 font-medium">Storage</th>
-                      <th className="pb-2 pr-4 font-medium">Unresolved</th>
-                      <th className="pb-2 pr-4 font-medium">Cap / hr</th>
-                      <th className="pb-2 font-medium">Retention</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table className="min-w-[44rem] text-sm">
+                  <TableHeader className="text-xs text-fg-muted">
+                    <TableRow>
+                      <TableHead className="font-medium">Project</TableHead>
+                      <TableHead className="font-medium">Events</TableHead>
+                      <TableHead className="font-medium">Trend</TableHead>
+                      <TableHead className="font-medium">Users</TableHead>
+                      <TableHead className="font-medium">Storage</TableHead>
+                      <TableHead className="font-medium">Unresolved</TableHead>
+                      <TableHead className="font-medium">Cap / hr</TableHead>
+                      <TableHead className="font-medium">Retention</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {rows.map((row) => (
-                      <tr key={row.project.id} className="border-b border-border-subtle">
-                        <td className="py-3 pr-4">
+                      <TableRow key={row.project.id}>
+                        <TableCell>
                           <p className="font-medium text-fg-primary">{row.project.name}</p>
                           <p className="mt-0.5 font-mono text-2xs text-fg-muted">
                             {row.project.slug ?? row.project.id.slice(0, 8)}
                           </p>
-                        </td>
-                        <td className="py-3 pr-4 font-mono text-xs tabular-nums">
+                        </TableCell>
+                        <TableCell className="font-mono text-xs tabular-nums">
                           {formatCompactCount(row.events_7d)}
-                        </td>
-                        <td className="py-3 pr-4">
+                        </TableCell>
+                        <TableCell>
                           {row.trendBuckets.some((bucket) => bucket.count > 0) ? (
                             <OccurrenceLineChart
                               buckets={row.trendBuckets}
@@ -439,31 +447,31 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
                           ) : (
                             <span className="text-2xs text-fg-muted">—</span>
                           )}
-                        </td>
-                        <td className="py-3 pr-4 font-mono text-xs tabular-nums">
+                        </TableCell>
+                        <TableCell className="font-mono text-xs tabular-nums">
                           {formatCompactCount(row.uniqueUsers)}
-                        </td>
-                        <td className="py-3 pr-4 font-mono text-xs tabular-nums">
+                        </TableCell>
+                        <TableCell className="font-mono text-xs tabular-nums">
                           {formatStorage(row.storageBytes)}
-                        </td>
-                        <td className="py-3 pr-4 font-mono text-xs tabular-nums">
+                        </TableCell>
+                        <TableCell className="font-mono text-xs tabular-nums">
                           {row.unresolved}
-                        </td>
-                        <td className="py-3 pr-4 font-mono text-xs tabular-nums">
+                        </TableCell>
+                        <TableCell className="font-mono text-xs tabular-nums">
                           {row.project.ingest_cap_per_hour.toLocaleString()}
                           {cloud ? (
                             <p className="mt-0.5 font-sans text-2xs text-fg-muted">
                               {Math.round(row.ingestUtilization * 100)}% utilized
                             </p>
                           ) : null}
-                        </td>
-                        <td className="py-3 font-mono text-xs tabular-nums">
+                        </TableCell>
+                        <TableCell className="font-mono text-xs tabular-nums">
                           {row.project.retention_days}d
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>

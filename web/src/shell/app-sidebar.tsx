@@ -24,14 +24,13 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { motion } from "motion/react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { SidebarNavLink, sidebarNavItemClass, sidebarNavIconClass } from "./sidebar-nav-link";
 import { cn } from "../lib/cn";
 import {
   billingPath,
   getNavigationContext,
   isProjectRoute,
-  organizationsPath,
   projectIdFromPath,
   projectPath,
   projectSettingsPath,
@@ -60,6 +59,7 @@ import {
 } from "../ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { useLogout } from "../lib/use-logout";
+import { Badge } from "../ui/badge";
 import { isSharedProjectRole, SharedProjectBadge } from "../ui/shared-project-badge";
 
 export interface AppSidebarProps {
@@ -78,16 +78,14 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
     projectId,
     projects,
     user,
-    organizations,
     currentOrg,
-    switchOrg,
   } = useAppContext();
   const logout = useLogout();
   const viewerRole = user?.role;
 
   const routeProjectId = projectIdFromPath(pathname);
   const safeProjects = Array.isArray(projects) ? projects : [];
-  const safeOrganizations = Array.isArray(organizations) ? organizations : [];
+  const workspaceLabel = currentOrg?.name ?? user?.org_name ?? "Workspace";
 
   const activeProject =
     (inProject && routeProjectId
@@ -110,40 +108,76 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
   // 1. Project Context Navigation Items
   const projectNavItems = activeProject
     ? [
-        { to: projectPath(activeProject.id, "issues"), label: "Issues", icon: CircleDot, end: true },
-        { to: projectPath(activeProject.id, "monitoring"), label: "Monitoring", icon: Activity, end: true },
-        { to: projectPath(activeProject.id, "alerts"), label: "Alerts", icon: Bell, end: true },
-        { to: projectPath(activeProject.id, "releases"), label: "Releases", icon: Package, end: true },
-        { to: projectPath(activeProject.id, "monitors"), label: "Cron Monitors", icon: Clock, end: true },
-        { to: projectSettingsPath(activeProject.id), label: "Project Settings", icon: Settings, end: false },
+        {
+          to: projectPath(activeProject.id, "issues"),
+          label: "Issues",
+          icon: CircleDot,
+          end: false,
+          dataTour: "nav-issues",
+        },
+        {
+          to: projectPath(activeProject.id, "monitoring"),
+          label: "Monitoring",
+          icon: Activity,
+          end: true,
+          dataTour: "nav-monitoring",
+        },
+        {
+          to: projectPath(activeProject.id, "alerts"),
+          label: "Alerts",
+          icon: Bell,
+          end: true,
+          dataTour: "nav-alerts",
+        },
+        {
+          to: projectPath(activeProject.id, "releases"),
+          label: "Releases",
+          icon: Package,
+          end: true,
+          dataTour: "nav-releases",
+        },
+        {
+          to: projectPath(activeProject.id, "monitors"),
+          label: "Cron Monitors",
+          icon: Clock,
+          end: true,
+          dataTour: "nav-cron-monitors",
+        },
+        {
+          to: projectSettingsPath(activeProject.id),
+          label: "Project Settings",
+          icon: Settings,
+          end: false,
+          dataTour: "nav-project-settings",
+        },
       ]
     : [];
 
-  // 2. Organisation Context Navigation Items
+  // 2. Workspace context navigation
   const orgNavItems = [
-    { to: "/", label: "Projects", icon: Layers, end: true, badge: undefined },
+    { to: "/", label: "Projects", icon: Layers, end: true, badge: undefined, dataTour: "nav-projects" },
     {
-      to: organizationsPath(),
-      label: "Organisations",
-      icon: Building2,
+      to: workspacePath("team"),
+      label: "Team",
+      icon: Users,
       end: true,
-      badge: safeOrganizations.length > 0 ? String(safeOrganizations.length) : undefined,
+      badge: undefined,
+      dataTour: "nav-team",
     },
-    { to: workspacePath("team"), label: "Team", icon: Users, end: true, badge: undefined },
-    { to: billingPath(), label: "Usage & Billing", icon: CreditCard, end: true, badge: undefined },
+    {
+      to: billingPath(),
+      label: "Usage & Billing",
+      icon: CreditCard,
+      end: true,
+      badge: undefined,
+      dataTour: "nav-billing",
+    },
     { to: "/org/channels", label: "Output Channels", icon: Radio, end: true, badge: undefined },
-    { to: workspaceSettingsPath(), label: "Org Settings", icon: Settings, end: false, badge: undefined },
+    { to: workspaceSettingsPath(), label: "Workspace Settings", icon: Settings, end: false, badge: undefined },
   ];
 
-  // 3. Main / Global Context Navigation Items
+  // 3. User-scoped routes (e.g. personal settings)
   const globalNavItems = [
-    {
-      to: organizationsPath(),
-      label: "Organisations",
-      icon: Building2,
-      end: true,
-      badge: safeOrganizations.length > 0 ? String(safeOrganizations.length) : undefined,
-    },
     {
       to: userSettingsPath(),
       label: "User Settings",
@@ -187,89 +221,24 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
                 navigate(workspacePath());
               }}
               className="flex items-center gap-1.5 px-2 py-1 text-xs text-fg-muted hover:text-fg-primary h-7 max-w-[130px]"
-              title={`Return to ${currentOrg?.name ?? "Organisation"}`}
+              title={`Return to ${workspaceLabel}`}
             >
               <ArrowLeft size={12} className="shrink-0 text-fg-muted" />
-              <span className="truncate text-2xs font-medium">
-                {currentOrg ? currentOrg.name : "Workspace"}
-              </span>
+              <span className="truncate text-2xs font-medium">{workspaceLabel}</span>
             </Button>
           ) : navContext === "organization" ? (
-            /* In Organisation Context: Organisation Selector Dropdown */
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-fg-primary h-7 max-w-[130px]"
-                  title="Organisation Menu"
-                >
-                  <Building2 size={13} className="text-primary shrink-0" />
-                  <span className="truncate text-xs">
-                    {currentOrg ? currentOrg.name : user?.org_name || "Organisation"}
-                  </span>
-                  <ChevronDown size={11} className="text-fg-muted shrink-0" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64 shadow-lg border border-border-subtle bg-surface-1">
-                <DropdownMenuLabel className="flex items-center justify-between text-2xs uppercase tracking-wider text-fg-muted">
-                  <span>Organisations</span>
-                  <span className="text-[10px] text-fg-muted">{safeOrganizations.length} total</span>
-                </DropdownMenuLabel>
-                <div className="max-h-56 overflow-y-auto divide-y divide-border-subtle/40">
-                  {safeOrganizations.map((org) => {
-                    const isSelected = org.is_current || org.id === user?.org_id;
-                    return (
-                      <DropdownMenuItem
-                        key={org.id}
-                        onSelect={() => void switchOrg(org.id)}
-                        className={cn(
-                          "flex items-center justify-between text-xs py-2 cursor-pointer",
-                          isSelected && "bg-primary/10 font-semibold text-fg-primary",
-                        )}
-                      >
-                        <div className="flex flex-col min-w-0 pr-2">
-                          <div className="flex items-center gap-2">
-                            <span className="size-1.5 rounded-full bg-healthy shrink-0" />
-                            <span className="truncate">{org.name}</span>
-                          </div>
-                          <span className="text-2xs font-mono text-fg-muted capitalize ml-3.5">
-                            {org.role} · {org.member_count} member{org.member_count === 1 ? "" : "s"}
-                          </span>
-                        </div>
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={() => {
-                    onMobileClose?.();
-                    navigate(organizationsPath());
-                  }}
-                  className="text-xs cursor-pointer flex items-center gap-2"
-                >
-                  <Building2 size={13} className="text-fg-muted" />
-                  <span>Manage all organisations</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => {
-                    onMobileClose?.();
-                    navigate(workspaceSettingsPath());
-                  }}
-                  className="text-xs cursor-pointer flex items-center gap-2"
-                >
-                  <Settings size={13} className="text-fg-muted" />
-                  <span>Organisation Settings</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <span
+              className="flex h-7 max-w-[130px] items-center gap-1.5 truncate px-2 py-1 text-xs font-semibold text-fg-primary"
+              title={workspaceLabel}
+            >
+              <Building2 size={13} className="shrink-0 text-primary" />
+              <span className="truncate">{workspaceLabel}</span>
+            </span>
           ) : (
             /* In Main / Global Context: Global Scope Badge */
-            <span className="rounded bg-primary/10 px-2 py-0.5 text-[10px] font-mono font-medium text-primary uppercase">
+            <Badge variant="accent" size="compact" className="font-mono uppercase">
               Global
-            </span>
+            </Badge>
           )}
 
           {onMobileClose ? (
@@ -295,13 +264,11 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
             to={workspacePath()}
             onClick={onMobileClose}
             className="btn-tactile flex w-full items-center justify-between h-8 px-2.5 text-xs font-medium text-fg-primary rounded-md border border-border-subtle bg-surface-1 hover:bg-surface-2 transition-colors shadow-2xs"
-            title={`Active Workspace: ${currentOrg?.name ?? "Organisation"}`}
+            title={`Active workspace: ${workspaceLabel}`}
           >
             <div className="flex min-w-0 items-center gap-2">
               <span className="size-1.5 rounded-full bg-healthy shrink-0" />
-              <span className="truncate font-medium text-xs">
-                {currentOrg ? currentOrg.name : "Workspace"}
-              </span>
+              <span className="truncate font-medium text-xs">{workspaceLabel}</span>
             </div>
             <div className="flex items-center gap-1 text-[11px] text-fg-muted shrink-0">
               <span>Open</span>
@@ -381,6 +348,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
             onMobileClose?.();
             dispatchOpenCommandPalette();
           }}
+          data-tour="command-palette-trigger"
           className="btn-tactile mt-2 flex w-full items-center justify-between h-7 px-2.5 text-2xs text-fg-muted transition-colors hover:text-fg-primary font-normal"
         >
           <span className="flex items-center gap-1.5">
@@ -409,47 +377,23 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
                 {activeProject.name}
               </span>
             </div>
-            <nav className="space-y-0.5">
-              {projectNavItems.map((item) => {
-                const Icon = item.icon;
-                const isExactActive =
-                  pathname === item.to ||
-                  (item.to.endsWith("/issues") && pathname.startsWith(item.to));
-                return (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.end}
-                    data-tour={item.label === "Monitoring" ? "monitoring-nav" : undefined}
-                    onClick={onMobileClose}
-                    className={({ isActive }) =>
-                      cn(
-                        "relative flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-ring select-none",
-                        isActive || isExactActive
-                          ? "text-fg-primary font-semibold"
-                          : "text-fg-muted hover:text-fg-primary hover:bg-surface-2/60",
-                      )
-                    }
-                  >
-                    {({ isActive }) => {
-                      const active = isActive || isExactActive;
-                      return (
-                        <>
-                          {active && (
-                            <motion.div
-                              layoutId="activeNavPill"
-                              className="absolute inset-0 rounded-md bg-surface-2 border-l-2 border-primary"
-                              transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                            />
-                          )}
-                          <Icon size={14} className="relative z-10 shrink-0" strokeWidth={1.8} />
-                          <span className="relative z-10 truncate">{item.label}</span>
-                        </>
-                      );
-                    }}
-                  </NavLink>
-                );
-              })}
+            <nav className="space-y-0.5" aria-label="Project">
+              {projectNavItems.map((item) => (
+                <SidebarNavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  label={item.label}
+                  icon={item.icon}
+                  onClick={onMobileClose}
+                  dataTour={"dataTour" in item ? item.dataTour : undefined}
+                  isAlsoActive={(path, navActive) =>
+                    navActive ||
+                    path === item.to ||
+                    (item.to.endsWith("/issues") && path.startsWith(item.to))
+                  }
+                />
+              ))}
             </nav>
 
             {/* Quick scope return links */}
@@ -458,69 +402,47 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
                 to={workspacePath()}
                 end
                 onClick={onMobileClose}
-                className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-fg-muted hover:text-fg-primary hover:bg-surface-2/60 transition-colors focus-ring select-none"
+                data-tour="nav-all-projects"
+                className={({ isActive }) => sidebarNavItemClass(isActive)}
               >
-                <Layers size={14} className="shrink-0" strokeWidth={1.8} />
-                <span className="truncate">All Projects</span>
-              </NavLink>
-              <NavLink
-                to={organizationsPath()}
-                end
-                onClick={onMobileClose}
-                className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-fg-muted hover:text-fg-primary hover:bg-surface-2/60 transition-colors focus-ring select-none"
-              >
-                <Building2 size={14} className="shrink-0" strokeWidth={1.8} />
-                <span className="truncate">All Organisations</span>
+                {({ isActive }) => (
+                  <>
+                    <Layers
+                      size={14}
+                      className={sidebarNavIconClass(isActive)}
+                      strokeWidth={isActive ? 2.1 : 1.8}
+                    />
+                    <span className="truncate">All Projects</span>
+                  </>
+                )}
               </NavLink>
             </div>
           </div>
         ) : navContext === "organization" ? (
-          /* ORGANISATION CONTEXT NAVIGATION */
+          /* WORKSPACE CONTEXT NAVIGATION */
           <div>
             <p className="px-2.5 pb-1.5 text-[10px] font-semibold tracking-wider text-fg-muted uppercase">
-              {currentOrg ? currentOrg.name : "Organisation"}
+              {workspaceLabel}
             </p>
-            <nav className="space-y-0.5">
-              {orgNavItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.end}
-                    onClick={onMobileClose}
-                    className={({ isActive }) =>
-                      cn(
-                        "relative flex items-center justify-between gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-ring select-none",
-                        isActive
-                          ? "text-fg-primary font-semibold"
-                          : "text-fg-muted hover:text-fg-primary hover:bg-surface-2/60",
-                      )
-                    }
-                  >
-                    {({ isActive }) => (
-                      <>
-                        {isActive && (
-                          <motion.div
-                            layoutId="activeNavPill"
-                            className="absolute inset-0 rounded-md bg-surface-2 border-l-2 border-primary"
-                            transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                          />
-                        )}
-                        <span className="relative z-10 flex items-center gap-2.5 truncate">
-                          <Icon size={14} className="shrink-0" strokeWidth={1.8} />
-                          <span className="truncate">{item.label}</span>
-                        </span>
-                        {item.badge ? (
-                          <span className="relative z-10 rounded bg-surface-2 px-1.5 py-0.2 text-[10px] font-mono text-fg-muted">
-                            {item.badge}
-                          </span>
-                        ) : null}
-                      </>
-                    )}
-                  </NavLink>
-                );
-              })}
+            <nav className="space-y-0.5" aria-label="Workspace">
+              {orgNavItems.map((item) => (
+                <SidebarNavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  label={item.label}
+                  icon={item.icon}
+                  onClick={onMobileClose}
+                  dataTour={"dataTour" in item ? item.dataTour : undefined}
+                  badge={
+                    item.badge ? (
+                      <Badge variant="neutral" size="compact" className="font-mono">
+                        {item.badge}
+                      </Badge>
+                    ) : undefined
+                  }
+                />
+              ))}
             </nav>
           </div>
         ) : (
@@ -528,49 +450,26 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
           <div className="space-y-4">
             <div>
               <p className="px-2.5 pb-1.5 text-[10px] font-semibold tracking-wider text-fg-muted uppercase">
-                Global Context
+                Account
               </p>
-              <nav className="space-y-0.5">
-                {globalNavItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      end={item.end}
-                      onClick={onMobileClose}
-                      className={({ isActive }) =>
-                        cn(
-                          "relative flex items-center justify-between gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-ring select-none",
-                          isActive
-                            ? "text-fg-primary font-semibold"
-                            : "text-fg-muted hover:text-fg-primary hover:bg-surface-2/60",
-                        )
-                      }
-                    >
-                      {({ isActive }) => (
-                        <>
-                          {isActive && (
-                            <motion.div
-                              layoutId="activeNavPill"
-                              className="absolute inset-0 rounded-md bg-surface-2 border-l-2 border-primary"
-                              transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                            />
-                          )}
-                          <span className="relative z-10 flex items-center gap-2.5 truncate">
-                            <Icon size={14} className="shrink-0" strokeWidth={1.8} />
-                            <span className="truncate">{item.label}</span>
-                          </span>
-                          {item.badge ? (
-                            <span className="relative z-10 rounded bg-surface-2 px-1.5 py-0.2 text-[10px] font-mono text-fg-muted">
-                              {item.badge}
-                            </span>
-                          ) : null}
-                        </>
-                      )}
-                    </NavLink>
-                  );
-                })}
+              <nav className="space-y-0.5" aria-label="Workspace">
+                {globalNavItems.map((item) => (
+                  <SidebarNavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    label={item.label}
+                    icon={item.icon}
+                    onClick={onMobileClose}
+                    badge={
+                      item.badge ? (
+                        <Badge variant="neutral" size="compact" className="font-mono">
+                          {item.badge}
+                        </Badge>
+                      ) : undefined
+                    }
+                  />
+                ))}
               </nav>
             </div>
 
@@ -683,16 +582,6 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
             <DropdownMenuItem
               onSelect={() => {
                 onMobileClose?.();
-                navigate(organizationsPath());
-              }}
-              className="text-xs cursor-pointer gap-2"
-            >
-              <Building2 className="h-3.5 w-3.5 text-fg-muted" />
-              <span>Organisations</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => {
-                onMobileClose?.();
                 navigate(workspaceSettingsPath());
               }}
               className="text-xs cursor-pointer gap-2"
@@ -727,18 +616,19 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
       {/* Mobile Drawer Backdrop & Sliding Aside */}
       <div
         className={cn(
-          "fixed inset-0 z-50 bg-overlay backdrop-blur-xs transition-opacity md:hidden",
+          "fixed inset-0 z-[90] bg-overlay backdrop-blur-xs transition-opacity md:hidden",
           mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
         )}
-        onClick={onMobileClose}
-        aria-hidden
+        onClick={() => onMobileClose?.()}
+        aria-hidden={!mobileOpen}
       />
       <aside
         className={cn(
-          "epure-sidebar fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-col border-r border-border-subtle bg-surface-1 shadow-2xl transition-transform duration-200 md:hidden select-none",
-          mobileOpen ? "translate-x-0" : "-translate-x-full",
+          "epure-sidebar fixed inset-y-0 left-0 z-[91] flex h-full w-64 flex-col border-r border-border-subtle bg-surface-1 shadow-2xl transition-transform duration-200 md:hidden select-none",
+          mobileOpen ? "translate-x-0 pointer-events-auto" : "-translate-x-full pointer-events-none",
         )}
         aria-label="Mobile Navigation Sidebar"
+        aria-hidden={!mobileOpen}
       >
         {sidebarContent}
       </aside>

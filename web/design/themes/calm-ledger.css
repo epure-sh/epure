@@ -70,6 +70,22 @@
   --row-padding-y: 0.25rem;
   --unread-bar-width: 2px;
   --chrome-list-width: 100%;
+
+  /* Badge chips — solid fills (Tailwind bridge reads these) */
+  --badge-escalating-bg: #f8dede;
+  --badge-escalating-border: #e5abab;
+  --badge-regression-bg: #f8e8d4;
+  --badge-regression-border: #e5c49a;
+  --badge-healthy-bg: #d8efe6;
+  --badge-healthy-border: #a8d4c4;
+  --badge-info-bg: #dfe8f0;
+  --badge-info-border: #aec4d6;
+  --badge-accent-bg: var(--accent-muted);
+  --badge-accent-border: #c4bff5;
+  --badge-accent-fg: #4338ca;
+
+  --shadow-bevel: inset 0 1px 0 0 oklch(1 0 0 / 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-popover: 0 12px 32px -4px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--border-strong);
 }
 
 /* ==========================================================================
@@ -113,4 +129,19 @@
   --state-hover: oklch(0.210 0.008 250);
   --state-selected: oklch(0.240 0.040 265);
   --state-pressed: oklch(0.170 0.006 250);
+
+  --badge-escalating-bg: oklch(0.28 0.055 28);
+  --badge-escalating-border: oklch(0.4 0.09 28);
+  --badge-regression-bg: oklch(0.3 0.045 75);
+  --badge-regression-border: oklch(0.42 0.08 75);
+  --badge-healthy-bg: oklch(0.29 0.05 152);
+  --badge-healthy-border: oklch(0.4 0.085 152);
+  --badge-info-bg: oklch(0.29 0.04 250);
+  --badge-info-border: oklch(0.4 0.075 250);
+  --badge-accent-bg: var(--accent-muted);
+  --badge-accent-border: oklch(0.36 0.07 265);
+  --badge-accent-fg: oklch(0.78 0.11 265);
+
+  --shadow-bevel: inset 0 1px 0 0 oklch(1 0 0 / 0.1), 0 1px 2px 0 oklch(0 0 0 / 0.35);
+  --shadow-popover: 0 12px 32px -4px oklch(0 0 0 / 0.65), 0 0 0 1px var(--border-strong);
 }

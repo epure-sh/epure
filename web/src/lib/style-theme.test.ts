@@ -10,7 +10,7 @@ import {
   applyStyleTheme,
 } from "./style-theme";
 
-describe("style-theme & dark theme mode", () => {
+describe("style-theme & light/dark theme mode", () => {
   // Mock mock document & localStorage in node environment if needed
   beforeEach(() => {
     const store = new Map<string, string>();
@@ -44,9 +44,12 @@ describe("style-theme & dark theme mode", () => {
     };
   });
 
-  it("defaults to dark theme mode when nothing is stored", () => {
-    assert.equal(getStoredThemeMode(), "dark");
-    assert.equal(getThemeMode(), "dark");
+  it("defaults to light theme mode when nothing is stored", () => {
+    assert.equal(getStoredThemeMode(), "light");
+    initStyleTheme();
+    assert.equal(getThemeMode(), "light");
+    assert.equal(document.documentElement.classList.contains("light"), true);
+    assert.equal(document.documentElement.getAttribute("data-theme"), "light");
   });
 
   it("applies dark mode cleanly to root classes and attributes", () => {
@@ -86,5 +89,12 @@ describe("style-theme & dark theme mode", () => {
     assert.equal(document.documentElement.getAttribute("data-style"), "calm-ledger");
     assert.equal(document.documentElement.classList.contains("dark"), true);
     assert.equal(document.documentElement.getAttribute("data-theme"), "dark");
+  });
+
+  it("initStyleTheme applies light when no theme mode is stored", () => {
+    localStorage.setItem("epure-style-theme", "calm-ledger");
+    initStyleTheme();
+    assert.equal(document.documentElement.classList.contains("light"), true);
+    assert.equal(document.documentElement.getAttribute("data-theme"), "light");
   });
 });

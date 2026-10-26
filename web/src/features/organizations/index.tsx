@@ -271,20 +271,20 @@ export function OrganisationsPage() {
 
           {/* Quick Metrics Badges */}
           <div className="flex flex-wrap items-center gap-2 text-2xs text-fg-muted">
-            <span className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-surface-1 px-2.5 py-1 font-medium text-fg-primary">
+            <Badge variant="neutral" size="sm" className="gap-1.5 font-medium text-fg-primary">
               <Building2 size={12} className="text-primary" />
               <span>{stats.total} total</span>
-            </span>
-            {stats.ownerCount > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-md border border-border-subtle bg-surface-1 px-2 py-1 text-fg-secondary">
-                <span>Owner in {stats.ownerCount}</span>
-              </span>
-            )}
-            {stats.adminCount > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-md border border-border-subtle bg-surface-1 px-2 py-1 text-fg-secondary">
-                <span>Admin in {stats.adminCount}</span>
-              </span>
-            )}
+            </Badge>
+            {stats.ownerCount > 0 ? (
+              <Badge variant="neutral" size="sm" className="text-fg-secondary">
+                Owner in {stats.ownerCount}
+              </Badge>
+            ) : null}
+            {stats.adminCount > 0 ? (
+              <Badge variant="neutral" size="sm" className="text-fg-secondary">
+                Admin in {stats.adminCount}
+              </Badge>
+            ) : null}
           </div>
         </div>
 

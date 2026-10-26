@@ -34,6 +34,9 @@ export function isGoogleSignInVisible(googleEnabled: boolean | undefined): boole
 
 /** True when running the mock-API playground (`npm run dev:playground`). */
 export function isPlaygroundMode(): boolean {
+  if (import.meta.env.VITE_EPURE_PLAYGROUND === "1") {
+    return true;
+  }
   return typeof window !== "undefined" && "__EPURE_PLAYGROUND__" in window;
 }
 

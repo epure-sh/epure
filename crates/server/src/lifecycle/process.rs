@@ -54,15 +54,16 @@ pub async fn after_issue_event(
                 incoming_release.clone(),
             )
             .await?;
-            emit_custom_matches(
-                pool,
-                &issue,
-                &custom_rules,
-                "regression",
-                incoming_release.clone(),
-                None,
-            )
-            .await?;
+        emit_custom_matches(
+            pool,
+            &issue,
+            &custom_rules,
+            "regression",
+            incoming_release.clone(),
+            None,
+            false,
+        )
+        .await?;
         }
     } else if is_new && !snoozed {
         emit_built_in_alert(
@@ -84,6 +85,7 @@ pub async fn after_issue_event(
             "issue_created",
             incoming_release.clone(),
             None,
+            true,
         )
         .await?;
     }
@@ -143,6 +145,7 @@ pub async fn after_issue_event(
                 "velocity_spike",
                 incoming_release.clone(),
                 Some(snap.ratio),
+                false,
             )
             .await?;
         }
@@ -253,10 +256,14 @@ async fn emit_custom_matches(
     kind: &str,
     release: Option<String>,
     velocity_ratio: Option<f64>,
+    is_new_fingerprint: bool,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let environment = issue_environment(issue);
     for rule in rules.iter().filter(|rule| rule.kind == kind) {
         if !alert_rules::rule_matches_environment(rule, environment) {
+            continue;
+        }
+        if !alert_rules::rule_matches_filters(rule, is_new_fingerprint, issue.level.as_deref()) {
             continue;
         }
         if kind == "velocity_spike" {

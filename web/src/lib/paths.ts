@@ -65,6 +65,10 @@ export function projectPath(
   return `/p/${projectId}/${segment}`;
 }
 
+export function projectIssuePath(projectId: string, issueId: string): string {
+  return `/p/${projectId}/issues/${issueId}`;
+}
+
 /** Issues list with a filter query in the URL (Plausible-style shareable state). */
 export function issuesFilterPath(projectId: string, filterQuery: string): string {
   const params = new URLSearchParams();
@@ -98,10 +102,6 @@ export function projectSegmentFromPath(pathname: string): string | null {
 
 export function isGlobalRoute(pathname: string): boolean {
   return (
-    pathname === "/organizations" ||
-    pathname.startsWith("/organizations/") ||
-    pathname === "/orgs" ||
-    pathname.startsWith("/orgs/") ||
     pathname === "/user/settings" ||
     pathname.startsWith("/user/settings/") ||
     pathname === "/user" ||
@@ -113,8 +113,9 @@ export function isWorkspaceRoute(pathname: string): boolean {
   return !isProjectRoute(pathname) && !isGlobalRoute(pathname);
 }
 
+/** @deprecated Single-workspace product — use workspacePath(). */
 export function organizationsPath(): string {
-  return "/organizations";
+  return workspacePath();
 }
 
 export function userSettingsPath(

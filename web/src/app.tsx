@@ -3,7 +3,6 @@ import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
 import { LoginPage } from "./features/auth/login";
 import { AuthorizeView } from "./features/oauth/authorize-view";
 import { DeviceActivateView } from "./features/oauth/device-activate-view";
-import { DesignSystemPlayground } from "./pages/dev/design-system-playground";
 import { AppShell } from "./shell/app-shell";
 import { AuthGuard } from "./shell/auth-guard";
 
@@ -36,14 +35,6 @@ export function App() {
               <ToastProvider>
                 <RouteErrorBoundary title="Epure application error" backHref="/">
                   <Routes>
-                    <Route
-                      path="/dev/ds"
-                      element={
-                        <RouteErrorBoundary title="Design system playground error" backHref="/">
-                          <DesignSystemPlayground />
-                        </RouteErrorBoundary>
-                      }
-                    />
                     <Route
                       path="/embed/monitoring/:token"
                       element={

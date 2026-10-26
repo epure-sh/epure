@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="dark" data-theme="dark">
+<html lang="en" class="light" data-theme="light" data-style="calm-ledger">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,10 +7,17 @@
     <script>
       try {
         const m = localStorage.getItem("epure-theme-mode");
-        if (m === "light") {
-          document.documentElement.classList.remove("dark");
-          document.documentElement.classList.add("light");
-          document.documentElement.setAttribute("data-theme", "light");
+        const style = localStorage.getItem("epure-style-theme") || "calm-ledger";
+        const root = document.documentElement;
+        root.setAttribute("data-style", style === "calm-ledger" ? style : "calm-ledger");
+        if (m === "dark") {
+          root.classList.add("dark");
+          root.classList.remove("light");
+          root.setAttribute("data-theme", "dark");
+        } else {
+          root.classList.add("light");
+          root.classList.remove("dark");
+          root.setAttribute("data-theme", "light");
         }
       } catch {}
     </script>

@@ -65,6 +65,11 @@ export function issueMatchesStatusFilter(
   if (status === "snoozed") {
     return issue.snoozed;
   }
+  if (status === "unresolved") {
+    return (
+      (issue.status === "unresolved" || issue.status === "regression") && !issue.snoozed
+    );
+  }
   if (!LIST_STATUSES.has(status)) {
     return true;
   }

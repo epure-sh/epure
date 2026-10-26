@@ -60,18 +60,18 @@ export const ALERT_VIEW_MODES: {
   },
   {
     value: "unread",
-    label: "Unresolved",
-    description: "Alerts waiting for review",
+    label: "Needs attention",
+    description: "Signals waiting for review",
   },
   {
     value: "resolved",
     label: "Resolved",
-    description: "Alerts marked as acknowledged or read",
+    description: "Alerts you have acknowledged",
   },
   {
     value: "ignored",
     label: "Muted",
-    description: "Muted rules — they will not fire again for that issue",
+    description: "Muted for this issue — no repeat notifications",
   },
 ];
 
@@ -204,6 +204,13 @@ export function getAlertSeverity(kind?: string | null): AlertSeverity {
   return "warning";
 }
 
+export function getAlertPayload(alert?: AlertRow | null): Record<string, unknown> {
+  if (!alert) {
+    return {};
+  }
+  return parsePayload(alert.payload_json);
+}
+
 function parsePayload(payloadJson: unknown): Record<string, unknown> {
   if (!payloadJson) return {};
   if (typeof payloadJson === "string") {
@@ -218,6 +225,112 @@ function parsePayload(payloadJson: unknown): Record<string, unknown> {
     return payloadJson as Record<string, unknown>;
   }
   return {};
+}
+
+export function getAlertPriorityLabel(severity: AlertSeverity): string {
+  return severity === "danger" ? "High" : "Medium";
+}
+
+export function getAlertImpactMetrics(alert?: AlertRow | null): {
+  events: number | null;
+  users: number | null;
+} {
+  if (!alert) {
+    return { events: null, users: null };
+  }
+  const payload = parsePayload(alert.payload_json);
+  let events: number | null =
+    typeof payload.event_count === "number" ? payload.event_count : null;
+  if (events === null && typeof payload.current_window === "number") {
+    events = payload.current_window;
+  }
+  if (events === null && typeof payload.threshold === "number" && alert.kind === "event_milestone") {
+    events = payload.threshold;
+  }
+  const users =
+    typeof payload.unique_user_count === "number" ? payload.unique_user_count : null;
+  return { events, users };
+}
+
+export function getAlertCorrelatedIssueIds(alert?: AlertRow | null): string[] {
+  if (!alert) {
+    return [];
+  }
+  const payload = parsePayload(alert.payload_json);
+  const ids: string[] = [];
+  if (alert.issue_id) {
+    ids.push(alert.issue_id);
+  }
+  if (Array.isArray(payload.issue_ids)) {
+    for (const entry of payload.issue_ids) {
+      if (typeof entry === "string" && entry && !ids.includes(entry)) {
+        ids.push(entry);
+      }
+    }
+  }
+  return ids;
+}
+
+export function getAlertRuleDisplayName(alert?: AlertRow | null): string {
+  if (!alert) {
+    return "Alert";
+  }
+  const payload = parsePayload(alert.payload_json);
+  if (alert.kind === "custom") {
+    const ruleName =
+      typeof payload.rule_name === "string" ? payload.rule_name.trim() : "";
+    if (ruleName) {
+      return ruleName;
+    }
+  }
+  return getAlertRuleName(alert.kind);
+}
+
+export type AlertOutputChannel = {
+  id: string;
+  label: string;
+  detail: string;
+};
+
+export function getAlertOutputChannels(
+  alert?: AlertRow | null,
+  webhookCount?: number | null,
+): AlertOutputChannel[] {
+  if (!alert) {
+    return [];
+  }
+  const channels: AlertOutputChannel[] = [
+    { id: "feed", label: "Alerts feed", detail: "In-app history" },
+  ];
+  const rule = getAlertRule(alert);
+  const webhookEvent = rule?.webhookEvent ?? "";
+  const dispatchesWebhooks =
+    webhookEvent.length > 0 && !webhookEvent.toLowerCase().includes("not dispatched");
+  if (dispatchesWebhooks) {
+    let detail = "Subscribed endpoints";
+    if (webhookCount === 0) {
+      detail = "No endpoints configured";
+    } else if (typeof webhookCount === "number" && webhookCount > 0) {
+      detail = `${webhookCount} endpoint${webhookCount === 1 ? "" : "s"}`;
+    } else if (webhookCount === null) {
+      detail = "Checking endpoints…";
+    }
+    channels.push({ id: "webhooks", label: "Webhooks", detail });
+  }
+  return channels;
+}
+
+export function formatAlertDetailTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return iso;
+  }
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export function getAlertSeverityForAlert(alert?: AlertRow | null): AlertSeverity {
@@ -421,6 +534,63 @@ export function isAlertUnread(alert?: AlertRow | null): boolean {
     return false;
   }
   return !alert.read_at && !alert.ignored;
+}
+
+export type AlertLifecycle = "active" | "acknowledged" | "muted";
+
+/** Unread alerts in the last 30 minutes read as “still firing”; older unread as “fired”. */
+export const ALERT_FIRING_WINDOW_MS = 30 * 60 * 1000;
+
+export type AlertSignalState = "firing" | "fired" | "acknowledged" | "muted";
+
+export function getAlertSignalState(alert: AlertRow, nowMs: number = Date.now()): AlertSignalState {
+  if (alert.ignored) {
+    return "muted";
+  }
+  if (alert.read_at) {
+    return "acknowledged";
+  }
+  const firedMs = new Date(alert.fired_at).getTime();
+  if (Number.isFinite(firedMs) && nowMs - firedMs <= ALERT_FIRING_WINDOW_MS) {
+    return "firing";
+  }
+  return "fired";
+}
+
+export function getAlertSignalStateLabel(state: AlertSignalState): string {
+  switch (state) {
+    case "firing":
+      return "Firing";
+    case "fired":
+      return "Fired";
+    case "acknowledged":
+      return "Resolved";
+    case "muted":
+      return "Muted";
+  }
+}
+
+export function getAlertLifecycle(alert: AlertRow): AlertLifecycle {
+  const state = getAlertSignalState(alert);
+  if (state === "muted") {
+    return "muted";
+  }
+  if (state === "acknowledged") {
+    return "acknowledged";
+  }
+  return "active";
+}
+
+/** Latest `fired_at` per alert kind for configure “last triggered” column. */
+export function buildLastTriggeredByKind(alerts: AlertRow[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const row of alerts) {
+    const existing = map[row.kind];
+    if (!existing || new Date(row.fired_at).getTime() > new Date(existing).getTime()) {
+      map[row.kind] = row.fired_at;
+    }
+  }
+  return map;
 }
 
 export function filterAlertsByViewMode(

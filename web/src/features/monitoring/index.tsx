@@ -18,6 +18,7 @@ import {
 import { formatRelativeTime } from "@/lib/format-time";
 import { formatCompactCount } from "@/lib/format-count";
 import { isDemoProject } from "@/lib/demo-utils";
+import { cn } from "@/lib/utils";
 import { bucketsToTelemetry } from "@/features/org/project-usage";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, Users } from "lucide-react";
 
@@ -150,13 +151,14 @@ export function MonitoringPage({ isEmbed = false }: { isEmbed?: boolean }) {
       <div className="rounded-lg border border-border-subtle bg-surface-1 p-5 shadow-xs">
         <div className="flex items-start gap-3.5">
           <div
-            className={
+            className={cn(
+              "flex size-10 shrink-0 items-center justify-center rounded-full border",
               health === "calm"
-                ? "flex size-10 shrink-0 items-center justify-center rounded-full bg-healthy/15 text-healthy"
+                ? "border-badge-healthy-border bg-badge-healthy-bg text-healthy"
                 : health === "attention"
-                  ? "flex size-10 shrink-0 items-center justify-center rounded-full bg-regression/15 text-regression"
-                  : "flex size-10 shrink-0 items-center justify-center rounded-full bg-escalating/15 text-escalating"
-            }
+                  ? "border-badge-regression-border bg-badge-regression-bg text-regression"
+                  : "border-badge-escalating-border bg-badge-escalating-bg text-escalating",
+            )}
           >
             {health === "calm" ? <CheckCircle2 className="size-5" /> : <AlertTriangle className="size-5" />}
           </div>

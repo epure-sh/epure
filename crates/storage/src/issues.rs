@@ -247,9 +247,13 @@ pub async fn list_issues_filtered(
     }
 
     if let Some(status) = filter.status {
-        bind_index += 1;
-        binds.push(status);
-        query.push_str(&format!(" AND status = ${bind_index}"));
+        if status == "unresolved" {
+            query.push_str(" AND status IN ('unresolved', 'regression')");
+        } else {
+            bind_index += 1;
+            binds.push(status);
+            query.push_str(&format!(" AND status = ${bind_index}"));
+        }
         if filter.snoozed != Some(true) {
             query.push_str(&format!(" AND NOT {SNOOZE_ACTIVE_SQL}"));
         }
@@ -500,6 +504,7 @@ pub struct IssueLifecycleState {
     pub org_id: Uuid,
     pub project_id: Uuid,
     pub title: Option<String>,
+    pub level: Option<String>,
     pub status: String,
     pub release: Option<String>,
     pub environment: Option<String>,
@@ -556,7 +561,7 @@ pub async fn get_issue_by_id(
     let row = sqlx::query_as::<_, IssueLifecycleState>(
         r#"
         SELECT
-            id, org_id, project_id, title, status, release, environment,
+            id, org_id, project_id, title, level, status, release, environment,
             event_count, unique_user_count,
             resolved_in_release, snooze_until, snooze_until_count, snooze_until_users,
             pre_snooze_status

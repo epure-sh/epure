@@ -103,7 +103,7 @@ export function SettingsNav() {
                       cn(
                         "group flex items-start gap-2.5 rounded-md px-2.5 py-2 text-xs transition-colors focus-ring",
                         isActive
-                          ? "bg-primary/10 text-fg-primary font-semibold border-l-2 border-primary"
+                          ? "bg-state-selected text-fg-primary font-semibold border-l-2 border-primary"
                           : "text-fg-muted hover:bg-surface-2 hover:text-fg-primary border-l-2 border-transparent",
                       )
                     }
