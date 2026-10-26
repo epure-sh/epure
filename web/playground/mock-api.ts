@@ -101,6 +101,34 @@ function filterIssues(
 }
 
 let store: MockStore = createStore();
+let mockMonitors = [
+  {
+    id: "mon_nightly",
+    org_id: "org",
+    project_id: projects[0]?.id ?? "acme-web",
+    slug: "nightly-backup",
+    schedule: "0 2 * * *",
+    status: "ok" as const,
+    last_check_in_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+    last_duration_ms: 1240,
+    environment: "production",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "mon_billing",
+    org_id: "org",
+    project_id: projects[0]?.id ?? "acme-web",
+    slug: "billing-sync",
+    schedule: "*/15 * * * *",
+    status: "missed" as const,
+    last_check_in_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    last_duration_ms: 820,
+    environment: "production",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
 let teamMembers: MemberRow[] = clone(members);
 let teamInvitations: InvitationRow[] = clone(invitations);
 let mockProjects: ProjectRow[] = clone(projects);
@@ -545,6 +573,35 @@ function handleGet(path: string, url: URL): Response {
     });
   }
 
+  if (path === "/api/v1/monitors") {
+    const projectId = url.searchParams.get("project_id") ?? "";
+    return jsonResponse({
+      monitors: mockMonitors.filter((row) => !projectId || row.project_id === projectId),
+    });
+  }
+
+  const monitorMatch = path.match(/^\/api\/v1\/monitors\/([^/]+)$/);
+  if (monitorMatch) {
+    const monitor = mockMonitors.find((row) => row.id === monitorMatch[1]);
+    if (!monitor) return jsonResponse({ error: "not found" }, 404);
+    return jsonResponse({
+      monitor,
+      check_ins: [
+        {
+          id: "ci_1",
+          monitor_id: monitor.id,
+          project_id: monitor.project_id,
+          org_id: monitor.org_id,
+          check_in_id: "chk_1",
+          status: monitor.status,
+          duration_ms: monitor.last_duration_ms,
+          environment: monitor.environment,
+          created_at: monitor.last_check_in_at ?? new Date().toISOString(),
+        },
+      ],
+    });
+  }
+
   return jsonResponse({ error: "not found" }, 404);
 }
 
@@ -737,8 +794,9 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
 
   if (path === "/api/v1/issues/trends") {
     const issueIds = (body.issue_ids ?? []) as string[];
-    const bucketCount = 30;
-    const bucketMs = 24 * 60 * 60 * 1000;
+    const trendWindow = typeof body.window === "string" ? body.window : "30d";
+    const bucketCount = trendWindow === "24h" ? 24 : trendWindow === "7d" ? 7 : trendWindow === "14d" ? 14 : trendWindow === "90d" ? 90 : 30;
+    const bucketMs = trendWindow === "24h" ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
     const now = Date.now();
     const dayStarts = Array.from({ length: bucketCount }, (_, index) => {
       const start = new Date(now - (bucketCount - 1 - index) * bucketMs);
@@ -966,6 +1024,24 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
     }, 201);
   }
 
+  if (path === "/api/v1/monitors") {
+    const monitor = {
+      id: crypto.randomUUID(),
+      org_id: "org",
+      project_id: String(body.project_id ?? projects[0]?.id ?? ""),
+      slug: String(body.slug ?? "monitor"),
+      schedule: body.schedule ? String(body.schedule) : null,
+      status: "ok" as const,
+      last_check_in_at: null,
+      last_duration_ms: null,
+      environment: body.environment ? String(body.environment) : null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    mockMonitors = [monitor, ...mockMonitors];
+    return jsonResponse(monitor, 201);
+  }
+
   return jsonResponse({ error: "not found" }, 404);
 }
 
@@ -993,6 +1069,12 @@ async function handleDelete(path: string, init: RequestInit): Promise<Response> 
   const alertRuleMatch = path.match(/^\/api\/v1\/alert-rules\/([^/]+)$/);
   if (alertRuleMatch) {
     store.alertRules = store.alertRules.filter((row) => row.id !== alertRuleMatch[1]);
+    return jsonResponse({ deleted: true });
+  }
+
+  const monitorDelete = path.match(/^\/api\/v1\/monitors\/([^/]+)$/);
+  if (monitorDelete) {
+    mockMonitors = mockMonitors.filter((row) => row.id !== monitorDelete[1]);
     return jsonResponse({ deleted: true });
   }
 

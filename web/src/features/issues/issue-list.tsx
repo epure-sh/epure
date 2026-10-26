@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Empty } from "../../ui/empty";
 import { IssueRowShell } from "@/components/kit/issue-row-shell";
 import { IssueListColumnHeader } from "./issue-list-column-header";
-import { IssuePriorityIcon } from "../../ui/issue-priority";
+import { Badge } from "@/components/ui/badge";
 import { OccurrenceLineChart } from "../../ui/occurrence-line-chart";
+import { resolveIssuePriority } from "../../ui/issue-priority";
 import { formatCompactCount } from "../../lib/format-count";
 import { formatAge } from "../../lib/format-time";
 import { copyText } from "../../lib/copy-text";
@@ -46,6 +47,7 @@ export interface IssueListProps {
   compact?: boolean;
   filtersActive?: boolean;
   onResetFilters?: () => void;
+  windowLabel?: string;
   isIssueUnread?: (issue: IssueSummary) => boolean;
   trendBucketsByIssueId?: Record<string, TimelineBucket[]>;
 }
@@ -73,6 +75,7 @@ export function IssueList({
   compact = false,
   filtersActive = false,
   onResetFilters,
+  windowLabel = "7d",
   isIssueUnread: _isIssueUnread,
   trendBucketsByIssueId = {},
 }: IssueListProps) {
@@ -289,6 +292,7 @@ export function IssueList({
           selectAllChecked={selectAllChecked}
           selectAllIndeterminate={selectAllIndeterminate}
           onToggleSelectAll={onToggleSelectAll}
+          windowLabel={windowLabel}
         />
 
         {isEmpty ? (
@@ -305,6 +309,8 @@ export function IssueList({
           const buckets = trendBucketsByIssueId[issue.id] ?? [];
           const trendStatus = inferTrendStatus(issue, buckets);
           const isEscalating = Boolean(issue.is_escalating_3d || trendStatus === "escalating");
+          const windowEvents = buckets.reduce((sum, bucket) => sum + bucket.count, 0);
+          const priority = resolveIssuePriority(issue.level, issue.status);
 
           // Quick Action buttons on hover/focus (Sprint 4: Resolve, Snooze, Ask Agent)
           const quickActions = (
@@ -373,25 +379,27 @@ export function IssueList({
                 selected={checked || rowSelected}
                 onSelectChange={() => onToggleSelect(issue.id)}
                 escalating={isEscalating}
+                priority={priority}
                 statusBadge={
-                  <IssuePriorityIcon
-                    level={issue.level}
-                    status={issue.status}
-                    size={14}
-                  />
+                  issue.status === "regression" ? (
+                    <Badge variant="regression" size="sm">Came back</Badge>
+                  ) : issue.snoozed ? (
+                    <Badge variant="info" size="sm">Snoozed</Badge>
+                  ) : null
                 }
                 title={shortTitle}
                 subtitle={subtitle || issueLocationHint(issue)}
                 sparkline={
                   <OccurrenceLineChart
                     buckets={buckets}
-                    height={18}
-                    className="w-[72px]"
+                    height={22}
+                    className="w-24"
                   />
                 }
-                eventsCount={formatCompactCount(issue.event_count)}
+                eventsCount={buckets.length > 0 ? formatCompactCount(windowEvents) : formatCompactCount(issue.event_count)}
                 usersCount={formatCompactCount(issue.unique_user_count)}
                 timeAgo={issue.last_seen_at ? formatAge(issue.last_seen_at) : "—"}
+                age={issue.first_seen_at ? formatAge(issue.first_seen_at) : "—"}
                 onClick={() => onSelect(issue.id)}
                 actions={quickActions}
               />

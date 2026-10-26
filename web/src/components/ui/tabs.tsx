@@ -3,7 +3,7 @@ import * as React from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { cn } from "@/lib/utils";
 
-export type TabsVariant = "default" | "line";
+export type TabsVariant = "default" | "line" | "folder";
 
 interface TabsContextValue {
   variant: TabsVariant;
@@ -49,7 +49,9 @@ export function TabsList({
       className={cn(
         variant === "line"
           ? "inline-flex items-center gap-1 border-b border-border/80 bg-transparent p-0 text-fg-muted"
-          : "inline-flex h-8 items-center justify-center rounded-control bg-surface-2 p-0.5 text-fg-muted",
+          : variant === "folder"
+            ? "flex h-9 items-end gap-1 border-b border-border-subtle bg-surface-2 px-2 pt-1 text-fg-muted"
+            : "inline-flex h-8 items-center justify-center rounded-control bg-surface-2 p-0.5 text-fg-muted",
         className
       )}
       {...props}
@@ -76,7 +78,9 @@ export function TabsTrigger({
         "inline-flex items-center justify-center whitespace-nowrap text-xs font-medium transition-all select-none cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong disabled:pointer-events-none disabled:opacity-40",
         variant === "line"
           ? "rounded-none border-b-2 border-transparent px-3 py-1.5 text-fg-muted hover:text-fg-primary data-[state=active]:border-accent data-[state=active]:text-fg-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-          : "rounded-xs px-2.5 py-1 text-fg-secondary hover:text-fg-primary data-[state=active]:bg-surface-1 data-[state=active]:text-fg-primary data-[state=active]:shadow-tactile",
+          : variant === "folder"
+            ? "-mb-px rounded-t-md border border-transparent px-3 py-1.5 text-fg-muted hover:text-fg-primary data-[state=active]:border-border-subtle data-[state=active]:border-b-surface-1 data-[state=active]:bg-surface-1 data-[state=active]:font-semibold data-[state=active]:text-fg-primary"
+            : "rounded-xs px-2.5 py-1 text-fg-secondary hover:text-fg-primary data-[state=active]:bg-surface-1 data-[state=active]:text-fg-primary data-[state=active]:shadow-tactile",
         className
       )}
       {...props}

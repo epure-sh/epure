@@ -47,6 +47,7 @@ struct IssuesResponse {
 #[derive(Deserialize)]
 struct IssueTrendsBody {
     issue_ids: Vec<Uuid>,
+    window: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -145,7 +146,12 @@ async fn issue_trends(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    let trends = events::list_issue_trends(&state.pools.app, dashboard.org_id, &body.issue_ids)
+    let trends = events::list_issue_trends(
+        &state.pools.app,
+        dashboard.org_id,
+        &body.issue_ids,
+        body.window.as_deref(),
+    )
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 

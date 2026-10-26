@@ -111,6 +111,7 @@ export interface IssueListTrend {
 
 export async function fetchIssueTrends(
   issueIds: string[],
+  window?: string,
 ): Promise<Record<string, TimelineBucket[]>> {
   if (issueIds.length === 0) {
     return {};
@@ -118,7 +119,7 @@ export async function fetchIssueTrends(
 
   const body = await apiFetch<{ trends: IssueListTrend[] }>("/api/v1/issues/trends", {
     method: "POST",
-    body: JSON.stringify({ issue_ids: issueIds }),
+    body: JSON.stringify({ issue_ids: issueIds, window }),
   });
 
   return Object.fromEntries(

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
-import { fetchAlerts, fetchWebhooks, patchAlert, simulateAlert, type AlertRow } from "../../lib/api";
+import { fetchAlerts, fetchWebhooks, patchAlert, type AlertRow } from "../../lib/api";
 import { projectPath, projectSettingsPath } from "../../lib/paths";
 import { useAppContext } from "../../shell/app-context";
 import { ActionButton } from "../../ui/action-button";
@@ -11,7 +11,7 @@ import { PageShell } from "@/components/kit/page-shell";
 import { CardRowSkeleton } from "../../ui/skeleton";
 import { useToast } from "../../ui/toast-provider";
 import { AlertListRow } from "./alert-row";
-import { AlertBuilder } from "./alert-builder";
+import { AlertRulesManager } from "./alert-rules-manager";
 import {
   ALERT_VIEW_MODES,
   countAlertsForViewModes,
@@ -63,11 +63,10 @@ export function AlertsPage() {
   const [timeWindow, setTimeWindow] = useState<AlertTimeWindow>(preferences.defaultTimeWindow);
   const [kindFilter, setKindFilter] = useState<AlertKindFilter>("all");
   const [sort, setSort] = useState<AlertSort>("newest");
-  const [simulating, setSimulating] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [isCreatingRule, setIsCreatingRule] = useState(false);
+  const [section, setSection] = useState<"rules" | "history">("rules");
 
   const safeProjects = Array.isArray(projects) ? projects : [];
   const activeProject = useMemo(() => {
@@ -146,20 +145,6 @@ export function AlertsPage() {
     const next = { ...preferences, defaultTimeWindow: nextTimeWindow };
     setPreferences(next);
     saveAlertsPreferences(next);
-  };
-
-  const handleSimulateAlert = async () => {
-    if (!activeProjectId || simulating) return;
-    setSimulating(true);
-    try {
-      await simulateAlert(activeProjectId, kindFilter !== "all" ? kindFilter : undefined);
-      toast("Test alert simulated");
-      await loadAlerts();
-    } catch {
-      toast("Failed to simulate alert");
-    } finally {
-      setSimulating(false);
-    }
   };
 
   const handleResetFilters = () => {
@@ -303,24 +288,23 @@ export function AlertsPage() {
   return (
     <PageShell
       title="Alerts"
-      description="Triage spikes, regressions, and thresholds. Ignore mutes that rule for the issue."
+      description="Rules say when to notify you. History shows what actually fired."
       actions={
         activeProjectId ? (
           <div className="flex items-center gap-2">
             <Button
-              variant={isCreatingRule ? "outline" : "primary"}
+              variant={section === "rules" ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => setIsCreatingRule(!isCreatingRule)}
+              onClick={() => setSection("rules")}
             >
-              {isCreatingRule ? "Close Builder" : "+ New Alert Rule"}
+              Rules
             </Button>
             <Button
-              variant="secondary"
+              variant={section === "history" ? "secondary" : "ghost"}
               size="sm"
-              disabled={simulating}
-              onClick={() => void handleSimulateAlert()}
+              onClick={() => setSection("history")}
             >
-              {simulating ? "Simulating…" : "Simulate Alert"}
+              History
             </Button>
             {canManageWebhooks ? (
               <Button variant="secondary" size="sm" asChild>
@@ -355,19 +339,14 @@ export function AlertsPage() {
         </FeedListBody>
       ) : (
         <>
-          {isCreatingRule && (
-            <div className="border-b border-border-subtle bg-surface-base p-4 md:p-6">
-              <AlertBuilder
-                projectId={activeProjectId}
-                onSuccess={() => {
-                  setIsCreatingRule(false);
-                  void loadAlerts();
-                }}
-                onCancel={() => setIsCreatingRule(false)}
-              />
+          {section === "rules" ? (
+            <div className="px-4 py-4 md:px-6">
+              <AlertRulesManager projectId={activeProjectId} canManage={canManageWebhooks} />
             </div>
-          )}
+          ) : null}
 
+          {section === "history" ? (
+          <>
           <AlertsToolbar
             viewMode={viewMode}
             onViewModeChange={handleViewModeChange}
@@ -410,20 +389,8 @@ export function AlertsPage() {
                 description="Alerts fire when event velocity spikes, a resolved exception comes back, or volume thresholds are crossed."
               >
                 <div className="flex flex-wrap items-center justify-center gap-2">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    disabled={simulating}
-                    onClick={() => void handleSimulateAlert()}
-                  >
-                    {simulating ? "Simulating…" : "Simulate Alert"}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setIsCreatingRule(true)}
-                  >
-                    + New Alert Rule
+                  <Button variant="primary" size="sm" onClick={() => setSection("rules")}>
+                    Create alert
                   </Button>
                   {canManageWebhooks ? (
                     <Button variant="ghost" size="sm" asChild>
@@ -518,6 +485,8 @@ export function AlertsPage() {
             webhookCount={webhookCount}
             canManageWebhooks={canManageWebhooks}
           />
+          </>
+          ) : null}
         </>
       )}
     </PageShell>

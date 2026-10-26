@@ -1,4 +1,5 @@
 import { Checkbox } from "@/components/ui/checkbox";
+import { ISSUE_ROW_GRID } from "@/components/kit/issue-row-shell";
 import { cn } from "@/lib/utils";
 
 export interface IssueListColumnHeaderProps {
@@ -6,31 +7,32 @@ export interface IssueListColumnHeaderProps {
   selectAllChecked?: boolean;
   selectAllIndeterminate?: boolean;
   onToggleSelectAll?: () => void;
+  /** Active time filter, used as the trend and events column label. */
+  windowLabel?: string;
   className?: string;
 }
 
 /**
- * Sticky column labels for the issues feed grid; perfectly aligned with `IssueRowShell`
- * CSS Grid tracks: `grid-cols-[16px_auto_1fr_auto_80px_60px_80px] gap-3 px-3` (0px layout shift).
+ * Sticky column labels aligned with `IssueRowShell` tracks so checkbox clicks shift 0 pixels.
  */
 export function IssueListColumnHeader({
   selectAllChecked = false,
   selectAllIndeterminate = false,
   onToggleSelectAll,
+  windowLabel = "7d",
   className,
 }: IssueListColumnHeaderProps) {
   return (
     <div
       data-slot="issue-list-column-header"
       className={cn(
-        "sticky top-0 z-10 grid h-8 w-full items-center border-b border-border-subtle bg-surface-2/90 backdrop-blur-xs px-3 text-[11px] font-medium text-fg-muted select-none",
-        "grid-cols-[16px_auto_1fr_auto_80px_60px_80px] gap-3",
-        className
+        "sticky top-0 z-10 grid h-8 w-full items-center border-b border-border-subtle bg-surface-2/90 px-3 text-[11px] font-medium text-fg-muted backdrop-blur-xs select-none",
+        ISSUE_ROW_GRID,
+        className,
       )}
       aria-hidden
     >
-      {/* 1. Checkbox slot */}
-      <div className="flex items-center justify-center size-4 shrink-0">
+      <div className="flex size-4 shrink-0 items-center justify-center">
         {onToggleSelectAll ? (
           <Checkbox
             checked={selectAllIndeterminate ? "indeterminate" : selectAllChecked}
@@ -40,36 +42,15 @@ export function IssueListColumnHeader({
           />
         ) : null}
       </div>
-
-      {/* 2. Priority indicator slot */}
-      <div className="shrink-0 w-3.5 text-center text-[10px]">
-        !
+      <div className="min-w-0 truncate">Issue</div>
+      <div className="text-right">Last seen</div>
+      <div className="text-right">Age</div>
+      <div className="text-right">Trend</div>
+      <div className="text-right tabular-nums" title={`Events in the last ${windowLabel}`}>
+        {windowLabel}
       </div>
-
-      {/* 3. Title column */}
-      <div className="min-w-0 truncate">
-        Issue
-      </div>
-
-      {/* 4. Trend / sparkline column */}
-      <div className="shrink-0 text-right pr-2">
-        30d
-      </div>
-
-      {/* 5. Events count column */}
-      <div className="text-right tabular-nums">
-        Events
-      </div>
-
-      {/* 6. Users count column */}
-      <div className="text-right tabular-nums">
-        Users
-      </div>
-
-      {/* 7. Activity / TimeAgo column */}
-      <div className="text-right tabular-nums">
-        Last seen
-      </div>
+      <div className="text-right">Users</div>
+      <div className="text-right">Priority</div>
     </div>
   );
 }

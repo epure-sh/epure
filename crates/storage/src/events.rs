@@ -606,10 +606,22 @@ fn fill_fixed_hour_buckets(
         .collect()
 }
 
+/// Sparkline window for the issue list. Daily buckets, except 24h which is hourly.
+pub fn list_trend_span(window: Option<&str>) -> (i64, i64) {
+    match window {
+        Some("24h") => (24, 1),
+        Some("7d") => (7 * 24, 24),
+        Some("14d") => (14 * 24, 24),
+        Some("90d") => (90 * 24, 24),
+        _ => (LIST_TREND_WINDOW_HOURS, LIST_TREND_BUCKET_HOURS),
+    }
+}
+
 pub async fn list_issue_trends(
     pool: &PgPool,
     org_id: Uuid,
     issue_ids: &[Uuid],
+    window: Option<&str>,
 ) -> Result<Vec<IssueListTrend>, sqlx::Error> {
     if issue_ids.is_empty() {
         return Ok(Vec::new());
@@ -618,7 +630,9 @@ pub async fn list_issue_trends(
         return Err(sqlx::Error::Protocol("too many issue ids".into()));
     }
 
-    let bucket_seconds = LIST_TREND_BUCKET_HOURS * 3600;
+    let (window_hours, bucket_hours) = list_trend_span(window);
+    let bucket_count = (window_hours / bucket_hours) as usize;
+    let bucket_seconds = bucket_hours * 3600;
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
 
     let rows = sqlx::query_as::<_, IssueListTrendRow>(
@@ -638,7 +652,7 @@ pub async fn list_issue_trends(
     )
     .bind(issue_ids)
     .bind(bucket_seconds as f64)
-    .bind(LIST_TREND_WINDOW_HOURS as i32)
+    .bind(window_hours as i32)
     .fetch_all(&mut *tx)
     .await?;
 
@@ -654,8 +668,8 @@ pub async fn list_issue_trends(
         .map(|issue_id| IssueListTrend {
             issue_id: *issue_id,
             buckets: fill_fixed_hour_buckets(
-                LIST_TREND_BUCKET_HOURS,
-                LIST_TREND_BUCKET_COUNT,
+                bucket_hours,
+                bucket_count,
                 grouped.remove(issue_id).unwrap_or_default(),
             ),
         })

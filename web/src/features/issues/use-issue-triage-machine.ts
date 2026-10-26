@@ -323,7 +323,7 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
       });
 
       try {
-        const trends = await fetchIssueTrends(rows.map((row) => row.id));
+        const trends = await fetchIssueTrends(rows.map((row) => row.id), window);
         if (requestId === loadRequestRef.current) {
           setIssueTrends(trends);
         }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BellRing, Check, ExternalLink, EyeOff, GitBranch, RotateCcw, Sparkles } from "lucide-react";
+import { BellRing, Check, RotateCcw, Sparkles } from "lucide-react";
 import { Navigate, useParams } from "react-router-dom";
 import { setupNeedsWizard } from "../../lib/api";
 import { projectPath } from "../../lib/paths";
@@ -31,7 +31,6 @@ import {
   canResolveIssue,
 } from "./issue-triage-utils";
 import {
-  buildIssueAiClipboard,
   copyBulkIssueExport,
   copyIssueExport,
   useExportHotkey,
@@ -159,7 +158,7 @@ export function IssuesPage() {
     [issues, selectedIssues, toast],
   );
 
-  const openMoreGrouping = useCallback(() => setDetailTab("more"), []);
+  const openMoreGrouping = useCallback(() => setDetailTab("stack"), []);
 
   const handleConfirmResolveWithAi = useCallback(async () => {
     const eligible = selectedIssues.filter((issue) => canIgnoreIssue(issue.status));
@@ -215,50 +214,6 @@ export function IssuesPage() {
     );
   }, [scopedProjectId, selectedEvent, selectedIssue]);
 
-  const handleCreateGitHubIssue = useCallback(async () => {
-    if (!selectedIssue) return;
-    const title = `[Bug] ${selectedIssue.title ?? "Production Exception"}`;
-    const issueUrl = scopedProjectId
-      ? `${window.location.origin}/p/${scopedProjectId}/issues?issue=${selectedIssue.id}`
-      : `${window.location.origin}/issues?issue=${selectedIssue.id}`;
-    const brief = buildIssueAiClipboard(selectedIssue, selectedEvent, issueUrl);
-    await copyIssueExport(selectedIssue, selectedEvent, issueUrl);
-
-    const storageKey = `epure:github_repo:${scopedProjectId ?? "default"}`;
-    let repo = localStorage.getItem(storageKey);
-    if (!repo) {
-      const input = window.prompt("Enter your GitHub repository (owner/repo):", "");
-      if (input && input.trim()) {
-        repo = input.trim().replace(/^https?:\/\/github\.com\//, "").replace(/\/+$/, "");
-        try {
-          localStorage.setItem(storageKey, repo);
-        } catch {}
-      }
-    }
-
-    if (repo) {
-      toast("Diagnostic brief copied to clipboard (⌘⇧C)! Opening GitHub Issue...");
-      const url = `https://github.com/${repo}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(brief.slice(0, 3000))}`;
-      window.open(url, "_blank", "noopener,noreferrer");
-    } else {
-      toast("Diagnostic brief copied to clipboard (⌘⇧C) — paste into your GitHub issue");
-      window.open("https://github.com", "_blank", "noopener,noreferrer");
-    }
-  }, [scopedProjectId, selectedEvent, selectedIssue, toast]);
-
-  const handleCreateLinearIssue = useCallback(async () => {
-    if (!selectedIssue) return;
-    const title = `[Bug] ${selectedIssue.title ?? "Production Exception"}`;
-    const issueUrl = scopedProjectId
-      ? `${window.location.origin}/p/${scopedProjectId}/issues?issue=${selectedIssue.id}`
-      : `${window.location.origin}/issues?issue=${selectedIssue.id}`;
-    const brief = buildIssueAiClipboard(selectedIssue, selectedEvent, issueUrl);
-    await copyIssueExport(selectedIssue, selectedEvent, issueUrl);
-    toast("Diagnostic brief copied to clipboard (⌘⇧C)! Opening Linear...");
-    const url = `https://linear.app/new?title=${encodeURIComponent(title)}&description=${encodeURIComponent(brief.slice(0, 3000))}`;
-    window.open(url, "_blank", "noopener,noreferrer");
-  }, [scopedProjectId, selectedEvent, selectedIssue, toast]);
-
   useExportHotkey(
     Boolean(selectedIssue ?? focusedIssue),
     selectedIssue ?? focusedIssue,
@@ -297,7 +252,7 @@ export function IssuesPage() {
           }
         },
         exportSelected: handleExport,
-        openDiff: () => setDetailTab("more"),
+        openDiff: () => setDetailTab("stack"),
         mergeSelected: () => void handleMerge(),
       },
     });
@@ -403,56 +358,56 @@ export function IssuesPage() {
             ) : null}
           </>
         }
+        onPrevious={() => handleMoveSelection("up")}
+        onNext={() => handleMoveSelection("down")}
+        hasPrevious={issues.findIndex((issue) => issue.id === selectedIssue.id) > 0}
+        hasNext={(() => {
+          const index = issues.findIndex((issue) => issue.id === selectedIssue.id);
+          return index >= 0 && index < issues.length - 1;
+        })()}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <ActionButton
               variant="outline"
               size="sm"
-              className="btn-tactile text-xs font-semibold border-accent/60 bg-accent/15 text-accent hover:bg-accent/25 shadow-xs"
               disabled={actionsDisabled}
-              tooltip="Copy diagnostic brief with stack trace, breadcrumbs & suspect frame (C)"
+              tooltip="Copy a diagnostic brief for your coding agent (C)"
               onClick={handleExport}
             >
-              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-              <span>Ask Agent to Fix (C)</span>
+              <Sparkles className="size-3.5" />
+              <span>Copy for agent</span>
             </ActionButton>
             {canResolveIssue(selectedIssue.status) ? (
               <ActionButton
                 variant="primary"
                 size="sm"
-                className="btn-tactile bg-healthy hover:bg-healthy/90 text-primary-fg font-medium shadow-xs"
                 disabled={actionsDisabled}
-                tooltip={actionsDisabled ? "Saving changes…" : undefined}
                 onClick={() => void handleResolve(selectedIssue.id)}
               >
-                <Check className="mr-1.5 h-3.5 w-3.5 stroke-[2.5]" />
-                <span>{pendingIds.has(selectedIssue.id) ? "Saving…" : "Resolve (R)"}</span>
+                <Check className="size-3.5" />
+                <span>{pendingIds.has(selectedIssue.id) ? "Saving…" : "Resolve"}</span>
               </ActionButton>
             ) : null}
             {canReopenIssue(selectedIssue.status) ? (
               <ActionButton
                 variant="outline"
                 size="sm"
-                className="btn-tactile text-xs font-medium"
                 disabled={actionsDisabled}
-                tooltip={actionsDisabled ? "Saving changes…" : undefined}
                 onClick={() => void handleReopen(selectedIssue.id)}
               >
-                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                <span>{pendingIds.has(selectedIssue.id) ? "Saving…" : "Unresolve"}</span>
+                <RotateCcw className="size-3.5" />
+                <span>{pendingIds.has(selectedIssue.id) ? "Saving…" : "Reopen"}</span>
               </ActionButton>
             ) : null}
             {selectedIssue.snoozed || selectedIssue.status === "snoozed" ? (
               <ActionButton
                 variant="outline"
                 size="sm"
-                className="btn-tactile text-xs font-medium text-accent hover:text-accent"
                 disabled={actionsDisabled}
-                tooltip={actionsDisabled ? "Saving changes…" : undefined}
                 onClick={() => void handleUnsnooze(selectedIssue.id)}
               >
-                <BellRing className="mr-1.5 h-3.5 w-3.5" />
-                <span>Unsnooze (S)</span>
+                <BellRing className="size-3.5" />
+                <span>Unsnooze</span>
               </ActionButton>
             ) : (
               <SnoozeMenu
@@ -460,46 +415,9 @@ export function IssuesPage() {
                 disabled={actionsDisabled}
                 buttonSize="sm"
                 variant="outline"
-                showShortcutHint
-                className="btn-tactile text-xs font-medium"
                 onSnooze={handleSnooze}
               />
             )}
-            <ActionButton
-              variant="outline"
-              size="sm"
-              className="btn-tactile text-xs font-medium"
-              disabled={actionsDisabled}
-              tooltip="Create prefilled GitHub Issue with LLM diagnostic brief (⌘⇧C)"
-              onClick={() => void handleCreateGitHubIssue()}
-            >
-              <GitBranch className="mr-1.5 h-3.5 w-3.5" />
-              <span>GitHub Issue</span>
-            </ActionButton>
-            <ActionButton
-              variant="outline"
-              size="sm"
-              className="btn-tactile text-xs font-medium"
-              disabled={actionsDisabled}
-              tooltip="Create prefilled Linear Issue with LLM diagnostic brief"
-              onClick={() => void handleCreateLinearIssue()}
-            >
-              <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-              <span>Linear Issue</span>
-            </ActionButton>
-            {canIgnoreIssue(selectedIssue.status) ? (
-              <ActionButton
-                variant="ghost"
-                size="sm"
-                className="btn-tactile text-xs text-ink-muted hover:text-ink"
-                disabled={actionsDisabled}
-                tooltip={actionsDisabled ? "Saving changes…" : undefined}
-                onClick={() => void handleIgnore(selectedIssue.id)}
-              >
-                <EyeOff className="mr-1.5 h-3.5 w-3.5" />
-                <span>Ignore (I)</span>
-              </ActionButton>
-            ) : null}
           </div>
         }
         overview={
@@ -682,6 +600,7 @@ export function IssuesPage() {
               onToggleSelectAll={issues.length > 0 ? handleToggleSelectAll : undefined}
               filtersActive={filtersActive}
               onResetFilters={handleResetFilters}
+              windowLabel={timeWindow}
               isIssueUnread={isIssueUnread}
               trendBucketsByIssueId={issueTrends}
             />
