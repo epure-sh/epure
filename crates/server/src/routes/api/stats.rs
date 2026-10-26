@@ -33,14 +33,11 @@ async fn get_stats(
     Extension(dashboard): Extension<DashboardSession>,
     Query(query): Query<StatsQuery>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let project_id = projects::resolve_project_id(
-        &state.pools.app,
-        dashboard.org_id,
-        &query.project_id,
-    )
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-    .ok_or(StatusCode::NOT_FOUND)?;
+    let project_id =
+        projects::resolve_project_id(&state.pools.app, dashboard.org_id, &query.project_id)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+            .ok_or(StatusCode::NOT_FOUND)?;
 
     let project = projects::get_project(&state.pools.app, dashboard.org_id, project_id)
         .await

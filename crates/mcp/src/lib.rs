@@ -453,7 +453,9 @@ impl McpHandler {
             return Err(format!("Epure API returned HTTP {}", res.status()));
         }
 
-        Ok(format!("Issue {issue_id} snoozed successfully (mode: {mode})."))
+        Ok(format!(
+            "Issue {issue_id} snoozed successfully (mode: {mode})."
+        ))
     }
 
     async fn tool_unsnooze_issue(&self, args: Value) -> Result<String, String> {
@@ -507,10 +509,18 @@ impl McpHandler {
                 lines.push("No releases found.".into());
             }
             for item in items {
-                let version = item.get("version").and_then(Value::as_str).unwrap_or("unknown");
+                let version = item
+                    .get("version")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown");
                 let count = item.get("event_count").and_then(Value::as_i64).unwrap_or(0);
-                let first_seen = item.get("first_seen_at").and_then(Value::as_str).unwrap_or("-");
-                lines.push(format!("- [{version}] (events: {count}, first seen: {first_seen})"));
+                let first_seen = item
+                    .get("first_seen_at")
+                    .and_then(Value::as_str)
+                    .unwrap_or("-");
+                lines.push(format!(
+                    "- [{version}] (events: {count}, first seen: {first_seen})"
+                ));
             }
         }
         Ok(lines.join("\n"))

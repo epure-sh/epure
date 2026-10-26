@@ -316,7 +316,13 @@ async fn simulate_alert(
         project_id: None,
         kind: None,
     });
-    simulate_alert_impl(&state, dashboard.org_id, body.project_id.as_deref(), body.kind.as_deref()).await
+    simulate_alert_impl(
+        &state,
+        dashboard.org_id,
+        body.project_id.as_deref(),
+        body.kind.as_deref(),
+    )
+    .await
 }
 
 async fn simulate_project_alert(
@@ -326,7 +332,13 @@ async fn simulate_project_alert(
     Json(body): Json<Option<SimulateAlertBody>>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let kind = body.and_then(|b| b.kind);
-    simulate_alert_impl(&state, dashboard.org_id, Some(&project_ref), kind.as_deref()).await
+    simulate_alert_impl(
+        &state,
+        dashboard.org_id,
+        Some(&project_ref),
+        kind.as_deref(),
+    )
+    .await
 }
 
 async fn simulate_alert_impl(
@@ -337,18 +349,20 @@ async fn simulate_alert_impl(
 ) -> Result<Json<alerts::AlertRow>, StatusCode> {
     let (project_id, project_name) = match project_ref {
         Some(raw) if !raw.trim().is_empty() => {
-            let pid = epure_storage::projects::resolve_project_id(&state.pools.app, org_id, raw.trim())
-                .await
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-                .ok_or(StatusCode::NOT_FOUND)?;
+            let pid =
+                epure_storage::projects::resolve_project_id(&state.pools.app, org_id, raw.trim())
+                    .await
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+                    .ok_or(StatusCode::NOT_FOUND)?;
             let mut tx = epure_storage::rls::begin_org_transaction(&state.pools.app, org_id)
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-            let name: Option<String> = sqlx::query_scalar("SELECT name FROM projects WHERE id = $1")
-                .bind(pid)
-                .fetch_optional(&mut *tx)
-                .await
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let name: Option<String> =
+                sqlx::query_scalar("SELECT name FROM projects WHERE id = $1")
+                    .bind(pid)
+                    .fetch_optional(&mut *tx)
+                    .await
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
             tx.commit()
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -398,7 +412,10 @@ async fn simulate_alert_impl(
 
     let (issue_id, issue_title) = match existing_issue {
         Some((id, title)) => (Some(id), title),
-        None => (None, "CheckoutServiceTimeout: Stripe webhook call timed out after 30s".to_string()),
+        None => (
+            None,
+            "CheckoutServiceTimeout: Stripe webhook call timed out after 30s".to_string(),
+        ),
     };
 
     let issue_id = if alert_kind == "ingest_cap_hit" {
@@ -482,4 +499,3 @@ async fn simulate_alert_impl(
 
     Ok(Json(row))
 }
-

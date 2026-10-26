@@ -321,12 +321,30 @@ mod tests {
         assert_eq!(AlertListFilter::parse(None), AlertListFilter::All);
         assert_eq!(AlertListFilter::parse(Some("all")), AlertListFilter::All);
         assert_eq!(AlertListFilter::parse(Some("ALL")), AlertListFilter::All);
-        assert_eq!(AlertListFilter::parse(Some("unread")), AlertListFilter::Unread);
-        assert_eq!(AlertListFilter::parse(Some("unresolved")), AlertListFilter::Unread);
+        assert_eq!(
+            AlertListFilter::parse(Some("unread")),
+            AlertListFilter::Unread
+        );
+        assert_eq!(
+            AlertListFilter::parse(Some("unresolved")),
+            AlertListFilter::Unread
+        );
         assert_eq!(AlertListFilter::parse(Some("read")), AlertListFilter::Read);
-        assert_eq!(AlertListFilter::parse(Some("resolved")), AlertListFilter::Read);
-        assert_eq!(AlertListFilter::parse(Some("ignored")), AlertListFilter::Ignored);
-        assert_eq!(AlertListFilter::parse(Some("muted")), AlertListFilter::Ignored);
-        assert_eq!(AlertListFilter::parse(Some("unknown")), AlertListFilter::All);
+        assert_eq!(
+            AlertListFilter::parse(Some("resolved")),
+            AlertListFilter::Read
+        );
+        assert_eq!(
+            AlertListFilter::parse(Some("ignored")),
+            AlertListFilter::Ignored
+        );
+        assert_eq!(
+            AlertListFilter::parse(Some("muted")),
+            AlertListFilter::Ignored
+        );
+        assert_eq!(
+            AlertListFilter::parse(Some("unknown")),
+            AlertListFilter::All
+        );
     }
 }

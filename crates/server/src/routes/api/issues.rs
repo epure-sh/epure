@@ -152,8 +152,8 @@ async fn issue_trends(
         &body.issue_ids,
         body.window.as_deref(),
     )
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(IssueTrendsResponse { trends }))
 }
@@ -165,7 +165,9 @@ async fn list_issues(
 ) -> Result<impl IntoResponse, StatusCode> {
     let mut filter = parse_issue_query(query.q.as_deref().unwrap_or_default());
     if let Some(ref raw_id) = query.project_id {
-        if let Ok(Some(pid)) = projects::resolve_project_id(&state.pools.app, dashboard.org_id, raw_id).await {
+        if let Ok(Some(pid)) =
+            projects::resolve_project_id(&state.pools.app, dashboard.org_id, raw_id).await
+        {
             filter.project_id = Some(pid);
         }
     }
