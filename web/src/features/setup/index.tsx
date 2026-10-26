@@ -56,19 +56,7 @@ export function SetupPage() {
         }
       })
       .catch(() => {
-        // Fallback demo key
-        if (!cancelled) {
-          setKeys([
-            {
-              id: "key_demo",
-              project_id: projectId,
-              public_key: "pub_live_9b83f042e12a",
-              label: "default",
-              created_at: new Date().toISOString(),
-              revoked_at: null,
-            },
-          ]);
-        }
+        if (!cancelled) setKeys([]);
       })
       .finally(() => {
         if (!cancelled) setLoadingKeys(false);
@@ -83,7 +71,7 @@ export function SetupPage() {
   const dsnSegment = activeProject ? dsnPathSegment(activeProject) : "1";
   const dsnString = activeKey
     ? formatDsn(activeKey.public_key, dsnSegment)
-    : `https://pub_epure_live@epure.sh/${dsnSegment}`;
+    : "";
 
   const handleSendTestEvent = async () => {
     if (!projectId) return;
@@ -93,9 +81,7 @@ export function SetupPage() {
       setFirstEventReceived(true);
       toast.success("Test exception ingested successfully!");
     } catch {
-      // Local fallback simulation
-      setFirstEventReceived(true);
-      toast.success("Test exception ingested successfully!");
+      toast.error("Test event was not accepted");
     } finally {
       setSendingTestEvent(false);
     }

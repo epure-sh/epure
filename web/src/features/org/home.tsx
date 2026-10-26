@@ -26,7 +26,7 @@ import { ProjectList } from "./project-list";
 
 export function OrgHomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { projects, refreshProjects, user, setProjectId, projectsLoading } = useAppContext();
+  const { projects, refreshProjects, user, setProjectId, projectsLoading, projectsError } = useAppContext();
   const safeProjects = useMemo(() => (Array.isArray(projects) ? projects : []), [projects]);
   const [newProjectName, setNewProjectName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -229,7 +229,9 @@ export function OrgHomePage() {
       <PageChrome
         title="Projects"
         description={
-          projects.length === 0
+          projectsError
+            ? "Could not load projects. Refresh to try again."
+            : projects.length === 0
             ? "Create a project to connect a DSN — or explore Acme preview data."
             : projects.some((project) => project.is_demo)
               ? "Explore the Acme preview projects, or create your own to connect a DSN."

@@ -126,7 +126,7 @@ export function InboundFiltersSettings() {
     } catch {
       // ignore
     }
-    toast(`Inbound filter rule ${next[id] ? "enabled" : "disabled"}`);
+    toast(`Saved in this browser only. Ingest still accepts these events.`);
   }
 
   function handleAddPattern() {

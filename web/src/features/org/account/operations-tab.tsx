@@ -46,16 +46,13 @@ export function OperationsTab() {
   }
 
   function handleRestoreDrill() {
-    setDrillRunning(true);
-    setTimeout(() => {
-      setDrillRunning(false);
-      toast("Disaster Recovery Drill passed: Snapshot verified, zero WAL corruption, RTO < 45s.");
-    }, 1500);
+    setDrillRunning(false);
+    toast("This install has no backup target to drill against.");
   }
 
   function handleSaveS3() {
-    setS3Configured(true);
-    toast("Off-box backup configuration saved. Scheduled nightly at 03:00 UTC.");
+    setS3Configured(false);
+    toast("Backup settings are not stored by this server.");
   }
 
   if (cloud) {

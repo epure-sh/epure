@@ -99,7 +99,7 @@ export function getStoredChannels(): OutputChannel[] {
       }
     }
   } catch {}
-  return DEFAULT_CHANNELS;
+  return [];
 }
 
 export function saveStoredChannels(channels: OutputChannel[]): void {
@@ -225,17 +225,16 @@ export function OrgChannelsPage() {
 
   const handleTestChannel = async (channel: OutputChannel) => {
     setTestingId(channel.id);
-    await new Promise((resolve) => setTimeout(resolve, 400));
     setTestingId(null);
-
+    toast.error(`“${channel.name}” is stored in this browser only. It does not deliver from the server.`);
     const updated = channels.map((c) =>
       c.id === channel.id
         ? {
             ...c,
-            status: "active" as const,
+            status: "failing" as const,
             lastTestStatus: {
-              code: 200,
-              latencyMs: Math.floor(35 + Math.random() * 20),
+              code: 0,
+              latencyMs: 0,
               testedAt: new Date().toISOString(),
             },
           }
@@ -243,7 +242,6 @@ export function OrgChannelsPage() {
     );
     setChannels(updated);
     saveStoredChannels(updated);
-    toast.success(`Test event delivered to ${channel.name} (200 OK in 42ms)`);
   };
 
   const samplePayloadJson = useMemo(() => {

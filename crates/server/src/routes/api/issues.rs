@@ -14,6 +14,7 @@ use epure_storage::projects;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use super::rbac::{require_min_role, Role};
 use crate::state::AppState;
 
 pub fn router(state: Arc<AppState>) -> Router {
@@ -165,8 +166,10 @@ async fn list_issues(
 ) -> Result<impl IntoResponse, StatusCode> {
     let mut filter = parse_issue_query(query.q.as_deref().unwrap_or_default());
     if let Some(ref raw_id) = query.project_id {
-        if let Ok(Some(pid)) = projects::resolve_project_id(&state.pools.app, dashboard.org_id, raw_id).await {
-            filter.project_id = Some(pid);
+        match projects::resolve_project_id(&state.pools.app, dashboard.org_id, raw_id).await {
+            Ok(Some(pid)) => filter.project_id = Some(pid),
+            Ok(None) => return Err(StatusCode::NOT_FOUND),
+            Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
         }
     }
     if let Some(environment) = query.environment {
@@ -188,6 +191,7 @@ async fn patch_issue(
     Path(id): Path<Uuid>,
     Json(body): Json<PatchIssueBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    require_min_role(&dashboard, Role::Member)?;
     if let Some(status) = &body.status {
         if !validate_status(status) {
             return Err(StatusCode::BAD_REQUEST);
@@ -220,6 +224,7 @@ async fn snooze_issue(
     Path(id): Path<Uuid>,
     Json(body): Json<SnoozeBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    require_min_role(&dashboard, Role::Member)?;
     let mode = match body.mode.as_str() {
         "hours" | "4h" => SnoozeMode::Hours4,
         "occurrences" | "100" => SnoozeMode::Occurrences100,
@@ -240,6 +245,7 @@ async fn unsnooze_issue(
     Extension(dashboard): Extension<DashboardSession>,
     Path(id): Path<Uuid>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    require_min_role(&dashboard, Role::Member)?;
     let row = issues::unsnooze_issue(&state.pools.app, dashboard.org_id, id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
@@ -253,6 +259,7 @@ async fn bulk_update(
     Extension(dashboard): Extension<DashboardSession>,
     Json(body): Json<BulkBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    require_min_role(&dashboard, Role::Member)?;
     let status = match body.action.as_str() {
         "resolve" => "resolved",
         "ignore" => "ignored",
@@ -277,6 +284,7 @@ async fn bulk_delete(
     Extension(dashboard): Extension<DashboardSession>,
     Json(body): Json<BulkBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    require_min_role(&dashboard, Role::Admin)?;
     if body.action != "delete" {
         return Err(StatusCode::BAD_REQUEST);
     }
@@ -297,6 +305,7 @@ async fn merge_issues_handler(
     Extension(dashboard): Extension<DashboardSession>,
     Json(body): Json<MergeBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    require_min_role(&dashboard, Role::Admin)?;
     if body.merge_ids.is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
@@ -330,6 +339,7 @@ async fn split_issues_handler(
     Extension(dashboard): Extension<DashboardSession>,
     Json(body): Json<SplitBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    require_min_role(&dashboard, Role::Admin)?;
     if body.split_ids.is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }

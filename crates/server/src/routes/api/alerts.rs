@@ -156,6 +156,7 @@ async fn test_email_alert(
     Extension(dashboard): Extension<DashboardSession>,
     Json(body): Json<Option<TestEmailBody>>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    require_min_role(&dashboard, Role::Admin)?;
     let to_email = body
         .and_then(|b| b.recipient)
         .filter(|e| !e.trim().is_empty())
@@ -312,6 +313,7 @@ async fn simulate_alert(
     Extension(dashboard): Extension<DashboardSession>,
     Json(body): Json<Option<SimulateAlertBody>>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    require_min_role(&dashboard, Role::Admin)?;
     let body = body.unwrap_or(SimulateAlertBody {
         project_id: None,
         kind: None,
@@ -325,6 +327,7 @@ async fn simulate_project_alert(
     Path(project_ref): Path<String>,
     Json(body): Json<Option<SimulateAlertBody>>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    require_min_role(&dashboard, Role::Admin)?;
     let kind = body.and_then(|b| b.kind);
     simulate_alert_impl(&state, dashboard.org_id, Some(&project_ref), kind.as_deref()).await
 }

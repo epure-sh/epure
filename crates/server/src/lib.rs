@@ -105,6 +105,15 @@ pub async fn init_runtime(
         .map(str::to_string)
         .collect::<Vec<_>>();
     epure_storage::reject_insecure_prod_config(&cors_origins)?;
+    if epure_auth::registration_enabled() {
+        let public_url = epure_storage::epure_public_url();
+        let local = public_url.contains("localhost") || public_url.contains("127.0.0.1");
+        if !local {
+            tracing::warn!(
+                "public registration is open at {public_url}. Set EPURE_REGISTRATION=false after the first account is created."
+            );
+        }
+    }
 
     let (ingest_tx, ingest_rx) = mpsc::channel(10_000);
     let spike_valve = SpikeValve::new();

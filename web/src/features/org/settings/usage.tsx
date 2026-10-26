@@ -130,6 +130,7 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
     ReturnType<typeof buildActivityBuckets>
   >([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const cloud = isCloudDeployment();
 
@@ -174,6 +175,7 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
         );
 
         if (!cancelled) {
+          setLoadError(null);
           setRows(usage);
           setActivityBuckets(
             buildActivityBuckets(
@@ -184,6 +186,7 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
         }
       } catch {
         if (!cancelled) {
+          setLoadError("Could not load usage for every project.");
           setRows([]);
           setActivityBuckets([]);
         }
@@ -253,6 +256,7 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
 
   return (
     <div className="space-y-6">
+      {loadError ? <p className="text-sm text-escalating">{loadError}</p> : null}
       <section aria-label="Usage overview">
         {loading ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
