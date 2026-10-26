@@ -24,7 +24,7 @@
 - `PageShell` (`@/components/kit/page-shell`): `title`, `description`, `actions`, `density="standard|full-bleed"`
 - `SectionCard` (`@/components/kit/section-card`): Standard settings/billing panel with header, body, and footer slots
 - `CommandBar` (`@/components/kit/command-bar`): Unified `⌘K` search palette & trigger input
-- `FilterBar` (`@/components/kit/filter-bar`): URL-synced filter pills + leading `[All]` reset button
+- `FilterBar` (`@/components/kit/filter-bar`): URL-synced filter pills + leading `[All]` reset button; optional inline compact search (`search`, `onSearchChange`, `searchPlaceholder`, `searchInputRef`)
 - `IssueRowShell` (`@/components/kit/issue-row-shell`): Locked CSS Grid issue row with escalating 2px indicator bar and zero-shift layout
 - `TelemetryChart` (`@/components/kit/telemetry-chart`): Vercel-style Recharts wrapper with locked dark crosshair tooltip
 - `AskAgentCard` (`@/components/kit/ask-agent-card`): Primary `[Ask Agent]` copy button + secondary `Check docs ↗` link
