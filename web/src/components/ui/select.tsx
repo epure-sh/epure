@@ -47,7 +47,7 @@ export function SelectContent({
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(
-          "relative z-[100] max-h-96 min-w-[8rem] overflow-hidden rounded-control border border-border-strong bg-surface-1 text-fg-primary shadow-float",
+          "relative z-[100] max-h-96 min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-hidden rounded-control border border-border-subtle bg-overlay text-fg-primary shadow-float backdrop-blur-md",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
           className
         )}

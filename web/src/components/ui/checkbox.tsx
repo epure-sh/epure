@@ -16,10 +16,11 @@ export function Checkbox({ className, ...props }: CheckboxProps) {
       className={cn(
         "peer relative inline-flex size-4 shrink-0 items-center justify-center rounded-xs cursor-pointer",
         "border border-border-strong bg-surface-1 text-primary-fg",
-        "transition-colors duration-75 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-fg-primary",
+        "transition-[color,background-color,border-color,box-shadow] duration-150 ease-snap",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong",
         "data-[state=checked]:bg-primary data-[state=checked]:border-primary",
         "data-[state=indeterminate]:bg-primary data-[state=indeterminate]:border-primary",
-        "disabled:cursor-not-allowed disabled:opacity-40",
+        "disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50",
         className
       )}
       {...props}

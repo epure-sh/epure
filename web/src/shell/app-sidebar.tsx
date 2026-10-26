@@ -16,7 +16,6 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { motion } from "motion/react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "../lib/cn";
 import {
@@ -297,29 +296,17 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
                     onClick={onMobileClose}
                     className={({ isActive }) =>
                       cn(
-                        "relative flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-ring select-none",
+                        "flex min-w-0 items-center gap-2 rounded-control px-2 py-1.5 text-[13px] font-medium select-none",
+                        "transition-[color,background-color] duration-150 ease-snap",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong",
                         isActive || isExactActive
-                          ? "text-fg-primary font-semibold"
-                          : "text-fg-muted hover:text-fg-primary hover:bg-surface-2/60",
+                          ? "bg-surface-2 text-fg-primary"
+                          : "text-fg-secondary hover:bg-surface-2/70 hover:text-fg-primary",
                       )
                     }
                   >
-                    {({ isActive }) => {
-                      const active = isActive || isExactActive;
-                      return (
-                        <>
-                          {active && (
-                            <motion.div
-                              layoutId="activeProjectNavPill"
-                              className="absolute inset-0 rounded-md bg-surface-2 border-l-2 border-primary"
-                              transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                            />
-                          )}
-                          <Icon size={14} className="relative z-10 shrink-0" strokeWidth={1.8} />
-                          <span className="relative z-10 truncate">{item.label}</span>
-                        </>
-                      );
-                    }}
+                    <Icon size={15} className="shrink-0" strokeWidth={1.75} />
+                    <span className="min-w-0 truncate">{item.label}</span>
                   </NavLink>
                 );
               })}
@@ -343,26 +330,17 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
                   onClick={onMobileClose}
                   className={({ isActive }) =>
                     cn(
-                      "relative flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-ring select-none",
+                      "flex min-w-0 items-center gap-2 rounded-control px-2 py-1.5 text-[13px] font-medium select-none",
+                      "transition-[color,background-color] duration-150 ease-snap",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-strong",
                       isActive
-                        ? "text-fg-primary font-semibold"
-                        : "text-fg-muted hover:text-fg-primary hover:bg-surface-2/60",
+                        ? "bg-surface-2 text-fg-primary"
+                        : "text-fg-secondary hover:bg-surface-2/70 hover:text-fg-primary",
                     )
                   }
                 >
-                  {({ isActive }) => (
-                    <>
-                      {isActive && (
-                        <motion.div
-                          layoutId="activeOrgNavPill"
-                          className="absolute inset-0 rounded-md bg-surface-2 border-l-2 border-primary"
-                          transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                        />
-                      )}
-                      <Icon size={14} className="relative z-10 shrink-0" strokeWidth={1.8} />
-                      <span className="relative z-10 truncate">{item.label}</span>
-                    </>
-                  )}
+                  <Icon size={15} className="shrink-0" strokeWidth={1.75} />
+                  <span className="min-w-0 truncate">{item.label}</span>
                 </NavLink>
               );
             })}

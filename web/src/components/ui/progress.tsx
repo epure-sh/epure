@@ -27,7 +27,7 @@ export function Progress({
       <div
         data-slot="progress-indicator"
         className={cn(
-          "h-full w-full flex-1 transition-all duration-300",
+          "h-full w-full flex-1 transition-transform duration-150 ease-snap",
           indicatorClassName
         )}
         style={{ transform: `translateX(-${100 - clamped}%)` }}

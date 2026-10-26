@@ -6,16 +6,16 @@
 :root,
 .dark,
 [data-theme="dark"] {
-  /* Architectural Obsidian Surfaces */
-  --surface-canvas: oklch(0.125 0.005 260);
-  --surface-1: oklch(0.155 0.006 260);
-  --surface-2: oklch(0.195 0.008 260);
-  --surface-3: oklch(0.235 0.010 260);
-  --surface-overlay: oklch(0.155 0.006 260 / 0.88);
+  /* Canvas sits behind every panel. Each step is a luminance lift, not a new hue. */
+  --surface-canvas: oklch(0.108 0.004 260);
+  --surface-1: oklch(0.148 0.005 260);
+  --surface-2: oklch(0.188 0.006 260);
+  --surface-3: oklch(0.228 0.007 260);
+  --surface-overlay: oklch(0.172 0.006 260 / 0.92);
 
-  /* Hairline Borders */
-  --border-subtle: oklch(0.225 0.008 260);
-  --border-strong: oklch(0.315 0.012 260);
+  /* Alpha hairlines. Opaque gray borders read as dirt on dark surfaces. */
+  --border-subtle: oklch(1 0 0 / 0.08);
+  --border-strong: oklch(1 0 0 / 0.14);
 
   /* Typography Hierarchy */
   --fg-primary: oklch(0.965 0.003 260);
@@ -34,8 +34,9 @@
   --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 8px;
-  --shadow-bevel: inset 0 1px 0 0 oklch(1 0 0 / 0.10), 0 1px 2px 0 oklch(0 0 0 / 0.35);
-  --shadow-popover: 0 12px 32px -4px oklch(0 0 0 / 0.65), 0 0 0 1px var(--border-strong);
+  --ease-snap: cubic-bezier(0.16, 1, 0.3, 1);
+  --shadow-bevel: inset 0 1px 0 0 oklch(1 0 0 / 0.08), 0 1px 2px 0 oklch(0 0 0 / 0.4);
+  --shadow-popover: 0 12px 32px -8px oklch(0 0 0 / 0.55), 0 0 0 1px var(--border-subtle);
 
   /* Aliases for backwards compatibility during refactor */
   --bg: var(--surface-canvas);
@@ -76,10 +77,10 @@ html[data-theme="light"],
   --surface-1: #ffffff;
   --surface-2: oklch(0.965 0.004 240);
   --surface-3: oklch(0.935 0.005 240);
-  --surface-overlay: oklch(0.985 0.002 240 / 0.88);
+  --surface-overlay: oklch(1 0 0 / 0.94);
 
-  --border-subtle: rgba(26, 22, 18, 0.08);
-  --border-strong: rgba(26, 22, 18, 0.16);
+  --border-subtle: oklch(0 0 0 / 0.07);
+  --border-strong: oklch(0 0 0 / 0.14);
 
   --fg-primary: oklch(0.140 0.008 240);
   --fg-secondary: oklch(0.440 0.012 240);
@@ -92,8 +93,9 @@ html[data-theme="light"],
   --status-healthy: #0d7a62;
   --status-info: #4f6b8a;
 
-  --shadow-bevel: inset 0 1px 0 0 oklch(1 0 0 / 0.40), 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-popover: 0 12px 32px -4px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--border-strong);
+  --ease-snap: cubic-bezier(0.16, 1, 0.3, 1);
+  --shadow-bevel: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.02);
+  --shadow-popover: 0 12px 32px -8px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--border-subtle);
 
   --bg: var(--surface-canvas);
   --bg-subtle: var(--surface-2);
@@ -106,9 +108,9 @@ html[data-theme="light"],
   --text: var(--fg-primary);
   --text-muted: var(--fg-muted);
   --text-subtle: var(--fg-secondary);
-  --accent: #4f46e5;
-  --accent-muted: #eceafd;
-  --accent-contrast: #ffffff;
+  --accent: var(--intent-primary);
+  --accent-muted: var(--surface-3);
+  --accent-contrast: var(--intent-primary-fg);
   --signal: var(--accent);
   --signal-muted: var(--accent-muted);
   --signal-contrast: var(--accent-contrast);
@@ -190,8 +192,9 @@ html[data-theme="light"],
 
   --shadow-tactile: var(--shadow-bevel);
   --shadow-float: var(--shadow-popover);
-  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.15);
-  --shadow-2xs: 0 1px 0 0 rgba(0, 0, 0, 0.10);
+  --shadow-xs: var(--shadow-bevel);
+  --shadow-2xs: var(--shadow-bevel);
+  --ease-snap: cubic-bezier(0.16, 1, 0.3, 1);
 
   --font-sans: "Geist", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
@@ -207,7 +210,11 @@ html[data-theme="light"],
     background-color: var(--surface-canvas);
     color: var(--fg-primary);
     font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.45;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "cv11", "ss01";
   }
   table, time, kbd, code, .tabular-nums {
     font-variant-numeric: tabular-nums;

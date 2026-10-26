@@ -28,7 +28,7 @@ export function SheetOverlay({
 }
 
 const sheetVariants = cva(
-  "fixed z-50 gap-4 bg-surface-1 p-6 shadow-float transition ease-in-out data-[state=closed]:duration-150 data-[state=open]:duration-200 outline-none",
+  "fixed z-50 gap-4 bg-overlay p-6 shadow-float outline-none backdrop-blur-md transition-transform duration-200 ease-snap data-[state=closed]:duration-150 data-[state=open]:duration-200",
   {
     variants: {
       side: {

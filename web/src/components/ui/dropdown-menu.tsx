@@ -65,7 +65,7 @@ export function DropdownMenuContent({
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         className={cn(
-          "z-[100] min-w-[10rem] overflow-hidden rounded-control border border-border-strong bg-surface-1 p-1 text-fg-primary shadow-float",
+          "z-[100] min-w-[10rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-control border border-border-subtle bg-overlay p-1 text-fg-primary shadow-float backdrop-blur-md",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           className
         )}

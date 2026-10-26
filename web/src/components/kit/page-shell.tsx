@@ -23,7 +23,7 @@ export function PageShell({
     <div data-slot="page-shell" className={cn("flex h-full min-h-0 flex-1 flex-col bg-canvas", className)}>
       <header className="flex h-12 shrink-0 items-center justify-between border-b border-border-subtle bg-surface-1/60 px-6">
         <div className="flex items-baseline gap-3 min-w-0">
-          <h1 className="text-sm font-semibold tracking-tight text-fg-primary truncate">
+          <h1 className="truncate text-sm font-semibold tracking-tight text-balance text-fg-primary">
             {title}
           </h1>
           {description && (

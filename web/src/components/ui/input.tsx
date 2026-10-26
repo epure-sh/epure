@@ -6,8 +6,9 @@ import { cn } from "@/lib/utils";
 const inputWrapperVariants = cva(
   [
     "flex w-full items-center gap-2 rounded-control",
-    "text-xs text-fg-primary transition-colors duration-100",
-    "has-[input:disabled]:opacity-40 has-[input:disabled]:pointer-events-none",
+    "text-[13px] text-fg-primary",
+    "transition-[color,background-color,border-color,box-shadow] duration-150 ease-snap",
+    "has-[input:disabled]:opacity-50 has-[input:disabled]:pointer-events-none",
   ],
   {
     variants: {

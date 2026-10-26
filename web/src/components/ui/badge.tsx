@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 export const badgeVariants = cva(
   [
     "inline-flex items-center justify-center font-medium select-none tabular-nums rounded-control",
-    "border transition-colors duration-100",
+    "border transition-[color,background-color,border-color] duration-150 ease-snap",
   ],
   {
     variants: {
