@@ -8,7 +8,9 @@ use axum::{
     Extension, Json, Router,
 };
 use epure_auth::DashboardSession;
-use epure_storage::alert_rules::{self, AlertRuleFilters, CreateAlertRuleParams, UpdateAlertRuleParams};
+use epure_storage::alert_rules::{
+    self, AlertRuleFilters, CreateAlertRuleParams, UpdateAlertRuleParams,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -36,6 +38,8 @@ struct CreateBody {
     kind: String,
     environment: Option<String>,
     threshold: Option<i32>,
+    #[serde(default)]
+    filters_json: Option<AlertRuleFilters>,
     enabled: Option<bool>,
 }
 
@@ -45,6 +49,7 @@ struct UpdateBody {
     enabled: Option<bool>,
     environment: Option<Option<String>>,
     threshold: Option<Option<i32>>,
+    filters_json: Option<AlertRuleFilters>,
 }
 
 #[derive(Serialize)]
@@ -128,9 +133,9 @@ async fn create_rule(
             kind: body.kind,
             environment: normalize_environment(body.environment),
             threshold: body.threshold,
+            filters_json: body.filters_json.unwrap_or_default(),
             enabled: body.enabled.unwrap_or(true),
         },
-            filters_json: body.filters_json.unwrap_or_default(),
     )
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -160,9 +165,9 @@ async fn update_rule(
             enabled: body.enabled,
             environment: body.environment.map(normalize_environment),
             threshold: body.threshold,
+            filters_json: body.filters_json,
         },
     )
-            filters_json: body.filters_json,
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     .ok_or(StatusCode::NOT_FOUND)?;
