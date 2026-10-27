@@ -50,6 +50,7 @@ struct UpdateBody {
     name: Option<String>,
     retention_days: Option<i32>,
     ingest_cap_per_hour: Option<i32>,
+    store_end_user_identifiers: Option<bool>,
 }
 
 fn slugify(name: &str) -> String {
@@ -165,6 +166,7 @@ async fn update_project(
                 .filter(|value| !value.is_empty()),
             retention_days: body.retention_days,
             ingest_cap_per_hour: body.ingest_cap_per_hour,
+            store_end_user_identifiers: body.store_end_user_identifiers,
         },
     )
     .await

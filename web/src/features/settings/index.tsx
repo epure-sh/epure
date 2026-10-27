@@ -7,6 +7,7 @@ import { SettingsNav } from "../../ui/settings-nav";
 import { RouteErrorBoundary } from "../../ui/route-error-boundary";
 import { DsnKeysSettings } from "./dsn-keys";
 import { ProjectGeneralSettings } from "./project-general";
+import { ProjectPrivacySettings } from "./project-privacy";
 import { InboundFiltersSettings } from "./inbound-filters";
 import { AlertRulesSettings } from "./alert-rules";
 import { WebhooksSettings } from "./webhooks";
@@ -31,6 +32,7 @@ export function SettingsPage() {
             <RouteErrorBoundary title="Settings crashed" backHref={projectId ? projectPath(projectId, "issues") : "/"}>
               <Routes>
               <Route index element={<ProjectGeneralSettings />} />
+              <Route path="privacy" element={<ProjectPrivacySettings />} />
               <Route path="filters" element={<InboundFiltersSettings />} />
               <Route path="dsn" element={<DsnKeysSettings />} />
               <Route path="webhooks" element={<WebhooksSettings />} />

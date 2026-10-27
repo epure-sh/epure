@@ -8,6 +8,7 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 ### Added
 
+- Privacy defaults for EU operators: end-user emails and usernames are off unless a project opts in, client IPs are not stored, fonts are self-hosted, and admins can export or erase one person's events. `/privacy` explains the session cookie and which services this instance can contact. See [docs/privacy.md](docs/privacy.md).
 - `./configure --sync-db-passwords` and `scripts/sync-db-passwords.sh` align Postgres role passwords with `.env`.
 - `./configure --prod-rotate-secrets` generates new secrets and applies them when rotating on an existing volume.
 

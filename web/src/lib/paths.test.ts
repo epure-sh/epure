@@ -35,6 +35,7 @@ describe("paths helpers for settings and releases", () => {
     assert.equal(projectPath("proj-123", "releases"), "/p/proj-123/releases");
     assert.equal(projectSettingsPath("proj-123"), "/p/proj-123/settings");
     assert.equal(projectSettingsPath("proj-123", "filters"), "/p/proj-123/settings/filters");
+    assert.equal(projectSettingsPath("proj-123", "privacy"), "/p/proj-123/settings/privacy");
     assert.equal(projectSettingsPath("proj-123", "dsn"), "/p/proj-123/settings/dsn");
   });
 

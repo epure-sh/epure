@@ -11,6 +11,7 @@ pub struct ProjectRow {
     pub slug: Option<String>,
     pub retention_days: i32,
     pub ingest_cap_per_hour: i32,
+    pub store_end_user_identifiers: bool,
     pub is_demo: bool,
     pub created_at: DateTime<Utc>,
 }
@@ -24,6 +25,7 @@ pub struct UpdateProjectParams {
     pub name: Option<String>,
     pub retention_days: Option<i32>,
     pub ingest_cap_per_hour: Option<i32>,
+    pub store_end_user_identifiers: Option<bool>,
 }
 
 /// Plan tier and project count for the current org, read inside an RLS-bound transaction.
@@ -48,7 +50,7 @@ pub async fn list_projects(pool: &PgPool, org_id: Uuid) -> Result<Vec<ProjectRow
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
     let rows = sqlx::query_as::<_, ProjectRow>(
         r#"
-        SELECT id, dsn_project_id, org_id, name, slug, retention_days, ingest_cap_per_hour, is_demo, created_at
+        SELECT id, dsn_project_id, org_id, name, slug, retention_days, ingest_cap_per_hour, store_end_user_identifiers, is_demo, created_at
         FROM projects
         ORDER BY created_at ASC
         "#,
@@ -67,7 +69,7 @@ pub async fn get_project(
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
     let row = sqlx::query_as::<_, ProjectRow>(
         r#"
-        SELECT id, dsn_project_id, org_id, name, slug, retention_days, ingest_cap_per_hour, is_demo, created_at
+        SELECT id, dsn_project_id, org_id, name, slug, retention_days, ingest_cap_per_hour, store_end_user_identifiers, is_demo, created_at
         FROM projects
         WHERE id = $1
         "#,
@@ -116,7 +118,7 @@ pub async fn create_project(
         r#"
         INSERT INTO projects (org_id, name, slug, retention_days, ingest_cap_per_hour, is_demo)
         VALUES ($1, $2, $3, 30, 5000, false)
-        RETURNING id, dsn_project_id, org_id, name, slug, retention_days, ingest_cap_per_hour, is_demo, created_at
+        RETURNING id, dsn_project_id, org_id, name, slug, retention_days, ingest_cap_per_hour, store_end_user_identifiers, is_demo, created_at
         "#,
     )
     .bind(org_id)
@@ -138,7 +140,7 @@ pub async fn update_project(
 
     let current = sqlx::query_as::<_, ProjectRow>(
         r#"
-        SELECT id, dsn_project_id, org_id, name, slug, retention_days, ingest_cap_per_hour, is_demo, created_at
+        SELECT id, dsn_project_id, org_id, name, slug, retention_days, ingest_cap_per_hour, store_end_user_identifiers, is_demo, created_at
         FROM projects
         WHERE id = $1
         "#,
@@ -157,19 +159,23 @@ pub async fn update_project(
     let ingest_cap = params
         .ingest_cap_per_hour
         .unwrap_or(current.ingest_cap_per_hour);
+    let store_identifiers = params
+        .store_end_user_identifiers
+        .unwrap_or(current.store_end_user_identifiers);
 
     let row = sqlx::query_as::<_, ProjectRow>(
         r#"
         UPDATE projects
-        SET name = $2, retention_days = $3, ingest_cap_per_hour = $4
+        SET name = $2, retention_days = $3, ingest_cap_per_hour = $4, store_end_user_identifiers = $5
         WHERE id = $1
-        RETURNING id, dsn_project_id, org_id, name, slug, retention_days, ingest_cap_per_hour, is_demo, created_at
+        RETURNING id, dsn_project_id, org_id, name, slug, retention_days, ingest_cap_per_hour, store_end_user_identifiers, is_demo, created_at
         "#,
     )
     .bind(project_id)
     .bind(name)
     .bind(retention_days)
     .bind(ingest_cap)
+    .bind(store_identifiers)
     .fetch_one(&mut *tx)
     .await?;
 
@@ -189,6 +195,16 @@ pub async fn delete_project(
         .await?;
     tx.commit().await?;
     Ok(result.rows_affected() > 0)
+}
+
+pub async fn ingest_store_end_user_identifiers(
+    pool: &PgPool,
+    project_id: Uuid,
+) -> Result<bool, sqlx::Error> {
+    sqlx::query_scalar("SELECT ingest_store_end_user_identifiers($1)")
+        .bind(project_id)
+        .fetch_one(pool)
+        .await
 }
 
 pub async fn ingest_cap_for_project(pool: &PgPool, project_id: Uuid) -> Result<i32, sqlx::Error> {

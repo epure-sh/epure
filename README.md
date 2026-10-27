@@ -49,6 +49,7 @@ import * as Sentry from "@sentry/node";
 
 Sentry.init({
   dsn: process.env.SENTRY_DSN, // DSN from step 2
+  sendDefaultPii: false,
   tracesSampleRate: 0,
   replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: 0,
@@ -78,6 +79,8 @@ Run `./configure --prod` **before** the first `up`, or after `docker compose …
 `http://YOUR_SERVER:8080` will not keep you signed in. `/health` can still return ok. The browser drops the Secure session cookie and sends you back to the login form with no error. Drop `--profile tls` only when you already terminate HTTPS yourself.
 
 After that account exists, set `EPURE_REGISTRATION=false` and recreate the container. Sign-in stays available. New workspaces cannot be created from the public URL. Invitation links still work.
+
+What this binary stores, and what it refuses to store, is in [docs/privacy.md](docs/privacy.md). The sign-in page links to `/privacy`.
 
 Pin `EPURE_IMAGE` to the current release tag once the URL is public ([Releases](https://github.com/epure-sh/epure/releases) · [Installation](https://epure.sh/docs/self-hosting/installation)).
 

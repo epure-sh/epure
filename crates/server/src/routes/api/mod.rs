@@ -27,6 +27,7 @@ mod members;
 mod monitors;
 pub mod oauth;
 mod pat_scopes;
+mod privacy;
 mod projects;
 mod rbac;
 mod releases;
@@ -37,6 +38,7 @@ mod webhooks;
 pub fn router(state: Arc<AppState>) -> Router {
     let public = Router::new()
         .nest("/auth", auth::router(state.clone()))
+        .merge(privacy::public_router(state.clone()))
         .merge(mcp::router(state.clone()));
 
     let protected = Router::new()
@@ -50,6 +52,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .merge(alert_rules::router(state.clone()))
         .merge(webhooks::router(state.clone()))
         .merge(projects::router(state.clone()))
+        .merge(privacy::protected_router(state.clone()))
         .merge(monitors::router(state.clone()))
         .merge(dsn_keys::router(state.clone()))
         .merge(members::router(state.clone()))

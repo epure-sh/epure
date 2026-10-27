@@ -2,6 +2,7 @@ import { NavLink, useParams } from "react-router-dom";
 import {
   Bell,
   Key,
+  Lock,
   ShieldCheck,
   SlidersHorizontal,
   Webhook,
@@ -30,6 +31,13 @@ const sections: SettingsNavSection[] = [
         description: "Name, retention, environments",
         icon: SlidersHorizontal,
         path: (projectId: string) => projectSettingsPath(projectId),
+      },
+      {
+        id: "privacy",
+        label: "Privacy",
+        description: "Identifiers, export, erasure",
+        icon: Lock,
+        path: (projectId: string) => projectSettingsPath(projectId, "privacy"),
       },
       {
         id: "filters",

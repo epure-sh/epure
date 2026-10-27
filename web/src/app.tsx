@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
 import { LoginPage } from "./features/auth/login";
+import { PrivacyNoticePage } from "./features/privacy/notice";
 import { AuthorizeView } from "./features/oauth/authorize-view";
 import { DeviceActivateView } from "./features/oauth/device-activate-view";
 import { AppShell } from "./shell/app-shell";
@@ -40,6 +41,14 @@ export function App() {
                       element={
                         <RouteErrorBoundary title="Monitoring embed error">
                           <MonitoringPage isEmbed />
+                        </RouteErrorBoundary>
+                      }
+                    />
+                    <Route
+                      path="/privacy"
+                      element={
+                        <RouteErrorBoundary title="Privacy notice error" backHref="/login">
+                          <PrivacyNoticePage />
                         </RouteErrorBoundary>
                       }
                     />

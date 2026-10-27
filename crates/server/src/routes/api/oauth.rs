@@ -1,8 +1,7 @@
-use std::net::SocketAddr;
 use std::sync::Arc;
 
 use axum::{
-    extract::{ConnectInfo, Query, State},
+    extract::{Query, State},
     http::{header, HeaderMap, StatusCode},
     response::IntoResponse,
     routing::{delete, get, post},
@@ -109,16 +108,9 @@ struct TokenResponse {
 
 async fn post_oauth_token(
     State(state): State<Arc<AppState>>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Json(body): Json<TokenRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    let client_ip = headers
-        .get("x-forwarded-for")
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.split(',').next().unwrap_or(s).trim().to_string())
-        .unwrap_or_else(|| addr.ip().to_string());
-
     let user_agent = headers
         .get(header::USER_AGENT)
         .and_then(|v| v.to_str().ok())
@@ -193,7 +185,7 @@ async fn post_oauth_token(
                     client_id: stored_code.client_id,
                     client_name: stored_code.client_name,
                     scopes: stored_code.scopes.clone(),
-                    ip_address: Some(client_ip),
+                    ip_address: None,
                     user_agent,
                     access_token_prefix: access_prefix,
                     access_token_hash: access_hash,
@@ -364,7 +356,7 @@ async fn post_oauth_token(
                             client_id: dev_row.client_id,
                             client_name: dev_row.client_name,
                             scopes: dev_row.scopes.clone(),
-                            ip_address: Some(client_ip),
+                            ip_address: None,
                             user_agent,
                             access_token_prefix: access_prefix,
                             access_token_hash: access_hash,

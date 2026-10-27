@@ -14,7 +14,7 @@ fn cache_control_for(path: &str) -> HeaderValue {
     }
 }
 
-const CONTENT_SECURITY_POLICY: &str = "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+const CONTENT_SECURITY_POLICY: &str = "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 
 fn asset_response(path: &str, content: rust_embed::EmbeddedFile) -> Response {
     let mime = mime_guess::from_path(path).first_or_octet_stream();
@@ -26,6 +26,7 @@ fn asset_response(path: &str, content: rust_embed::EmbeddedFile) -> Response {
         .header("x-content-type-options", "nosniff")
         .header("x-frame-options", "DENY")
         .header("referrer-policy", "no-referrer")
+        .header("permissions-policy", "interest-cohort=()")
         .body(Body::from(content.data.into_owned()))
         .unwrap()
 }

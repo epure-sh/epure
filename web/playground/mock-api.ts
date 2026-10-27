@@ -312,6 +312,59 @@ function handleGet(path: string, url: URL): Response {
     return jsonResponse(me);
   }
 
+  if (path === "/api/v1/privacy") {
+    return jsonResponse({
+      product: "Epure",
+      deployment: "self_host",
+      phone_home: false,
+      analytics: false,
+      session_replay: false,
+      stores_client_ip: false,
+      identifiers_default: "off",
+      default_retention_days: 30,
+      operator_name: "Playground operator",
+      privacy_contact: "privacy@example.com",
+      data_region: "EU",
+      privacy_policy_url: null,
+      dpa_url: null,
+      cookies: [
+        {
+          name: "epure.sid",
+          host_prefix_when_https: "__Host-epure.sid",
+          purpose: "Keep you signed in",
+          necessary: true,
+          duration: "14 days of inactivity",
+          flags: ["HttpOnly", "SameSite=Lax"],
+        },
+      ],
+      subprocessors: [],
+      rights: ["access", "erasure", "rectification", "export"],
+    });
+  }
+
+  const subjectExport = path.match(/^\/api\/v1\/projects\/([^/]+)\/privacy\/export$/);
+  if (subjectExport) {
+    return jsonResponse({
+      project_id: subjectExport[1],
+      total: 0,
+      truncated: false,
+      events: [],
+    });
+  }
+
+  if (path === "/api/v1/auth/account/export") {
+    return jsonResponse({
+      user: {
+        id: me.user_id,
+        email: me.email,
+        display_name: me.display_name,
+        has_password: true,
+      },
+      memberships: [{ org_id: me.org_id, org_name: "Acme Corp", role: me.role }],
+      excluded: ["password_hash", "session_secrets"],
+    });
+  }
+
   if (path === "/api/v1/auth/config") {
     return jsonResponse({
       google_enabled: false,
@@ -755,6 +808,9 @@ async function handlePatch(path: string, init: RequestInit): Promise<Response> {
     if (body.ingest_cap_per_hour !== undefined) {
       project.ingest_cap_per_hour = body.ingest_cap_per_hour;
     }
+    if (body.store_end_user_identifiers !== undefined) {
+      project.store_end_user_identifiers = body.store_end_user_identifiers;
+    }
     return jsonResponse(project);
   }
 
@@ -789,6 +845,24 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
 
   if (path === "/api/v1/auth/logout") {
     return new Response(null, { status: 204 });
+  }
+
+  const eraseRoute = path.match(/^\/api\/v1\/projects\/([^/]+)\/privacy\/erase$/);
+  if (eraseRoute) {
+    return jsonResponse({
+      project_id: eraseRoute[1],
+      events_deleted: 0,
+      feedback_deleted: 0,
+    });
+  }
+
+  const stripRoute = path.match(/^\/api\/v1\/projects\/([^/]+)\/privacy\/strip-identifiers$/);
+  if (stripRoute) {
+    return jsonResponse({
+      project_id: stripRoute[1],
+      events_updated: 0,
+      feedback_cleared: 0,
+    });
   }
 
   if (path === "/api/v1/setup/test-event") {
@@ -1024,6 +1098,7 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
       slug: slug || "project",
       retention_days: 30,
       ingest_cap_per_hour: 5000,
+      store_end_user_identifiers: false,
       is_demo: false,
       created_at: new Date().toISOString(),
       role: me.role,

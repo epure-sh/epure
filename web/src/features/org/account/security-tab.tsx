@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
+import { exportAccount } from "../../../lib/api";
 import type { AccountSettingsContext } from "./use-account-settings";
 import { isCloudDeployment, isGoogleSignInVisible } from "../../../lib/deployment";
 import { Badge } from "../../../ui/badge";
@@ -63,6 +64,7 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordOpen, setPasswordOpen] = useState(false);
 
+  const [exportError, setExportError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteEmail, setDeleteEmail] = useState("");
   const [deletePassword, setDeletePassword] = useState("");
@@ -221,6 +223,50 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
           action={
             <Button variant="secondary" size="sm" onClick={() => void logout()}>
               Log out
+            </Button>
+          }
+        />
+
+        <SettingsRow
+          title="Download my data"
+          description={
+            exportError ??
+            "Account profile and workspace memberships. Passwords and token secrets are not included."
+          }
+          action={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setExportError(null);
+                void exportAccount()
+                  .then((data) => {
+                    const blob = new Blob([JSON.stringify(data, null, 2)], {
+                      type: "application/json",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const anchor = document.createElement("a");
+                    anchor.href = url;
+                    anchor.download = "epure-account.json";
+                    anchor.click();
+                    URL.revokeObjectURL(url);
+                  })
+                  .catch(() => {
+                    setExportError("Could not export your account.");
+                  });
+              }}
+            >
+              Export
+            </Button>
+          }
+        />
+
+        <SettingsRow
+          title="Privacy notice"
+          description="What this instance stores, the session cookie, and who to contact."
+          action={
+            <Button variant="secondary" size="sm" asChild>
+              <Link to="/privacy">Open</Link>
             </Button>
           }
         />
