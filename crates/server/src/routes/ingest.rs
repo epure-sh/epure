@@ -89,7 +89,7 @@ async fn cors_preflight(State(state): State<Arc<AppState>>, headers: HeaderMap) 
 
 async fn post_envelope(
     State(state): State<Arc<AppState>>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    ConnectInfo(_addr): ConnectInfo<SocketAddr>,
     Path(raw_project_id): Path<String>,
     Query(query): Query<IngestQuery>,
     headers: HeaderMap,
@@ -203,7 +203,6 @@ async fn post_envelope(
     accept_payload(
         &state,
         &headers,
-        addr.ip(),
         project_id,
         record.org_id,
         parsed.event_payload,
@@ -386,7 +385,7 @@ async fn post_release_files(
 
 async fn post_store(
     State(state): State<Arc<AppState>>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    ConnectInfo(_addr): ConnectInfo<SocketAddr>,
     Path(raw_project_id): Path<String>,
     Query(query): Query<IngestQuery>,
     headers: HeaderMap,
@@ -430,15 +429,7 @@ async fn post_store(
         }
     };
 
-    accept_payload(
-        &state,
-        &headers,
-        addr.ip(),
-        project_id,
-        record.org_id,
-        payload,
-    )
-    .await
+    accept_payload(&state, &headers, project_id, record.org_id, payload).await
 }
 
 async fn post_user_feedback(
@@ -534,7 +525,6 @@ async fn post_user_feedback(
 async fn accept_payload(
     state: &AppState,
     headers: &HeaderMap,
-    peer: std::net::IpAddr,
     project_id: Uuid,
     org_id: Uuid,
     payload: Vec<u8>,
@@ -545,7 +535,6 @@ async fn accept_payload(
         .get("user-agent")
         .and_then(|value| value.to_str().ok())
         .map(str::to_string);
-    let client_ip = Some(client_ip_from_peer(peer, headers));
     let country_code_hint = country_code_from_headers(headers);
 
     if let Err(response) = check_ingest_plan_limit(state, org_id).await {
@@ -563,7 +552,6 @@ async fn accept_payload(
             fingerprint,
             payload,
             user_agent,
-            client_ip,
             country_code_hint,
         },
         SpikeDecision::CounterOnly => {
@@ -821,16 +809,6 @@ fn country_code_from_headers(headers: &HeaderMap) -> Option<String> {
         .map(str::trim)
         .filter(|code| code.len() == 2)
         .map(|code| code.to_ascii_uppercase())
-}
-
-fn client_ip_from_peer(peer: std::net::IpAddr, headers: &HeaderMap) -> String {
-    let forwarded = headers
-        .get("x-forwarded-for")
-        .and_then(|value| value.to_str().ok());
-    let real_ip = headers
-        .get("x-real-ip")
-        .and_then(|value| value.to_str().ok());
-    crate::rate_limit::client_ip_from_peer(peer, forwarded, real_ip).to_string()
 }
 
 fn allowed_cors_origin(allowed: &[String], origin: Option<&str>) -> Option<String> {

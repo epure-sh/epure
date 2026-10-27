@@ -5,6 +5,7 @@ import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { PrivacyNoticePage } from "../src/features/privacy/notice";
 import { AppShell } from "../src/shell/app-shell";
 import { AppProvider } from "../src/shell/app-context";
 import { ToastProvider } from "../src/ui/toast-provider";
@@ -56,6 +57,7 @@ export function PlaygroundApp() {
                     }
                   />
                   <Route path="/dev/ds" element={<Navigate to="/__design" replace />} />
+                  <Route path="/privacy" element={<PrivacyNoticePage />} />
                   <Route
                     path="/*"
                     element={

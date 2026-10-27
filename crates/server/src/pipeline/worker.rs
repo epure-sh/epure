@@ -1,9 +1,10 @@
 use chrono::{DateTime, Timelike, Utc};
 use epure_demangle::demangle_stack_frames;
 use epure_envelope::{
-    breadcrumbs_to_json, compute_fingerprint, decompress_store_payload, extract_breadcrumbs,
-    normalize_metadata, scrub_event,
+    apply_privacy_policy, breadcrumbs_to_json, compute_fingerprint, decompress_store_payload,
+    extract_breadcrumbs, normalize_metadata, PrivacyPolicy,
 };
+use epure_storage::projects;
 use epure_storage::PgPool;
 use epure_storage::{counters, events, issues, persist, releases, unique_users};
 use serde_json::Value;
@@ -171,7 +172,6 @@ async fn process_job(
             fingerprint: _preview_fingerprint,
             payload,
             user_agent,
-            client_ip,
             country_code_hint,
         } => {
             let payload = decompress_store_payload(&payload)?;
@@ -182,14 +182,29 @@ async fn process_job(
                 demangle_event_frames(pool, artifacts_dir, org_id, project_id, &payload_json)
                     .await?;
 
+            let store_identifiers =
+                match projects::ingest_store_end_user_identifiers(pool, project_id).await {
+                    Ok(value) => value,
+                    Err(err) => {
+                        warn!(
+                            error = %err,
+                            "privacy flag lookup failed; storing event without end-user identifiers"
+                        );
+                        false
+                    }
+                };
+            apply_privacy_policy(
+                &mut payload_json,
+                PrivacyPolicy {
+                    store_end_user_identifiers: store_identifiers,
+                },
+            );
             let fingerprint = compute_fingerprint(&payload_json);
-            scrub_event(&mut payload_json);
             let breadcrumbs = extract_breadcrumbs(&payload_json);
             let breadcrumbs_json = breadcrumbs_to_json(&breadcrumbs);
             let metadata = normalize_metadata(
                 &payload_json,
                 user_agent.as_deref(),
-                client_ip.as_deref(),
                 country_code_hint.as_deref(),
             );
 

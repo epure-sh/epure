@@ -687,10 +687,43 @@ export interface ProjectRow {
   slug: string | null;
   retention_days: number;
   ingest_cap_per_hour: number;
+  /** When false, ingest drops end-user email, username, and precise location. */
+  store_end_user_identifiers?: boolean;
   is_demo?: boolean;
   created_at: string;
   /** Viewer org role on this project (`owner` / `admin` / `member`). */
   role?: string;
+}
+
+export interface PrivacyNotice {
+  product: string;
+  deployment: "cloud" | "self_host";
+  phone_home: boolean;
+  analytics: boolean;
+  session_replay: boolean;
+  stores_client_ip: boolean;
+  identifiers_default: string;
+  default_retention_days: number;
+  operator_name: string | null;
+  privacy_contact: string | null;
+  data_region: string | null;
+  privacy_policy_url: string | null;
+  dpa_url: string | null;
+  cookies: Array<{
+    name: string;
+    host_prefix_when_https: string;
+    purpose: string;
+    necessary: boolean;
+    duration: string;
+    flags: string[];
+  }>;
+  subprocessors: Array<{
+    name: string;
+    purpose: string;
+    data: string;
+    configured: boolean;
+  }>;
+  rights: string[];
 }
 
 export async function fetchProjects(): Promise<ProjectRow[]> {
@@ -705,12 +738,58 @@ export async function createProject(name: string): Promise<ProjectRow> {
   });
 }
 
+export async function fetchPrivacyNotice(): Promise<PrivacyNotice> {
+  return apiFetch<PrivacyNotice>("/api/v1/privacy");
+}
+
+export async function exportAccount(): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>("/api/v1/auth/account/export");
+}
+
+export async function exportDataSubject(
+  projectId: string,
+  query: { user_id?: string; email?: string },
+): Promise<{
+  project_id: string;
+  total: number;
+  truncated: boolean;
+  events: unknown[];
+}> {
+  const params = new URLSearchParams();
+  if (query.user_id) {
+    params.set("user_id", query.user_id);
+  }
+  if (query.email) {
+    params.set("email", query.email);
+  }
+  return apiFetch(`/api/v1/projects/${projectId}/privacy/export?${params.toString()}`);
+}
+
+export async function eraseDataSubject(
+  projectId: string,
+  body: { user_id?: string; email?: string },
+): Promise<{ project_id: string; events_deleted: number; feedback_deleted: number }> {
+  return apiFetch(`/api/v1/projects/${projectId}/privacy/erase`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function stripStoredIdentifiers(
+  projectId: string,
+): Promise<{ project_id: string; events_updated: number; feedback_cleared: number }> {
+  return apiFetch(`/api/v1/projects/${projectId}/privacy/strip-identifiers`, {
+    method: "POST",
+  });
+}
+
 export async function updateProject(
   id: string,
   input: {
     name?: string;
     retention_days?: number;
     ingest_cap_per_hour?: number;
+    store_end_user_identifiers?: boolean;
   },
 ): Promise<ProjectRow> {
   return apiFetch<ProjectRow>(`/api/v1/projects/${id}`, {

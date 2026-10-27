@@ -42,6 +42,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/switch-org", post(switch_organization))
         .route("/profile", axum::routing::patch(update_profile))
         .route("/password", axum::routing::patch(change_password))
+        .route("/account/export", get(export_account))
         .route("/account", axum::routing::delete(delete_account))
         .route("/accept-invitation", post(accept_invitation))
         .route("/logout", post(logout))
@@ -629,6 +630,19 @@ async fn change_password(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+async fn export_account(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let dashboard = fresh_session(&state, &session).await?;
+    let body: Option<serde_json::Value> = sqlx::query_scalar("SELECT auth_export_account($1)")
+        .bind(dashboard.user_id)
+        .fetch_optional(&state.pools.app)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Json(body.ok_or(StatusCode::NOT_FOUND)?))
 }
 
 async fn delete_account(

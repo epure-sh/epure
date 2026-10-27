@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   acceptInvitation,
   fetchAuthConfig,
@@ -344,6 +344,11 @@ export function LoginPage() {
           ) : null}
         </div>
       </Card>
+      <p className="mt-4 text-center text-xs text-ink-muted">
+        <Link to="/privacy" className="text-ink underline underline-offset-2">
+          Privacy
+        </Link>
+      </p>
     </div>
   );
 }

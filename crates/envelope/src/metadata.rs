@@ -16,7 +16,6 @@ pub struct EventMetadata {
 pub fn normalize_metadata(
     event: &Value,
     user_agent: Option<&str>,
-    client_ip: Option<&str>,
     country_hint: Option<&str>,
 ) -> EventMetadata {
     let runtime_name = pointer_string(event, "/contexts/runtime/name")
@@ -36,10 +35,11 @@ pub fn normalize_metadata(
         .and_then(Value::as_str)
         .map(str::to_string);
 
+    // Country comes from the SDK or an edge header the operator chose to send.
+    // Epure does not look up the client IP.
     let country_code = pointer_string(event, "/user/geo/country_code")
         .or_else(|| pointer_string(event, "/request/geo/country_code"))
-        .or_else(|| country_from_hint(country_hint))
-        .or_else(|| country_from_ip(client_ip));
+        .or_else(|| country_from_hint(country_hint));
 
     let user_id = event
         .pointer("/user/id")
@@ -122,15 +122,6 @@ fn country_from_hint(country_hint: Option<&str>) -> Option<String> {
         .map(|code| code.to_ascii_uppercase())
 }
 
-fn country_from_ip(client_ip: Option<&str>) -> Option<String> {
-    let ip = client_ip?;
-    if ip.starts_with("127.") || ip.starts_with("10.") || ip.starts_with("192.168.") || ip == "::1"
-    {
-        return None;
-    }
-    None
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -144,7 +135,7 @@ mod tests {
                 "device": { "name": "iPhone 15" }
             }
         });
-        let metadata = normalize_metadata(&event, None, None, Some("fr"));
+        let metadata = normalize_metadata(&event, None, Some("fr"));
         assert_eq!(metadata.device_name.as_deref(), Some("iPhone 15"));
         assert_eq!(metadata.country_code.as_deref(), Some("FR"));
         assert_eq!(metadata.environment.as_deref(), Some("production"));

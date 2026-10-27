@@ -9,7 +9,6 @@ pub enum IngestJob {
         fingerprint: String,
         payload: Vec<u8>,
         user_agent: Option<String>,
-        client_ip: Option<String>,
         country_code_hint: Option<String>,
     },
     CounterOnly {

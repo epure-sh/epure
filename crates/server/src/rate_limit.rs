@@ -26,6 +26,11 @@ static OAUTH_PUBLIC_LIMITER: LazyLock<Mutex<RateLimiter>> =
 
 const OAUTH_PUBLIC_MAX: u32 = 60;
 
+fn bucket_key(raw: &str) -> String {
+    use sha2::{Digest, Sha256};
+    hex::encode(Sha256::digest(raw.as_bytes()))
+}
+
 async fn fixed_window_rate_limit(
     limiter: &LazyLock<Mutex<RateLimiter>>,
     key: String,
@@ -33,6 +38,7 @@ async fn fixed_window_rate_limit(
     request: Request,
     next: Next,
 ) -> Response {
+    let key = bucket_key(&key);
     let now = Instant::now();
     let allowed = {
         let mut guard = match limiter.lock() {

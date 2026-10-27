@@ -17,5 +17,7 @@ pub use frames::{
     clean_frame_filename, demangle_rust_symbol, is_framework_frame, normalize_stack_frames,
 };
 pub use metadata::{normalize_metadata, EventMetadata};
-pub use scrub::{scrub_event, scrub_string};
+pub use scrub::{
+    apply_privacy_policy, looks_like_email, pseudonym_for, scrub_event, scrub_string, PrivacyPolicy,
+};
 pub use store::{decompress_store_payload, parse_store_payload, StoreError};

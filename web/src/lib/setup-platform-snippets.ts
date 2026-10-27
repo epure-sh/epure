@@ -70,7 +70,7 @@ export interface SetupSnippetOptions {
 }
 
 function jsInitOptions(dsn: string, options?: SetupSnippetOptions): string {
-  const lines = [`  dsn: "${dsn}",`];
+  const lines = [`  dsn: "${dsn}",`, "  sendDefaultPii: false,"];
   if (options?.environment) {
     lines.push(`  environment: "${options.environment}",`);
   }
@@ -101,6 +101,7 @@ export function setupPlatformSnippets(
 
   const pythonKwargs = [
     `    dsn="${dsn}",`,
+    "    send_default_pii=False,",
     env ? `    environment="${env}",` : null,
     release ? `    release="${release}",` : null,
   ]
@@ -109,6 +110,7 @@ export function setupPlatformSnippets(
 
   const goFields = [
     `  Dsn: "${dsn}",`,
+    "  SendDefaultPII: false,",
     env ? `  Environment: "${env}",` : null,
     release ? `  Release: "${release}",` : null,
   ]
@@ -117,6 +119,7 @@ export function setupPlatformSnippets(
 
   const phpPairs = [
     `'dsn' => '${dsn}'`,
+    `'send_default_pii' => false`,
     env ? `'environment' => '${env}'` : null,
     release ? `'release' => '${release}'` : null,
   ]
@@ -125,6 +128,7 @@ export function setupPlatformSnippets(
 
   const rubyLines = [
     `  config.dsn = "${dsn}"`,
+    "  config.send_default_pii = false",
     env ? `  config.environment = "${env}"` : null,
     release ? `  config.release = "${release}"` : null,
   ]
@@ -133,6 +137,7 @@ export function setupPlatformSnippets(
 
   const javaLines = [
     `    options.setDsn("${dsn}");`,
+    "    options.setSendDefaultPii(false);",
     env ? `    options.setEnvironment("${env}");` : null,
     release ? `    options.setRelease("${release}");` : null,
     `    options.setTracesSampleRate(0.0);`,
@@ -143,6 +148,7 @@ export function setupPlatformSnippets(
 
   const dotnetLines = [
     `    options.Dsn = "${dsn}";`,
+    "    options.SendDefaultPii = false;",
     env ? `    options.Environment = "${env}";` : null,
     release ? `    options.Release = "${release}";` : null,
     `    options.TracesSampleRate = 0.0;`,

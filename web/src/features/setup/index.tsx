@@ -111,6 +111,7 @@ import * as Sentry from "@sentry/nextjs";
 Sentry.init({
   dsn: "${dsnString}",
   environment: process.env.NODE_ENV || "production",
+  sendDefaultPii: false,
   // Epure eliminates tracing overhead — leave tracesSampleRate at 0
   tracesSampleRate: 0,
 });`,
@@ -124,6 +125,7 @@ const Sentry = require("@sentry/node");
 Sentry.init({
   dsn: "${dsnString}",
   environment: process.env.NODE_ENV || "production",
+  sendDefaultPii: false,
 });`,
     },
     python: {
@@ -135,7 +137,7 @@ import sentry_sdk
 sentry_sdk.init(
     dsn="${dsnString}",
     environment="production",
-    send_default_pii=True,
+    send_default_pii=False,
 )`,
     },
     go: {
@@ -147,6 +149,7 @@ import "github.com/getsentry/sentry-go"
 sentry.Init(sentry.ClientOptions{
     Dsn: "${dsnString}",
     Environment: "production",
+    SendDefaultPII: false,
 })`,
     },
   };

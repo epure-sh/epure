@@ -13,6 +13,7 @@ pub mod monitors;
 pub mod oauth;
 pub mod partitions;
 pub mod persist;
+pub mod privacy;
 pub mod projects;
 pub mod releases;
 pub mod rls;

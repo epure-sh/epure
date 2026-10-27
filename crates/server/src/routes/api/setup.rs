@@ -177,7 +177,6 @@ async fn post_test_event(
         fingerprint,
         payload: parsed.event_payload,
         user_agent: Some("epure-setup-test".to_string()),
-        client_ip: None,
         country_code_hint: None,
     };
 
