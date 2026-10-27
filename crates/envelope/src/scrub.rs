@@ -31,17 +31,10 @@ static EMAIL: LazyLock<Regex> = LazyLock::new(|| {
 /// The default stores an opaque `user.id` and drops email, username, IP, and
 /// precise geo. Email-shaped ids are replaced with a stable pseudonym so
 /// unique-user counts and erasure still work.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct PrivacyPolicy {
+    /// `false` keeps the EU default: do not store end-user emails or usernames.
     pub store_end_user_identifiers: bool,
-}
-
-impl Default for PrivacyPolicy {
-    fn default() -> Self {
-        Self {
-            store_end_user_identifiers: false,
-        }
-    }
 }
 
 /// Stable short pseudonym. Not a secret: anyone with a candidate value can
