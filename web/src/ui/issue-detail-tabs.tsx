@@ -25,9 +25,9 @@ export interface IssueDetailTabsProps {
   showBackLink?: boolean;
   issueTitle?: string;
   statusBadges?: ReactNode;
-  /** Primary triage actions (resolve, copy, …) — top toolbar. */
+  /** Triage actions (copy, resolve, snooze, …) — top toolbar, right of issue navigation. */
   actions?: ReactNode;
-  /** Icon actions on the title row (snooze, ignore, …). */
+  /** @deprecated Prefer `actions` — still rendered in the top toolbar when `actions` is omitted. */
   inlineActions?: ReactNode;
   spacious?: boolean;
 }
@@ -90,6 +90,8 @@ export function IssueDetailTabs({
       ? { value: activeTab, onValueChange: (value: string) => onTabChange(value as IssueDetailTab) }
       : { defaultValue: defaultTab };
 
+  const toolbarActions = actions ?? inlineActions;
+
   return (
     <div
       ref={rootRef}
@@ -112,7 +114,11 @@ export function IssueDetailTabs({
             <ChevronDown className="size-3.5" />
           </Button>
         </div>
-        {actions ? <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">{actions}</div> : null}
+        {toolbarActions ? (
+          <div className="ml-auto flex min-w-0 max-w-full shrink-0 flex-wrap items-center justify-end gap-1.5">
+            {toolbarActions}
+          </div>
+        ) : null}
       </div>
 
       <Tabs variant="folder" {...tabsProps} className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-surface-1">
@@ -122,17 +128,12 @@ export function IssueDetailTabs({
               {statusBadges ? (
                 <div className="mb-2.5 flex min-h-5 flex-wrap items-center gap-1.5">{statusBadges}</div>
               ) : null}
-              <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-                <h2
-                  className="min-w-[min(100%,10rem)] flex-1 break-words text-lg font-semibold leading-snug tracking-ui text-fg-primary"
-                  title={issueTitle}
-                >
-                  {issueTitle}
-                </h2>
-                {inlineActions ? (
-                  <div className="ml-auto flex min-w-0 max-w-full shrink-0 items-center">{inlineActions}</div>
-                ) : null}
-              </div>
+              <h2
+                className="min-w-0 break-words text-lg font-semibold leading-snug tracking-ui text-fg-primary"
+                title={issueTitle}
+              >
+                {issueTitle}
+              </h2>
             </div>
           ) : null}
           <TabsList className="epure-issue-detail-tabs__list w-full shrink-0 justify-start gap-1 border-border-subtle !h-auto !min-h-0 !items-end !bg-surface-1 !pt-0 px-4">

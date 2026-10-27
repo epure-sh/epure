@@ -7,6 +7,7 @@ import {
   canResolveIssue,
   canSnoozeIssue,
   headlineStatsDelta,
+  issueMatchesParsedQuery,
   issueMatchesStatusFilter,
 } from "./issue-triage-utils";
 
@@ -73,6 +74,28 @@ assert.equal(issueMatchesStatusFilter({ status: "unresolved", snoozed: true }, "
 assert.equal(issueMatchesStatusFilter({ status: "unresolved", snoozed: true }, "snoozed"), true);
 assert.equal(issueMatchesStatusFilter({ status: "resolved", snoozed: false }, "resolved"), true);
 assert.equal(issueMatchesStatusFilter({ status: "resolved", snoozed: false }, undefined), true);
+
+assert.equal(
+  issueMatchesParsedQuery(
+    { status: "regression", snoozed: false },
+    { lifecycle: "unresolved", viewModifier: "regression" },
+  ),
+  true,
+);
+assert.equal(
+  issueMatchesParsedQuery(
+    { status: "unresolved", snoozed: true },
+    { lifecycle: "unresolved", viewModifier: "snoozed" },
+  ),
+  true,
+);
+assert.equal(
+  issueMatchesParsedQuery(
+    { status: "unresolved", snoozed: false },
+    { lifecycle: "unresolved", viewModifier: "snoozed" },
+  ),
+  false,
+);
 
 assert.deepEqual(
   headlineStatsDelta({ status: "unresolved", snoozed: false }, { status: "resolved", snoozed: false }),

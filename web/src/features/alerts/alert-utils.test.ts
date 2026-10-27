@@ -8,9 +8,27 @@ import {
   getAlertDetail,
   groupAlertsByDay,
   getAlertSignalState,
+  getAlertSignalStateLabel,
+  getAlertConditionChip,
+  getAlertCorrelatedIssueIds,
+  getAlertDetailHeadline,
+  getAlertDetailHeroMetric,
+  normalizeIssueIdForCompare,
+  getAlertDetailTriggerSummary,
+  getAlertListProofSnippet,
+  getAlertTriggerAnalysisCallout,
+  getAlertTriggerExplanation,
   isAlertUnread,
   sortAlerts,
   ALERT_FIRING_WINDOW_MS,
+  alertMatchesHistoryRuleFocus,
+  alertMatchesRuleName,
+  getAlertHistoryKindFilter,
+  formatAlertTimestampPrecise,
+  getAlertDetailStructuredFields,
+  getAlertLatestDeliveredAtIso,
+  getAlertOutputsCollapsedPreview,
+  isoTimestampHasSubsecondPrecision,
 } from "./alert-utils";
 
 const baseDate = new Date("2026-10-22T14:00:00.000Z");
@@ -182,3 +200,209 @@ assert.equal(
   "acknowledged",
 );
 assert.equal(getAlertSignalState(sampleAlert({ ignored: true }), signalNow), "muted");
+
+assert.equal(getAlertSignalStateLabel("firing"), "Firing");
+assert.equal(getAlertSignalStateLabel("fired"), "Fired");
+assert.equal(getAlertSignalStateLabel("acknowledged"), "Resolved");
+assert.equal(getAlertSignalStateLabel("muted"), "Snoozed");
+
+assert.match(getAlertConditionChip(velocity), /^Velocity > /);
+assert.doesNotMatch(getAlertConditionChip(velocity), /velocity_spike/);
+assert.match(getAlertConditionChip(regression), /^Regression · /);
+
+const triggerSummary = getAlertDetailTriggerSummary(velocity);
+assert.match(triggerSummary, /Event rate jumped vs the prior 15m window/);
+assert.doesNotMatch(triggerSummary, /\+400%/);
+assert.doesNotMatch(triggerSummary, /Rule matched:/);
+assert.equal(getAlertTriggerAnalysisCallout(velocity), triggerSummary);
+assert.equal(getAlertTriggerExplanation(velocity), triggerSummary);
+
+assert.equal(getAlertListProofSnippet(velocity), "+400%");
+assert.equal(
+  getAlertListProofSnippet(
+    sampleAlert({
+      kind: "regression",
+      payload_json: { title: "x", release: "checkout@2.4.0" },
+    }),
+  ),
+  "checkout@2.4.0",
+);
+
+const velocityHero = getAlertDetailHeroMetric(velocity);
+assert.equal(velocityHero.value, "+400%");
+assert.equal(velocityHero.delta, null);
+
+assert.equal(
+  getAlertDetailHeadline(
+    sampleAlert({
+      kind: "custom",
+      payload_json: {
+        rule_name: "Checkout errors",
+        title: "Checkout errors — Payment declined spike",
+      },
+    }),
+  ),
+  "Payment declined spike",
+);
+
+assert.equal(
+  getAlertDetailHeadline(
+    sampleAlert({
+      kind: "custom",
+      payload_json: {
+        rule_name: "Checkout errors",
+        title: "Checkout errors: Payment declined spike",
+      },
+    }),
+  ),
+  "Payment declined spike",
+);
+
+const primaryUuid = "a1000001-0000-4000-8000-000000000001";
+const primaryCompact = normalizeIssueIdForCompare(primaryUuid);
+assert.deepEqual(
+  getAlertCorrelatedIssueIds(
+    sampleAlert({
+      issue_id: primaryUuid,
+      payload_json: {
+        title: "Checkout failed",
+        issue_ids: [primaryUuid, primaryCompact, "issue-other"],
+      },
+    }),
+  ),
+  ["issue-other"],
+);
+
+const prodSpikeRuleFocus = {
+  ruleName: "Production error spike",
+  ruleId: "rul-tmpl-prod-spike",
+  kind: "velocity_spike" as const,
+};
+
+const velocityWithRuleMeta = sampleAlert({
+  id: "velocity-prod-spike",
+  kind: "velocity_spike",
+  payload_json: {
+    title: "Checkout failed",
+    rule_id: "rul-tmpl-prod-spike",
+    rule_name: "Production error spike",
+    rule_kind: "velocity_spike",
+    current_window: 20,
+    previous_window: 4,
+    ratio: 5,
+  },
+});
+
+const velocityBare = sampleAlert({
+  id: "velocity-bare",
+  kind: "velocity_spike",
+  payload_json: {
+    title: "Checkout failed",
+    current_window: 20,
+    previous_window: 4,
+    ratio: 5,
+  },
+});
+
+const customPayguard = sampleAlert({
+  id: "custom-payguard",
+  kind: "custom",
+  payload_json: {
+    rule_id: "rul-payguard-001",
+    rule_name: "Payment guard — production",
+    rule_kind: "velocity_spike",
+    title: "Payment failed",
+  },
+});
+
+assert.equal(getAlertHistoryKindFilter(velocityWithRuleMeta), "velocity_spike");
+assert.equal(getAlertHistoryKindFilter(customPayguard), "velocity_spike");
+assert.equal(getAlertHistoryKindFilter(regression), "regression");
+
+assert.equal(
+  alertMatchesRuleName(velocityWithRuleMeta, "Production error spike"),
+  true,
+  "matches configured rule name via payload.rule_name",
+);
+assert.equal(
+  alertMatchesRuleName(velocityWithRuleMeta, "Velocity spike"),
+  true,
+  "matches built-in display name",
+);
+assert.equal(
+  alertMatchesRuleName(velocityBare, "Production error spike"),
+  false,
+  "bare velocity alert does not match arbitrary rule name",
+);
+
+assert.equal(
+  alertMatchesHistoryRuleFocus(velocityWithRuleMeta, prodSpikeRuleFocus),
+  true,
+  "matches by payload.rule_id",
+);
+assert.equal(
+  alertMatchesHistoryRuleFocus(customPayguard, prodSpikeRuleFocus),
+  false,
+  "does not match a different rule_id on same kind",
+);
+assert.equal(
+  alertMatchesHistoryRuleFocus(velocityBare, prodSpikeRuleFocus),
+  true,
+  "falls back to kind when payload has no rule_id",
+);
+
+const newProdErrorsFocus = {
+  ruleName: "New production errors",
+  ruleId: "rul-tmpl-prod-new",
+  kind: "new_issue" as const,
+};
+const newIssueAlert = sampleAlert({
+  id: "new-prod",
+  kind: "new_issue",
+  payload_json: { title: "Fresh error", rule_id: "rul-tmpl-prod-new" },
+});
+assert.equal(alertMatchesHistoryRuleFocus(newIssueAlert, newProdErrorsFocus), true);
+
+assert.equal(isoTimestampHasSubsecondPrecision("2026-10-22T14:00:00.000Z"), true);
+assert.equal(isoTimestampHasSubsecondPrecision("2026-10-22T14:00:00Z"), false);
+
+const preciseMs = formatAlertTimestampPrecise("2026-10-22T14:30:45.123Z", now);
+assert.ok(preciseMs.absolute.includes("45"));
+assert.equal(preciseMs.isoSubline, "2026-10-22T14:30:45.123Z");
+assert.ok(preciseMs.relative.length > 0);
+
+const structuredVelocity = getAlertDetailStructuredFields(velocity, now);
+assert.ok(structuredVelocity);
+assert.equal(structuredVelocity?.kindChip, "Velocity spike");
+assert.ok(structuredVelocity?.triggerRows.some((row) => row.label === "Observed ratio"));
+assert.ok(structuredVelocity?.velocityStats?.current === 20);
+assert.ok(structuredVelocity?.impactRows.some((row) => row.label.includes("Events")));
+
+const structuredRegression = getAlertDetailStructuredFields(regression, now);
+assert.ok(structuredRegression?.linkedIssue?.rows.some((row) => row.label === "Release"));
+
+const dispatchAuditAlert = sampleAlert({
+  payload_json: {
+    dispatches: [
+      { channel: "Slack", target: "#ops", status: "200 OK", delivered_at: "2026-10-22T10:00:00.240Z" },
+      { channel: "Webhook", target: "hooks", status: "202", delivered_at: "2026-10-22T10:00:01.991Z" },
+    ],
+  },
+});
+assert.equal(getAlertLatestDeliveredAtIso(dispatchAuditAlert), "2026-10-22T10:00:01.991Z");
+const collapsedPreview = getAlertOutputsCollapsedPreview(dispatchAuditAlert, now);
+assert.ok(collapsedPreview?.includes("Slack #ops"));
+assert.ok(collapsedPreview?.includes("Last delivered"));
+
+const velocityWithBoundaries = sampleAlert({
+  kind: "velocity_spike",
+  payload_json: {
+    current_window: 10,
+    previous_window: 2,
+    ratio: 5,
+    current_window_start_at: "2026-10-22T09:45:00.000Z",
+    current_window_end_at: "2026-10-22T10:00:00.000Z",
+  },
+});
+const structuredBoundaries = getAlertDetailStructuredFields(velocityWithBoundaries, now);
+assert.ok(structuredBoundaries?.impactRows.some((row) => row.label === "Current window"));

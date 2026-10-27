@@ -96,7 +96,6 @@ export function AlertRulesSettings() {
   if (projectsLoading || userLoading) {
     return (
       <div className="space-y-4">
-        <SettingsTabHeader title="Alert rules" description="Custom notify rules for this project." />
         <div className="h-32 rounded-lg border border-border-subtle bg-surface-1 animate-pulse" />
       </div>
     );
@@ -105,7 +104,6 @@ export function AlertRulesSettings() {
   if (!activeProjectId) {
     return (
       <div className="space-y-4">
-        <SettingsTabHeader title="Alert rules" description="Custom notify rules for this project." />
         <InfoCallout variant="warning">Select a project to manage alert rules.</InfoCallout>
       </div>
     );
@@ -118,8 +116,6 @@ export function AlertRulesSettings() {
   return (
     <div className="space-y-4">
       <SettingsTabHeader
-        title="Alert rules"
-        description="Built-in engines stay on. Add a filter if you only want extra alerts for one environment or a different velocity bar."
         actions={
           <Button variant="ghost" size="sm" asChild>
             <Link to={projectPath(activeProjectId, "alerts")}>View history</Link>

@@ -19,9 +19,11 @@ export interface IssuesFeedQueryBarProps {
   onQueryChange: (query: string) => void;
   searchInputRef?: RefObject<HTMLInputElement | null>;
   className?: string;
+  placeholder?: string;
+  ariaLabel?: string;
 }
 
-/** Full-width search row with inline `key:value` chips (Sentry-style), Epure tokens. */
+/** Search row with inline `key:value` chips (Sentry-style), Epure tokens. */
 export function IssuesFeedQueryBar({
   query,
   searchText,
@@ -29,9 +31,14 @@ export function IssuesFeedQueryBar({
   onQueryChange,
   searchInputRef,
   className,
+  placeholder,
+  ariaLabel = "Search issues",
 }: IssuesFeedQueryBarProps) {
   const chips = extractChips(query);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const defaultPlaceholder =
+    chips.length > 0 ? "Add text or filter…" : "Search issues or add filters…";
+  const searchPlaceholder = placeholder ?? defaultPlaceholder;
 
   function handlePickToken(token: string) {
     onQueryChange(applyFilterToken(query, token));
@@ -44,7 +51,7 @@ export function IssuesFeedQueryBar({
         <div
           data-slot="issues-feed-query"
           className={cn(
-            "flex min-h-8 w-full flex-wrap items-center gap-1.5 rounded-md border border-border-subtle bg-surface-1 px-2 py-1 focus-within:border-border-strong focus-within:bg-surface-2/40",
+            "flex h-7 max-h-7 w-full max-w-full flex-nowrap items-center gap-1 overflow-x-auto rounded-md border border-border-subtle bg-surface-1 px-1.5 py-0 focus-within:border-border-strong focus-within:bg-surface-2/40 [&::-webkit-scrollbar]:hidden",
             className,
           )}
         >
@@ -70,10 +77,10 @@ export function IssuesFeedQueryBar({
         variant="ghost"
         size="auto"
         data-tour="issues-feed-search"
-        wrapperClassName="min-w-[6rem] flex-1 border-0 px-0 py-0 shadow-none"
-        className="h-7"
-        placeholder={chips.length > 0 ? "Add text or filter…" : "Search issues or add filters…"}
-        aria-label="Search issues"
+        wrapperClassName="flex h-6 min-h-0 min-w-[4rem] flex-1 items-center border-0 px-0 py-0 shadow-none"
+        className="h-6 min-h-0 py-0 text-xs leading-none"
+        placeholder={searchPlaceholder}
+        aria-label={ariaLabel}
             aria-expanded={filtersOpen}
             aria-controls="issues-feed-filter-suggestions"
             value={searchText}

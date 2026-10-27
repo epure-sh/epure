@@ -14,7 +14,7 @@ const navItems: RailNavItem[] = [
     label: "Billing",
     end: true,
     icon: CreditCard,
-    badge: isCloudDeployment() ? undefined : "Cloud",
+    badgeLabel: isCloudDeployment() ? undefined : "Cloud",
   },
 ];
 

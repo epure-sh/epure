@@ -12,4 +12,10 @@ export default defineConfig({
     baseURL: `http://localhost:${port}`,
     ...devices["Desktop Chrome"],
   },
+  webServer: {
+    command: `npm run dev:playground -- --port ${port}`,
+    port,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
 });

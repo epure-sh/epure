@@ -5,12 +5,13 @@ const PROJECT_WEB = "550e8400-e29b-41d4-a716-446655440000";
 test.describe("Playground smoke", () => {
   test("Alerts history loads seeded rows and detail actions", async ({ page }) => {
     await page.goto(`/p/${PROJECT_WEB}/alerts`);
-    await expect(page.getByRole("heading", { name: "Alerts" })).toBeVisible({ timeout: 15_000 });
     const rows = page.locator("[data-alert-id]");
     await expect(rows.first()).toBeVisible({ timeout: 15_000 });
     expect(await rows.count()).toBeGreaterThanOrEqual(5);
     await rows.first().click();
-    await expect(page.getByRole("button", { name: "Acknowledge" })).toBeVisible();
+    const detail = page.getByRole("complementary", { name: "Alert detail" });
+    await expect(detail.getByRole("button", { name: "Resolve", exact: true })).toBeVisible();
+    await expect(detail.getByRole("button", { name: "Snooze", exact: true })).toBeVisible();
   });
 
   test("Design kit alerts section renders", async ({ page }) => {

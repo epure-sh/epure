@@ -9,6 +9,7 @@ use axum::{
 };
 use epure_auth::DashboardSession;
 use epure_storage::alerts::{self, AlertListFilter};
+use epure_storage::issues;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -136,6 +137,24 @@ async fn patch_alert(
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     .ok_or(StatusCode::NOT_FOUND)?;
+
+    if body.read.is_some() {
+        if let Some(issue_id) = row.issue_id {
+            let status = if body.read == Some(true) {
+                "resolved"
+            } else {
+                "unresolved"
+            };
+            let _ = issues::update_issue_status(
+                &state.pools.app,
+                dashboard.org_id,
+                issue_id,
+                status,
+            )
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        }
+    }
 
     Ok(Json(row))
 }

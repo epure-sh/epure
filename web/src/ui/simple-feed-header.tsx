@@ -2,40 +2,51 @@ import { type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export interface SimpleFeedHeaderProps {
-  title: string;
+  /** @deprecated Page titles removed — use stats/actions only. */
+  title?: string;
+  /** @deprecated */
   description?: string;
   actions?: ReactNode;
   stats?: ReactNode;
   className?: string;
 }
 
-/** Page chrome for secondary feeds (alerts, releases) — matches Issues feed header rhythm. */
-export function SimpleFeedHeader({ title, description, actions, stats, className }: SimpleFeedHeaderProps) {
+/** Compact feed chrome (releases, monitors) — stats and actions only, no page title. */
+export function SimpleFeedHeader({ actions, stats, className }: SimpleFeedHeaderProps) {
+  if (!actions && !stats) {
+    return null;
+  }
+
   return (
-    <header className={cn("epure-issues-feed-header shrink-0 border-b border-border-subtle bg-surface-1/60", className)}>
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-6 h-12">
-        <div className="min-w-0 flex items-baseline gap-3">
-          <h1 className="text-sm font-semibold tracking-tight text-fg-primary truncate">{title}</h1>
-          {description ? (
-            <p className="text-xs text-fg-muted truncate hidden sm:inline">{description}</p>
-          ) : null}
-        </div>
-        {actions ? <div className="flex items-center gap-2 shrink-0">{actions}</div> : null}
+    <header
+      className={cn(
+        "epure-issues-feed-header shrink-0 border-b border-border-subtle bg-bg select-none",
+        className,
+      )}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-3 py-1.5 md:px-5">
+        {stats ? (
+          <div
+            className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 text-[11px] leading-snug text-fg-muted"
+            aria-live="polite"
+          >
+            {stats}
+          </div>
+        ) : (
+          <span className="min-w-0 flex-1" aria-hidden />
+        )}
+        {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
       </div>
-      {stats ? (
-        <div
-          className="flex flex-wrap items-center gap-x-1 border-t border-border-subtle px-6 py-1.5 text-[11px] text-fg-muted leading-snug"
-          aria-live="polite"
-        >
-          {stats}
-        </div>
-      ) : null}
     </header>
   );
 }
 
 export function FeedHeaderStatDot() {
-  return <span className="px-1 text-fg-muted/40" aria-hidden>·</span>;
+  return (
+    <span className="px-1 text-fg-muted/40" aria-hidden>
+      ·
+    </span>
+  );
 }
 
 export interface FeedHeaderStatProps {
@@ -49,7 +60,7 @@ export function FeedHeaderStat({ label, value, loading = false }: FeedHeaderStat
 
   return (
     <span className="text-fg-muted">
-      <span className="font-mono tabular-nums text-fg-primary font-medium">{display}</span> {label}
+      <span className="font-mono font-medium tabular-nums text-fg-primary">{display}</span> {label}
     </span>
   );
 }

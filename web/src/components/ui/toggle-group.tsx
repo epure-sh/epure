@@ -14,6 +14,8 @@ const toggleGroupItemVariants = cva(
   {
     variants: {
       size: {
+        /** Matches `Button` size xs / feed toolbar (`h-7`). */
+        toolbar: "h-6 gap-1 px-2 text-xs",
         sm: "h-7 px-2.5 text-xs",
         default: "h-8 px-3",
       },
@@ -24,15 +26,24 @@ const toggleGroupItemVariants = cva(
   },
 );
 
+export type ToggleGroupProps = React.ComponentProps<typeof ToggleGroupPrimitive.Root> & {
+  /** `toolbar` = `h-7` outer shell aligned with feed filter controls. */
+  density?: "default" | "toolbar";
+};
+
 export function ToggleGroup({
   className,
+  density = "default",
   ...props
-}: React.ComponentProps<typeof ToggleGroupPrimitive.Root>) {
+}: ToggleGroupProps) {
   return (
     <ToggleGroupPrimitive.Root
       data-slot="toggle-group"
+      data-density={density}
       className={cn(
-        "inline-flex rounded-md border border-border bg-bg-subtle/80 p-0.5",
+        "inline-flex rounded-control border border-border-subtle bg-surface-2 p-0.5",
+        density === "toolbar" && "h-7 items-center gap-0.5",
+        density === "default" && "rounded-md border-border bg-bg-subtle/80",
         className,
       )}
       {...props}

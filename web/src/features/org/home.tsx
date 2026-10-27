@@ -16,7 +16,6 @@ import { useAppContext } from "../../shell/app-context";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
-import { PageChrome } from "../../ui/page-chrome";
 import { useToast } from "../../ui/toast-provider";
 import { SetupWizardDialog } from "../setup/setup-wizard-dialog";
 import { emptyListTrendBuckets } from "../issues/issue-feed-utils";
@@ -226,17 +225,9 @@ export function OrgHomePage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <PageChrome
-        title="Projects"
-        description={
-          projects.length === 0
-            ? "Create a project to connect a DSN — or explore Acme preview data."
-            : projects.some((project) => project.is_demo)
-              ? "Explore the Acme preview projects, or create your own to connect a DSN."
-              : "Choose a project to monitor exceptions, or create a new one."
-        }
-        actions={
-          canManage || canDeleteProjects ? (
+      <div className="flex-1 overflow-auto bg-bg px-4 py-5 md:px-6">
+        <div className="mx-auto max-w-7xl space-y-4">
+          {canManage || canDeleteProjects ? (
             <div className="flex flex-wrap items-center justify-end gap-2">
               {editMode && canDeleteProjects ? (
                 <>
@@ -308,12 +299,7 @@ export function OrgHomePage() {
                 </>
               )}
             </div>
-          ) : undefined
-        }
-      />
-
-      <div className="flex-1 overflow-auto bg-bg px-4 py-5 md:px-6">
-        <div className="mx-auto max-w-7xl space-y-4">
+          ) : null}
           {/* Paused Canary Alert Banner */}
           {isPaused && (
             <div className="relative overflow-hidden rounded-xl border border-escalating/50 bg-gradient-to-r from-escalating/15 via-escalating/5 to-transparent p-5 shadow-xs">

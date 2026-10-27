@@ -7,7 +7,7 @@ Ship a product UI slice only if all pass:
 - [ ] Unread vs selected: unread = weight + small indigo cue (dot/2px edge), **no full-row wash**; selected = `--accent-muted` wash; both = wash + unread mark
 - [ ] Accent < ~10% of pixels on issue list — do not flood rows with indigo
 - [ ] DSN, stack paths, hashes use `font-mono` only
-- [ ] Button radius = `rounded-md` / 8px — **no 9999px pills** on buttons, badges, chips, or checkboxes. Edit `button.tsx` / theme, not per-screen
+- [ ] Button radius = `rounded-md` / 8px — **no 9999px pills** on buttons, badges, or chips. Checkboxes = `rounded-xs` / 4px + always-on `border-border-strong` on `bg-surface-1` (`checkbox.tsx`). Edit primitives / theme, not per-screen
 - [ ] **No ad-hoc UI:** use `@/components/ui/*` + `@/components/kit/*` (or registered `src/ui/*` composites). No raw `<button>` / badge-like `<span>` / semantic `bg-*/10` chips in features or shell
 - [ ] Status chips → `Badge` variants; filter toggles → `Button` (`filterEscalating` / `filterRegression`) or `FilterChip`; tables → `Table` / `DataTable`
 - [ ] Ghost buttons have **no** forced border

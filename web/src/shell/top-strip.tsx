@@ -78,6 +78,15 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
 
   const navContext = getNavigationContext(pathname);
   const pageName = getPageName(pathname);
+  const hideProjectPageCrumb =
+    navContext === "project" &&
+    (pathname.includes("/issues") ||
+      pathname.includes("/alerts") ||
+      pathname.includes("/releases") ||
+      pathname.includes("/monitors") ||
+      pathname.includes("/monitoring") ||
+      pathname.includes("/setup") ||
+      pathname.includes("/settings"));
 
   const projectSwitcher = (
     <DropdownMenu>
@@ -185,10 +194,14 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
           <>
             {navContext === "project" ? projectSwitcher : null}
             {navContext === "organization" ? projectSwitcher : null}
-            <span className="text-xs text-fg-muted" aria-hidden>
-              /
-            </span>
-            <span className="truncate text-xs font-medium text-fg-muted">{pageName}</span>
+            {!hideProjectPageCrumb ? (
+              <>
+                <span className="text-xs text-fg-muted" aria-hidden>
+                  /
+                </span>
+                <span className="truncate text-xs font-medium text-fg-muted">{pageName}</span>
+              </>
+            ) : null}
           </>
         )}
       </div>

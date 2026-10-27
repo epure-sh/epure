@@ -73,7 +73,7 @@ body {
 /* 120fps browser-native row virtualization */
 .epure-feed-row {
   content-visibility: auto;
-  contain-intrinsic-size: auto 38px;
+  contain-intrinsic-size: auto 74px;
   contain: layout style paint;
 }
 
@@ -427,4 +427,21 @@ body.driver-active .driver-active-element {
   border-bottom-color: transparent;
   border-right-color: transparent;
   filter: drop-shadow(-1px 0 0 var(--border-strong));
+}
+
+/* Inbox unread rail — brief attention pulse (Sentry-style), then static */
+@keyframes inbox-unread-rail-attention {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .inbox-unread-rail {
+    animation: inbox-unread-rail-attention 2s ease-in-out 15;
+  }
 }

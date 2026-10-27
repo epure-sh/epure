@@ -68,7 +68,7 @@ Open **Acme Web** → **Alerts**. Seed covers:
 | **History** | Firing (recent), Fired (>30m unread), Resolved (acknowledged), Muted |
 | **Kinds** | Velocity, regression, new issue, event milestone, users affected, ingest cap, custom |
 | **Detail** | Impact metrics, correlated issues (incl. multi `issue_ids`), webhooks output (2 endpoints) |
-| **Configure** | Six rules: on/paused, env + threshold + `filters_json` |
+| **Configure (Rules)** | Stitch wireframe flow: template → scope → dispatch; rules table + `playground/stitch/alerts-wireframes/` refs |
 | **API project** | Switch project — three alerts + one rule + webhook |
 
 Reset mutable state: `window.__EPURE_PLAYGROUND__.reset()`.

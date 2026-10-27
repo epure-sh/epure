@@ -34,7 +34,7 @@ Warm **paper canvas**, **one indigo chroma**. Hex lives in theme CSS only. Copy 
 ## Density and shape
 
 - Compact ops: controls `h-8`, tight list rows
-- Buttons / badges / checkboxes: **8px** (`rounded-md`). **No pills** on primary controls
+- Buttons / badges: **8px** (`rounded-md`). Checkboxes: **4px** rounded square (`rounded-xs`), always **1px** `--border-strong` on `--surface` fill (no hover-only chrome). **No pills** on primary controls
 - Filter chips: **5–6px**, key:value
 - Cards: **12px**, hairline ring, no drop shadows on chrome
 - Pills only for true pills (avatar, maybe env badge)

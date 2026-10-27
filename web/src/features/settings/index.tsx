@@ -1,6 +1,5 @@
 import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { projectPath, projectSettingsPath } from "../../lib/paths";
-import { useAppContext } from "../../shell/app-context";
 import { NotFoundState } from "../../ui/error-state";
 import { PageShell } from "@/components/kit/page-shell";
 import { SettingsNav } from "../../ui/settings-nav";
@@ -14,16 +13,9 @@ import { WebhooksSettings } from "./webhooks";
 
 export function SettingsPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const { projects } = useAppContext();
-  const safeProjects = Array.isArray(projects) ? projects : [];
-  const project = safeProjects.find((row) => row && (row.id === projectId || row.slug === projectId)) ?? null;
 
   return (
-    <PageShell
-      title={project ? `${project.name} settings` : "Project settings"}
-      description="SDK connection, notification endpoints, retention, and ingest limits."
-      density="full-bleed"
-    >
+    <PageShell density="full-bleed">
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <SettingsNav />
 

@@ -26,7 +26,6 @@ import {
   EnvironmentReference,
   InfoCallout,
   ReadOnlyDetail,
-  SettingsTabHeader,
 } from "./shared";
 
 const retentionOptions = [14, 30, 90] as const;
@@ -163,7 +162,6 @@ export function ProjectsSettings() {
   if (projects.length === 0) {
     return (
       <div className="space-y-4">
-        <SettingsTabHeader title="Projects" description="Create and manage workspace projects." />
         {canManage ? (
           <Card>
             <CardHeader>
@@ -198,11 +196,6 @@ export function ProjectsSettings() {
 
   return (
     <div className="space-y-4">
-      <SettingsTabHeader
-        title="Projects"
-        description="Switch between projects and edit retention or ingest limits."
-      />
-
       <Field label="Active project">
         <Select
           value={selected?.id ?? ""}

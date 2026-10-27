@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BellRing, Check, EyeOff, RotateCcw, Sparkles } from "lucide-react";
-import { Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router-dom";
 import { setupNeedsWizard } from "../../lib/api";
 import { projectPath } from "../../lib/paths";
 import { cn } from "../../lib/cn";
@@ -24,7 +24,6 @@ import { SetupWaitingBanner, TestDataBanner } from "../../ui/setup-status-banner
 import { IssueRowSkeleton } from "../../ui/skeleton";
 import { StackTracePanel } from "../../ui/stack-trace-panel";
 import { useToast } from "../../ui/toast-provider";
-import { BulkActions } from "./bulk-actions";
 import { BulkDeleteDialog } from "./bulk-delete-dialog";
 import { ResolveWithAiDialog } from "./resolve-with-ai-dialog";
 import { downloadIssuesCsv } from "./export-csv";
@@ -34,6 +33,7 @@ import {
   canReopenIssue,
   canResolveIssue,
 } from "./issue-triage-utils";
+import { getAlertsHistoryLinkForIssue } from "../alerts/alert-utils";
 import {
   copyBulkIssueExport,
   copyIssueExport,
@@ -60,6 +60,7 @@ export function IssuesPage() {
   const { toast } = useToast();
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteTargetIds, setDeleteTargetIds] = useState<string[]>([]);
   const [resolveWithAiOpen, setResolveWithAiOpen] = useState(false);
   const [detailTab, setDetailTab] = useState<IssueDetailTab>("overview");
 
@@ -94,7 +95,6 @@ export function IssuesPage() {
     selectedIssue,
     focusedIssue,
     selectedIssues,
-    bulkAvailability,
     events,
     selectedEventId,
     selectedEvent,
@@ -128,8 +128,8 @@ export function IssuesPage() {
     handleSnooze,
     handleUnsnooze,
     handleBulk,
-    handleBulkSnooze,
-    handleBulkMarkRead,
+    handleSnoozeIds,
+    handleMarkReadIds,
     handleClearSelection,
     handleToggleSelectAll,
     handleMoveSelection,
@@ -147,17 +147,34 @@ export function IssuesPage() {
   const loadForbidden = feedStatus === "forbidden";
 
   const handleConfirmBulkDelete = useCallback(() => {
-    void handleBulk("delete").finally(() => setDeleteConfirmOpen(false));
-  }, [handleBulk]);
+    const ids = deleteTargetIds.length > 0 ? deleteTargetIds : Array.from(selectedIds);
+    void handleBulk("delete", { ids }).finally(() => {
+      setDeleteConfirmOpen(false);
+      setDeleteTargetIds([]);
+    });
+  }, [deleteTargetIds, handleBulk, selectedIds]);
 
-  const handleBulkAskAi = useCallback(() => {
-    if (selectedIssues.length === 0) {
-      return;
-    }
-    void copyBulkIssueExport(selectedIssues).then(() =>
-      toast("Copied. Paste into Cursor or your AI assistant."),
-    );
-  }, [selectedIssues, toast]);
+  const handleMenuAskAi = useCallback(
+    (rows: typeof selectedIssues) => {
+      if (rows.length === 0) {
+        return;
+      }
+      if (rows.length === 1) {
+        const row = rows[0];
+        const issueUrl = scopedProjectId
+          ? `${window.location.origin}/p/${scopedProjectId}/issues?issue=${row.id}`
+          : `${window.location.origin}/issues?issue=${row.id}`;
+        void copyIssueExport(row, row.id === selectedIssue?.id ? selectedEvent : null, issueUrl).then(
+          () => toast("Copied. Paste into Cursor or your AI assistant."),
+        );
+        return;
+      }
+      void copyBulkIssueExport(rows).then(() =>
+        toast("Copied. Paste into Cursor or your AI assistant."),
+      );
+    },
+    [scopedProjectId, selectedEvent, selectedIssue?.id, toast],
+  );
 
   const handleExportCsv = useCallback(
     (scope: "view" | "selected") => {
@@ -379,8 +396,8 @@ export function IssuesPage() {
           const index = issues.findIndex((issue) => issue.id === selectedIssue.id);
           return index >= 0 && index < issues.length - 1;
         })()}
-        inlineActions={
-          <div className="flex flex-wrap items-center justify-end gap-1.5">
+        actions={
+          <>
             <ActionButton
               variant="ghost"
               size="sm"
@@ -392,6 +409,20 @@ export function IssuesPage() {
               <Sparkles className="size-3.5" />
               <span>Copy for agent</span>
             </ActionButton>
+            {scopedProjectId ? (
+              <ActionButton
+                variant="ghost"
+                size="sm"
+                className={DETAIL_INLINE_ACTION_CLASS}
+                asChild
+                tooltip="Alert history for this issue"
+              >
+                <Link to={getAlertsHistoryLinkForIssue(scopedProjectId, selectedIssue.id)}>
+                  <BellRing className="size-3.5" />
+                  <span>Alerts</span>
+                </Link>
+              </ActionButton>
+            ) : null}
             {canResolveIssue(selectedIssue.status) ? (
               <ActionButton
                 variant="primary"
@@ -450,7 +481,7 @@ export function IssuesPage() {
                 onSnooze={handleSnooze}
               />
             )}
-          </div>
+          </>
         }
         overview={
           <IssueOverviewPanel
@@ -594,26 +625,23 @@ export function IssuesPage() {
             <div className="mb-3 flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded-lg border border-border bg-surface-1 shadow-xs">
               <IssueList
                 embedded
-                bulkToolbar={
-                  <BulkActions
-                    selectedIds={selectedIds}
-                    availability={bulkAvailability}
-                    canMerge={canMerge}
-                    canSplit={canSplit}
-                    onResolve={() => void handleBulk("resolve")}
-                    onIgnore={() => void handleBulk("ignore")}
-                    onAskAi={handleBulkAskAi}
-                    onMarkRead={handleBulkMarkRead}
-                    onReopen={() => void handleBulk("reopen")}
-                    onSnooze={handleBulkSnooze}
-                    onMerge={() => void handleMerge()}
-                    onSplit={() =>
-                      void handleSplit(mergedChildren.map((child) => child.id))
-                    }
-                    onClear={handleClearSelection}
-                    busy={actionsDisabled}
-                  />
-                }
+                canMerge={canMerge}
+                canSplit={canSplit}
+                onBulkSplit={() => void handleSplit(mergedChildren.map((child) => child.id))}
+                canSplitForIssueId={canSplit ? selectedId : null}
+                onMenuResolve={(ids) => void handleBulk("resolve", { ids })}
+                onMenuIgnore={(ids) => void handleBulk("ignore", { ids })}
+                onMenuReopen={(ids) => void handleBulk("reopen", { ids })}
+                onMenuSnooze={(mode, ids) => void handleSnoozeIds(mode, ids)}
+                onMenuAskAi={handleMenuAskAi}
+                onMenuMarkRead={handleMarkReadIds}
+                onMenuDeleteRequest={(ids) => {
+                  setDeleteTargetIds(ids);
+                  setDeleteConfirmOpen(true);
+                }}
+                onMenuMerge={() => void handleMerge()}
+                onMenuSplit={() => void handleSplit(mergedChildren.map((child) => child.id))}
+                onClearSelection={handleClearSelection}
                 issues={issues}
                 projects={projects}
                 focusedId={focusedId}
@@ -675,9 +703,14 @@ export function IssuesPage() {
       </div>
 
       <BulkDeleteDialog
-        count={selectedIds.size}
+        count={deleteTargetIds.length > 0 ? deleteTargetIds.length : selectedIds.size}
         open={deleteConfirmOpen}
-        onOpenChange={setDeleteConfirmOpen}
+        onOpenChange={(open) => {
+          setDeleteConfirmOpen(open);
+          if (!open) {
+            setDeleteTargetIds([]);
+          }
+        }}
         onConfirm={() => void handleConfirmBulkDelete()}
         busy={busy}
       />

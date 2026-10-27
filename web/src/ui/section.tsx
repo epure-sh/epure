@@ -32,11 +32,22 @@ export function Section({
   );
 }
 
+export type SectionMarkerTone = "signal" | "danger" | "healthy" | "muted";
+
+const MARKER_TONE_CLASS: Record<SectionMarkerTone, string> = {
+  signal: "bg-signal",
+  danger: "bg-semantic-danger",
+  healthy: "bg-healthy",
+  muted: "bg-fg-muted/40",
+};
+
 export interface SectionHeaderProps {
   title: string;
   description?: string;
   actions?: ReactNode;
   className?: string;
+  /** Status dot before title (defaults to accent signal). */
+  markerTone?: SectionMarkerTone;
 }
 
 export function SectionHeader({
@@ -44,11 +55,12 @@ export function SectionHeader({
   description,
   actions,
   className,
+  markerTone = "signal",
 }: SectionHeaderProps) {
   return (
     <div className={cn("epure-section-header mb-2 flex flex-wrap items-baseline justify-between gap-2", className)}>
-      <h3 className="epure-section-header-title flex items-center gap-2 text-ink-muted">
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-signal" aria-hidden />
+      <h3 className="epure-section-header-title flex items-center gap-2 font-mono text-xs uppercase tracking-wide text-ink-muted">
+        <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", MARKER_TONE_CLASS[markerTone])} aria-hidden />
         {title}
       </h3>
       {description || actions ? (

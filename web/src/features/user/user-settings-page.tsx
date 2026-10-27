@@ -2,7 +2,6 @@ import { Key, Laptop, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 import { cn } from "../../lib/cn";
 import { userSettingsPath } from "../../lib/paths";
-import { PageChrome } from "../../ui/page-chrome";
 import { RouteErrorBoundary } from "../../ui/route-error-boundary";
 import { AgentTokensTab } from "../org/account/agent-tokens-tab";
 import { ConnectedAppsTab } from "../org/account/connected-apps-tab";
@@ -46,11 +45,6 @@ export function UserSettingsPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <PageChrome
-        title="User Settings"
-        description="Manage your personal profile, credentials, access tokens, and connected CLI applications."
-      />
-
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         {/* User Settings Nav */}
         <nav

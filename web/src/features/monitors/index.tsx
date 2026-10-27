@@ -275,8 +275,6 @@ export function MonitorsPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <SimpleFeedHeader
-        title="Cron Monitors & Heartbeats"
-        description="Track periodic jobs, cron tasks, and single-region workers via standard Sentry check_in envelope items."
         actions={
           <div className="flex items-center gap-2">
             <Button

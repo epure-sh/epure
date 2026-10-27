@@ -132,7 +132,7 @@ export function BulkActions({
   return (
     <div
       className={cn(
-        "sticky top-0 z-10 bg-surface-1 px-3 py-1.5",
+        "sticky top-0 z-10 shrink-0 bg-surface-1 px-3 py-1.5",
         className,
       )}
       aria-busy={busy || undefined}

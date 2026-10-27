@@ -19,7 +19,6 @@ import { Input } from "../../ui/input";
 import { IssueRow } from "../../ui/issue-row";
 import { Kbd } from "../../ui/kbd";
 import { ListRow } from "../../ui/list-row";
-import { PageChrome } from "../../ui/page-chrome";
 import { Section, SectionHeader } from "../../ui/section";
 import { IssueRowSkeleton, Skeleton } from "../../ui/skeleton";
 
@@ -46,11 +45,6 @@ function LabSection({ title, children }: { title: string; children: React.ReactN
 export function DesignLabPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <PageChrome
-        title="Design Lab"
-        description="Preview tokens and ui/ primitives. Edit design/tokens.css and reload."
-      />
-
       <div className="flex-1 overflow-auto">
         <div className="mx-auto grid w-full max-w-5xl gap-10 p-6">
         <LabSection title="Tokens">

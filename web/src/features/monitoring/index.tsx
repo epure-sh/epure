@@ -295,11 +295,7 @@ export function MonitoringPage({ isEmbed = false }: { isEmbed?: boolean }) {
   }
 
   return (
-    <PageShell
-      title="Monitoring"
-      description={project ? `Live health and exception volume for ${project.name}.` : "Live project health."}
-      density="standard"
-    >
+    <PageShell density="standard">
       {content}
     </PageShell>
   );

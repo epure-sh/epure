@@ -23,7 +23,7 @@ import {
 describe("query-utils pre-filters & parsing", () => {
   it("parses structured tokens and free text accurately", () => {
     const parsed = parseQuery("is:unresolved level:error env:production user.email:alice@example.com TypeError");
-    assert.equal(parsed.status, "unresolved");
+    assert.equal(parsed.lifecycle, "unresolved");
     assert.equal(parsed.level, "error");
     assert.equal(parsed.environment, "production");
     assert.equal(parsed.userEmail, "alice@example.com");
@@ -34,7 +34,7 @@ describe("query-utils pre-filters & parsing", () => {
     const chips = extractChips("is:unresolved level:fatal env:production user.email:@");
     assert.equal(chips.length, 4);
 
-    const statusChip = chips.find((c) => c.key === "is");
+    const statusChip = chips.find((c) => c.key === "lifecycle");
     assert.ok(statusChip);
     assert.equal(statusChip?.label, "Unresolved");
     assert.equal(statusChip?.plain, true);
@@ -95,15 +95,23 @@ describe("query-utils pre-filters & parsing", () => {
     assert.ok(!query.includes("env:production"));
   });
 
-  it("stacks escalating on unresolved without dropping lifecycle state", () => {
+  it("stacks escalating and view modifiers on unresolved without dropping lifecycle", () => {
     let query = "is:unresolved";
     query = applyFilterToken(query, "is:escalating");
     assert.ok(query.includes("is:unresolved"));
     assert.ok(query.includes("is:escalating"));
     query = applyFilterToken(query, "is:regression");
-    assert.ok(!query.includes("is:unresolved"));
+    assert.ok(query.includes("is:unresolved"));
     assert.ok(query.includes("is:regression"));
     assert.ok(query.includes("is:escalating"));
+  });
+
+  it("replaces snoozed with regression but keeps primary lifecycle", () => {
+    let query = "is:unresolved is:snoozed";
+    query = applyFilterToken(query, "is:regression");
+    assert.ok(query.includes("is:unresolved"));
+    assert.ok(query.includes("is:regression"));
+    assert.ok(!query.includes("is:snoozed"));
   });
 
   it("strips client-only tokens for API fetch", () => {
@@ -115,7 +123,7 @@ describe("query-utils pre-filters & parsing", () => {
 
   it("parses escalating and priority modifiers", () => {
     const parsed = parseQuery("is:unresolved is:escalating priority:critical");
-    assert.equal(parsed.status, "unresolved");
+    assert.equal(parsed.lifecycle, "unresolved");
     assert.equal(parsed.escalating, true);
     assert.equal(parsed.priority, "critical");
   });

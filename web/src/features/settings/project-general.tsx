@@ -23,7 +23,6 @@ import {
   InfoCallout,
   MemberAccessNotice,
   ReadOnlyDetail,
-  SettingsTabHeader,
 } from "./shared";
 import { AskAgentCard } from "@/components/kit/ask-agent-card";
 
@@ -124,7 +123,6 @@ export function ProjectGeneralSettings() {
   if (projectsLoading || userLoading) {
     return (
       <div className="space-y-4">
-        <SettingsTabHeader title="General" description="Project identity and data policies." />
         <div className="h-32 rounded-lg border border-border-subtle bg-surface-1 animate-pulse" />
       </div>
     );
@@ -133,7 +131,6 @@ export function ProjectGeneralSettings() {
   if (!project) {
     return (
       <div className="space-y-4">
-        <SettingsTabHeader title="General" description="Project identity and data policies." />
         <InfoCallout variant="warning">Project not found. It may have been deleted.</InfoCallout>
       </div>
     );
@@ -145,11 +142,6 @@ export function ProjectGeneralSettings() {
 
   return (
     <div className="space-y-4">
-      <SettingsTabHeader
-        title="General"
-        description="Identity, retention, ingest limits, and environment conventions for this project."
-      />
-
       <form className="space-y-4" onSubmit={(event) => void handleSave(event)}>
         <Card>
           <CardHeader>

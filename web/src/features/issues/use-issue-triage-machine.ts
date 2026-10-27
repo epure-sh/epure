@@ -38,25 +38,23 @@ import {
   canResolveIssue,
   canSnoozeIssue,
   headlineStatsDelta,
-  issueMatchesStatusFilter,
+  issueMatchesParsedQuery,
   type HeadlineStatsDelta,
 } from "./issue-triage-utils";
 import { inferTrendStatus } from "./issue-feed-utils";
 import { resolveIssuePriority } from "../../ui/issue-priority";
 import {
   DEFAULT_ISSUE_SORT,
-  DEFAULT_TIME_WINDOW,
-  ALL_QUERY,
   applyFilterToken,
-  parseIssueSort,
   parseQuery,
-  parseTimeWindow,
   toApiQuery,
   withSearchText,
   type IssueSortValue,
   type TimeWindowValue,
 } from "./query-utils";
 import { useIssueReadState } from "./use-issue-read-state";
+import { persistFeedQueryFromSearchParams } from "./project-feed-query-store";
+import { useProjectFeedQuery } from "./use-project-feed-query";
 import type { TimelineWindowValue } from "../../ui/issue-occurrence-timeline";
 
 export { ALL_QUERY, DEFAULT_QUERY } from "./query-utils";
@@ -113,7 +111,7 @@ function issueMatchesLoadedQuery(
   trends: Record<string, TimelineBucket[]>,
 ): boolean {
   const parsed = parseQuery(query);
-  if (!issueMatchesStatusFilter(issue, parsed.status)) return false;
+  if (!issueMatchesParsedQuery(issue, parsed)) return false;
   if (parsed.release || parsed.userEmail) return false;
   if (parsed.level && issue.level !== parsed.level) return false;
   if (parsed.environment && issue.environment !== parsed.environment) return false;
@@ -135,12 +133,17 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
     const match = safeProjects.find((p) => p && (p.id === rawId || p.slug === rawId));
     return match ? match.id : rawId;
   }, [rawId, safeProjects]);
-  const timeWindow = parseTimeWindow(searchParams.get("window"));
-  const issueSort = parseIssueSort(searchParams.get("sort"));
   const { issueId: routeIssueId } = useParams<{ issueId?: string }>();
   const urlIssueId = routeIssueId ?? searchParams.get("issue");
 
-  const [query, setQuery] = useState(() => searchParams.get("q") ?? ALL_QUERY);
+  const {
+    query,
+    setQuery: persistFeedQuery,
+    timeWindow,
+    setTimeWindow,
+    issueSort,
+    setIssueSort,
+  } = useProjectFeedQuery(scopedProjectId);
   const [rawIssues, setRawIssues] = useState<IssueSummary[]>([]);
   const [loadedQuery, setLoadedQuery] = useState(query);
   const [overrides, setOverrides] = useState<Map<string, IssueOverride>>(() => new Map());
@@ -158,6 +161,14 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
   const [focusedId, setFocusedId] = useState<string | null>(urlIssueId);
   const [selectedId, setSelectedId] = useState<string | null>(urlIssueId);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+
+  const handleSetQuery = useCallback(
+    (nextQueryOrFn: string | ((current: string) => string)) => {
+      setSelectedIds(new Set());
+      persistFeedQuery(nextQueryOrFn);
+    },
+    [persistFeedQuery],
+  );
 
   const [events, setEvents] = useState<EventDetail[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -204,7 +215,7 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
     const parsed = parseQuery(loadedQuery);
     const visible = knownIssues.filter(
       (issue) =>
-        issueMatchesStatusFilter(issue, parsed.status) &&
+        issueMatchesParsedQuery(issue, parsed) &&
         issueMatchesClientRefiners(issue, parsed, issueTrends),
     );
     const rawIds = new Set(rawIssues.map((row) => row.id));
@@ -383,72 +394,6 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
       }
     }
   }, [buildQuery, environment, scopedProjectId]);
-
-  const setTimeWindow = useCallback(
-    (nextWindow: TimeWindowValue) => {
-      setSearchParams(
-        (current) => {
-          const params = new URLSearchParams(current);
-          if (nextWindow === DEFAULT_TIME_WINDOW) {
-            params.delete("window");
-          } else {
-            params.set("window", nextWindow);
-          }
-          return params;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
-
-  const setIssueSort = useCallback(
-    (nextSort: IssueSortValue) => {
-      setSearchParams(
-        (current) => {
-          const params = new URLSearchParams(current);
-          if (nextSort === DEFAULT_ISSUE_SORT) {
-            params.delete("sort");
-          } else {
-            params.set("sort", nextSort);
-          }
-          return params;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
-
-  const handleSetQuery = useCallback(
-    (nextQueryOrFn: string | ((current: string) => string)) => {
-      setQuery((current) => {
-        const nextQuery =
-          typeof nextQueryOrFn === "function" ? nextQueryOrFn(current) : nextQueryOrFn;
-        setSearchParams(
-          (prevParams) => {
-            const params = new URLSearchParams(prevParams);
-            const trimmed = nextQuery.trim();
-            if (trimmed === ALL_QUERY) {
-              params.delete("q");
-            } else {
-              params.set("q", trimmed);
-            }
-            return params;
-          },
-          { replace: true },
-        );
-        return nextQuery.trim();
-      });
-    },
-    [setSearchParams],
-  );
-
-  useEffect(() => {
-    const urlQuery = searchParams.get("q");
-    const normalized = urlQuery === null ? ALL_QUERY : urlQuery.trim();
-    setQuery((current) => (current !== normalized ? normalized : current));
-  }, [searchParams]);
 
   useEffect(() => {
     const loadKey = [
@@ -1126,6 +1071,35 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
     [actionsDisabled, runOptimistic, selectedIssues],
   );
 
+  const handleSnoozeIds = useCallback(
+    async (mode: SnoozeMode, ids: string[]) => {
+      if (ids.length === 0 || actionsDisabled) {
+        return;
+      }
+      if (ids.length === 1) {
+        await handleSnooze(mode, ids[0]);
+        return;
+      }
+      const eligible = ids
+        .map((id) => issueById.get(id))
+        .filter((issue): issue is IssueSummary => Boolean(issue))
+        .filter(canSnoozeIssue);
+      if (eligible.length === 0) {
+        return;
+      }
+      setSelectedIds(new Set());
+      const ok = await runOptimistic(
+        eligible.map((issue) => ({ before: issue, after: applyOptimisticSnooze(issue, mode) })),
+        () => Promise.all(eligible.map((issue) => snoozeIssue(issue.id, mode))),
+        "Bulk snooze failed",
+      );
+      if (ok) {
+        toast(`Snoozed ${eligible.length} issues`);
+      }
+    },
+    [actionsDisabled, handleSnooze, issueById, runOptimistic],
+  );
+
   const handleBulk = useCallback(
     async (
       action: "resolve" | "ignore" | "reopen" | "delete",
@@ -1180,6 +1154,20 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
     }
     toast(`Marked ${selectedIds.size} issue${selectedIds.size === 1 ? "" : "s"} as read`);
   }, [issueById, markIssueRead, selectedIds]);
+
+  const handleMarkReadIds = useCallback(
+    (ids: string[]) => {
+      if (ids.length === 0) {
+        return;
+      }
+      for (const id of ids) {
+        const issue = issueById.get(id);
+        markIssueRead(id, issue?.last_seen_at ?? new Date().toISOString());
+      }
+      toast(`Marked ${ids.length} issue${ids.length === 1 ? "" : "s"} as read`);
+    },
+    [issueById, markIssueRead],
+  );
 
   const handleClearSelection = useCallback(() => {
     setSelectedIds(new Set());
@@ -1251,18 +1239,19 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
   );
 
   const handleResetFilters = useCallback(() => {
-    handleSetQuery(ALL_QUERY);
+    setSelectedIds(new Set());
     setSearchParams(
       (current) => {
         const params = new URLSearchParams(current);
         params.delete("q");
         params.delete("window");
         params.delete("sort");
+        persistFeedQueryFromSearchParams(scopedProjectId, params);
         return params;
       },
       { replace: true },
     );
-  }, [handleSetQuery, setSearchParams]);
+  }, [scopedProjectId, setSearchParams]);
 
   return {
     scopedProjectId,
@@ -1324,7 +1313,9 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
     handleUnsnooze,
     handleBulk,
     handleBulkSnooze,
+    handleSnoozeIds,
     handleBulkMarkRead,
+    handleMarkReadIds,
     handleClearSelection,
     handleToggleSelectAll,
     handleMoveSelection,

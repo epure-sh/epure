@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { deploymentLabel, isCloudDeployment } from "../../lib/deployment";
 import { CopyButton } from "../../ui/copy-button";
 import { PageShell } from "@/components/kit/page-shell";
 import {
@@ -15,18 +14,11 @@ import { USAGE_TIME_WINDOWS, type UsageTimeWindow } from "./settings/usage-utils
 export function UsagePage() {
   const [window, setWindow] = useState<UsageTimeWindow>("7d");
   const [summary, setSummary] = useState("");
-  const cloud = isCloudDeployment();
 
   return (
-    <PageShell
-      title="Usage"
-      description={
-        cloud
-          ? `Event volume, storage, and plan limits across your ${deploymentLabel().toLowerCase()} workspace.`
-          : `Event volume, storage, and retention across your ${deploymentLabel().toLowerCase()} workspace.`
-      }
-      actions={
-        <>
+    <PageShell density="standard">
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <Select value={window} onValueChange={(value) => setWindow(value as UsageTimeWindow)}>
             <SelectTrigger aria-label="Time range" size="sm" className="w-auto min-w-[9rem]">
               <SelectValue>
@@ -47,11 +39,9 @@ export function UsagePage() {
             label="Copy summary"
             className={!summary ? "pointer-events-none opacity-50" : undefined}
           />
-        </>
-      }
-      density="standard"
-    >
-      <OrgUsageSettings window={window} onSummaryChange={setSummary} />
+        </div>
+        <OrgUsageSettings window={window} onSummaryChange={setSummary} />
+      </div>
     </PageShell>
   );
 }

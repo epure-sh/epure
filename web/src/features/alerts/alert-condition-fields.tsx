@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -8,7 +9,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/cn";
+import { AlertWizardSection } from "./alert-wizard-section";
 
 const SPIKE_WINDOW_MINUTES = 15;
 
@@ -39,27 +43,59 @@ export interface AlertConditionFieldsProps {
   className?: string;
 }
 
-function FieldSection({
-  title,
-  description,
-  children,
+function TriggerLogicLine({
+  kind,
+  threshold,
+  onThresholdChange,
 }: {
-  title: string;
-  description?: string;
-  children: ReactNode;
+  kind: AlertRuleKind;
+  threshold: string;
+  onThresholdChange: (value: string) => void;
 }) {
-  return (
-    <section className="space-y-2 rounded-md border border-border bg-bg-subtle/60 p-3">
-      <div>
-        <h4 className="text-xs font-medium text-fg-primary">{title}</h4>
-        {description ? <p className="mt-0.5 text-[11px] leading-snug text-fg-muted">{description}</p> : null}
+  const chip = "rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-fg-primary";
+
+  if (kind === "velocity_spike") {
+    const pct = threshold.trim() || "300";
+    return (
+      <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-fg-secondary">
+        <span>Notify when</span>
+        <span className={chip}>spike &gt; {pct}%</span>
+        <span>vs prior</span>
+        <span className={chip}>{SPIKE_WINDOW_MINUTES}m window</span>
+        <label className="sr-only" htmlFor="alert-spike-threshold-inline">
+          Spike threshold percent
+        </label>
+        <Input
+          id="alert-spike-threshold-inline"
+          size="sm"
+          type="number"
+          min={1}
+          className="h-6 w-14 tabular-nums"
+          value={threshold}
+          onChange={(event) => onThresholdChange(event.target.value)}
+        />
       </div>
-      {children}
-    </section>
+    );
+  }
+
+  if (kind === "regression") {
+    return (
+      <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-fg-secondary">
+        <span>Notify when</span>
+        <span className={chip}>resolved status reoccurs</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-fg-secondary">
+      <span>Notify when</span>
+      <span className={chip}>first seen fingerprint</span>
+    </div>
   );
 }
 
-/** Step 2 — when / where conditions (PostHog-style grouped fields). */
+/** Step 2 — compact Stitch-style fields. */
 export function AlertConditionFields({
   kind,
   onKindChange,
@@ -71,135 +107,179 @@ export function AlertConditionFields({
   onMinLevelChange,
   firstSeen,
   onFirstSeenChange,
-  summary,
+  summary: _summary,
   showKindPicker = true,
   className,
 }: AlertConditionFieldsProps) {
+  const [scopeEditorOpen, setScopeEditorOpen] = useState(false);
+  const envTrimmed = environment.trim();
+  const scopeLabel = envTrimmed ? (envTrimmed.includes(":") ? envTrimmed : `env:${envTrimmed}`) : null;
+  const workloadCount = scopeLabel ? 1 : 0;
+
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={cn("space-y-2.5", className)}>
       {showKindPicker ? (
-        <FieldSection title="When" description="Choose what should fire this alert.">
-          <div className="flex flex-wrap gap-1.5">
+        <AlertWizardSection title="When">
+          <ToggleGroup
+            type="single"
+            value={kind}
+            onValueChange={(value) => {
+              if (value === "velocity_spike" || value === "issue_created" || value === "regression") {
+                onKindChange(value);
+              }
+            }}
+            className="flex-wrap"
+          >
             {KIND_OPTIONS.map((option) => (
-              <Button
-                key={option.id}
-                type="button"
-                variant={kind === option.id ? "secondary" : "outline"}
-                size="xs"
-                onClick={() => onKindChange(option.id)}
-              >
+              <ToggleGroupItem key={option.id} value={option.id} size="sm">
                 {option.label}
-              </Button>
+              </ToggleGroupItem>
             ))}
-          </div>
-          <p className="text-[11px] text-fg-muted">
-            {KIND_OPTIONS.find((option) => option.id === kind)?.hint}
-          </p>
-        </FieldSection>
+          </ToggleGroup>
+        </AlertWizardSection>
       ) : null}
 
-      <FieldSection title="Scope" description="Limit to one environment or leave open for all.">
-        <div className="flex flex-wrap gap-2">
-          {(["", "production", "staging"] as const).map((preset) => (
-            <Button
-              key={preset || "all"}
-              type="button"
-              variant={
-                (preset === "" && !environment.trim()) || environment.trim() === preset
-                  ? "secondary"
-                  : "outline"
-              }
-              size="xs"
-              onClick={() => onEnvironmentChange(preset)}
-            >
-              {preset === "" ? "All environments" : preset}
-            </Button>
-          ))}
+      <AlertWizardSection title="Trigger logic">
+        <div className="rounded-lg bg-surface-2/50 px-2.5 py-2">
+          <TriggerLogicLine kind={kind} threshold={threshold} onThresholdChange={onThresholdChange} />
         </div>
-        <Input
-          size="sm"
-          className="mt-2"
-          value={environment}
-          placeholder="Or type a custom environment"
-          onChange={(event) => onEnvironmentChange(event.target.value)}
-          aria-label="Environment"
-        />
-      </FieldSection>
+      </AlertWizardSection>
 
-      <FieldSection
-        title="Filters"
-        description="Narrow which issues count toward this rule."
+      <AlertWizardSection
+        title="Target scope"
+        actions={
+          workloadCount > 0 ? (
+            <span className="font-mono text-[10px] tabular-nums text-fg-muted">{workloadCount} workload</span>
+          ) : null
+        }
       >
-        <div className="grid gap-2 sm:grid-cols-2">
-          <label className="block text-[11px] text-fg-muted">
-            Issue level
-            <Select value={minLevel} onValueChange={(v) => onMinLevelChange(v as AlertLevelFilter)}>
-              <SelectTrigger size="sm" className="mt-1 w-full" aria-label="Issue level filter">
-                <SelectValue placeholder="Any level" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="any">Any level</SelectItem>
-                <SelectItem value="error">Error and above</SelectItem>
-                <SelectItem value="fatal">Fatal only</SelectItem>
-              </SelectContent>
-            </Select>
-          </label>
-          <label className="block text-[11px] text-fg-muted">
-            First seen
-            <Select value={firstSeen} onValueChange={(v) => onFirstSeenChange(v as AlertFirstSeenFilter)}>
-              <SelectTrigger size="sm" className="mt-1 w-full" aria-label="First seen filter">
-                <SelectValue placeholder="Any issue" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="any">New or existing issues</SelectItem>
-                <SelectItem value="new">New fingerprints only</SelectItem>
-              </SelectContent>
-            </Select>
-          </label>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {scopeLabel ? (
+            <span className="inline-flex items-center gap-1 rounded bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-fg-primary">
+              {scopeLabel.startsWith("env:production") ? (
+                <span className="size-1.5 rounded-full bg-semantic-danger" aria-hidden />
+              ) : null}
+              {scopeLabel}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="ml-0.5 size-5 min-w-5 text-fg-muted hover:text-semantic-danger"
+                aria-label="Remove scope filter"
+                onClick={() => onEnvironmentChange("")}
+              >
+                ×
+              </Button>
+            </span>
+          ) : null}
+          <Button
+            type="button"
+            variant="secondary"
+            size="xs"
+            className="h-6 gap-0.5 px-2 font-mono text-[10px]"
+            onClick={() => setScopeEditorOpen((open) => !open)}
+          >
+            + Add
+          </Button>
         </div>
-        <p className="text-[10px] leading-snug text-fg-muted">
-          Filters apply when custom rules match an issue on ingest.
-        </p>
-      </FieldSection>
-
-      {kind === "velocity_spike" ? (
-        <FieldSection
-          title="Threshold"
-          description="Fire when the rolling 15-minute rate exceeds this percentage vs the previous window."
-        >
-          <div className="flex items-center gap-2">
+        {scopeEditorOpen || !scopeLabel ? (
+          <div className="mt-1.5 space-y-1.5">
+            <ToggleGroup
+              type="single"
+              value={
+                envTrimmed === "" ? "all" : envTrimmed === "production" || envTrimmed === "staging" ? envTrimmed : undefined
+              }
+              onValueChange={(value) => {
+                if (value === "all") onEnvironmentChange("");
+                else if (value === "production" || value === "staging") {
+                  onEnvironmentChange(value);
+                  setScopeEditorOpen(false);
+                }
+              }}
+              className="flex-wrap"
+            >
+              <ToggleGroupItem value="all" size="sm">
+                All envs
+              </ToggleGroupItem>
+              <ToggleGroupItem value="production" size="sm">
+                production
+              </ToggleGroupItem>
+              <ToggleGroupItem value="staging" size="sm">
+                staging
+              </ToggleGroupItem>
+            </ToggleGroup>
             <Input
               size="sm"
-              type="number"
-              min={1}
-              className="w-24 tabular-nums"
-              value={threshold}
-              onChange={(event) => onThresholdChange(event.target.value)}
-              aria-label="Spike threshold percent"
+              className="h-7 font-mono text-[11px]"
+              value={environment}
+              placeholder="env:production or custom"
+              onChange={(event) => onEnvironmentChange(event.target.value)}
+              aria-label="Environment"
             />
-            <span className="text-xs text-fg-muted">% increase</span>
           </div>
-        </FieldSection>
-      ) : null}
+        ) : null}
+      </AlertWizardSection>
 
-      <FieldSection
-        title="Frequency"
-        description="How often this rule evaluates and notifies (engine defaults for now)."
-      >
-        <ul className="space-y-1 text-[11px] leading-snug text-fg-secondary">
-          <li>
-            {kind === "velocity_spike"
-              ? `Rolling window: ${SPIKE_WINDOW_MINUTES} minutes vs previous ${SPIKE_WINDOW_MINUTES} minutes`
-              : "Evaluates on each matching event"}
+      <AlertWizardSection title="Conditions (and)">
+        <ul className="flex flex-col gap-1">
+          <li className="flex items-center justify-between gap-2 rounded-lg bg-surface-2/50 px-2.5 py-1.5 font-mono text-[11px]">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-fg-primary">
+              <span className="text-fg-muted">Level</span>
+              <span className="text-fg-muted">==</span>
+              {minLevel === "error" ? (
+                <Badge variant="escalating" size="compact" className="font-semibold uppercase">
+                  error
+                </Badge>
+              ) : minLevel === "fatal" ? (
+                <Badge variant="escalating" size="compact" className="font-semibold uppercase">
+                  fatal
+                </Badge>
+              ) : (
+                <span className="text-fg-muted">any</span>
+              )}
+            </div>
+            <Select value={minLevel} onValueChange={(v) => onMinLevelChange(v as AlertLevelFilter)}>
+              <SelectTrigger size="sm" className="h-6 w-[5.5rem] border-0 bg-surface-1 px-1.5 text-[10px]">
+                <SelectValue placeholder="Level" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Any</SelectItem>
+                <SelectItem value="error">error</SelectItem>
+                <SelectItem value="fatal">fatal</SelectItem>
+              </SelectContent>
+            </Select>
           </li>
-          <li>One notification per issue until you acknowledge or mute</li>
-          <li>Repeat fires only when conditions match again after a cooldown</li>
+          <li className="flex items-center justify-between gap-2 rounded-lg bg-surface-2/50 px-2.5 py-1.5 font-mono text-[11px]">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-fg-primary">
+              <span className="text-fg-muted">First seen</span>
+              <span className="text-fg-muted">==</span>
+              <span>{firstSeen === "new" ? "new only" : "any"}</span>
+            </div>
+            <Select value={firstSeen} onValueChange={(v) => onFirstSeenChange(v as AlertFirstSeenFilter)}>
+              <SelectTrigger size="sm" className="h-6 w-[5.5rem] border-0 bg-surface-1 px-1.5 text-[10px]">
+                <SelectValue placeholder="First seen" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Any</SelectItem>
+                <SelectItem value="new">New only</SelectItem>
+              </SelectContent>
+            </Select>
+          </li>
         </ul>
-      </FieldSection>
+      </AlertWizardSection>
 
-      <FieldSection title="Summary" description="Plain-language preview of what will fire.">
-        <p className="text-xs leading-relaxed text-fg-secondary">{summary}</p>
-      </FieldSection>
+      <AlertWizardSection title="Alert frequency">
+        <RadioGroup defaultValue="episode" className="grid grid-cols-2 gap-1.5">
+          <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-surface-2/50 p-2 transition-colors hover:bg-surface-2/80">
+            <RadioGroupItem value="episode" id="freq-episode" />
+            <span className="text-[12px] font-medium text-fg-primary">Once per episode</span>
+          </label>
+          <label className="flex cursor-not-allowed items-center gap-2 rounded-lg bg-surface-1 p-2 opacity-60">
+            <RadioGroupItem value="repeat" id="freq-repeat" disabled />
+            <span className="text-[12px] text-fg-muted">Repeat every 30m</span>
+          </label>
+        </RadioGroup>
+      </AlertWizardSection>
     </div>
   );
 }

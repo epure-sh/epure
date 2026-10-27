@@ -627,16 +627,14 @@ export function SetupWizardDialog({
           ) : null}
 
           {step === "verify" ? (
-            <div className="flex flex-col gap-5">
-              <div className="space-y-1.5 py-2 text-center">
-                <p className="text-xl font-medium tracking-ui text-fg-primary">You&apos;re wired.</p>
-                <p className="text-sm text-fg-muted">
-                  Break something on purpose, or wait for the next one. We&apos;re listening.
-                </p>
+            <div className="flex flex-col gap-3">
+              <div className="space-y-1 py-1 text-center">
+                <p className="text-sm font-medium tracking-ui text-fg-primary">Listening for first error</p>
+                <p className="text-xs text-fg-muted">Trigger a test exception or wait for production traffic.</p>
                 {verifyIssueSeen ? (
-                  <p className="pt-1 text-sm font-medium text-primary">Got it. You&apos;re live.</p>
+                  <p className="pt-0.5 text-xs font-medium text-primary">Live — issue received.</p>
                 ) : verifyListening ? (
-                  <p className="pt-1 text-xs text-fg-muted">Listening…</p>
+                  <p className="pt-0.5 text-2xs text-fg-muted">Polling issues…</p>
                 ) : null}
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border-subtle pt-2">

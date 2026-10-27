@@ -6,7 +6,7 @@ export default function CheckboxPreview() {
   const [a, setA] = React.useState(false);
   const [b, setB] = React.useState(true);
   return (
-    <PreviewBlock id="checkbox" title="Checkbox" description="16px · zero layout shift">
+    <PreviewBlock id="checkbox" title="Checkbox" description="16px · 4px radius · strong border · zero layout shift">
       <PreviewRow label="States">
         <label className="flex items-center gap-2 text-xs"><Checkbox checked={a} onCheckedChange={(v) => setA(Boolean(v))} /> Unchecked</label>
         <label className="flex items-center gap-2 text-xs"><Checkbox checked={b} onCheckedChange={(v) => setB(Boolean(v))} /> Checked</label>

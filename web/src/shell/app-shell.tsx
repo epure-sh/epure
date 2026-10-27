@@ -20,6 +20,7 @@ import { projectPath } from "../lib/paths";
 import { RouteErrorBoundary } from "../ui/route-error-boundary";
 import { useAppContext } from "./app-context";
 import { EnvironmentUrlSync } from "./environment-url-sync";
+import { FeedQueryUrlSync } from "./feed-query-url-sync";
 import { CommandPalette } from "./command-palette";
 import { ProjectScope } from "./project-scope";
 import { TopStrip } from "./top-strip";
@@ -124,6 +125,7 @@ export function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <TopStrip onOpenMobileSidebar={() => setMobileSidebarOpen(true)} />
         <EnvironmentUrlSync />
+        <FeedQueryUrlSync />
         <main className="epure-app-shell-main flex min-h-0 flex-1 flex-col overflow-hidden bg-bg">
               <Routes>
                 {/* Global scope */}

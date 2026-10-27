@@ -160,29 +160,25 @@ export function BillingPage() {
   };
 
   return (
-    <PageShell
-      title="Usage & Billing"
-      description="Your subscription, event quota, and per-project event volume."
-      actions={
-        isOwner && billingStatus?.subscription_id ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void handleOpenPortal()}
-            disabled={loadingPortal}
-          >
-            {loadingPortal ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Receipt className="size-3.5" />
-            )}
-            <span>Manage Invoices</span>
-          </Button>
-        ) : null
-      }
-      density="standard"
-    >
+    <PageShell density="standard">
       <div className="mx-auto w-full max-w-6xl space-y-6 p-6">
+        {isOwner && billingStatus?.subscription_id ? (
+          <div className="flex justify-end">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void handleOpenPortal()}
+              disabled={loadingPortal}
+            >
+              {loadingPortal ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Receipt className="size-3.5" />
+              )}
+              <span>Manage Invoices</span>
+            </Button>
+          </div>
+        ) : null}
         {billingLoading ? (
           <div className="flex items-center gap-2 text-xs text-fg-muted">
             <Loader2 className="size-3.5 animate-spin" />

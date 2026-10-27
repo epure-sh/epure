@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { buildProjectPathWithFeedQuery } from "../features/issues/project-feed-query-store";
 import {
   getIssuesTriage,
   subscribeIssuesTriage,
@@ -68,7 +69,7 @@ export function useFocusQueryListener(callback: () => void) {
 
 export function CommandPalette() {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { projectId, projects, setProjectId } = useAppContext();
   const [open, setOpen] = useState(false);
   const [, setTriageVersion] = useState(0);
@@ -179,7 +180,13 @@ export function CommandPalette() {
             <CommandGroup heading="Project">
               <CommandItem
                 onSelect={() =>
-                  run(() => navigate(projectPath(activeProjectId, "issues")))
+                  run(() =>
+                    navigate(
+                      buildProjectPathWithFeedQuery(activeProjectId, "issues", {
+                        currentSearch: search,
+                      }),
+                    ),
+                  )
                 }
               >
                 <CircleDot className="h-4 w-4 text-ink-muted" />
@@ -195,7 +202,13 @@ export function CommandPalette() {
               </CommandItem>
               <CommandItem
                 onSelect={() =>
-                  run(() => navigate(projectPath(activeProjectId, "alerts")))
+                  run(() =>
+                    navigate(
+                      buildProjectPathWithFeedQuery(activeProjectId, "alerts", {
+                        currentSearch: search,
+                      }),
+                    ),
+                  )
                 }
               >
                 <Bell className="h-4 w-4 text-ink-muted" />

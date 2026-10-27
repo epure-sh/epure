@@ -195,25 +195,21 @@ export function OrgTeamPage() {
   };
 
   return (
-    <PageShell
-      title={`${orgName} Team`}
-      description="Manage workspace collaborators, access permissions, and automated triage alert subscriptions."
-      actions={
-        canManage && (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setInviteModalOpen(true)}
-            className="gap-1.5"
-          >
-            <UserPlus className="size-3.5" />
-            <span>+ Invite Member</span>
-          </Button>
-        )
-      }
-      density="standard"
-    >
+    <PageShell density="standard">
       <div className="mx-auto max-w-6xl space-y-6 p-6 w-full select-none">
+        {canManage ? (
+          <div className="flex justify-end">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setInviteModalOpen(true)}
+              className="gap-1.5"
+            >
+              <UserPlus className="size-3.5" />
+              <span>+ Invite Member</span>
+            </Button>
+          </div>
+        ) : null}
         {/* Top Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="rounded-panel border border-border-subtle bg-surface-1 p-4 shadow-tactile flex items-center justify-between">

@@ -23,6 +23,25 @@ Do **not** override buttons to `border-radius: 9999px`.
 - `h-8` · `rounded-md` · `text-sm` · hairline border only
 - Focus: `.focus-ring` (1px accent outline)
 
+## Inbox read / unread (issues + alerts)
+
+Shared kit: `@/components/kit/inbox-read-cue` (Sentry/Linear-style inbox, Calm Ledger rules).
+
+| State | Treatment |
+|---|---|
+| Unread | 2px left `--accent` rail (`.inbox-unread-rail`) + **semibold** primary line + normal meta contrast |
+| Read | No rail + **regular** primary line in `text-fg-secondary` + muted meta/subtitle |
+| Open / Mark read | Shared store `epure.inbox-read.{projectId}`; issues keyed `issue:{id}`, alerts `alert:{id}`. **Linked by `issue_id`:** opening or marking read on either side updates both. Activity bump (`last_seen_at` / `fired_at`) re-unread until viewed again. |
+
+**Lifecycle** (snoozed, came back, resolved, ignored): shared labels via `@/lib/inbox-lifecycle` + `InboxLifecycleCue` on issue and alert rows (mono uppercase line under title).
+
+No full-row unread wash; selected detail still uses `--accent-muted` only.
+
+## Checkbox
+
+- `size-4` (16px) · `rounded-sm` (6px) · **2px** `--control-checkbox-border` (grey) on `--control-checkbox-bg` (subtle paper — visible on white rows)
+- Checked / indeterminate: `bg-primary` + `border-primary` · zero layout shift in list grids
+
 ## Card
 
 - `rounded-lg` (12px) · `border-border` · `p-4` · no shadow
@@ -32,6 +51,14 @@ Do **not** override buttons to `border-radius: 9999px`.
 
 - Badges: `rounded-md` · `text-xs` (pills only for avatars / true capsules)
 - Chips: **5–6px** radius · `text-xs` · `h-7` · key:value, not 9999px pills
+- **Nav count pastille** (`NavCountPastille`): `h-4` · `rounded-sm` (6px) · mono `text-[10px]` tabular · neutral surface chip or accent wash for unread; sidebar Issues (unresolved) + Alerts (unread)
+
+## Alert list row
+
+- Same inbox read rules as issues (`AlertRowShell` in `@/components/kit/alert-row-shell`)
+- Grid: checkbox · title stack (issue title or rule name + inverse subtitle) · fired time (`inboxMetaClass`)
+- One mono uppercase signal line (`Firing` / `Fired` / `Resolved` / `Muted`) — no kind icon column in History
+- Row height locked to issue feed (`4.625rem`) · flat `border-b` inside the list well
 
 ## Issue list row
 

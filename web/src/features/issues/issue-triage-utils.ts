@@ -1,4 +1,5 @@
 import type { IssueSummary, SnoozeMode } from "../../lib/api";
+import type { ParsedQuery } from "./query-utils";
 
 export type IssueStatus = "unresolved" | "resolved" | "ignored" | "regression";
 
@@ -74,6 +75,44 @@ export function issueMatchesStatusFilter(
     return true;
   }
   return issue.status === status && !issue.snoozed;
+}
+
+/** Client + API filter: primary lifecycle scope plus optional view modifier. */
+export function issueMatchesParsedQuery(
+  issue: Pick<IssueSummary, "status" | "snoozed">,
+  parsed: Pick<ParsedQuery, "lifecycle" | "viewModifier">,
+): boolean {
+  if (parsed.viewModifier === "snoozed") {
+    if (!issue.snoozed) {
+      return false;
+    }
+    if (parsed.lifecycle === "resolved") {
+      return issue.status === "resolved";
+    }
+    if (parsed.lifecycle === "ignored") {
+      return issue.status === "ignored";
+    }
+    if (parsed.lifecycle === "unresolved") {
+      return issue.status === "unresolved" || issue.status === "regression";
+    }
+    return true;
+  }
+
+  if (parsed.viewModifier === "regression") {
+    if (issue.status !== "regression" || issue.snoozed) {
+      return false;
+    }
+    if (parsed.lifecycle === "resolved" || parsed.lifecycle === "ignored") {
+      return false;
+    }
+    return true;
+  }
+
+  if (parsed.lifecycle) {
+    return issueMatchesStatusFilter(issue, parsed.lifecycle);
+  }
+
+  return true;
 }
 
 export interface HeadlineStatsDelta {

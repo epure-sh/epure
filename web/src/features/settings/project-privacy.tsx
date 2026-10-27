@@ -13,7 +13,7 @@ import { Field } from "../../ui/field";
 import { Input } from "../../ui/input";
 import { Switch } from "../../ui/switch";
 import { useToast } from "../../ui/toast-provider";
-import { DangerZone, InfoCallout, MemberAccessNotice, SettingsTabHeader } from "./shared";
+import { DangerZone, InfoCallout, MemberAccessNotice } from "./shared";
 
 export function ProjectPrivacySettings() {
   const { projectId: paramId } = useParams<{ projectId: string }>();
@@ -36,10 +36,6 @@ export function ProjectPrivacySettings() {
   if (projectsLoading || userLoading) {
     return (
       <div className="space-y-4">
-        <SettingsTabHeader
-          title="Privacy"
-          description="End-user data stored with errors from this project."
-        />
         <div className="h-32 rounded-lg border border-border-subtle bg-surface-1 animate-pulse" />
       </div>
     );
@@ -48,10 +44,6 @@ export function ProjectPrivacySettings() {
   if (!project) {
     return (
       <div className="space-y-4">
-        <SettingsTabHeader
-          title="Privacy"
-          description="End-user data stored with errors from this project."
-        />
         <InfoCallout variant="warning">Project not found. It may have been deleted.</InfoCallout>
       </div>
     );
@@ -170,11 +162,6 @@ export function ProjectPrivacySettings() {
 
   return (
     <div className="space-y-4">
-      <SettingsTabHeader
-        title="Privacy"
-        description="What Epure keeps about the people who hit errors in your app."
-      />
-
       <form className="space-y-4" onSubmit={(event) => void handleSave(event)}>
         <Card>
           <CardHeader>

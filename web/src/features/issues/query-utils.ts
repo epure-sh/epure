@@ -1,5 +1,13 @@
+export type QueryLifecycle = "unresolved" | "resolved" | "ignored";
+export type QueryViewModifier = "regression" | "snoozed";
+
 export interface ParsedQuery {
-  status?: string;
+  /** Primary scope: All when omitted. */
+  lifecycle?: QueryLifecycle;
+  /** Secondary view filter (Came back / Snoozed); mutually exclusive with each other. */
+  viewModifier?: QueryViewModifier;
+  /** Alerts-only: filter history to notifications for one issue. */
+  issueId?: string;
   /** Volume spike / 3d trend (client-refined; stripped for API list fetch). */
   escalating?: boolean;
   /** Derived priority bucket (client-refined; stripped for API list fetch). */
@@ -11,20 +19,35 @@ export interface ParsedQuery {
   freeText?: string;
 }
 
-/** Mutually exclusive lifecycle `is:` tokens. */
-export const LIFECYCLE_IS_TOKENS = [
+/** Primary lifecycle chips (All / Unresolved / Resolved). */
+export const PRIMARY_LIFECYCLE_IS_TOKENS = [
   "is:unresolved",
   "is:resolved",
   "is:ignored",
-  "is:regression",
-  "is:snoozed",
 ] as const;
+
+/** Secondary modifiers (Came back / Snoozed) — independent of primary lifecycle. */
+export const VIEW_MODIFIER_IS_TOKENS = ["is:regression", "is:snoozed"] as const;
 
 export const ADDITIVE_IS_TOKENS = ["is:escalating"] as const;
 
-export type TimeWindowValue = "24h" | "7d" | "14d" | "30d" | "90d";
+/** @deprecated Use PRIMARY_LIFECYCLE_IS_TOKENS + VIEW_MODIFIER_IS_TOKENS */
+export const LIFECYCLE_IS_TOKENS = [
+  ...PRIMARY_LIFECYCLE_IS_TOKENS,
+  ...VIEW_MODIFIER_IS_TOKENS,
+] as const;
 
-export const DEFAULT_TIME_WINDOW: TimeWindowValue = "7d";
+import {
+  DEFAULT_TIME_WINDOW,
+  TIME_WINDOW_OPTIONS,
+  getTimeWindowLabel,
+  getTimeWindowShortLabel,
+  parseTimeWindow,
+  type TimeWindowValue,
+} from "@/lib/time-window";
+
+export type { TimeWindowValue };
+export { DEFAULT_TIME_WINDOW, TIME_WINDOW_OPTIONS, getTimeWindowLabel, getTimeWindowShortLabel, parseTimeWindow };
 
 export type IssueSortValue =
   | "last_seen_desc"
@@ -85,38 +108,6 @@ export function getIssueSortShortLabel(value: IssueSortValue): string {
   }
 }
 
-/** Short horizon label for the feed toolbar (e.g. `90D`). */
-export function getTimeWindowShortLabel(value: TimeWindowValue): string {
-  return value.toUpperCase();
-}
-
-export const TIME_WINDOW_OPTIONS: ReadonlyArray<{
-  value: TimeWindowValue;
-  label: string;
-}> = [
-  { value: "24h", label: "Last 24 hours" },
-  { value: "7d", label: "Last 7 days" },
-  { value: "14d", label: "Last 14 days" },
-  { value: "30d", label: "Last 30 days" },
-  { value: "90d", label: "Last 90 days" },
-];
-
-const TIME_WINDOW_SET = new Set<string>(TIME_WINDOW_OPTIONS.map((option) => option.value));
-
-export function parseTimeWindow(raw: string | null | undefined): TimeWindowValue {
-  if (raw && TIME_WINDOW_SET.has(raw)) {
-    return raw as TimeWindowValue;
-  }
-  return DEFAULT_TIME_WINDOW;
-}
-
-export function getTimeWindowLabel(value: TimeWindowValue): string {
-  return (
-    TIME_WINDOW_OPTIONS.find((option) => option.value === value)?.label ??
-    "Last 7 days"
-  );
-}
-
 export function getEventsStatLabel(value: TimeWindowValue): string {
   switch (value) {
     case "24h":
@@ -148,8 +139,12 @@ export function parseQuery(raw: string): ParsedQuery {
       const value = token.slice(3);
       if (value === "escalating") {
         parsed.escalating = true;
+      } else if (value === "regression") {
+        parsed.viewModifier = "regression";
+      } else if (value === "snoozed") {
+        parsed.viewModifier = "snoozed";
       } else {
-        parsed.status = normalizeStatus(value);
+        parsed.lifecycle = normalizeStatus(value) as QueryLifecycle;
       }
     } else if (token.startsWith("priority:")) {
       parsed.priority = token.slice(9);
@@ -161,6 +156,8 @@ export function parseQuery(raw: string): ParsedQuery {
       parsed.userEmail = token.slice(11);
     } else if (token.startsWith("level:")) {
       parsed.level = token.slice(6);
+    } else if (token.startsWith("issue:")) {
+      parsed.issueId = token.slice(6);
     } else {
       freeText.push(token);
     }
@@ -175,8 +172,11 @@ export function parseQuery(raw: string): ParsedQuery {
 
 function structuredTokens(parsed: ParsedQuery): string[] {
   const tokens: string[] = [];
-  if (parsed.status) {
-    tokens.push(`is:${parsed.status}`);
+  if (parsed.lifecycle) {
+    tokens.push(`is:${parsed.lifecycle}`);
+  }
+  if (parsed.viewModifier) {
+    tokens.push(`is:${parsed.viewModifier}`);
   }
   if (parsed.escalating) {
     tokens.push("is:escalating");
@@ -195,6 +195,9 @@ function structuredTokens(parsed: ParsedQuery): string[] {
   }
   if (parsed.userEmail) {
     tokens.push(`user.email:${parsed.userEmail}`);
+  }
+  if (parsed.issueId) {
+    tokens.push(`issue:${parsed.issueId}`);
   }
   return tokens;
 }
@@ -219,7 +222,8 @@ function isStructuredToken(token: string): boolean {
     token.startsWith("release:") ||
     token.startsWith("user.email:") ||
     token.startsWith("level:") ||
-    token.startsWith("priority:")
+    token.startsWith("priority:") ||
+    token.startsWith("issue:")
   );
 }
 
@@ -240,7 +244,8 @@ export function toApiQuery(query: string): string {
       (token) =>
         token &&
         token !== "is:escalating" &&
-        !token.startsWith("priority:"),
+        !token.startsWith("priority:") &&
+        !token.startsWith("issue:"),
     )
     .join(" ")
     .trim();
@@ -278,7 +283,7 @@ export function setToken(query: string, token: string): string {
   return without ? `${without} ${token}` : token;
 }
 
-/** Add or remove a filter token; lifecycle states replace each other, modifiers stack. */
+/** Add or remove a filter token; primary lifecycle and view modifiers are independent groups. */
 export function applyFilterToken(query: string, token: string): string {
   const parts = query.split(/\s+/).filter(Boolean);
   if (parts.includes(token)) {
@@ -286,8 +291,10 @@ export function applyFilterToken(query: string, token: string): string {
   }
 
   let next = query.trim();
-  if ((LIFECYCLE_IS_TOKENS as readonly string[]).includes(token)) {
-    next = removeExactTokens(next, LIFECYCLE_IS_TOKENS);
+  if ((PRIMARY_LIFECYCLE_IS_TOKENS as readonly string[]).includes(token)) {
+    next = removeExactTokens(next, PRIMARY_LIFECYCLE_IS_TOKENS);
+  } else if ((VIEW_MODIFIER_IS_TOKENS as readonly string[]).includes(token)) {
+    next = removeExactTokens(next, VIEW_MODIFIER_IS_TOKENS);
   } else if (token.startsWith("level:")) {
     next = removeToken(next, "level:");
   } else if (token.startsWith("env:")) {
@@ -328,7 +335,8 @@ export function isAllIssuesQuery(query: string): boolean {
   }
   const parsed = parseQuery(query);
   return (
-    !parsed.status &&
+    !parsed.lifecycle &&
+    !parsed.viewModifier &&
     !parsed.escalating &&
     !parsed.priority &&
     !parsed.level &&
@@ -421,10 +429,19 @@ export function extractChips(query: string): QueryChip[] {
   const parsed = parseQuery(query);
   const chips: QueryChip[] = [];
 
-  if (parsed.status) {
-    const token = `is:${parsed.status}`;
+  if (parsed.lifecycle) {
+    const token = `is:${parsed.lifecycle}`;
     chips.push({
-      key: "is",
+      key: "lifecycle",
+      label: getFilterPresetLabel(token),
+      token,
+      plain: true,
+    });
+  }
+  if (parsed.viewModifier) {
+    const token = `is:${parsed.viewModifier}`;
+    chips.push({
+      key: "view",
       label: getFilterPresetLabel(token),
       token,
       plain: true,
@@ -552,8 +569,11 @@ const LEVEL_TITLES: Record<string, string> = {
 export function getIssuesListTitle(query: string): string {
   const parsed = parseQuery(query);
 
-  if (parsed.status && STATUS_TITLES[parsed.status]) {
-    return STATUS_TITLES[parsed.status];
+  if (parsed.viewModifier && STATUS_TITLES[parsed.viewModifier]) {
+    return STATUS_TITLES[parsed.viewModifier];
+  }
+  if (parsed.lifecycle && STATUS_TITLES[parsed.lifecycle]) {
+    return STATUS_TITLES[parsed.lifecycle];
   }
   if (parsed.level && LEVEL_TITLES[parsed.level]) {
     return LEVEL_TITLES[parsed.level];

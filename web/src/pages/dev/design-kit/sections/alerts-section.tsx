@@ -34,8 +34,8 @@ export function AlertsSection() {
         title="History list + detail"
         description="Select a row — firing, custom multi-issue, muted"
       >
-        <div className="grid min-h-[22rem] overflow-hidden rounded-panel border border-border-subtle lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
-          <div className="space-y-2 overflow-auto border-b border-border-subtle bg-canvas p-3 lg:border-b-0 lg:border-r">
+        <div className="grid min-h-[22rem] overflow-hidden rounded-panel border border-border-subtle lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <div className="space-y-3 overflow-auto border-b border-border-subtle bg-canvas p-4 lg:border-b-0 lg:border-r">
             {DESIGN_KIT_SAMPLE_ALERTS.map((alert) => (
               <AlertListRow
                 key={alert.id}

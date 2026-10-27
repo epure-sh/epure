@@ -81,8 +81,6 @@ export function DesignKitPage() {
 
   return (
     <PageShell
-      title="Epure design kit"
-      description="Playground catalog — foundation → components → patterns → quality. npm run dev:playground → /__design"
       density="full-bleed"
       actions={
         <div className="flex flex-wrap items-center gap-2">

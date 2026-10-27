@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/cn";
 
@@ -9,25 +10,75 @@ export interface AlertsSectionToggleProps {
   className?: string;
 }
 
-/** Primary Alerts page mode — History (feed) vs Configure (rules). */
-export function AlertsSectionToggle({ value, onChange, className }: AlertsSectionToggleProps) {
+export interface AlertsSectionCounts {
+  rules?: number;
+  history?: number;
+}
+
+function formatCount(count: number): string {
+  return count >= 1000 ? `${(count / 1000).toFixed(1)}k` : String(count);
+}
+
+/** History | Rules — Radix `ToggleGroup`, toolbar density (design system). */
+export function AlertsSectionToggle({
+  value,
+  onChange,
+  counts,
+  className,
+}: AlertsSectionToggleProps & { counts?: AlertsSectionCounts }) {
+  const segment = value === "configure" ? "rules" : "history";
+
   return (
     <ToggleGroup
       type="single"
-      value={value}
+      density="toolbar"
+      value={segment}
+      aria-label="Alerts view"
+      className={cn("shrink-0", className)}
       onValueChange={(next) => {
-        if (next === "history" || next === "configure") {
-          onChange(next);
+        if (next === "history") {
+          onChange("history");
+        } else if (next === "rules") {
+          onChange("configure");
         }
       }}
-      aria-label="Alerts section"
-      className={cn(className)}
     >
-      <ToggleGroupItem value="history" aria-label="Alert history">
-        History
+      <ToggleGroupItem
+        value="history"
+        size="toolbar"
+        aria-label={
+          counts?.history != null ? `History, ${counts.history} unread` : "History"
+        }
+        className="min-w-[5.25rem]"
+      >
+        <span>History</span>
+        {counts?.history != null ? (
+          <Badge
+            variant={segment === "history" && counts.history > 0 ? "accent" : "neutral"}
+            size="sm"
+            className="h-4 px-1 font-mono text-[10px] leading-none tabular-nums"
+          >
+            {formatCount(counts.history)}
+          </Badge>
+        ) : null}
       </ToggleGroupItem>
-      <ToggleGroupItem value="configure" aria-label="Configure alerts">
-        Configure
+
+      <ToggleGroupItem
+        value="rules"
+        size="toolbar"
+        aria-label={counts?.rules != null ? `Rules, ${counts.rules} total` : "Rules"}
+        className="min-w-[4.75rem]"
+      >
+        <span>Rules</span>
+        {counts?.rules != null ? (
+          <Badge
+            variant={segment === "rules" ? "accent" : "neutral"}
+            size="sm"
+            className="h-4 px-1 font-mono text-[10px] leading-none tabular-nums"
+          >
+            {counts.rules}
+          </Badge>
+        ) : null}
       </ToggleGroupItem>
     </ToggleGroup>
   );

@@ -1,34 +1,62 @@
 import * as React from "react";
-import * as SwitchPrimitive from "@radix-ui/react-switch";
+import { Switch as BaseSwitch } from "@base-ui/react/switch";
 import { cn } from "@/lib/utils";
 
+const switchSizes = {
+  default: {
+    root: "h-[26px] w-[46px] p-0.5",
+    thumb: "size-[22px] data-[checked]:translate-x-5",
+  },
+  compact: {
+    root: "h-5 w-[2.375rem] p-px",
+    thumb: "size-[18px] data-[checked]:translate-x-[1.125rem]",
+  },
+} as const;
+
 export interface SwitchProps
-  extends Omit<React.ComponentProps<typeof SwitchPrimitive.Root>, "className"> {
+  extends Omit<React.ComponentProps<typeof BaseSwitch.Root>, "className" | "onCheckedChange"> {
   className?: string;
+  size?: keyof typeof switchSizes;
+  onCheckedChange?: (checked: boolean) => void;
 }
 
-export function Switch({ className, ...props }: SwitchProps) {
+/** Calm Ledger toggle — flat thumb, accent when on, hairline off track (Base UI). */
+export function Switch({ className, size = "default", onCheckedChange, ...props }: SwitchProps) {
+  const dims = switchSizes[size];
+
   return (
-    <SwitchPrimitive.Root
+    <BaseSwitch.Root
       data-slot="switch"
+      data-size={size}
+      nativeButton
       className={cn(
-        "peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-border-strong",
-        "bg-surface-2 transition-colors duration-100",
-        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong",
+        "relative inline-flex shrink-0 cursor-pointer items-center rounded-full",
+        "bg-fg-muted/15 transition-[background-color,box-shadow] duration-150 ease-out",
+        "ring-1 ring-inset ring-border-subtle/80",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
         "disabled:cursor-not-allowed disabled:opacity-40",
-        "data-[state=checked]:border-primary data-[state=checked]:bg-primary",
+        "data-[checked]:bg-accent data-[checked]:ring-accent/30",
+        dims.root,
         className,
       )}
+      onCheckedChange={
+        onCheckedChange
+          ? (checked) => {
+              onCheckedChange(checked);
+            }
+          : undefined
+      }
       {...props}
     >
-      <SwitchPrimitive.Thumb
+      <BaseSwitch.Thumb
         data-slot="switch-thumb"
         className={cn(
-          "pointer-events-none block size-4 translate-x-0.5 rounded-full bg-surface-1 shadow-tactile",
-          "transition-transform duration-100",
-          "data-[state=checked]:translate-x-[1.125rem]",
+          "pointer-events-none block rounded-full bg-surface shadow-none",
+          "transition-transform duration-150 ease-out will-change-transform",
+          "translate-x-0",
+          dims.thumb,
         )}
       />
-    </SwitchPrimitive.Root>
+    </BaseSwitch.Root>
   );
 }

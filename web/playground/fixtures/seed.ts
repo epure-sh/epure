@@ -41,6 +41,14 @@ function isoMinutesAgo(minutes: number): string {
   return new Date(Date.now() - minutes * 60 * 1000).toISOString();
 }
 
+/** ISO timestamp with explicit sub-second digits (for detail timestamp / dispatch clocks). */
+function isoMinutesAgoPrecise(minutes: number, subsecondMs: number): string {
+  const base = Date.now() - minutes * 60 * 1000;
+  const date = new Date(base);
+  date.setMilliseconds(subsecondMs);
+  return date.toISOString();
+}
+
 function isoDaysAgo(days: number, hours = 0): string {
   return new Date(Date.now() - (days * 24 + hours) * 60 * 60 * 1000).toISOString();
 }
@@ -455,7 +463,49 @@ export function buildStats(projectId: string, environment?: string): HeadlineSta
   };
 }
 
-/** Playground alert history — all kinds, lifecycle states, and configure rule fixtures. */
+/**
+ * Playground alert history — all kinds, lifecycle states, and configure rule fixtures.
+ * Payload shapes: see `web/design/alerts-ui.md` (required vs playground-only keys).
+ *
+ * Invariant (matches API): for linked alerts, `read_at` set and not snoozed (`ignored`)
+ * implies the issue is resolved; open issues (unresolved/regression) keep inbox alerts unread.
+ */
+function normalizePlaygroundIssueAlertLinks(
+  issueRows: ReturnType<typeof buildIssues>,
+  alertRows: AlertRow[],
+): void {
+  const byId = new Map(issueRows.map((row) => [row.id, row]));
+
+  for (const alert of alertRows) {
+    if (!alert.issue_id) {
+      continue;
+    }
+    const issue = byId.get(alert.issue_id);
+    if (!issue) {
+      throw new Error(`Playground alert ${alert.id} references missing issue ${alert.issue_id}`);
+    }
+    const payload = alert.payload_json;
+    if (payload && typeof payload === "object" && !Array.isArray(payload) && "title" in payload) {
+      (payload as Record<string, unknown>).title = issue.title;
+    }
+  }
+
+  const issueStillOpen = (status: string) => status === "unresolved" || status === "regression";
+
+  for (const alert of alertRows) {
+    if (!alert.issue_id || alert.ignored) {
+      continue;
+    }
+    const issue = byId.get(alert.issue_id)!;
+    if (alert.read_at && issueStillOpen(issue.status)) {
+      alert.read_at = null;
+    }
+    if (!alert.read_at && issue.status === "resolved") {
+      alert.read_at = isoHoursAgo(1);
+    }
+  }
+}
+
 export const alerts: AlertRow[] = [
   // —— Firing (recent, needs attention) ——
   {
@@ -464,15 +514,22 @@ export const alerts: AlertRow[] = [
     project_id: PROJECT_WEB,
     issue_id: "a1000001-0000-4000-8000-000000000001",
     kind: "velocity_spike",
-    fired_at: isoMinutesAgo(12),
+    fired_at: isoMinutesAgoPrecise(12, 847),
     payload_json: {
       title: titleFromPayload(browserCheckout),
+      rule_id: "rul-tmpl-prod-spike",
+      rule_name: "Production error spike",
+      rule_kind: "velocity_spike",
       current_window: 47,
       previous_window: 8,
       ratio: 5.875,
       event_count: 462_000,
       unique_user_count: 111_000,
       environment: "production",
+      current_window_start_at: isoMinutesAgoPrecise(27, 847),
+      current_window_end_at: isoMinutesAgoPrecise(12, 847),
+      previous_window_start_at: isoMinutesAgoPrecise(42, 847),
+      previous_window_end_at: isoMinutesAgoPrecise(27, 847),
     },
     read_at: null,
     ignored: false,
@@ -483,7 +540,7 @@ export const alerts: AlertRow[] = [
     project_id: PROJECT_WEB,
     issue_id: "a1000001-0000-4000-8000-000000000003",
     kind: "regression",
-    fired_at: isoMinutesAgo(18),
+    fired_at: isoMinutesAgoPrecise(18, 512),
     payload_json: {
       title: titleFromPayload(reactHydration),
       release: "web@2.15.0",
@@ -500,7 +557,7 @@ export const alerts: AlertRow[] = [
     project_id: PROJECT_WEB,
     issue_id: "a1000001-0000-4000-8000-000000000002",
     kind: "custom",
-    fired_at: isoMinutesAgo(8),
+    fired_at: isoMinutesAgoPrecise(8, 250),
     payload_json: {
       rule_id: "rul-payguard-001",
       rule_name: "Payment guard — production",
@@ -509,8 +566,39 @@ export const alerts: AlertRow[] = [
       environment: "production",
       threshold: 250,
       ratio: 4.2,
+      current_window: 194_000,
+      previous_window: 46_000,
+      baseline_label: "~46k",
       event_count: 194_000,
       unique_user_count: 42_000,
+      traffic_share: "21.6% checkout traffic",
+      release: "web-checkout@2.15.0-b4",
+      culprit: "PaymentGatewayClient.ts:92",
+      fingerprint: "f7a9002c",
+      current_window_start_at: isoMinutesAgoPrecise(23, 250),
+      current_window_end_at: isoMinutesAgoPrecise(8, 250),
+      previous_window_start_at: isoMinutesAgoPrecise(38, 250),
+      previous_window_end_at: isoMinutesAgoPrecise(23, 250),
+      dispatches: [
+        {
+          channel: "Slack",
+          target: "#payment-critical",
+          status: "200 OK",
+          delivered_at: isoMinutesAgoPrecise(8, 240),
+        },
+        {
+          channel: "PagerDuty",
+          target: "INC-88912",
+          status: "Triggered",
+          delivered_at: isoMinutesAgoPrecise(8, 180),
+        },
+        {
+          channel: "Webhook",
+          target: "telemetry-bridge",
+          status: "202 Accepted",
+          delivered_at: isoMinutesAgoPrecise(7, 991),
+        },
+      ],
     },
     read_at: null,
     ignored: false,
@@ -524,7 +612,8 @@ export const alerts: AlertRow[] = [
     fired_at: isoMinutesAgo(25),
     payload_json: {
       project_name: "Acme Web",
-      message: "Hourly ingest cap reached — events rejected until the top of the hour.",
+      cap_per_hour: 50_000,
+      message: "Hourly ingest cap reached. Events rejected until the top of the hour.",
     },
     read_at: null,
     ignored: false,
@@ -587,7 +676,7 @@ export const alerts: AlertRow[] = [
     kind: "custom",
     fired_at: isoHoursAgo(2.5),
     payload_json: {
-      rule_id: "rul-checkout-bundle",
+      rule_id: "rul-tmpl-prod-new",
       rule_name: "Checkout bundle — multi-issue",
       rule_kind: "issue_created",
       title: titleFromPayload(browserCheckout),
@@ -661,6 +750,9 @@ export const alerts: AlertRow[] = [
     fired_at: isoHoursAgo(14),
     payload_json: {
       title: titleFromPayload(browserCheckout),
+      rule_id: "rul-tmpl-prod-spike",
+      rule_name: "Production error spike",
+      rule_kind: "velocity_spike",
       current_window: 31,
       previous_window: 6,
       ratio: 5.17,
@@ -735,7 +827,7 @@ export const alerts: AlertRow[] = [
       event_count: 12,
       unique_user_count: 2,
     },
-    read_at: isoHoursAgo(3),
+    read_at: null,
     ignored: false,
   },
   {
@@ -746,7 +838,7 @@ export const alerts: AlertRow[] = [
     kind: "custom",
     fired_at: isoHoursAgo(1),
     payload_json: {
-      rule_id: "rul-api-latency",
+      rule_id: "rul-tmpl-api-prod-new",
       rule_name: "DB timeout watch",
       rule_kind: "issue_created",
       title: titleFromPayload(pythonTimeout),
@@ -783,6 +875,9 @@ export const alerts: AlertRow[] = [
     fired_at: isoDaysAgo(6),
     payload_json: {
       title: titleFromPayload(browserCheckout),
+      rule_id: "rul-tmpl-prod-spike",
+      rule_name: "Production error spike",
+      rule_kind: "velocity_spike",
       current_window: 22,
       previous_window: 4,
       ratio: 5.5,
@@ -824,12 +919,15 @@ export const alerts: AlertRow[] = [
   },
 ];
 
+normalizePlaygroundIssueAlertLinks(buildIssues(), alerts);
+
+/** Six starter templates on web; API project ships the three production-critical starters. */
 export const alertRules: AlertRuleRow[] = [
   {
-    id: "rul-spike-prod-001",
+    id: "rul-tmpl-prod-spike",
     org_id: ORG_ID,
     project_id: PROJECT_WEB,
-    name: "Checkout velocity — production",
+    name: "Production error spike",
     enabled: true,
     kind: "velocity_spike",
     environment: "production",
@@ -838,64 +936,100 @@ export const alertRules: AlertRuleRow[] = [
     created_at: isoDaysAgo(30),
   },
   {
-    id: "rul-regression-any",
+    id: "rul-tmpl-prod-new",
     org_id: ORG_ID,
     project_id: PROJECT_WEB,
-    name: "Release regression (all envs)",
-    enabled: true,
-    kind: "regression",
-    environment: null,
-    threshold: null,
-    filters_json: {},
-    created_at: isoDaysAgo(28),
-  },
-  {
-    id: "rul-payguard-001",
-    org_id: ORG_ID,
-    project_id: PROJECT_WEB,
-    name: "Payment guard — production",
-    enabled: true,
-    kind: "velocity_spike",
-    environment: "production",
-    threshold: 250,
-    filters_json: { min_level: "error" },
-    created_at: isoDaysAgo(14),
-  },
-  {
-    id: "rul-checkout-bundle",
-    org_id: ORG_ID,
-    project_id: PROJECT_WEB,
-    name: "Checkout bundle — multi-issue",
-    enabled: true,
-    kind: "issue_created",
-    environment: "production",
-    threshold: null,
-    filters_json: { first_seen: "new" },
-    created_at: isoDaysAgo(7),
-  },
-  {
-    id: "rul-staging-noise",
-    org_id: ORG_ID,
-    project_id: PROJECT_WEB,
-    name: "Staging new issues (paused)",
-    enabled: false,
-    kind: "issue_created",
-    environment: "staging",
-    threshold: null,
-    filters_json: { min_level: "warning" },
-    created_at: isoDaysAgo(5),
-  },
-  {
-    id: "rul-api-latency",
-    org_id: ORG_ID,
-    project_id: PROJECT_API,
-    name: "DB timeout watch",
+    name: "New production errors",
     enabled: true,
     kind: "issue_created",
     environment: "production",
     threshold: null,
     filters_json: { min_level: "error", first_seen: "new" },
+    created_at: isoDaysAgo(28),
+  },
+  {
+    id: "rul-tmpl-prod-regression",
+    org_id: ORG_ID,
+    project_id: PROJECT_WEB,
+    name: "Production regressions",
+    enabled: true,
+    kind: "regression",
+    environment: "production",
+    threshold: null,
+    filters_json: { min_level: "any", first_seen: "any" },
+    created_at: isoDaysAgo(26),
+  },
+  {
+    id: "rul-tmpl-prod-fatal",
+    org_id: ORG_ID,
+    project_id: PROJECT_WEB,
+    name: "New fatal in production",
+    enabled: true,
+    kind: "issue_created",
+    environment: "production",
+    threshold: null,
+    filters_json: { min_level: "fatal", first_seen: "new" },
+    created_at: isoDaysAgo(20),
+  },
+  {
+    id: "rul-tmpl-staging-new",
+    org_id: ORG_ID,
+    project_id: PROJECT_WEB,
+    name: "New staging errors",
+    enabled: false,
+    kind: "issue_created",
+    environment: "staging",
+    threshold: null,
+    filters_json: { min_level: "error", first_seen: "new" },
+    created_at: isoDaysAgo(14),
+  },
+  {
+    id: "rul-tmpl-any-regression",
+    org_id: ORG_ID,
+    project_id: PROJECT_WEB,
+    name: "Regression — any environment",
+    enabled: true,
+    kind: "regression",
+    environment: null,
+    threshold: null,
+    filters_json: {},
+    created_at: isoDaysAgo(12),
+  },
+  {
+    id: "rul-tmpl-api-prod-spike",
+    org_id: ORG_ID,
+    project_id: PROJECT_API,
+    name: "Production error spike",
+    enabled: true,
+    kind: "velocity_spike",
+    environment: "production",
+    threshold: 300,
+    filters_json: { min_level: "error", first_seen: "any" },
     created_at: isoDaysAgo(10),
+  },
+  {
+    id: "rul-tmpl-api-prod-new",
+    org_id: ORG_ID,
+    project_id: PROJECT_API,
+    name: "New production errors",
+    enabled: true,
+    kind: "issue_created",
+    environment: "production",
+    threshold: null,
+    filters_json: { min_level: "error", first_seen: "new" },
+    created_at: isoDaysAgo(9),
+  },
+  {
+    id: "rul-tmpl-api-prod-regression",
+    org_id: ORG_ID,
+    project_id: PROJECT_API,
+    name: "Production regressions",
+    enabled: true,
+    kind: "regression",
+    environment: "production",
+    threshold: null,
+    filters_json: {},
+    created_at: isoDaysAgo(8),
   },
 ];
 

@@ -1,28 +1,30 @@
-import { useCallback, useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { IssueSummary, ProjectRow, TimelineBucket } from "../../lib/api";
 import { cn } from "../../lib/cn";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty } from "../../ui/empty";
+import { IssueInboxLifecycleCue } from "@/components/kit/inbox-lifecycle-cue";
+import { issueInboxLifecycleKinds } from "@/lib/inbox-lifecycle";
 import { IssueRowShell } from "@/components/kit/issue-row-shell";
 import { IssueListColumnHeader } from "./issue-list-column-header";
-import { OccurrenceLineChart } from "../../ui/occurrence-line-chart";
 import { resolveIssuePriority } from "../../ui/issue-priority";
+import { IssueRowActionsMenu } from "./issue-row-actions-menu";
+import type { SnoozeMode } from "../../lib/api";
 import { formatCompactCount } from "../../lib/format-count";
 import { formatAge, formatRelativeTime } from "../../lib/format-time";
 import { copyText } from "../../lib/copy-text";
 import { toast } from "@/components/ui/sonner";
 import {
   inferTrendStatus,
-  issueLocationHint,
   parseIssueTitle,
-  projectIssueCode,
 } from "./issue-feed-utils";
 import {
   canIgnoreIssue,
   canResolveIssue,
+  bulkTriageAvailability,
   canSnoozeIssue,
 } from "./issue-triage-utils";
+import { BulkActions } from "./bulk-actions";
 
 export interface IssueListProps {
   issues: IssueSummary[];
@@ -52,12 +54,25 @@ export interface IssueListProps {
   trendBucketsByIssueId?: Record<string, TimelineBucket[]>;
   /** Render inside a parent card (no outer border / margin). */
   embedded?: boolean;
-  bulkToolbar?: ReactNode;
+  canMerge?: boolean;
+  canSplitForIssueId?: string | null;
+  onMenuResolve: (ids: string[]) => void;
+  onMenuIgnore: (ids: string[]) => void;
+  onMenuReopen: (ids: string[]) => void;
+  onMenuSnooze: (mode: SnoozeMode, ids: string[]) => void;
+  onMenuAskAi: (issues: IssueSummary[]) => void;
+  onMenuMarkRead: (ids: string[]) => void;
+  onMenuDeleteRequest: (ids: string[]) => void;
+  onMenuMerge?: () => void;
+  onMenuSplit?: () => void;
+  onClearSelection?: () => void;
+  canSplit?: boolean;
+  onBulkSplit?: () => void;
 }
 
 export function IssueList({
   issues,
-  projects,
+  projects: _projects,
   focusedId,
   selectedId,
   selectedIds,
@@ -82,9 +97,31 @@ export function IssueList({
   isIssueUnread,
   trendBucketsByIssueId = {},
   embedded = false,
-  bulkToolbar,
+  canMerge = false,
+  canSplitForIssueId = null,
+  onMenuResolve,
+  onMenuIgnore,
+  onMenuReopen,
+  onMenuSnooze,
+  onMenuAskAi,
+  onMenuMarkRead,
+  onMenuDeleteRequest,
+  onMenuMerge,
+  onMenuSplit,
+  onClearSelection,
+  canSplit = false,
+  onBulkSplit,
 }: IssueListProps) {
   const listRef = useRef<HTMLDivElement>(null);
+
+  const selectedIssuesForBulk = useMemo(
+    () => issues.filter((issue) => selectedIds.has(issue.id)),
+    [issues, selectedIds],
+  );
+  const bulkAvailability = useMemo(
+    () => bulkTriageAvailability(selectedIssuesForBulk),
+    [selectedIssuesForBulk],
+  );
 
   const handleCopyAgentPrompt = useCallback((issue: IssueSummary) => {
     const brief = [
@@ -296,13 +333,33 @@ export function IssueList({
               ),
         )}
       >
-        {bulkToolbar}
         <IssueListColumnHeader
           compact={compact}
           selectAllChecked={selectAllChecked}
           selectAllIndeterminate={selectAllIndeterminate}
           onToggleSelectAll={onToggleSelectAll}
           windowLabel={windowLabel}
+          selectionActive={selectedIds.size > 0}
+        />
+
+        <BulkActions
+          selectedIds={selectedIds}
+          availability={bulkAvailability}
+          canMerge={canMerge}
+          canSplit={canSplit}
+          busy={actionsDisabled}
+          className="top-8 z-20 border-b border-border-subtle"
+          onResolve={() => onMenuResolve(Array.from(selectedIds))}
+          onIgnore={() => onMenuIgnore(Array.from(selectedIds))}
+          onReopen={() => onMenuReopen(Array.from(selectedIds))}
+          onMarkRead={() => onMenuMarkRead(Array.from(selectedIds))}
+          onAskAi={() => onMenuAskAi(selectedIssuesForBulk)}
+          onSnooze={async (mode) => {
+            onMenuSnooze(mode, Array.from(selectedIds));
+          }}
+          onMerge={onMenuMerge}
+          onSplit={onBulkSplit ?? onMenuSplit}
+          onClear={() => onClearSelection?.()}
         />
 
         {isEmpty ? (
@@ -322,35 +379,7 @@ export function IssueList({
           const isEscalating = Boolean(issue.is_escalating_3d || trendStatus === "escalating");
           const windowEvents = buckets.reduce((sum, bucket) => sum + bucket.count, 0);
           const priority = resolveIssuePriority(issue.level, issue.status);
-          const project = projects.find((row) => row.id === issue.project_id);
-          const projectCode = project?.slug
-            ? projectIssueCode(project.slug, issue.id)
-            : null;
-          const location = issueLocationHint(issue);
-
-          const metaRow = (
-            <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-fg-muted">
-              {issue.environment ? (
-                <Badge variant="env" size="compact" className="font-mono uppercase">
-                  {issue.environment.slice(0, 4)}
-                </Badge>
-              ) : null}
-              {projectCode ? (
-                <span className="font-mono font-medium">{projectCode}</span>
-              ) : null}
-              {location ? (
-                <span className="max-w-[12rem] truncate rounded-sm border border-border-subtle bg-surface-2 px-1 font-mono">
-                  {location}
-                </span>
-              ) : null}
-              {issue.status === "unresolved" && issue.level === "error" ? (
-                <Badge variant="escalating" size="compact" className="font-mono font-semibold uppercase">
-                  Unhandled
-                </Badge>
-              ) : null}
-            </div>
-          );
-
+          const lifecycleKinds = issueInboxLifecycleKinds(issue);
           return (
             <div key={issue.id} data-issue-id={issue.id}>
               <IssueRowShell
@@ -360,29 +389,37 @@ export function IssueList({
                 detailActive={detailActive}
                 tourAnchor={index === 0}
                 unread={isIssueUnread?.(issue) ?? false}
+                selectionActive={selectedIds.size > 0}
                 onSelectChange={() => onToggleSelect(issue.id)}
                 escalating={isEscalating}
                 priority={priority}
-                statusBadge={
-                  issue.status === "regression" ? (
-                    <Badge variant="regression" size="sm">Came back</Badge>
-                  ) : issue.snoozed ? (
-                    <Badge variant="info" size="sm">Snoozed</Badge>
-                  ) : null
-                }
                 title={shortTitle}
                 subtitle={subtitle}
-                meta={metaRow}
-                sparkline={
-                  buckets.length > 0 ? (
-                    <OccurrenceLineChart
-                      buckets={buckets}
-                      height={22}
-                      className="w-24"
-                      interactive={false}
-                      emphasizeVariation
-                    />
-                  ) : null
+                lifecycle={
+                  lifecycleKinds.length > 0 ? (
+                    <IssueInboxLifecycleCue issue={issue} />
+                  ) : undefined
+                }
+                rowActions={
+                  <IssueRowActionsMenu
+                    issue={issue}
+                    issues={issues}
+                    selectedIds={selectedIds}
+                    busy={actionsDisabled}
+                    canMerge={canMerge}
+                    canSplit={canSplitForIssueId === issue.id}
+                    onResolve={onMenuResolve}
+                    onIgnore={onMenuIgnore}
+                    onReopen={onMenuReopen}
+                    onSnooze={onMenuSnooze}
+                    onUnsnooze={(id) => onUnsnooze?.(id)}
+                    onAskAi={onMenuAskAi}
+                    onMarkRead={onMenuMarkRead}
+                    onDeleteRequest={onMenuDeleteRequest}
+                    onMerge={onMenuMerge}
+                    onSplit={onMenuSplit}
+                    onClearSelection={onClearSelection}
+                  />
                 }
                 eventsCount={
                   buckets.length > 0

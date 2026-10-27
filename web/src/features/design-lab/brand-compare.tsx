@@ -7,7 +7,6 @@ import {
   LogoMark,
   type LogoVariant,
 } from "../../ui/logo";
-import { PageChrome } from "../../ui/page-chrome";
 
 const legacyVariants: LogoVariant[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -55,10 +54,6 @@ function MarkRow({
 export function BrandComparePage() {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-auto">
-      <PageChrome
-        title="Logo directions — round 3 · bold"
-        description="8 personalized marks. Navbar + favicon preview #18 until you pick a winner."
-      />
       <div className="space-y-10 p-6">
         <MarkRow
           title="Round 3 · Lockup 48px"

@@ -14,22 +14,14 @@ import { Field } from "../../ui/field";
 import { Input } from "../../ui/input";
 import { cn } from "../../lib/cn";
 
-export function SettingsTabHeader({
-  title,
-  description,
-  actions,
-}: {
-  title: string;
-  description: string;
-  actions?: ReactNode;
-}) {
+/** Optional actions row — nav labels the tab; no page title. */
+export function SettingsTabHeader({ actions }: { actions?: ReactNode }) {
+  if (!actions) {
+    return null;
+  }
   return (
-    <header className="flex flex-wrap items-start justify-between gap-3">
-      <div className="min-w-0 space-y-1">
-        <h2 className="text-lg font-medium tracking-ui text-fg-primary">{title}</h2>
-        <p className="text-sm text-fg-muted">{description}</p>
-      </div>
-      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+    <header className="flex flex-wrap items-center justify-end gap-2">
+      {actions}
     </header>
   );
 }
@@ -58,13 +50,10 @@ export function InfoCallout({
 
 export function MemberAccessNotice({ resource = "these settings" }: { resource?: string }) {
   return (
-    <div className="space-y-4">
-      <SettingsTabHeader title="Access restricted" description="Your role limits what you can change." />
-      <InfoCallout>
-        You have member access. Managing {resource} requires an admin or owner role. Ask a workspace
-        admin if you need changes.
-      </InfoCallout>
-    </div>
+    <InfoCallout>
+      You have member access. Managing {resource} requires an admin or owner role. Ask a workspace
+      admin if you need changes.
+    </InfoCallout>
   );
 }
 

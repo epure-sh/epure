@@ -72,7 +72,7 @@ export function saveStoredChannels(channels: OutputChannel[]): void {
 }
 
 export function OrgChannelsPage() {
-  const { currentOrg, user } = useAppContext();
+  const { user } = useAppContext();
   const [channels, setChannels] = useState<OutputChannel[]>(getStoredChannels);
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
@@ -226,28 +226,9 @@ export function OrgChannelsPage() {
   }, []);
 
   return (
-    <PageShell
-      title="Output Channels"
-      description="Configure notification destinations across Slack, Discord, Webhooks, and Team Email."
-      density="standard"
-    >
+    <PageShell density="standard">
       <div className="flex flex-col gap-6 p-6 max-w-6xl mx-auto w-full">
-        {/* Top Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border-subtle pb-5">
-          <div>
-            <div className="flex items-center gap-2">
-              <Radio className="size-5 text-accent" />
-              <h1 className="text-lg font-semibold text-fg-primary tracking-tight">
-                Reusable Output Channels
-              </h1>
-            </div>
-            <p className="mt-1 text-xs text-fg-muted">
-              Configure notification destinations (Slack, Discord, Webhooks, Team Email) for{" "}
-              <span className="font-medium text-fg-secondary">{currentOrg?.name ?? "Acme Corp"}</span>.
-              Attach them to any project alert rule.
-            </p>
-          </div>
-
+        <div className="flex flex-wrap items-center justify-end gap-4 border-b border-border-subtle pb-5">
           <Button
             variant="primary"
             size="sm"

@@ -1,4 +1,4 @@
-import { applyOptimisticSnooze } from "../src/features/issues/issue-triage-utils";
+import { applyOptimisticSnooze, issueMatchesParsedQuery } from "../src/features/issues/issue-triage-utils";
 import { parseQuery } from "../src/features/issues/query-utils";
 import type {
   AlertRow,
@@ -72,11 +72,7 @@ function filterIssues(
   if (projectId) {
     filtered = filtered.filter((issue) => issue.project_id === projectId);
   }
-  if (parsed.status === "snoozed") {
-    filtered = filtered.filter((issue) => issue.snoozed);
-  } else if (parsed.status) {
-    filtered = filtered.filter((issue) => issue.status === parsed.status && !issue.snoozed);
-  }
+  filtered = filtered.filter((issue) => issueMatchesParsedQuery(issue, parsed));
   if (parsed.environment) {
     filtered = filtered.filter((issue) => issue.environment === parsed.environment);
   }
@@ -201,6 +197,45 @@ function resetStore(): void {
 
 function issueById(id: string): MockIssue | undefined {
   return store.issues.find((issue) => issue.id === id);
+}
+
+/** Mirror production: resolving an alert marks the linked issue resolved (and reopen reverses). */
+function syncIssueStatusFromAlertRead(alert: AlertRow, read: boolean | undefined): void {
+  if (read === undefined || !alert.issue_id) {
+    return;
+  }
+  const issue = issueById(alert.issue_id);
+  if (!issue) {
+    return;
+  }
+  if (read === true) {
+    issue.status = "resolved";
+  } else if (read === false && issue.status === "resolved") {
+    issue.status = "unresolved";
+  }
+}
+
+/** Mirror production: issue resolve/reopen updates alert inbox read state for that issue. */
+function setAlertReadStatesForIssue(issueId: string, read: boolean): void {
+  const now = new Date().toISOString();
+  for (const alert of store.alerts) {
+    if (alert.issue_id !== issueId || alert.ignored) {
+      continue;
+    }
+    if (read) {
+      alert.read_at = alert.read_at ?? now;
+    } else {
+      alert.read_at = null;
+    }
+  }
+}
+
+function syncAlertsFromIssueStatus(issueId: string, status: string): void {
+  if (status === "resolved") {
+    setAlertReadStatesForIssue(issueId, true);
+  } else if (status === "unresolved" || status === "regression") {
+    setAlertReadStatesForIssue(issueId, false);
+  }
 }
 
 function storedEventsForIssue(issueId: string, release?: string | null): EventDetail[] {
@@ -700,6 +735,9 @@ async function handlePatch(path: string, init: RequestInit): Promise<Response> {
         alert.read_at = alert.read_at ?? new Date().toISOString();
       }
     }
+    if (body.read !== undefined) {
+      syncIssueStatusFromAlertRead(alert, body.read as boolean);
+    }
     return jsonResponse(alert);
   }
 
@@ -783,10 +821,12 @@ async function handlePatch(path: string, init: RequestInit): Promise<Response> {
         store.events = store.events.filter((event) => event.issue_id !== id);
       } else if (action === "resolve") {
         issue.status = "resolved";
+        syncAlertsFromIssueStatus(id, "resolved");
       } else if (action === "ignore") {
         issue.status = "ignored";
       } else if (action === "reopen") {
         issue.status = "unresolved";
+        syncAlertsFromIssueStatus(id, "unresolved");
       }
       updated += 1;
     }
@@ -833,6 +873,7 @@ async function handlePatch(path: string, init: RequestInit): Promise<Response> {
     }
     if (body.status) {
       issue.status = body.status;
+      syncAlertsFromIssueStatus(issue.id, body.status);
     }
     return jsonResponse(issue);
   }

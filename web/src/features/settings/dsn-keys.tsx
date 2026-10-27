@@ -22,7 +22,7 @@ import { Field } from "../../ui/field";
 import { Input } from "../../ui/input";
 import { SdkSnippetBlock } from "../../ui/sdk-snippet-block";
 import { useToast } from "../../ui/toast-provider";
-import { InfoCallout, MemberAccessNotice, SettingsTabHeader } from "./shared";
+import { InfoCallout, MemberAccessNotice } from "./shared";
 import { DualSendingCard } from "../../ui/dual-sending-card";
 import { AskAgentCard } from "@/components/kit/ask-agent-card";
 
@@ -132,7 +132,6 @@ export function DsnKeysSettings() {
   if (projectsLoading || userLoading) {
     return (
       <div className="space-y-4">
-        <SettingsTabHeader title="SDK connection" description="DSN keys for SDK ingest." />
         <div className="h-32 rounded-lg border border-border-subtle bg-surface-1 animate-pulse" />
       </div>
     );
@@ -141,7 +140,6 @@ export function DsnKeysSettings() {
   if (!activeProjectId) {
     return (
       <div className="space-y-4">
-        <SettingsTabHeader title="SDK connection" description="DSN keys for SDK ingest." />
         <InfoCallout variant="warning">Select a project to manage connection strings.</InfoCallout>
       </div>
     );
@@ -163,11 +161,6 @@ export function DsnKeysSettings() {
 
   return (
     <div className="space-y-4">
-      <SettingsTabHeader
-        title="SDK connection"
-        description="Inbound credentials for your SDK. Submit events only — separate from notification webhooks."
-      />
-
       <InfoCallout>
         <strong className="font-medium text-fg-primary">Inbound only.</strong> DSN keys let the SDK send
         errors to Epure. They cannot read issues, trigger alerts, or call outbound webhooks. To

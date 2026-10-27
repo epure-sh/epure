@@ -333,10 +333,6 @@ export function WebhooksSettings() {
   if (projectsLoading || userLoading) {
     return (
       <div className="space-y-4">
-        <SettingsTabHeader
-          title="Notifications"
-          description="Outbound webhooks for Slack, Discord, or your own HTTPS receiver."
-        />
         <div className="h-32 rounded-lg border border-border-subtle bg-surface-1 animate-pulse" />
       </div>
     );
@@ -345,10 +341,6 @@ export function WebhooksSettings() {
   if (!activeProjectId) {
     return (
       <div className="space-y-4">
-        <SettingsTabHeader
-          title="Notifications"
-          description="Outbound webhooks for Slack, Discord, or your own HTTPS receiver."
-        />
         <InfoCallout variant="warning">Select a project to manage notification endpoints.</InfoCallout>
       </div>
     );
@@ -361,8 +353,6 @@ export function WebhooksSettings() {
   return (
     <div className="space-y-4">
       <SettingsTabHeader
-        title="Notifications"
-        description="Send signed HTTP posts when new issues appear or resolved exceptions come back."
         actions={
           <Button variant="ghost" size="sm" asChild>
             <Link to={projectPath(activeProjectId, "alerts")}>View alerts</Link>

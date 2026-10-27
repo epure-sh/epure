@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -16,17 +17,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Switch } from "@/components/ui/switch";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { toast } from "@/components/ui/sonner";
 import {
   AlertConditionFields,
@@ -34,7 +24,15 @@ import {
   type AlertLevelFilter,
 } from "./alert-condition-fields";
 import { AlertNotificationFields } from "./alert-notification-fields";
-import { AlertWizardSteps } from "./alert-wizard-steps";
+import {
+  AlertTemplatePicker,
+  applyAlertTemplate,
+  findAlertTemplate,
+  DEFAULT_ALERT_TEMPLATE_ID,
+  type AlertTemplateOption,
+} from "./alert-template-picker";
+import type { RuleKind } from "./alert-template-picker.types";
+import { AlertWizardRail, WizardStepBadge } from "./alert-wizard-rail";
 import {
   createAlertRule,
   deleteAlertRule,
@@ -44,55 +42,34 @@ import {
   type AlertRuleRow,
 } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/format-time";
-import { DotsThree } from "@/components/ui/icon";
-
-type RuleKind = "velocity_spike" | "issue_created" | "regression";
-
-interface Template {
-  id: string;
-  kind: RuleKind;
-  title: string;
-  summary: string;
-  name: string;
-  threshold: number | null;
-}
-
-const TEMPLATES: Template[] = [
-  {
-    id: "spike",
-    kind: "velocity_spike",
-    title: "Error spike",
-    summary: "Events increase by more than 300% versus the previous 15 minutes.",
-    name: "Error spike",
-    threshold: 300,
-  },
-  {
-    id: "regression",
-    kind: "regression",
-    title: "Came back",
-    summary: "A resolved issue returns in a later release.",
-    name: "Came back",
-    threshold: null,
-  },
-  {
-    id: "new",
-    kind: "issue_created",
-    title: "New issue",
-    summary: "A new error fingerprint appears.",
-    name: "New issue",
-    threshold: null,
-  },
-  {
-    id: "custom",
-    kind: "velocity_spike",
-    title: "Custom",
-    summary: "Start from an error spike and edit the threshold.",
-    name: "Custom alert",
-    threshold: 300,
-  },
-];
-
-const BUILTIN: Template[] = TEMPLATES.filter((template) => template.id !== "custom");
+import {
+  ArrowRight,
+  ClockCounterClockwise,
+  Copy,
+  DotsThree,
+  EnvelopeSimple,
+  Hash,
+  Icon,
+  Pause,
+  PencilSimple,
+  Trash,
+  WebhooksLogo,
+} from "@/components/ui/icon";
+import { DialogDescription } from "@/components/ui/dialog";
+import {
+  matchesDestinationFilter,
+  ruleConditionLine,
+  ruleDestinationPreview,
+  ruleScopeEnvironment,
+  ruleScopeProject,
+  ruleLastTriggeredDemo,
+  ruleTitleBadge,
+  type RuleDestinationKind,
+} from "./alert-rules-display";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/cn";
+import { ruleKindToAlertKindFilter, type HistoryRuleFocus } from "./alert-utils";
+import type { RulesStatusFilter } from "./alerts-toolbar";
 
 function buildFiltersJson(
   minLevel: AlertLevelFilter,
@@ -129,25 +106,98 @@ function conditionSummary(kind: string, threshold: number | null, environment: s
   return `${where} · a new error fingerprint appears`;
 }
 
-export interface AlertRulesManagerProps {
-  projectId: string;
-  canManage?: boolean;
-  /** Latest trigger time per rule id or built-in kind, when the caller has alert history. */
-  lastTriggered?: Record<string, string>;
+function DestinationChip({ rule, index }: { rule: AlertRuleRow; index: number }) {
+  const preview = ruleDestinationPreview(rule, index);
+  const Glyph =
+    preview.kind === "slack"
+      ? Hash
+      : preview.kind === "email"
+        ? EnvelopeSimple
+        : preview.kind === "webhook"
+          ? WebhooksLogo
+          : Hash;
+
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+      <div
+        className={cn(
+          "inline-flex max-w-full items-center gap-1.5 rounded px-2 py-1",
+          preview.failing ? "bg-surface-2/60 text-fg-muted" : "bg-surface-2 text-fg-primary",
+        )}
+      >
+        <Icon icon={Glyph} size={14} className="shrink-0 text-fg-muted" />
+        <span className="truncate font-mono text-xs">{preview.label}</span>
+      </div>
+      {preview.extra ? (
+        <Badge variant="neutral" size="sm" className="font-mono text-[10px]">
+          {preview.extra}
+        </Badge>
+      ) : null}
+      {preview.failing ? (
+        <span className="text-[11px] text-semantic-danger">Destination failing</span>
+      ) : null}
+    </div>
+  );
 }
 
-export function AlertRulesManager({
-  projectId,
-  canManage = true,
-  lastTriggered = {},
-}: AlertRulesManagerProps) {
+export interface AlertRulesManagerHandle {
+  openCreate: () => void;
+  openEdit: (ruleId: string) => void;
+  bulkSetEnabled: (ids: string[], enabled: boolean) => Promise<void>;
+  bulkDelete: (ids: string[]) => Promise<void>;
+}
+
+export interface AlertRulesManagerProps {
+  projectId: string;
+  projectSlug?: string;
+  canManage?: boolean;
+  query?: string;
+  statusFilter?: RulesStatusFilter;
+  destinationFilter?: RuleDestinationKind;
+  activeRuleId?: string | null;
+  onActiveRuleIdChange?: (ruleId: string | null) => void;
+  onViewHistory?: (focus: HistoryRuleFocus) => void;
+  /** Latest trigger time per rule id or built-in kind, when the caller has alert history. */
+  lastTriggered?: Record<string, string>;
+  selectedRuleIds?: Set<string>;
+  onRuleSelectChange?: (ruleId: string, selected: boolean) => void;
+  selectionActive?: boolean;
+  onFilteredRuleIdsChange?: (ids: string[]) => void;
+  onRulesCountsChange?: (counts: { total: number; active: number; visible: number }) => void;
+  allFilteredSelected?: boolean;
+  someFilteredSelected?: boolean;
+  onToggleSelectAllFiltered?: () => void;
+}
+
+export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesManagerProps>(
+  function AlertRulesManager(
+    {
+      projectId,
+      projectSlug = "checkout-web",
+      canManage = true,
+      query = "",
+      statusFilter = "all",
+      destinationFilter = "all",
+      activeRuleId = null,
+      onActiveRuleIdChange,
+      onViewHistory,
+      lastTriggered = {},
+      selectedRuleIds,
+      onRuleSelectChange,
+      selectionActive = false,
+      onFilteredRuleIdsChange,
+      onRulesCountsChange,
+      allFilteredSelected = false,
+      someFilteredSelected = false,
+      onToggleSelectAllFiltered,
+    },
+    ref,
+  ) {
   const [rules, setRules] = useState<AlertRuleRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "monitoring" | "paused">("all");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [templateId, setTemplateId] = useState<string>("spike");
+  const [templateId, setTemplateId] = useState<string>(DEFAULT_ALERT_TEMPLATE_ID);
   const [kind, setKind] = useState<RuleKind>("velocity_spike");
   const [threshold, setThreshold] = useState("300");
   const [environment, setEnvironment] = useState("production");
@@ -156,8 +206,6 @@ export function AlertRulesManager({
   const [firstSeen, setFirstSeen] = useState<AlertFirstSeenFilter>("any");
   const [editing, setEditing] = useState<AlertRuleRow | null>(null);
   const [busy, setBusy] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -175,28 +223,40 @@ export function AlertRulesManager({
     void load();
   }, [load]);
 
-  const template = TEMPLATES.find((item) => item.id === templateId) ?? TEMPLATES[0];
+  const template = findAlertTemplate(templateId);
 
   function openCreate() {
     setEditing(null);
     setStep(1);
-    setTemplateId("spike");
-    setKind("velocity_spike");
-    setThreshold("300");
-    setEnvironment("production");
+    const defaults = applyAlertTemplate(findAlertTemplate(DEFAULT_ALERT_TEMPLATE_ID));
+    setTemplateId(defaults.templateId);
+    setKind(defaults.kind);
+    setThreshold(defaults.threshold);
+    setEnvironment(defaults.environment);
     setName("");
-    setMinLevel("any");
-    setFirstSeen("any");
+    setMinLevel(defaults.minLevel);
+    setFirstSeen(defaults.firstSeen);
     setWizardOpen(true);
   }
 
-  function chooseTemplate(next: Template) {
-    setTemplateId(next.id);
-    setKind(next.kind);
-    setThreshold(next.threshold == null ? "" : String(next.threshold));
-    if (!name.trim()) {
-      setName(next.name);
+  function chooseTemplate(next: AlertTemplateOption) {
+    const defaults = applyAlertTemplate(next);
+    setTemplateId(defaults.templateId);
+    setKind(defaults.kind);
+    setThreshold(defaults.threshold);
+    setEnvironment(defaults.environment);
+    setMinLevel(defaults.minLevel);
+    setFirstSeen(defaults.firstSeen);
+    if (!name.trim() || name.trim() === template.defaultName) {
+      setName(defaults.name);
     }
+  }
+
+  function advanceFromTemplateStep() {
+    if (!name.trim() && template) {
+      setName(template.defaultName);
+    }
+    setStep(2);
   }
 
   function openEdit(rule: AlertRuleRow) {
@@ -210,6 +270,12 @@ export function AlertRulesManager({
     setFirstSeen(filters.firstSeen);
     setStep(2);
     setWizardOpen(true);
+  }
+
+  function closeWizard() {
+    setWizardOpen(false);
+    setEditing(null);
+    setStep(1);
   }
 
   async function save() {
@@ -246,9 +312,9 @@ export function AlertRulesManager({
           enabled: true,
         });
         setRules((rows) => [...rows, created]);
-        toast.success("Alert created");
+        toast.success("Rule saved. Notifications use subscribed project webhooks.");
       }
-      setWizardOpen(false);
+      closeWizard();
     } catch {
       toast.error(editing ? "Could not update the alert" : "Could not create the alert");
     } finally {
@@ -267,398 +333,480 @@ export function AlertRulesManager({
     }
   }
 
-  async function remove(rule: AlertRuleRow) {
-    setRules((rows) => rows.filter((row) => row.id !== rule.id));
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(rule.id);
-      return next;
-    });
+  async function duplicate(rule: AlertRuleRow) {
+    setBusy(true);
     try {
-      await deleteAlertRule(rule.id);
-      toast.success("Alert deleted");
+      const created = await createAlertRule({
+        project_id: projectId,
+        name: `${rule.name} (copy)`,
+        kind: rule.kind,
+        environment: rule.environment,
+        threshold: rule.threshold,
+        filters_json: rule.filters_json ?? {},
+        enabled: rule.enabled,
+      });
+      setRules((rows) => [...rows, created]);
+      toast.success("Rule duplicated");
     } catch {
-      setRules((rows) => [...rows, rule]);
-      toast.error("Could not delete the alert");
+      toast.error("Could not duplicate the rule");
+    } finally {
+      setBusy(false);
     }
   }
+
+  async function remove(rule: AlertRuleRow) {
+    setRules((rows) => rows.filter((row) => row.id !== rule.id));
+    try {
+      await deleteAlertRule(rule.id);
+      toast.success("Rule deleted");
+    } catch {
+      setRules((rows) => [...rows, rule]);
+      toast.error("Could not delete the rule");
+    }
+  }
+
+  const bulkSetEnabled = useCallback(
+    async (ids: string[], enabled: boolean) => {
+      if (ids.length === 0) {
+        return;
+      }
+      setBusy(true);
+      const previous = rules;
+      setRules((rows) => rows.map((row) => (ids.includes(row.id) ? { ...row, enabled } : row)));
+      try {
+        await Promise.all(ids.map((id) => updateAlertRule(id, { enabled })));
+        toast.success(enabled ? "Rules enabled" : "Rules paused");
+      } catch {
+        setRules(previous);
+        toast.error("Could not update rules");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [rules],
+  );
+
+  const bulkDelete = useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) {
+        return;
+      }
+      setBusy(true);
+      const removed = rules.filter((row) => ids.includes(row.id));
+      setRules((rows) => rows.filter((row) => !ids.includes(row.id)));
+      try {
+        await Promise.all(ids.map((id) => deleteAlertRule(id)));
+        toast.success(`Deleted ${ids.length} rule${ids.length === 1 ? "" : "s"}`);
+      } catch {
+        setRules((rows) => [...rows, ...removed]);
+        toast.error("Could not delete rules");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [rules],
+  );
 
   const visibleCustom = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return rules.filter((rule) => {
+    return rules.filter((rule, index) => {
       if (statusFilter === "monitoring" && !rule.enabled) return false;
       if (statusFilter === "paused" && rule.enabled) return false;
+      if (
+        !matchesDestinationFilter(ruleDestinationPreview(rule, index), destinationFilter)
+      ) {
+        return false;
+      }
       if (!needle) return true;
       return rule.name.toLowerCase().includes(needle) || rule.kind.toLowerCase().includes(needle);
     });
-  }, [query, rules, statusFilter]);
+  }, [query, rules, statusFilter, destinationFilter]);
 
-  const customIds = useMemo(() => visibleCustom.map((row) => row.id), [visibleCustom]);
+  useEffect(() => {
+    onFilteredRuleIdsChange?.(visibleCustom.map((row) => row.id));
+  }, [onFilteredRuleIdsChange, visibleCustom]);
 
-  const allCustomSelected =
-    customIds.length > 0 && customIds.every((id) => selectedIds.has(id));
-  const someCustomSelected = customIds.some((id) => selectedIds.has(id));
-
-  function toggleSelectAllCustom() {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (allCustomSelected) {
-        for (const id of customIds) next.delete(id);
-      } else {
-        for (const id of customIds) next.add(id);
-      }
-      return next;
+  useEffect(() => {
+    onRulesCountsChange?.({
+      total: rules.length,
+      active: rules.filter((row) => row.enabled).length,
+      visible: visibleCustom.length,
     });
-  }
+  }, [onRulesCountsChange, rules, visibleCustom.length]);
 
-  function toggleSelected(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  async function bulkSetEnabled(enabled: boolean) {
-    const targets = rules.filter((row) => selectedIds.has(row.id));
-    if (targets.length === 0) return;
-    setBulkBusy(true);
-    const previous = rules;
-    setRules((rows) => rows.map((row) => (selectedIds.has(row.id) ? { ...row, enabled } : row)));
-    try {
-      await Promise.all(targets.map((row) => updateAlertRule(row.id, { enabled })));
-      toast.success(enabled ? "Alerts turned on" : "Alerts paused");
-      setSelectedIds(new Set());
-    } catch {
-      setRules(previous);
-      toast.error("Could not update selected alerts");
-    } finally {
-      setBulkBusy(false);
-    }
-  }
-
-  async function bulkDeleteSelected() {
-    const targets = rules.filter((row) => selectedIds.has(row.id));
-    if (targets.length === 0) return;
-    setBulkBusy(true);
-    const previous = rules;
-    setRules((rows) => rows.filter((row) => !selectedIds.has(row.id)));
-    try {
-      await Promise.all(targets.map((row) => deleteAlertRule(row.id)));
-      toast.success(`Deleted ${targets.length} alert${targets.length === 1 ? "" : "s"}`);
-      setSelectedIds(new Set());
-    } catch {
-      setRules(previous);
-      toast.error("Could not delete selected alerts");
-    } finally {
-      setBulkBusy(false);
-    }
-  }
+  useImperativeHandle(
+    ref,
+    () => ({
+      openCreate,
+      openEdit: (ruleId: string) => {
+        const rule = rules.find((row) => row.id === ruleId);
+        if (rule) {
+          openEdit(rule);
+        }
+      },
+      bulkSetEnabled,
+      bulkDelete,
+    }),
+    [bulkDelete, bulkSetEnabled, rules],
+  );
 
   const summary = conditionSummary(kind, kind === "velocity_spike" ? Number(threshold) || null : null, environment.trim() || null);
 
+  const rulesRowGrid =
+    "grid items-center grid-cols-[3.5rem_1.25rem_minmax(0,1fr)_auto] sm:grid-cols-[3.5rem_1.25rem_minmax(0,5fr)_minmax(0,3fr)_minmax(0,2fr)_auto]";
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="w-56">
-          <Input
-            size="sm"
-            placeholder="Search rules…"
-            aria-label="Search rules"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </div>
-        <ToggleGroup
-          type="single"
-          value={statusFilter}
-          onValueChange={(value) => {
-            if (value === "all" || value === "monitoring" || value === "paused") {
-              setStatusFilter(value);
-            }
-          }}
-          aria-label="Filter rules by status"
+      <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface-1">
+        <div
+          className={cn(
+            "group border-b border-border-subtle bg-surface-2/60 py-2 pl-3 pr-3 font-mono text-[10px] uppercase tracking-wide text-fg-muted",
+            rulesRowGrid,
+          )}
         >
-          <ToggleGroupItem value="all" size="sm">
-            All
-          </ToggleGroupItem>
-          <ToggleGroupItem value="monitoring" size="sm">
-            Active
-          </ToggleGroupItem>
-          <ToggleGroupItem value="paused" size="sm">
-            Paused
-          </ToggleGroupItem>
-        </ToggleGroup>
-        <div className="ml-auto">
-          <Button variant="primary" size="sm" onClick={openCreate} disabled={!canManage}>
-            Create alert
-          </Button>
+          <span className="border-r border-border-subtle pr-4 text-left">On</span>
+          <div className="flex size-4 shrink-0 items-center justify-center pl-1">
+            {canManage && onToggleSelectAllFiltered ? (
+              <Checkbox
+                checked={someFilteredSelected ? "indeterminate" : allFilteredSelected}
+                aria-label="Select all rules in view"
+                className={cn(
+                  "transition-opacity duration-75",
+                  selectionActive || allFilteredSelected || someFilteredSelected
+                    ? "pointer-events-auto opacity-100"
+                    : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100",
+                )}
+                onCheckedChange={onToggleSelectAllFiltered}
+              />
+            ) : null}
+          </div>
+          <span className="pl-3">Rule</span>
+          <span className="hidden sm:block">Destination</span>
+          <span className="hidden md:block">Last triggered</span>
+          <span className="w-8 shrink-0 sr-only">Actions</span>
         </div>
+        {loading ? (
+          <p className="px-4 py-6 text-xs text-fg-muted">Loading rules…</p>
+        ) : visibleCustom.length === 0 ? (
+          <p className="px-4 py-6 text-xs text-fg-muted">No rules match these filters.</p>
+        ) : (
+          <ul className="divide-y divide-border-subtle">
+            {visibleCustom.map((rule) => {
+              const ruleIndex = Math.max(0, rules.findIndex((row) => row.id === rule.id));
+              const titleBadge = ruleTitleBadge(rule);
+              const selected = activeRuleId === rule.id;
+              const bulkSelected = selectedRuleIds?.has(rule.id) ?? false;
+              const lastIso =
+                lastTriggered[rule.id] ?? lastTriggered[rule.kind] ?? ruleLastTriggeredDemo(rule.id);
+              const lastLabel = lastIso ? formatRelativeTime(lastIso) : "N/A";
+              return (
+                <li key={rule.id}>
+                  <div
+                    className={cn(
+                      "group/row py-2.5 pl-3 pr-3 transition-colors",
+                      rulesRowGrid,
+                      selected && "bg-accent-muted/70",
+                      bulkSelected && !selected && "bg-accent-muted/50",
+                      "hover:bg-state-hover",
+                    )}
+                  >
+                    <div
+                      className="flex shrink-0 items-center justify-start border-r border-border-subtle pr-4"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      {canManage ? (
+                        <Switch
+                          size="compact"
+                          checked={rule.enabled}
+                          aria-label={`${rule.enabled ? "Disable" : "Enable"} ${rule.name}`}
+                          onCheckedChange={() => void toggle(rule)}
+                        />
+                      ) : (
+                        <Badge variant={rule.enabled ? "healthy" : "neutral"} size="compact">
+                          {rule.enabled ? "On" : "Off"}
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div
+                      className="flex size-4 shrink-0 items-center justify-center pl-1"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      {canManage && onRuleSelectChange ? (
+                        <Checkbox
+                          checked={bulkSelected}
+                          aria-label={bulkSelected ? "Deselect rule" : "Select rule"}
+                          className={cn(
+                            "transition-opacity duration-75",
+                            bulkSelected || selectionActive
+                              ? "pointer-events-auto opacity-100"
+                              : "pointer-events-none opacity-0 group-hover/row:pointer-events-auto group-hover/row:opacity-100",
+                          )}
+                          onCheckedChange={(value) => onRuleSelectChange(rule.id, value === true)}
+                        />
+                      ) : null}
+                    </div>
+
+                    <button
+                      type="button"
+                      className="min-w-0 pl-3 text-left focus-ring rounded-sm"
+                      onClick={() => onActiveRuleIdChange?.(rule.id)}
+                      onDoubleClick={() => canManage && openEdit(rule)}
+                    >
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-sm font-semibold text-fg-primary">{rule.name}</span>
+                        {titleBadge ? (
+                          <Badge variant={titleBadge.variant} size="sm" className="font-mono text-[10px]">
+                            {titleBadge.label}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <p className="mt-0.5 line-clamp-1 text-xs text-fg-muted">
+                        {ruleConditionLine(rule)}
+                        <span className="text-fg-muted/50"> · </span>
+                        <span className="font-mono text-fg-secondary">{ruleScopeProject(rule, projectSlug)}</span>
+                        <span className="text-fg-muted/50"> · </span>
+                        <span className="uppercase">{ruleScopeEnvironment(rule)}</span>
+                      </p>
+                    </button>
+
+                    <div className="hidden min-w-0 sm:block">
+                      <DestinationChip rule={rule} index={ruleIndex} />
+                    </div>
+
+                    <span className="hidden font-mono text-xs tabular-nums text-fg-muted md:block">{lastLabel}</span>
+
+                    <div className="flex w-8 shrink-0 justify-end">
+                      {canManage ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon-xs" aria-label={`Actions for ${rule.name}`}>
+                              <Icon icon={DotsThree} size={16} aria-hidden />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="min-w-[11rem]">
+                            <DropdownMenuItem onSelect={() => openEdit(rule)}>
+                              <Icon icon={PencilSimple} size={14} className="mr-2" />
+                              Edit rule
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => void duplicate(rule)}>
+                              <Icon icon={Copy} size={14} className="mr-2" />
+                              Duplicate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => void toggle(rule)}>
+                              <Icon icon={Pause} size={14} className="mr-2" />
+                              {rule.enabled ? "Pause rule" : "Resume rule"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => {
+                                onViewHistory?.({
+                                  kind: ruleKindToAlertKindFilter(rule.kind),
+                                  ruleName: rule.name,
+                                  ruleId: rule.id,
+                                });
+                              }}
+                            >
+                              <Icon icon={ClockCounterClockwise} size={14} className="mr-2" />
+                              View history
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-semantic-danger focus:text-semantic-danger"
+                              onSelect={() => void remove(rule)}
+                            >
+                              <Icon icon={Trash} size={14} className="mr-2" />
+                              Delete rule
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : null}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
-      {selectedIds.size > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-bg-subtle px-3 py-2">
-          <span className="text-xs font-medium text-fg-primary">
-            {selectedIds.size} selected
-          </span>
-          <Button
-            variant="ghost"
-            size="xs"
-            disabled={bulkBusy || !canManage}
-            onClick={() => void bulkSetEnabled(true)}
-          >
-            Turn on
-          </Button>
-          <Button
-            variant="ghost"
-            size="xs"
-            disabled={bulkBusy || !canManage}
-            onClick={() => void bulkSetEnabled(false)}
-          >
-            Pause
-          </Button>
-          <Button
-            variant="ghost"
-            size="xs"
-            disabled={bulkBusy || !canManage}
-            className="text-semantic-danger hover:text-semantic-danger"
-            onClick={() => void bulkDeleteSelected()}
-          >
-            Delete
-          </Button>
-          <Button variant="ghost" size="xs" onClick={() => setSelectedIds(new Set())}>
-            Clear
-          </Button>
-        </div>
-      ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-fg-muted">
+        <p className="flex items-center gap-1.5">
+          <span className="size-1.5 rounded-full bg-healthy" aria-hidden />
+          Alert engine status: nominal · Evaluation cycle: 30s
+        </p>
+        <p className="font-mono tabular-nums">
+          Showing {visibleCustom.length} of {rules.length} rules
+        </p>
+      </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-10">
-              {canManage ? (
-                <Checkbox
-                  checked={allCustomSelected ? true : someCustomSelected ? "indeterminate" : false}
-                  onCheckedChange={() => toggleSelectAllCustom()}
-                  aria-label="Select all custom alerts"
-                />
-              ) : null}
-            </TableHead>
-            <TableHead className="w-1/2">Rule</TableHead>
-            <TableHead>Active</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Notify</TableHead>
-            <TableHead>Last triggered</TableHead>
-            <TableHead className="w-10" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {statusFilter !== "paused"
-            ? BUILTIN.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell />
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-fg-primary">{item.name}</span>
-                      <Badge variant="neutral" size="sm">Default</Badge>
-                    </div>
-                    <p className="mt-0.5 text-[11px] text-fg-muted">{item.summary}</p>
-                    <p className="text-[11px] text-fg-muted">Every environment · Per issue</p>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-xs text-fg-muted">On</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-xs text-fg-secondary">Monitoring</span>
-                  </TableCell>
-                  <TableCell className="text-xs text-fg-secondary">Email + webhooks</TableCell>
-                  <TableCell className="text-xs tabular-nums text-fg-muted">
-                    {lastTriggered[item.kind] ? formatRelativeTime(lastTriggered[item.kind]) : "—"}
-                  </TableCell>
-                  <TableCell />
-                </TableRow>
-              ))
-            : null}
-          {loading ? (
-            <TableRow>
-              <TableCell colSpan={7} className="text-xs text-fg-muted">
-                Loading custom rules…
-              </TableCell>
-            </TableRow>
-          ) : (
-            visibleCustom.map((rule) => (
-              <TableRow key={rule.id} className="cursor-pointer" onClick={() => canManage && openEdit(rule)}>
-                <TableCell onClick={(event) => event.stopPropagation()}>
-                  {canManage ? (
-                    <Checkbox
-                      checked={selectedIds.has(rule.id)}
-                      onCheckedChange={() => toggleSelected(rule.id)}
-                      aria-label={`Select ${rule.name}`}
-                    />
-                  ) : null}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-fg-primary">{rule.name}</span>
-                    <Badge variant="info" size="sm">Custom</Badge>
-                  </div>
-                  <p className="mt-0.5 text-[11px] text-fg-muted">
-                    {conditionSummary(rule.kind, rule.threshold, rule.environment)}
-                  </p>
-                </TableCell>
-                <TableCell onClick={(event) => event.stopPropagation()}>
-                  {canManage ? (
-                    <Switch
-                      checked={rule.enabled}
-                      aria-label={rule.enabled ? `Pause ${rule.name}` : `Enable ${rule.name}`}
-                      onCheckedChange={() => void toggle(rule)}
-                    />
-                  ) : (
-                    <span className="text-xs text-fg-muted">{rule.enabled ? "On" : "Off"}</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <span className={rule.enabled ? "text-xs text-fg-secondary" : "text-xs text-fg-muted"}>
-                    {rule.enabled ? "Monitoring" : "Paused"}
-                  </span>
-                </TableCell>
-                <TableCell className="text-xs text-fg-secondary">Email + webhooks</TableCell>
-                <TableCell className="text-xs tabular-nums text-fg-muted">
-                  {lastTriggered[rule.id] ? formatRelativeTime(lastTriggered[rule.id]) : "—"}
-                </TableCell>
-                <TableCell>
-                  {canManage ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          aria-label={`Actions for ${rule.name}`}
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <DotsThree className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => openEdit(rule)}>Edit</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => void toggle(rule)}>
-                          {rule.enabled ? "Pause" : "Resume"}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onSelect={() => void remove(rule)}>Delete</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : null}
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-
-      <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>{editing ? "Edit alert" : "Create alert"}</DialogTitle>
-            <AlertWizardSteps step={editing ? 2 : step} editing={Boolean(editing)} className="mt-1" />
+      <Dialog
+        open={wizardOpen}
+        onOpenChange={(open) => {
+          if (!open) closeWizard();
+          else setWizardOpen(true);
+        }}
+      >
+        <DialogContent className="flex max-h-[min(90vh,680px)] w-full max-w-[520px] flex-col gap-0 overflow-hidden p-0 shadow-none">
+          <DialogHeader className="mb-0 shrink-0 space-y-2 border-b border-border-subtle px-5 pb-3 pt-4">
+            {editing ? (
+              <nav className="flex items-center gap-1.5 text-xs" aria-label="Edit rule steps">
+                <Button
+                  type="button"
+                  variant={step === 2 ? "secondary" : "ghost"}
+                  size="xs"
+                  className="h-7 font-mono uppercase tracking-wide"
+                  onClick={() => setStep(2)}
+                >
+                  Scope
+                </Button>
+                <span className="text-fg-muted/40">/</span>
+                <Button
+                  type="button"
+                  variant={step === 3 ? "secondary" : "ghost"}
+                  size="xs"
+                  className="h-7 font-mono uppercase tracking-wide"
+                  onClick={() => setStep(3)}
+                >
+                  Dispatch
+                </Button>
+              </nav>
+            ) : (
+              <AlertWizardRail step={step} />
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <DialogTitle className="mb-0">
+                {editing
+                  ? step === 3
+                    ? "Routing & review"
+                    : "Edit rule"
+                  : step === 1
+                    ? "Select trigger template"
+                    : step === 2
+                      ? "Scope & conditions"
+                      : "Dispatch & validate"}
+              </DialogTitle>
+              {!editing ? <WizardStepBadge step={step} /> : null}
+            </div>
+            {!editing ? (
+              <DialogDescription className="leading-snug">
+                {step === 1
+                  ? "Pick a starter pattern—thresholds and scope are prefilled; you can edit everything on the next step."
+                  : step === 2
+                    ? "Define evaluation criteria, scope filters, and frequency."
+                    : "Select notification destinations and review before arming."}
+              </DialogDescription>
+            ) : (
+              <DialogDescription className="leading-snug">
+                {step === 3
+                  ? "Review where this rule notifies. Delivery uses subscribed project webhooks."
+                  : "Update name, scope, filters, and threshold."}
+              </DialogDescription>
+            )}
           </DialogHeader>
 
-          {editing ? (
-            <label className="block text-xs text-fg-secondary">
-              Alert name
-              <Input
-                size="sm"
-                className="mt-1"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </label>
-          ) : null}
+          <div
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto px-5 py-2.5",
+              !editing && step === 1 && "bg-bg-subtle/40",
+            )}
+          >
+            {!editing && step === 1 ? (
+              <AlertTemplatePicker value={templateId} onChange={chooseTemplate} />
+            ) : null}
 
-          {!editing && step === 1 ? (
-            <div className="space-y-4">
-              <label className="block text-xs text-fg-secondary">
-                Alert name
-                <Input
-                  size="sm"
-                  className="mt-1"
-                  value={name}
-                  placeholder="e.g. Production spike"
-                  onChange={(event) => setName(event.target.value)}
-                />
-              </label>
-              <div>
-                <p className="mb-2 text-xs font-medium text-fg-primary">Start from a template</p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {TEMPLATES.map((item) => (
-                    <Button
-                      key={item.id}
-                      variant={templateId === item.id ? "secondary" : "outline"}
-                      size="sm"
-                      onClick={() => chooseTemplate(item)}
-                    >
-                      <span className="flex flex-col items-start gap-0.5 text-left">
-                        <span>{item.title}</span>
-                        <span className="text-[11px] font-normal text-fg-muted">{item.summary}</span>
-                      </span>
-                    </Button>
-                  ))}
+            {step === 2 ? (
+              <div className="space-y-2.5">
+                <div className="space-y-1">
+                  <p className="font-mono text-[10px] font-medium uppercase tracking-wider text-fg-muted">
+                    Rule name
+                  </p>
+                  <Input
+                    id={editing ? "alert-rule-name-edit" : "alert-rule-name-create"}
+                    size="sm"
+                    className="h-8"
+                    value={name}
+                    placeholder={template?.defaultName ?? "Production error spike"}
+                    onChange={(event) => setName(event.target.value)}
+                  />
                 </div>
+                <AlertConditionFields
+                  kind={kind}
+                  onKindChange={(next) => setKind(next)}
+                  environment={environment}
+                  onEnvironmentChange={setEnvironment}
+                  threshold={threshold}
+                  onThresholdChange={setThreshold}
+                  minLevel={minLevel}
+                  onMinLevelChange={setMinLevel}
+                  firstSeen={firstSeen}
+                  onFirstSeenChange={setFirstSeen}
+                  summary={summary}
+                  showKindPicker={Boolean(editing)}
+                />
               </div>
+            ) : null}
+
+            {step === 3 ? (
+              <AlertNotificationFields projectId={projectId} alertName={name} summary={summary} />
+            ) : null}
+          </div>
+
+          <DialogFooter className="mb-0 shrink-0 flex-row items-center justify-between gap-2 border-t border-border-subtle bg-surface-1 px-5 py-3 pt-3">
+            <div className="flex min-w-0 flex-1 items-center gap-1.5 text-xs text-fg-muted">
+              {!editing && template ? (
+                <>
+                  <span className="size-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
+                  <span className="truncate font-medium text-fg-secondary">
+                    {step === 1 ? template.title : name.trim() || template.title}
+                  </span>
+                </>
+              ) : null}
             </div>
-          ) : null}
-
-          {(editing || step === 2) && (
-            <AlertConditionFields
-              kind={kind}
-              onKindChange={(next) => setKind(next)}
-              environment={environment}
-              onEnvironmentChange={setEnvironment}
-              threshold={threshold}
-              onThresholdChange={setThreshold}
-              minLevel={minLevel}
-              onMinLevelChange={setMinLevel}
-              firstSeen={firstSeen}
-              onFirstSeenChange={setFirstSeen}
-              summary={summary}
-              showKindPicker={Boolean(editing || template.id === "custom")}
-            />
-          )}
-
-          {!editing && step === 3 ? (
-            <AlertNotificationFields projectId={projectId} alertName={name} summary={summary} />
-          ) : null}
-
-          <DialogFooter>
-            {!editing && step > 1 ? (
-              <Button variant="ghost" size="sm" onClick={() => setStep((value) => (value === 3 ? 2 : 1))}>
-                Back
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+              {(editing && step === 3) || (!editing && step > 1) ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8"
+                  onClick={() => setStep((value) => (value === 3 ? 2 : 1))}
+                >
+                  Back
+                </Button>
+              ) : null}
+              <Button variant="secondary" size="sm" className="h-8" onClick={closeWizard}>
+                Cancel
               </Button>
-            ) : (
-              <span />
-            )}
-            {editing ? (
-              <Button variant="primary" size="sm" disabled={busy} onClick={() => void save()}>
-                {busy ? "Saving…" : "Save alert"}
-              </Button>
-            ) : step < 3 ? (
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={step === 1 && !name.trim()}
-                onClick={() => setStep((value) => (value === 1 ? 2 : 3))}
-              >
-                Continue
-              </Button>
-            ) : (
-              <Button variant="primary" size="sm" disabled={busy} onClick={() => void save()}>
-                {busy ? "Creating…" : "Create alert"}
-              </Button>
-            )}
+              {editing ? (
+                step < 3 ? (
+                  <Button variant="primary" size="sm" className="h-8 gap-1" onClick={() => setStep(3)}>
+                    Continue to routing
+                    <Icon icon={ArrowRight} size={14} aria-hidden />
+                  </Button>
+                ) : (
+                  <Button variant="primary" size="sm" className="h-8" disabled={busy} onClick={() => void save()}>
+                    {busy ? "Saving…" : "Save rule"}
+                  </Button>
+                )
+              ) : step < 3 ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="h-8 gap-1"
+                  onClick={() => (step === 1 ? advanceFromTemplateStep() : setStep(3))}
+                >
+                  {step === 2 ? "Continue to dispatch" : "Continue"}
+                  <Icon icon={ArrowRight} size={14} aria-hidden />
+                </Button>
+              ) : (
+                <Button variant="primary" size="sm" className="h-8" disabled={busy} onClick={() => void save()}>
+                  {busy ? "Creating…" : "Create & arm rule"}
+                </Button>
+              )}
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
-}
+},
+);

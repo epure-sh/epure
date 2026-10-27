@@ -40,7 +40,6 @@ import {
 import { Empty } from "../../ui/empty";
 import { Field } from "../../ui/field";
 import { Input } from "../../ui/input";
-import { PageChrome } from "../../ui/page-chrome";
 import { Skeleton } from "../../ui/skeleton";
 import { useToast } from "../../ui/toast-provider";
 
@@ -204,43 +203,7 @@ export function OrganisationsPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-bg">
-      <PageChrome
-        title="Organisations"
-        description="All organizations and workspaces you belong to. Switch workspaces or manage organization settings based on your permissions."
-        actions={
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => void handleRefresh()}
-              disabled={refreshing}
-              className="h-8 gap-1.5 text-xs font-medium"
-              title="Refresh organisations list"
-            >
-              <RefreshCw size={13} className={cn("text-fg-muted", refreshing && "animate-spin")} />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={() => {
-                setJoinError(null);
-                setJoinModalOpen(true);
-              }}
-              className="h-8 gap-1.5 text-xs font-medium"
-            >
-              <KeyRound size={13} />
-              <span>Join via Invite</span>
-            </Button>
-          </div>
-        }
-      />
-
-      {/* Main Content Area */}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 md:p-6 space-y-5">
-        {/* Search Omnibar & Context Status */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
             <Search
@@ -269,22 +232,48 @@ export function OrganisationsPage() {
 
           </div>
 
-          {/* Quick Metrics Badges */}
-          <div className="flex flex-wrap items-center gap-2 text-2xs text-fg-muted">
-            <Badge variant="neutral" size="sm" className="gap-1.5 font-medium text-fg-primary">
-              <Building2 size={12} className="text-primary" />
-              <span>{stats.total} total</span>
-            </Badge>
-            {stats.ownerCount > 0 ? (
-              <Badge variant="neutral" size="sm" className="text-fg-secondary">
-                Owner in {stats.ownerCount}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center gap-2 text-2xs text-fg-muted">
+              <Badge variant="neutral" size="sm" className="gap-1.5 font-medium text-fg-primary">
+                <Building2 size={12} className="text-primary" />
+                <span>{stats.total} total</span>
               </Badge>
-            ) : null}
-            {stats.adminCount > 0 ? (
-              <Badge variant="neutral" size="sm" className="text-fg-secondary">
-                Admin in {stats.adminCount}
-              </Badge>
-            ) : null}
+              {stats.ownerCount > 0 ? (
+                <Badge variant="neutral" size="sm" className="text-fg-secondary">
+                  Owner in {stats.ownerCount}
+                </Badge>
+              ) : null}
+              {stats.adminCount > 0 ? (
+                <Badge variant="neutral" size="sm" className="text-fg-secondary">
+                  Admin in {stats.adminCount}
+                </Badge>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void handleRefresh()}
+              disabled={refreshing}
+              className="h-8 gap-1.5 text-xs font-medium"
+              title="Refresh organisations list"
+            >
+              <RefreshCw size={13} className={cn("text-fg-muted", refreshing && "animate-spin")} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                setJoinError(null);
+                setJoinModalOpen(true);
+              }}
+              className="h-8 gap-1.5 text-xs font-medium"
+            >
+              <KeyRound size={13} />
+              <span>Join via Invite</span>
+            </Button>
           </div>
         </div>
 

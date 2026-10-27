@@ -325,6 +325,71 @@ pub async fn patch_alert(
     Ok(row)
 }
 
+/// Mirror issue triage in alert history for one user (all alerts tied to an issue).
+pub async fn set_user_read_state_for_issue_alerts(
+    pool: &PgPool,
+    org_id: Uuid,
+    user_id: Uuid,
+    issue_id: Uuid,
+    read: bool,
+) -> Result<(), sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+
+    let alert_ids: Vec<Uuid> = sqlx::query_scalar(
+        r#"
+        SELECT id
+        FROM alerts
+        WHERE issue_id = $1
+        "#,
+    )
+    .bind(issue_id)
+    .fetch_all(&mut *tx)
+    .await?;
+
+    for alert_id in alert_ids {
+        sqlx::query(
+            r#"
+            INSERT INTO alert_user_states (user_id, alert_id, read_at, ignored)
+            VALUES ($1, $2, NULL, false)
+            ON CONFLICT (user_id, alert_id) DO NOTHING
+            "#,
+        )
+        .bind(user_id)
+        .bind(alert_id)
+        .execute(&mut *tx)
+        .await?;
+
+        if read {
+            sqlx::query(
+                r#"
+                UPDATE alert_user_states
+                SET read_at = now()
+                WHERE user_id = $1 AND alert_id = $2
+                "#,
+            )
+            .bind(user_id)
+            .bind(alert_id)
+            .execute(&mut *tx)
+            .await?;
+        } else {
+            sqlx::query(
+                r#"
+                UPDATE alert_user_states
+                SET read_at = NULL
+                WHERE user_id = $1 AND alert_id = $2
+                "#,
+            )
+            .bind(user_id)
+            .bind(alert_id)
+            .execute(&mut *tx)
+            .await?;
+        }
+    }
+
+    tx.commit().await?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

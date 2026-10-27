@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { sidebarNavItemClass, sidebarNavIconClass } from "./sidebar-nav-link";
-import { Badge } from "../ui/badge";
+import { NavCountPastille } from "@/components/kit/nav-count-pastille";
+import { cn } from "@/lib/utils";
 import { RailAccountFooter } from "./rail-account";
 
 export interface RailNavItem {
@@ -10,7 +11,12 @@ export interface RailNavItem {
   label: string;
   end?: boolean;
   icon: LucideIcon;
-  badge?: string;
+  /** Unresolved / unread count for sidebar pastille. */
+  badgeCount?: number | null;
+  badgeTone?: "neutral" | "accent";
+  badgeAriaLabel?: string;
+  /** Static rail label (e.g. Cloud on self-hosted billing). */
+  badgeLabel?: string;
 }
 
 export interface RailExternalLink {
@@ -57,7 +63,10 @@ export function RailNav({
                 className={({ isActive }) =>
                   sidebarNavItemClass(
                     isActive,
-                    "epure-nav-item w-full justify-center lg:justify-start",
+                    cn(
+                      "epure-nav-item w-full justify-center lg:justify-start",
+                      (item.badgeCount != null || item.badgeLabel) && "lg:justify-between",
+                    ),
                   )
                 }
               >
@@ -69,13 +78,19 @@ export function RailNav({
                       className={sidebarNavIconClass(isActive)}
                     />
                     <span className="hidden min-w-0 flex-1 truncate lg:inline">{item.label}</span>
-                    {item.badge ? (
-                      <Badge
-                        variant="secondary"
-                        className="hidden px-1.5 py-0 text-2xs uppercase lg:inline-flex"
-                      >
-                        {item.badge}
-                      </Badge>
+                    {item.badgeLabel ? (
+                      <span className="hidden rounded-sm border border-border-subtle bg-surface-2 px-1.5 py-0 font-mono text-[10px] font-medium uppercase leading-none tracking-wide text-fg-muted lg:inline-flex">
+                        {item.badgeLabel}
+                      </span>
+                    ) : null}
+                    {item.badgeCount != null ? (
+                      <span className="hidden lg:inline-flex">
+                        <NavCountPastille
+                          count={item.badgeCount}
+                          tone={item.badgeTone}
+                          ariaLabel={item.badgeAriaLabel}
+                        />
+                      </span>
                     ) : null}
                   </>
                 )}

@@ -8,6 +8,7 @@ use axum::{
     Extension, Json, Router,
 };
 use epure_auth::DashboardSession;
+use epure_storage::alerts;
 use epure_storage::events;
 use epure_storage::issues::{self, IssueListFilter, IssueSummary, SnoozeMode, UpdateIssueParams};
 use epure_storage::projects;
@@ -205,13 +206,37 @@ async fn patch_issue(
         dashboard.org_id,
         id,
         UpdateIssueParams {
-            status: body.status,
+            status: body.status.clone(),
             resolved_in_release: body.resolved_in_release,
         },
     )
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     .ok_or(StatusCode::NOT_FOUND)?;
+
+    if let Some(status) = body.status.as_deref() {
+        if status == "resolved" {
+            alerts::set_user_read_state_for_issue_alerts(
+                &state.pools.app,
+                dashboard.org_id,
+                dashboard.user_id,
+                id,
+                true,
+            )
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        } else if status == "unresolved" || status == "regression" {
+            alerts::set_user_read_state_for_issue_alerts(
+                &state.pools.app,
+                dashboard.org_id,
+                dashboard.user_id,
+                id,
+                false,
+            )
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        }
+    }
 
     Ok(Json(row))
 }
@@ -270,6 +295,32 @@ async fn bulk_update(
     let updated = issues::bulk_update_status(&state.pools.app, dashboard.org_id, &body.ids, status)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    if status == "resolved" {
+        for issue_id in &body.ids {
+            alerts::set_user_read_state_for_issue_alerts(
+                &state.pools.app,
+                dashboard.org_id,
+                dashboard.user_id,
+                *issue_id,
+                true,
+            )
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        }
+    } else if status == "unresolved" || status == "regression" {
+        for issue_id in &body.ids {
+            alerts::set_user_read_state_for_issue_alerts(
+                &state.pools.app,
+                dashboard.org_id,
+                dashboard.user_id,
+                *issue_id,
+                false,
+            )
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        }
+    }
 
     Ok(Json(BulkResponse { updated }))
 }

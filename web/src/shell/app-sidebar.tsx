@@ -45,6 +45,7 @@ import {
 } from "../lib/docs-url";
 import { EpureBrandMark } from "../ui/logo";
 import { Button } from "../ui/button";
+import { buildProjectPathWithFeedQuery } from "../features/issues/project-feed-query-store";
 import { useAppContext } from "./app-context";
 import { dispatchOpenCommandPalette } from "./command-palette";
 import {
@@ -59,8 +60,10 @@ import {
 } from "../ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { useLogout } from "../lib/use-logout";
+import { NavCountPastille } from "@/components/kit/nav-count-pastille";
 import { Badge } from "../ui/badge";
 import { isSharedProjectRole, SharedProjectBadge } from "../ui/shared-project-badge";
+import { useProjectNavCounts } from "./use-project-nav-counts";
 
 export interface AppSidebarProps {
   mobileOpen?: boolean;
@@ -69,7 +72,7 @@ export interface AppSidebarProps {
 
 export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProps) {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const navContext = getNavigationContext(pathname);
   const inProject = isProjectRoute(pathname);
 
@@ -79,6 +82,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
     projects,
     user,
     currentOrg,
+    environment,
   } = useAppContext();
   const logout = useLogout();
   const viewerRole = user?.role;
@@ -105,15 +109,27 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
     navigate(projectPath(id, "issues"));
   }
 
+  const navCounts = useProjectNavCounts(activeProject?.id ?? null, environment);
+
   // 1. Project Context Navigation Items
   const projectNavItems = activeProject
     ? [
         {
-          to: projectPath(activeProject.id, "issues"),
+          to: buildProjectPathWithFeedQuery(activeProject.id, "issues", { currentSearch: search }),
           label: "Issues",
           icon: CircleDot,
           end: false,
           dataTour: "nav-issues",
+          badge: (
+            <NavCountPastille
+              count={navCounts.unresolved}
+              ariaLabel={
+                navCounts.unresolved != null
+                  ? `${navCounts.unresolved} unresolved issues`
+                  : undefined
+              }
+            />
+          ),
         },
         {
           to: projectPath(activeProject.id, "monitoring"),
@@ -123,11 +139,22 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
           dataTour: "nav-monitoring",
         },
         {
-          to: projectPath(activeProject.id, "alerts"),
+          to: buildProjectPathWithFeedQuery(activeProject.id, "alerts", { currentSearch: search }),
           label: "Alerts",
           icon: Bell,
           end: true,
           dataTour: "nav-alerts",
+          badge: (
+            <NavCountPastille
+              count={navCounts.alertsUnread}
+              tone="accent"
+              ariaLabel={
+                navCounts.alertsUnread != null
+                  ? `${navCounts.alertsUnread} unread alerts`
+                  : undefined
+              }
+            />
+          ),
         },
         {
           to: projectPath(activeProject.id, "releases"),
@@ -387,6 +414,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
                   icon={item.icon}
                   onClick={onMobileClose}
                   dataTour={"dataTour" in item ? item.dataTour : undefined}
+                  badge={"badge" in item ? item.badge : undefined}
                   isAlsoActive={(path, navActive) =>
                     navActive ||
                     path === item.to ||

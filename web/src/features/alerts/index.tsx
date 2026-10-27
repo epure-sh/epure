@@ -1,38 +1,53 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
-import { fetchAlerts, fetchWebhooks, patchAlert, type AlertRow } from "../../lib/api";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  fetchAlertRules,
+  fetchAlerts,
+  fetchHeadlineStats,
+  fetchWebhooks,
+  patchAlert,
+  type AlertRow,
+  type HeadlineStats,
+} from "../../lib/api";
 import { projectPath } from "../../lib/paths";
 import { isDemoProject } from "../../lib/demo-utils";
 import { useAppContext } from "../../shell/app-context";
-import { Button } from "../../ui/button";
-import { Empty } from "../../ui/empty";
-import { FeedListBody, StackedCardList } from "../../ui/feed-list-shell";
+import { Button } from "@/components/ui/button";
+import { Empty } from "@/ui/empty";
+import { FeedListBody, StackedCardList } from "@/ui/feed-list-shell";
+import { AlertListColumnHeader } from "./alert-list-column-header";
+import { bulkAlertAvailability } from "./alert-bulk-utils";
 import { AlertsHistoryBulkBar } from "./alerts-history-bulk-bar";
+import { useAlertReadState } from "./use-alert-read-state";
+import { INBOX_FEED_BODY_PAD_CLASS } from "@/components/kit/inbox-read-cue";
 import { PageShell } from "@/components/kit/page-shell";
-import { CardRowSkeleton } from "../../ui/skeleton";
-import { useToast } from "../../ui/toast-provider";
+import { CardRowSkeleton } from "@/ui/skeleton";
+import { useToast } from "@/ui/toast-provider";
 import { AlertDetailPanel } from "./alert-detail-panel";
+import { useAlertExportHotkey } from "./export-markdown";
 import { AlertListRow } from "./alert-row";
-import { AlertRulesManager } from "./alert-rules-manager";
+import { AlertRulesManager, type AlertRulesManagerHandle } from "./alert-rules-manager";
 import {
-  ALERT_VIEW_MODES,
   buildLastTriggeredByKind,
-  countAlertsForViewModes,
+  getIssueLink,
+  alertMatchesHistoryRuleFocus,
+  type HistoryRuleFocus,
   filterAlerts,
-  filterAlertsByViewMode,
+  filterAlertsByIssuesQuery,
   groupAlertsByDay,
+  isAlertUnread,
+  issueSortToAlertSort,
   loadAlertsPreferences,
   saveAlertsPreferences,
   sortAlerts,
-  type AlertKindFilter,
-  type AlertSort,
   type AlertTimeWindow,
-  type AlertViewMode,
   type AlertsPreferences,
 } from "./alert-utils";
-import { AlertsRulesPanel } from "./alerts-rules-panel";
-import { AlertsSectionToggle, type AlertsSection } from "./alerts-section-toggle";
-import { AlertsToolbar } from "./alerts-toolbar";
+import { parseQuery, resetQuery, type TimeWindowValue } from "../issues/query-utils";
+import { useProjectFeedQuery } from "../issues/use-project-feed-query";
+import type { AlertsSection } from "./alerts-section-toggle";
+import { AlertsToolbar, type RulesStatusFilter } from "./alerts-toolbar";
+import type { RuleDestinationKind } from "./alert-rules-display";
 import { cn } from "../../lib/cn";
 
 function AlertsDayGroup({
@@ -45,17 +60,18 @@ function AlertsDayGroup({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-1.5">
-      <h2 className="sticky top-0 z-10 -mx-4 px-4 md:-mx-6 md:px-6 py-1.5 bg-canvas/95 text-xs font-medium text-fg-muted backdrop-blur-sm border-b border-border-subtle/50">
+    <section>
+      <h2 className="border-b border-border-subtle/60 px-1 py-1.5 font-mono text-xs uppercase tracking-wide text-fg-muted">
         {label}
-        <span className="ml-1.5 font-mono font-normal tabular-nums text-fg-muted/80">{count}</span>
+        <span className="ml-1.5 tabular-nums">{count}</span>
       </h2>
-      {children}
+      <div>{children}</div>
     </section>
   );
 }
 
 export function AlertsPage() {
+  const navigate = useNavigate();
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
   const { environment, projectId, projects, projectsLoading, user } = useAppContext();
   const { toast } = useToast();
@@ -64,10 +80,7 @@ export function AlertsPage() {
   const [error, setError] = useState<string | null>(null);
   const [webhookCount, setWebhookCount] = useState<number | null>(null);
   const [preferences, setPreferences] = useState<AlertsPreferences>(() => loadAlertsPreferences());
-  const [viewMode, setViewMode] = useState<AlertViewMode>(preferences.defaultViewMode);
-  const [timeWindow, setTimeWindow] = useState<AlertTimeWindow>(preferences.defaultTimeWindow);
-  const [kindFilter, setKindFilter] = useState<AlertKindFilter>("all");
-  const [sort, setSort] = useState<AlertSort>("newest");
+  const [headlineStats, setHeadlineStats] = useState<HeadlineStats | null>(null);
   const [retrying, setRetrying] = useState(false);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [selectedAlertIds, setSelectedAlertIds] = useState<Set<string>>(() => new Set());
@@ -75,6 +88,15 @@ export function AlertsPage() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [section, setSection] = useState<AlertsSection>("history");
+  const [ruleCount, setRuleCount] = useState(0);
+  const [historyRuleFocus, setHistoryRuleFocus] = useState<HistoryRuleFocus | null>(null);
+  const historyRuleName = historyRuleFocus?.ruleName ?? null;
+  const [rulesStatusFilter, setRulesStatusFilter] = useState<RulesStatusFilter>("all");
+  const [rulesDestinationFilter, setRulesDestinationFilter] = useState<RuleDestinationKind>("all");
+  const [activeRuleCount, setActiveRuleCount] = useState(0);
+  const [activeRuleId, setActiveRuleId] = useState<string | null>(null);
+  const rulesManagerRef = useRef<AlertRulesManagerHandle>(null);
+  const alertListRef = useRef<HTMLDivElement>(null);
 
   const safeProjects = Array.isArray(projects) ? projects : [];
   const activeProject = useMemo(() => {
@@ -87,6 +109,24 @@ export function AlertsPage() {
   }, [routeProjectId, projectId, safeProjects]);
 
   const activeProjectId = activeProject?.id ?? null;
+  const { isUnread: isAlertInboxUnread, markRead: markAlertRead, markReadMany } =
+    useAlertReadState(activeProjectId);
+  const {
+    query,
+    setQuery: persistFeedQuery,
+    timeWindow,
+    setTimeWindow: setFeedTimeWindow,
+    issueSort,
+    setIssueSort,
+  } = useProjectFeedQuery(activeProjectId);
+  const setQuery = useCallback(
+    (next: string | ((current: string) => string)) => {
+      setSelectedAlertIds(new Set());
+      persistFeedQuery(next);
+    },
+    [persistFeedQuery],
+  );
+  const [rulesSearch, setRulesSearch] = useState("");
   const canManageWebhooks = user?.role === "owner" || user?.role === "admin";
 
   const loadAlerts = useCallback(async () => {
@@ -118,6 +158,31 @@ export function AlertsPage() {
   }, [loadAlerts]);
 
   useEffect(() => {
+    if (!activeProjectId) {
+      setRuleCount(0);
+      return;
+    }
+    let cancelled = false;
+    void fetchAlertRules(activeProjectId)
+      .then((rows) => {
+        if (!cancelled) {
+          const list = Array.isArray(rows) ? rows : [];
+          setRuleCount(list.length);
+          setActiveRuleCount(list.filter((row) => row.enabled).length);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRuleCount(0);
+          setActiveRuleCount(0);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProjectId]);
+
+  useEffect(() => {
     if (projectsLoading || !activeProjectId || !canManageWebhooks) {
       setWebhookCount(canManageWebhooks ? 0 : null);
       return;
@@ -141,54 +206,109 @@ export function AlertsPage() {
     };
   }, [projectsLoading, activeProjectId, canManageWebhooks]);
 
-  const handleViewModeChange = (nextViewMode: AlertViewMode) => {
-    setViewMode(nextViewMode);
-    const next = { ...preferences, defaultViewMode: nextViewMode };
+  const handleTimeWindowChange = (nextTimeWindow: TimeWindowValue) => {
+    setFeedTimeWindow(nextTimeWindow);
+    const next = { ...preferences, defaultTimeWindow: nextTimeWindow as AlertTimeWindow };
     setPreferences(next);
     saveAlertsPreferences(next);
   };
 
-  const handleTimeWindowChange = (nextTimeWindow: AlertTimeWindow) => {
-    setTimeWindow(nextTimeWindow);
-    const next = { ...preferences, defaultTimeWindow: nextTimeWindow };
-    setPreferences(next);
-    saveAlertsPreferences(next);
-  };
-
-  const handleResetFilters = () => {
-    setKindFilter("all");
-    setSort("newest");
-    handleTimeWindowChange("7d");
-  };
+  useEffect(() => {
+    if (!activeProjectId) {
+      setHeadlineStats(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchHeadlineStats(activeProjectId, environment)
+      .then((stats) => {
+        if (!cancelled) setHeadlineStats(stats);
+      })
+      .catch(() => {
+        if (!cancelled) setHeadlineStats(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProjectId, environment]);
 
   const safeAlerts = Array.isArray(alerts) ? alerts : [];
 
-  const viewModeCounts = useMemo(
-    () => countAlertsForViewModes(safeAlerts, timeWindow, kindFilter),
-    [safeAlerts, timeWindow, kindFilter],
-  );
-
   const timeScopedAlerts = useMemo(
-    () => filterAlerts(safeAlerts, { kind: kindFilter, timeWindow }),
-    [safeAlerts, kindFilter, timeWindow],
+    () => filterAlerts(safeAlerts, { kind: "all", timeWindow: timeWindow as AlertTimeWindow }),
+    [safeAlerts, timeWindow],
   );
 
-  const filteredAlerts = useMemo(
-    () => sortAlerts(filterAlertsByViewMode(timeScopedAlerts, viewMode), sort),
-    [timeScopedAlerts, viewMode, sort],
+  const historyUnreadCount = useMemo(
+    () => timeScopedAlerts.filter((row) => isAlertUnread(row)).length,
+    [timeScopedAlerts],
   );
 
-  const groupedAlerts = useMemo(() => groupAlertsByDay(filteredAlerts, sort), [filteredAlerts, sort]);
+  const alertFilterStats = useMemo((): HeadlineStats | null => {
+    const regressions = timeScopedAlerts.filter((row) => row.kind === "regression").length;
+    const snoozed = timeScopedAlerts.filter((row) => row.ignored).length;
+    if (headlineStats) {
+      return {
+        ...headlineStats,
+        unresolved: historyUnreadCount,
+        regressions,
+        snoozed,
+      };
+    }
+    if (!activeProjectId) {
+      return null;
+    }
+    return {
+      project_id: activeProjectId,
+      environment: environment ?? null,
+      unresolved: historyUnreadCount,
+      events_7d: 0,
+      regressions,
+      snoozed,
+    };
+  }, [activeProjectId, environment, headlineStats, historyUnreadCount, timeScopedAlerts]);
+
+  const filteredAlerts = useMemo(() => {
+    let rows = filterAlertsByIssuesQuery(timeScopedAlerts, query);
+    if (historyRuleFocus) {
+      rows = rows.filter((row) => alertMatchesHistoryRuleFocus(row, historyRuleFocus));
+    }
+    return sortAlerts(rows, issueSortToAlertSort(issueSort));
+  }, [timeScopedAlerts, query, issueSort, historyRuleFocus]);
+
+  const focusedAlert = useMemo(
+    () => filteredAlerts.find((row) => row.id === focusedId) ?? null,
+    [filteredAlerts, focusedId],
+  );
+
+  useAlertExportHotkey(
+    section === "history" && focusedAlert != null,
+    focusedAlert,
+    activeProjectId ?? "",
+    () => toast("Copied alert brief for AI"),
+  );
+
+  const groupedAlerts = useMemo(
+    () => groupAlertsByDay(filteredAlerts, issueSortToAlertSort(issueSort)),
+    [filteredAlerts, issueSort],
+  );
 
   useEffect(() => {
     if (filteredAlerts.length === 0) {
       setFocusedId(null);
       return;
     }
-    if (!focusedId || !filteredAlerts.some((alert) => alert.id === focusedId)) {
-      setFocusedId(filteredAlerts[0]?.id ?? null);
+    if (focusedId && !filteredAlerts.some((alert) => alert.id === focusedId)) {
+      setFocusedId(null);
     }
   }, [filteredAlerts, focusedId]);
+
+  useEffect(() => {
+    if (!focusedId || !alertListRef.current) {
+      return;
+    }
+    const row = alertListRef.current.querySelector(`[data-alert-id="${focusedId}"]`);
+    row?.scrollIntoView({ block: "nearest" });
+  }, [focusedId]);
 
   useEffect(() => {
     const visible = new Set(filteredAlerts.map((row) => row.id));
@@ -203,13 +323,12 @@ export function AlertsPage() {
     filteredIds.length > 0 && filteredIds.every((id) => selectedAlertIds.has(id));
   const someFilteredSelected = filteredIds.some((id) => selectedAlertIds.has(id));
 
-  const bulkSelectionAllMuted = useMemo(() => {
-    if (selectedAlertIds.size === 0) return false;
-    return [...selectedAlertIds].every((id) => {
-      const row = filteredAlerts.find((alert) => alert.id === id);
-      return row?.ignored === true;
-    });
-  }, [filteredAlerts, selectedAlertIds]);
+  const selectedAlerts = useMemo(
+    () => filteredAlerts.filter((row) => selectedAlertIds.has(row.id)),
+    [filteredAlerts, selectedAlertIds],
+  );
+
+  const bulkAvailability = useMemo(() => bulkAlertAvailability(selectedAlerts), [selectedAlerts]);
 
   const handleBulkSelect = useCallback(
     (alertId: string, selected: boolean, options?: { shiftKey?: boolean }) => {
@@ -279,10 +398,17 @@ export function AlertsPage() {
       try {
         const updated = await patchAlert(alertId, patch);
         setAlerts((rows) => rows.map((row) => (row.id === alertId ? updated : row)));
+        if (patch.read === true) {
+          markAlertRead(
+            alertId,
+            updated.fired_at ?? new Date().toISOString(),
+            updated.issue_id,
+          );
+        }
         if (patch.ignored === true) {
-          toast("Alert muted — will not notify again for this issue");
+          toast("Alert snoozed. It will not notify again for this issue.");
         } else if (patch.ignored === false) {
-          toast("Alert unmuted");
+          toast("Alert unsnoozed");
         } else if (patch.read === true) {
           toast("Alert resolved");
         } else if (patch.read === false) {
@@ -295,7 +421,7 @@ export function AlertsPage() {
         setBusyId(null);
       }
     },
-    [alerts, toast],
+    [alerts, markAlertRead, toast],
   );
 
   const applyBulkPatch = useCallback(
@@ -337,7 +463,9 @@ export function AlertsPage() {
           const index = filteredAlerts.findIndex((alert) => alert.id === current);
           const nextIndex =
             event.key === "j"
-              ? Math.min(filteredAlerts.length - 1, Math.max(0, index) + 1)
+              ? index < 0
+                ? 0
+                : Math.min(filteredAlerts.length - 1, index + 1)
               : Math.max(0, (index < 0 ? 0 : index) - 1);
           return filteredAlerts[nextIndex]?.id ?? current;
         });
@@ -366,21 +494,50 @@ export function AlertsPage() {
     return () => window.removeEventListener("keydown", handler);
   }, [applyAlertPatch, busyId, filteredAlerts, focusedId]);
 
-  const activeView = ALERT_VIEW_MODES.find((option) => option.value === viewMode);
+  const parsedHistoryQuery = parseQuery(query);
   const hasAnyAlerts = safeAlerts.length > 0;
-  const alternateViewMode =
-    viewMode !== "all" && viewModeCounts.all > 0
-      ? "all"
-      : null;
+  const hasStructuredFilters =
+    Boolean(parsedHistoryQuery.lifecycle) ||
+    Boolean(parsedHistoryQuery.viewModifier) ||
+    Boolean(parsedHistoryQuery.escalating) ||
+    Boolean(parsedHistoryQuery.environment) ||
+    Boolean(parsedHistoryQuery.release) ||
+    Boolean(historyRuleName);
+
+  const projectSlug = activeProject?.slug ?? "checkout-web";
+
+  const openCreateRule = useCallback(() => {
+    if (section !== "configure") {
+      setSection("configure");
+      window.setTimeout(() => rulesManagerRef.current?.openCreate(), 0);
+      return;
+    }
+    rulesManagerRef.current?.openCreate();
+  }, [section]);
+
+  const openEditRule = useCallback(() => {
+    if (!activeRuleId) {
+      return;
+    }
+    if (section !== "configure") {
+      setSection("configure");
+      window.setTimeout(() => rulesManagerRef.current?.openEdit(activeRuleId), 0);
+      return;
+    }
+    rulesManagerRef.current?.openEdit(activeRuleId);
+  }, [activeRuleId, section]);
+
+  const openEditRuleById = useCallback((ruleId: string) => {
+    if (section !== "configure") {
+      setSection("configure");
+      window.setTimeout(() => rulesManagerRef.current?.openEdit(ruleId), 0);
+      return;
+    }
+    rulesManagerRef.current?.openEdit(ruleId);
+  }, [section]);
 
   return (
-    <PageShell
-      title="Alerts"
-      actions={
-        activeProjectId ? <AlertsSectionToggle value={section} onChange={setSection} /> : null
-      }
-      density="full-bleed"
-    >
+    <PageShell density="full-bleed">
       {projectsLoading ? (
         <FeedListBody>
           <StackedCardList>
@@ -395,56 +552,132 @@ export function AlertsPage() {
         </FeedListBody>
       ) : (
         <>
+          <AlertsToolbar
+            section={section}
+            onSectionChange={(next) => {
+              setSection(next);
+              if (next === "configure") {
+                setHistoryRuleFocus(null);
+              } else {
+                setActiveRuleId(null);
+              }
+            }}
+            sectionCounts={{
+              rules: ruleCount,
+              history: historyUnreadCount,
+            }}
+            canManageRules={canManageWebhooks}
+            onCreateRule={canManageWebhooks ? openCreateRule : undefined}
+            onEditRule={canManageWebhooks ? openEditRule : undefined}
+            editRuleDisabled={!activeRuleId}
+            query={query}
+            onQueryChange={setQuery}
+            rulesSearch={rulesSearch}
+            onRulesSearchChange={setRulesSearch}
+            rulesStatusFilter={rulesStatusFilter}
+            onRulesStatusFilterChange={setRulesStatusFilter}
+            rulesDestinationFilter={rulesDestinationFilter}
+            onRulesDestinationFilterChange={setRulesDestinationFilter}
+            activeRulesCount={activeRuleCount}
+            totalRulesCount={ruleCount}
+            timeWindow={timeWindow}
+            onTimeWindowChange={handleTimeWindowChange}
+            issueSort={issueSort}
+            onIssueSortChange={setIssueSort}
+            headlineStats={alertFilterStats}
+            historyRuleName={historyRuleName}
+            onHistoryRuleNameClear={() => setHistoryRuleFocus(null)}
+          />
+
           {section === "configure" ? (
-            <div className="px-4 py-4 md:px-6">
-              <AlertRulesManager
-                projectId={activeProjectId}
-                canManage={canManageWebhooks}
-                lastTriggered={buildLastTriggeredByKind(safeAlerts)}
-              />
+            <div className={cn("flex min-h-0 flex-1 flex-col overflow-auto py-4", INBOX_FEED_BODY_PAD_CLASS)}>
+                <AlertRulesManager
+                  ref={rulesManagerRef}
+                  projectId={activeProjectId}
+                  projectSlug={projectSlug}
+                  canManage={canManageWebhooks}
+                  query={rulesSearch}
+                  statusFilter={rulesStatusFilter}
+                  destinationFilter={rulesDestinationFilter}
+                  activeRuleId={activeRuleId}
+                  onActiveRuleIdChange={setActiveRuleId}
+                  onViewHistory={(focus) => {
+                    setSection("history");
+                    setHistoryRuleFocus(focus);
+                  }}
+                  lastTriggered={buildLastTriggeredByKind(safeAlerts)}
+                />
             </div>
           ) : null}
 
           {section === "history" ? (
           <>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:max-w-[min(100%,28rem)] lg:border-r lg:border-border-subtle">
-          <AlertsToolbar
-            viewMode={viewMode}
-            onViewModeChange={handleViewModeChange}
-            viewModeCounts={viewModeCounts}
-            timeWindow={timeWindow}
-            onTimeWindowChange={handleTimeWindowChange}
-            kindFilter={kindFilter}
-            onKindFilterChange={setKindFilter}
-            sort={sort}
-            onSortChange={setSort}
-            onResetFilters={handleResetFilters}
-          />
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
 
           <AlertsHistoryBulkBar
             selectedCount={selectedAlertIds.size}
             totalCount={filteredAlerts.length}
             allSelected={allFilteredSelected}
             someSelected={someFilteredSelected}
+            availability={bulkAvailability}
             busy={bulkBusy}
+            canJumpToIssue={
+              selectedAlertIds.size === 1 &&
+              Boolean(
+                filteredAlerts.find(
+                  (row) =>
+                    row.id === [...selectedAlertIds][0] &&
+                    row.issue_id &&
+                    row.kind !== "ingest_cap_hit",
+                ),
+              )
+            }
             onToggleSelectAll={toggleSelectAllFiltered}
             onClear={() => setSelectedAlertIds(new Set())}
-            onAcknowledge={() => void applyBulkPatch({ read: true })}
-            onMute={() => void applyBulkPatch({ ignored: true })}
-            showUnmute={bulkSelectionAllMuted}
-            onUnmute={() => void applyBulkPatch({ ignored: false, read: false })}
+            onResolve={() => void applyBulkPatch({ read: true })}
+            onMarkRead={() => {
+              markReadMany(
+                [...selectedAlertIds].map((alertId) => {
+                  const row = alerts.find((item) => item.id === alertId);
+                  return {
+                    alertId,
+                    issueId: row?.issue_id ?? null,
+                  };
+                }),
+              );
+              toast(
+                `Marked ${selectedAlertIds.size} alert${selectedAlertIds.size === 1 ? "" : "s"} as read`,
+              );
+              setSelectedAlertIds(new Set());
+            }}
+            onSnooze={() => void applyBulkPatch({ ignored: true })}
+            onUnsnooze={() => void applyBulkPatch({ ignored: false, read: false })}
+            onReopen={() => void applyBulkPatch({ read: false })}
+            onJumpToIssue={() => {
+              const id = [...selectedAlertIds][0];
+              const row = filteredAlerts.find((alert) => alert.id === id);
+              if (!row || !activeProjectId) return;
+              const href = getIssueLink(row, activeProjectId);
+              navigate(href);
+            }}
           />
 
-          <FeedListBody>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
+          <div
+            className={cn(
+              "epure-issues-layout__list flex min-h-0 min-w-0 flex-col overflow-hidden bg-canvas px-4 pt-3 md:px-6 md:pt-4 lg:basis-0 lg:flex-1 lg:border-r lg:border-border-subtle",
+              focusedId && "max-lg:hidden",
+            )}
+          >
+            <div className="mb-3 flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
             {loading ? (
-              <StackedCardList>
-                {Array.from({ length: 5 }).map((_, index) => (
+              <div className="epure-issue-list epure-feed-table flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-surface-1 shadow-xs">
+                {Array.from({ length: 8 }).map((_, index) => (
                   <CardRowSkeleton key={index} />
                 ))}
-              </StackedCardList>
+              </div>
             ) : error ? (
-              <div className="space-y-3">
+              <div className="space-y-3 px-1">
                 <p className="text-sm text-semantic-danger">{error}</p>
                 <Button
                   type="button"
@@ -476,50 +709,35 @@ export function AlertsPage() {
             ) : filteredAlerts.length === 0 ? (
               <Empty
                 title={
-                  viewMode === "unread"
+                  parsedHistoryQuery.lifecycle === "unresolved"
                     ? "Caught up"
-                    : viewMode === "resolved"
+                    : parsedHistoryQuery.lifecycle === "resolved"
                       ? "Nothing resolved yet"
-                      : viewMode === "ignored"
-                        ? "Nothing muted"
+                      : parsedHistoryQuery.viewModifier === "snoozed"
+                        ? "Nothing snoozed"
                         : "No activity in this window"
                 }
                 description={
-                  viewMode === "unread"
-                    ? "No alerts need attention in this range."
-                    : viewMode === "resolved"
+                  parsedHistoryQuery.lifecycle === "unresolved"
+                    ? "No alerts needing review in this range."
+                    : parsedHistoryQuery.lifecycle === "resolved"
                       ? "No resolved alerts in this range."
-                      : viewMode === "ignored"
-                        ? "No alerts are currently muted."
-                        : activeView?.description ?? "Try widening the time range or switching views."
+                      : parsedHistoryQuery.viewModifier === "snoozed"
+                        ? "No alerts are currently snoozed."
+                        : "Try widening the time range or adjusting filters."
                 }
               >
                 <div className="flex flex-wrap items-center justify-center gap-2">
-                  {alternateViewMode ? (
+                  {hasStructuredFilters || historyRuleName ? (
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => handleViewModeChange(alternateViewMode)}
+                      onClick={() => {
+                        setHistoryRuleFocus(null);
+                        setQuery(resetQuery());
+                      }}
                     >
-                      View all ({viewModeCounts.all})
-                    </Button>
-                  ) : null}
-                  {timeWindow !== "all" && safeAlerts.length > 0 ? (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleTimeWindowChange("all")}
-                    >
-                      All time ({safeAlerts.length})
-                    </Button>
-                  ) : null}
-                  {kindFilter !== "all" ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleResetFilters}
-                    >
-                      Reset type filter
+                      Clear filters
                     </Button>
                   ) : null}
                   <Button variant="ghost" size="sm" asChild>
@@ -528,43 +746,67 @@ export function AlertsPage() {
                 </div>
               </Empty>
             ) : (
-              <div className="space-y-4 -mx-4 md:-mx-6">
+              <div
+                ref={alertListRef}
+                className="epure-issue-list epure-feed-table flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto rounded-lg border border-border bg-surface-1 shadow-xs"
+              >
+                <p className="sr-only" aria-live="polite" aria-atomic="true">
+                  {filteredAlerts.length} alert{filteredAlerts.length === 1 ? "" : "s"} in view
+                </p>
+                <AlertListColumnHeader
+                  selectAllChecked={allFilteredSelected}
+                  selectAllIndeterminate={someFilteredSelected && !allFilteredSelected}
+                  onToggleSelectAll={toggleSelectAllFiltered}
+                  selectionActive={selectedAlertIds.size > 0}
+                />
                 {(groupedAlerts ?? []).map((group) => (
                   <AlertsDayGroup key={group.key} label={group.label} count={group.alerts?.length ?? 0}>
-                    <ul className="space-y-2">
-                      {(group.alerts ?? []).map((alert, alertIdx) =>
-                        alert ? (
-                          <AlertListRow
-                            key={alert.id || `alert-${alertIdx}`}
-                            alert={alert}
-                            detailActive={alert.id === focusedId}
-                            bulkSelected={selectedAlertIds.has(alert.id)}
-                            onBulkSelectChange={(checked, options) =>
-                              handleBulkSelect(alert.id, checked, options)
-                            }
-                            onActivate={() => setFocusedId(alert.id)}
-                          />
-                        ) : null,
-                      )}
-                    </ul>
+                    {(group.alerts ?? []).map((alert, alertIdx) =>
+                      alert ? (
+                        <AlertListRow
+                          key={alert.id || `alert-${alertIdx}`}
+                          layout="embedded"
+                          alert={alert}
+                          unread={isAlertInboxUnread(alert)}
+                          detailActive={alert.id === focusedId}
+                          bulkSelected={selectedAlertIds.has(alert.id)}
+                          selectionActive={selectedAlertIds.size > 0}
+                          onBulkSelectChange={(checked, options) =>
+                            handleBulkSelect(alert.id, checked, options)
+                          }
+                          onActivate={() => {
+                            setFocusedId(alert.id);
+                            markAlertRead(
+                              alert.id,
+                              alert.fired_at ?? new Date().toISOString(),
+                              alert.issue_id,
+                            );
+                          }}
+                        />
+                      ) : null,
+                    )}
                   </AlertsDayGroup>
                 ))}
               </div>
             )}
-          </FeedListBody>
+            </div>
           </div>
 
           <aside
+            aria-label="Alert detail"
             className={cn(
-              "hidden min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-border-subtle bg-surface-1 lg:flex lg:max-w-none lg:flex-1 lg:border-t-0",
-              focusedId && "max-lg:flex max-lg:min-h-[40vh]",
+              "hidden min-h-0 min-w-0 flex flex-1 flex-col overflow-hidden border-t border-border-subtle bg-surface-1 lg:flex lg:basis-0 lg:flex-1 lg:border-t-0",
+              focusedId && "max-lg:flex",
             )}
           >
             <AlertDetailPanel
-              alert={filteredAlerts.find((row) => row.id === focusedId) ?? null}
+              className="min-h-0 flex-1"
+              alert={focusedAlert}
               projectId={activeProjectId ?? ""}
               webhookCount={webhookCount}
               busy={busyId != null}
+              canManageRules={canManageWebhooks}
+              onEditRule={canManageWebhooks ? openEditRuleById : undefined}
               onAcknowledge={() => {
                 const id = focusedId;
                 if (id) void applyAlertPatch(id, { read: true });
@@ -581,15 +823,11 @@ export function AlertsPage() {
                 const id = focusedId;
                 if (id) void applyAlertPatch(id, { ignored: false, read: false });
               }}
+              onBackToList={() => setFocusedId(null)}
             />
           </aside>
           </div>
-
-          <AlertsRulesPanel
-            projectId={activeProjectId ?? ""}
-            webhookCount={webhookCount}
-            canManageWebhooks={canManageWebhooks}
-          />
+          </div>
           </>
           ) : null}
         </>

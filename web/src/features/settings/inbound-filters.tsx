@@ -21,7 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Field } from "../../ui/field";
 import { Input } from "../../ui/input";
 import { useToast } from "../../ui/toast-provider";
-import { InfoCallout, MemberAccessNotice, SettingsTabHeader } from "./shared";
+import { InfoCallout, MemberAccessNotice } from "./shared";
 import { AskAgentCard } from "@/components/kit/ask-agent-card";
 
 interface FilterToggle {
@@ -245,10 +245,6 @@ export function InboundFiltersSettings() {
   if (projectsLoading || userLoading) {
     return (
       <div className="space-y-4">
-        <SettingsTabHeader
-          title="Inbound Filters & Spike Valve"
-          description="Control noise filtering and traffic limits."
-        />
         <div className="h-32 rounded-lg border border-border-subtle bg-surface-1 animate-pulse" />
       </div>
     );
@@ -257,10 +253,6 @@ export function InboundFiltersSettings() {
   if (!project) {
     return (
       <div className="space-y-4">
-        <SettingsTabHeader
-          title="Inbound Filters & Spike Valve"
-          description="Control noise filtering and traffic limits."
-        />
         <InfoCallout variant="warning">Project not found.</InfoCallout>
       </div>
     );
@@ -272,11 +264,6 @@ export function InboundFiltersSettings() {
 
   return (
     <div className="space-y-6">
-      <SettingsTabHeader
-        title="Inbound Filters & Spike Valve"
-        description="Filter web crawlers, browser extensions, localhost leaks, and safeguard storage with burst soft-sampling."
-      />
-
       {/* 1. Automated Noise Filters */}
       <Card>
         <CardHeader>

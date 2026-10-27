@@ -1,6 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { workspaceSettingsPath } from "../../../lib/paths";
-import { PageChrome } from "../../../ui/page-chrome";
 import { WorkspaceSettingsNav } from "../../../ui/workspace-settings-nav";
 import { RouteErrorBoundary } from "../../../ui/route-error-boundary";
 import { AgentTokensTab } from "./agent-tokens-tab";
@@ -15,11 +14,6 @@ export function AccountSettingsPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <PageChrome
-        title="Settings"
-        description="Manage your profile, security, and sessions."
-      />
-
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <WorkspaceSettingsNav />
 

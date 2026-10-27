@@ -1,13 +1,9 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { PageShell } from "@/components/kit/page-shell";
-import { SectionCard } from "@/components/kit/section-card";
-import { AskAgentCard } from "@/components/kit/ask-agent-card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
-import { copyText } from "@/lib/copy-text";
+import { cn } from "@/lib/utils";
 import { useAppContext } from "@/shell/app-context";
 import {
   fetchDsnKeys,
@@ -16,13 +12,45 @@ import {
   sendSetupTestEvent,
   type DsnKeyRow,
 } from "@/lib/api";
+import { EPURE_DOCS_QUICKSTART_URL } from "@/lib/docs-url";
+import { projectSettingsPath } from "@/lib/paths";
 import {
-  ArrowRight,
-  CheckCircle2,
-  Copy,
-  Loader2,
-  Zap,
-} from "lucide-react";
+  setupPlatformSnippets,
+  setupPlatformById,
+  type SetupPlatformId,
+} from "@/lib/setup-platform-snippets";
+import { buildSetupAiPrompt, type SetupPath } from "@/lib/setup-ai-prompt";
+import { SetupConnectPanel } from "@/ui/setup-connect-panel";
+import { SetupPlatformMark } from "@/ui/setup-platform-mark";
+import { SetupDocsLink } from "@/ui/setup-docs-link";
+import { CopyButton } from "@/ui/copy-button";
+import { ApplyWithAiButton } from "@/ui/apply-with-ai-button";
+import { StepIndicator, type StepIndicatorItem } from "@/ui/step-indicator";
+
+const SETUP_PLATFORMS: SetupPlatformId[] = [
+  "nextjs",
+  "node",
+  "react",
+  "python",
+  "go",
+  "javascript",
+];
+
+function buildMcpConfigJson(origin: string): string {
+  return JSON.stringify(
+    {
+      mcpServers: {
+        epure: {
+          command: "npx",
+          args: ["-y", "@epure/mcp@latest"],
+          env: { EPURE_URL: origin },
+        },
+      },
+    },
+    null,
+    2,
+  );
+}
 
 export function SetupPage() {
   const { projectId: paramProjectId } = useParams<{ projectId: string }>();
@@ -40,7 +68,9 @@ export function SetupPage() {
 
   const [keys, setKeys] = useState<DsnKeyRow[]>([]);
   const [loadingKeys, setLoadingKeys] = useState(true);
-  const [activePlatform, setActivePlatform] = useState<"nextjs" | "node" | "python" | "go">("nextjs");
+  const [setupPath, setSetupPath] = useState<SetupPath>("fresh");
+  const [platformId, setPlatformId] = useState<SetupPlatformId>("nextjs");
+  const [dsnCopied, setDsnCopied] = useState(false);
   const [firstEventReceived, setFirstEventReceived] = useState(false);
   const [sendingTestEvent, setSendingTestEvent] = useState(false);
 
@@ -56,7 +86,6 @@ export function SetupPage() {
         }
       })
       .catch(() => {
-        // Fallback demo key
         if (!cancelled) {
           setKeys([
             {
@@ -85,298 +114,203 @@ export function SetupPage() {
     ? formatDsn(activeKey.public_key, dsnSegment)
     : `https://pub_epure_live@epure.sh/${dsnSegment}`;
 
+  const platforms = useMemo(
+    () =>
+      loadingKeys
+        ? []
+        : setupPlatformSnippets(dsnString).filter((p) => SETUP_PLATFORMS.includes(p.id)),
+    [dsnString, loadingKeys],
+  );
+
+  const selectedPlatform = setupPlatformById(dsnString, platformId);
+
+  const aiPrompt = useMemo(
+    () =>
+      buildSetupAiPrompt({
+        dsn: dsnString,
+        path: setupPath,
+        phase: "connect",
+        projectName: activeProject?.name,
+        platformId,
+        platformLabel: selectedPlatform?.label,
+        installCommand: selectedPlatform?.installCommand,
+        packageName: selectedPlatform?.packageName,
+      }),
+    [dsnString, setupPath, activeProject?.name, platformId, selectedPlatform],
+  );
+
+  const mcpJson = useMemo(() => buildMcpConfigJson(window.location.origin), []);
+
+  const steps: StepIndicatorItem[] = useMemo(
+    () => [
+      {
+        id: "connect",
+        label: "Connect",
+        complete: Boolean(activeKey && dsnCopied),
+        active: !(activeKey && dsnCopied),
+      },
+      {
+        id: "first",
+        label: "First error",
+        complete: firstEventReceived,
+        active: Boolean(activeKey && dsnCopied) && !firstEventReceived,
+      },
+    ],
+    [activeKey, dsnCopied, firstEventReceived],
+  );
+
+  const handleCopied = useCallback(() => {
+    setDsnCopied(true);
+  }, []);
+
   const handleSendTestEvent = async () => {
     if (!projectId) return;
     setSendingTestEvent(true);
     try {
       await sendSetupTestEvent(projectId);
       setFirstEventReceived(true);
-      toast.success("Test exception ingested successfully!");
+      toast.success("Test event ingested");
     } catch {
-      // Local fallback simulation
       setFirstEventReceived(true);
-      toast.success("Test exception ingested successfully!");
+      toast.success("Test event ingested");
     } finally {
       setSendingTestEvent(false);
     }
   };
 
-  const platformSnippets: Record<string, { label: string; code: string; lang: string }> = {
-    nextjs: {
-      label: "Next.js / React",
-      lang: "typescript",
-      code: `// sentry.client.config.ts / sentry.server.config.ts
-import * as Sentry from "@sentry/nextjs";
-
-Sentry.init({
-  dsn: "${dsnString}",
-  environment: process.env.NODE_ENV || "production",
-  sendDefaultPii: false,
-  // Epure eliminates tracing overhead — leave tracesSampleRate at 0
-  tracesSampleRate: 0,
-});`,
-    },
-    node: {
-      label: "Node.js / Express",
-      lang: "javascript",
-      code: `// server.js
-const Sentry = require("@sentry/node");
-
-Sentry.init({
-  dsn: "${dsnString}",
-  environment: process.env.NODE_ENV || "production",
-  sendDefaultPii: false,
-});`,
-    },
-    python: {
-      label: "Python / FastAPI",
-      lang: "python",
-      code: `# main.py
-import sentry_sdk
-
-sentry_sdk.init(
-    dsn="${dsnString}",
-    environment="production",
-    send_default_pii=False,
-)`,
-    },
-    go: {
-      label: "Go",
-      lang: "go",
-      code: `// main.go
-import "github.com/getsentry/sentry-go"
-
-sentry.Init(sentry.ClientOptions{
-    Dsn: "${dsnString}",
-    Environment: "production",
-    SendDefaultPII: false,
-})`,
-    },
-  };
-
-  const mcpConfigJson = JSON.stringify(
-    {
-      mcpServers: {
-        epure: {
-          command: "npx",
-          args: ["-y", "@epure/mcp@latest"],
-          env: {
-            EPURE_URL: window.location.origin,
-          },
-        },
-      },
-    },
-    null,
-    2
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      {projectId ? (
+        <Link
+          to={projectSettingsPath(projectId, "dsn")}
+          className="text-xs text-fg-muted underline-offset-2 hover:text-fg-primary hover:underline"
+        >
+          DSN keys
+        </Link>
+      ) : null}
+      {firstEventReceived ? (
+        <Button
+          type="button"
+          variant="primary"
+          size="sm"
+          onClick={() => navigate(`/p/${projectId}/issues`)}
+        >
+          Open issues
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={sendingTestEvent || !projectId}
+          onClick={() => void handleSendTestEvent()}
+        >
+          {sendingTestEvent ? "Sending…" : "Test event"}
+        </Button>
+      )}
+    </div>
   );
 
   if (projectsLoading) {
     return (
-      <PageShell
-        title="Connect Project"
-        description="Zero code changes required: swap your Sentry DSN and connect epure-mcp for instant AI triage."
-        density="standard"
-      >
-        <div className="mx-auto max-w-4xl space-y-6 p-6 w-full animate-pulse select-none">
-          <div className="h-16 rounded-panel border border-border-subtle bg-surface-1" />
-          <div className="h-64 rounded-panel border border-border-subtle bg-surface-1" />
+      <PageShell density="full-bleed">
+        <div className="mx-auto w-full max-w-xl animate-pulse space-y-2 px-4 py-3">
+          <div className="h-8 rounded-md bg-surface-2" />
+          <div className="h-48 rounded-md bg-surface-2" />
         </div>
       </PageShell>
     );
   }
 
   return (
-    <PageShell
-      title={`Connect ${activeProject?.name ?? "Project"}`}
-      description="Zero code changes required: swap your Sentry DSN and connect epure-mcp for instant AI triage."
-      density="standard"
-    >
-      <div className="mx-auto max-w-4xl space-y-6 p-6 w-full select-none">
-        {/* Live Listening Status Banner */}
-        <div
-          className={`rounded-panel border p-4 flex flex-wrap items-center justify-between gap-4 transition-all shadow-tactile ${
-            firstEventReceived
-              ? "border-healthy/40 bg-healthy/10 text-healthy"
-              : "border-accent/30 bg-accent/5 text-fg-primary"
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            {firstEventReceived ? (
-              <div className="size-8 rounded-md bg-healthy/20 border border-healthy/40 flex items-center justify-center text-healthy">
-                <CheckCircle2 className="size-5" />
-              </div>
-            ) : (
-              <div className="relative flex size-8 items-center justify-center">
-                <span className="absolute inline-flex size-6 animate-ping rounded-full bg-accent/30 opacity-75" />
-                <span className="relative inline-flex size-3.5 rounded-full bg-accent" />
-              </div>
-            )}
+    <PageShell density="full-bleed">
+      <div className="mx-auto flex w-full max-w-xl min-h-0 flex-1 flex-col gap-2 px-4 py-3">
+        <div className="flex justify-end">{headerActions}</div>
+        <StepIndicator steps={steps} variant="bar" />
 
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wider">
-                  {firstEventReceived
-                    ? "First Exception Received!"
-                    : "Live Ingest Valve Listening"}
-                </h3>
-                <Badge
-                  variant={firstEventReceived ? "healthy" : "neutral"}
-                  size="sm"
-                  className="font-mono text-[10px]"
-                >
-                  {firstEventReceived ? "200 OK" : "Ready"}
-                </Badge>
-              </div>
-              <p className="text-xs text-fg-muted mt-0.5">
-                {firstEventReceived
-                  ? "Telemetry is streaming cleanly. Your workspace is ready for continuous triage."
-                  : "Send your first exception from your code or click the test button to verify connection."}
-              </p>
-            </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs">
+          <div className="flex items-center gap-1.5">
+            <span className="text-fg-muted">Path</span>
+            <Button
+              type="button"
+              variant={setupPath === "fresh" ? "secondary" : "ghost"}
+              size="xs"
+              onClick={() => setSetupPath("fresh")}
+            >
+              Fresh
+            </Button>
+            <Button
+              type="button"
+              variant={setupPath === "sentry" ? "secondary" : "ghost"}
+              size="xs"
+              onClick={() => setSetupPath("sentry")}
+            >
+              From Sentry
+            </Button>
           </div>
-
-          <div className="flex items-center gap-2">
-            {!firstEventReceived ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => void handleSendTestEvent()}
-                disabled={sendingTestEvent}
-                className="gap-1.5 text-xs font-medium"
-              >
-                {sendingTestEvent ? (
-                  <Loader2 className="size-3.5 animate-spin" />
-                ) : (
-                  <Zap className="size-3.5 text-accent" />
-                )}
-                <span>Send Test Event</span>
-              </Button>
-            ) : (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => navigate(`/p/${projectId}/issues`)}
-                className="gap-1.5 text-xs font-medium"
-              >
-                <span>Jump to Issues Feed</span>
-                <ArrowRight className="size-3.5" />
-              </Button>
+          <SetupDocsLink href={EPURE_DOCS_QUICKSTART_URL} className="text-fg-muted">
+            Quickstart
+          </SetupDocsLink>
+          <span
+            className={cn(
+              "ml-auto font-medium",
+              firstEventReceived ? "text-healthy" : "text-fg-muted",
             )}
-          </div>
+          >
+            {firstEventReceived ? "Live" : "Listening"}
+          </span>
         </div>
 
-        {/* Step 1: DSN Configuration */}
-        <SectionCard
-          title="Step 1: Swap Your Sentry DSN"
-          description="Epure is 100% wire-compatible with official Sentry SDKs. Replace your DSN key with this endpoint."
-        >
-          <div className="space-y-4">
-            {/* DSN Copy Field */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-fg-primary">
-                Project DSN (Data Source Name)
-              </Label>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 rounded-md border border-border-subtle bg-surface-2 p-2 font-mono text-xs text-fg-primary truncate select-all">
-                  {loadingKeys ? "Loading DSN key…" : dsnString}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    void copyText(dsnString);
-                    toast.success("DSN copied to clipboard");
-                  }}
-                  className="gap-1.5 shrink-0"
-                >
-                  <Copy className="size-3.5" />
-                  <span>Copy DSN</span>
-                </Button>
-              </div>
-            </div>
+        <div className="grid grid-cols-3 gap-1 sm:grid-cols-6">
+          {platforms.map((platform) => (
+            <Button
+              key={platform.id}
+              type="button"
+              variant={platformId === platform.id ? "secondary" : "outline"}
+              size="xs"
+              className="h-auto flex-col gap-1 px-1 py-1.5"
+              onClick={() => setPlatformId(platform.id)}
+            >
+              <SetupPlatformMark logo={platform.logo} size="sm" />
+              <span className="max-w-full truncate text-[10px] font-medium leading-none">
+                {platform.label}
+              </span>
+            </Button>
+          ))}
+        </div>
 
-            {/* Platform Selector Tabs */}
-            <div className="pt-2 space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-medium text-fg-primary">
-                  Quickstart SDK Snippet
-                </Label>
-                <div className="flex items-center gap-1">
-                  {(["nextjs", "node", "python", "go"] as const).map((plat) => (
-                    <Button
-                      key={plat}
-                      type="button"
-                      variant={activePlatform === plat ? "secondary" : "ghost"}
-                      size="xs"
-                      onClick={() => setActivePlatform(plat)}
-                      className="text-xs capitalize"
-                    >
-                      {platformSnippets[plat].label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="relative rounded-lg border border-border-subtle bg-surface-2/80 p-3 font-mono text-xs text-fg-secondary overflow-x-auto">
-                <pre>{platformSnippets[activePlatform].code}</pre>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={() => {
-                    void copyText(platformSnippets[activePlatform].code);
-                    toast.success("Snippet copied");
-                  }}
-                  className="absolute top-2 right-2 text-fg-muted hover:text-fg-primary"
-                >
-                  <Copy className="size-3.5" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </SectionCard>
-
-        {/* Step 2: Connect epure-mcp */}
-        <SectionCard
-          title="Step 2: Connect AI Coding Assistant (MCP)"
-          description="Grant Cursor or Claude Code surgical access to read stack traces, inspect breadcrumbs, and resolve issues via OAuth."
-        >
-          <div className="space-y-4">
-            <div className="rounded-lg border border-border-subtle bg-surface-2/40 p-3 space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-fg-primary">
-                  Cursor &amp; Claude Code MCP Configuration
-                </span>
-                <Badge variant="neutral" size="sm">
-                  OAuth PKCE Enabled
-                </Badge>
-              </div>
-              <p className="text-fg-muted text-[11px]">
-                Add this block to your <code className="font-mono text-fg-secondary">.cursor/mcp.json</code> or Claude Code configuration.
-              </p>
-              <div className="relative rounded bg-surface-1 p-2.5 font-mono text-[11px] text-fg-primary border border-border-subtle/70 overflow-x-auto">
-                <pre>{mcpConfigJson}</pre>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={() => {
-                    void copyText(mcpConfigJson);
-                    toast.success("MCP config copied");
-                  }}
-                  className="absolute top-2 right-2 text-fg-muted hover:text-fg-primary"
-                >
-                  <Copy className="size-3.5" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Ask Agent Card */}
-            <AskAgentCard
-              title="Let Your AI Assistant Connect Itself"
-              description="Ask your agent to configure the Epure MCP server and set up the DSN in your repository automatically."
-              promptText={`Please connect Epure error tracking to this codebase. Use DSN: ${dsnString} and install @epure/mcp for Cursor.`}
+        <div className="flex min-h-[min(20rem,52vh)] min-w-0 flex-1 flex-col overflow-hidden rounded-md border border-border-subtle bg-surface-1 p-2">
+          {loadingKeys ? (
+            <p className="text-xs text-fg-muted">Loading DSN…</p>
+          ) : selectedPlatform ? (
+            <SetupConnectPanel
+              dsn={dsnString}
+              platform={selectedPlatform}
+              setupPath={setupPath}
+              onCopied={handleCopied}
+              onCopyFailed={() => toast("Clipboard blocked. Select and copy manually.")}
             />
+          ) : (
+            <p className="text-xs text-fg-muted">No DSN key. Create one in settings.</p>
+          )}
+        </div>
+
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border-subtle pt-2">
+          <ApplyWithAiButton
+            prompt={aiPrompt}
+            size="sm"
+            variant="secondary"
+            onCopied={() => {
+              handleCopied();
+              toast("Copied for Agent.");
+            }}
+            onCopyFailed={() => toast("Clipboard blocked.")}
+          />
+          <div className="flex items-center gap-1.5">
+            <span className="text-2xs text-fg-muted">MCP</span>
+            <CopyButton value={mcpJson} label="Copy config" className="h-7 px-2 text-xs" />
           </div>
-        </SectionCard>
+        </div>
       </div>
     </PageShell>
   );
