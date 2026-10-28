@@ -1,3 +1,4 @@
+use std::time::Instant;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -10,6 +11,9 @@ pub enum IngestJob {
         payload: Vec<u8>,
         user_agent: Option<String>,
         country_code_hint: Option<String>,
+        accepted_at: Instant,
+        /// The SDK supplied this id, so a second delivery is a duplicate, not a new crash.
+        client_supplied_id: bool,
     },
     CounterOnly {
         project_id: Uuid,

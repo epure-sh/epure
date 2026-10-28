@@ -17,6 +17,8 @@ use pipeline::grouping_cache::GroupingCache;
 use pipeline::ingest_cap::IngestCapTracker;
 use pipeline::ingest_plan_limit::IngestPlanLimitTracker;
 use pipeline::mpsc;
+use pipeline::noise_cache::NoisePolicyCache;
+use pipeline::outcomes::OutcomeLedger;
 use pipeline::spike::SpikeValve;
 use pipeline::worker::run_worker;
 use routes::router;
@@ -136,6 +138,8 @@ pub async fn init_runtime(
     let (ingest_tx, ingest_rx) = mpsc::channel(10_000);
     let spike_valve = SpikeValve::new();
     let grouping = Arc::new(GroupingCache::new());
+    let outcomes = OutcomeLedger::new();
+    let noise_policies = Arc::new(NoisePolicyCache::new());
     let velocity_tracker = VelocityTracker::new();
     let ingest_cap = Arc::new(IngestCapTracker::new());
     let ingest_plan_limit = Arc::new(IngestPlanLimitTracker::new());
@@ -153,12 +157,14 @@ pub async fn init_runtime(
     let worker_artifacts_dir = artifacts_dir.clone();
     let worker_velocity = velocity_tracker.clone();
     let worker_grouping = grouping.clone();
+    let worker_outcomes = outcomes.clone();
     let worker = tokio::spawn(async move {
         run_worker(
             worker_pool,
             worker_artifacts_dir,
             worker_velocity,
             worker_grouping,
+            worker_outcomes,
             ingest_rx,
         )
         .await;
@@ -172,9 +178,16 @@ pub async fn init_runtime(
     let shutdown = Arc::new(tokio::sync::Notify::new());
     let flusher_pool = ingest.clone();
     let flusher_spike = spike_valve.clone();
+    let flusher_outcomes = outcomes.clone();
     let flusher_shutdown = shutdown.clone();
     let flusher = tokio::spawn(async move {
-        pipeline::flusher::run_spike_flusher(flusher_pool, flusher_spike, flusher_shutdown).await;
+        pipeline::flusher::run_spike_flusher(
+            flusher_pool,
+            flusher_spike,
+            flusher_outcomes,
+            flusher_shutdown,
+        )
+        .await;
     });
 
     bootstrap_session_store(migrate_pool).await?;
@@ -193,6 +206,8 @@ pub async fn init_runtime(
         ingest_tx,
         spike_valve,
         grouping,
+        outcomes,
+        noise_policies,
         velocity_tracker,
         ingest_cap,
         ingest_plan_limit,

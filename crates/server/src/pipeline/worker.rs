@@ -21,6 +21,7 @@ use crate::lifecycle::{process, velocity::VelocityTracker};
 
 use super::grouping_cache::GroupingCache;
 use super::mpsc::IngestJob;
+use super::outcomes::OutcomeLedger;
 
 const BATCH_FLUSH_INTERVAL: Duration = Duration::from_millis(500);
 
@@ -63,6 +64,7 @@ pub async fn run_worker(
     artifacts_dir: PathBuf,
     velocity_tracker: Arc<VelocityTracker>,
     grouping: Arc<GroupingCache>,
+    outcomes: Arc<OutcomeLedger>,
     mut rx: Receiver<IngestJob>,
 ) {
     let mut flush_interval = tokio::time::interval(BATCH_FLUSH_INTERVAL);
@@ -78,6 +80,7 @@ pub async fn run_worker(
                             &artifacts_dir,
                             &velocity_tracker,
                             &grouping,
+                            &outcomes,
                             job,
                         ).await {
                             tracing::error!("ingest worker processing error: {err}");
@@ -91,6 +94,7 @@ pub async fn run_worker(
                             &artifacts_dir,
                             &velocity_tracker,
                             &grouping,
+                            &outcomes,
                             &mut rx,
                         )
                         .await;
@@ -108,11 +112,19 @@ async fn drain_pending_jobs(
     artifacts_dir: &Path,
     velocity_tracker: &Arc<VelocityTracker>,
     grouping: &Arc<GroupingCache>,
+    outcomes: &Arc<OutcomeLedger>,
     rx: &mut Receiver<IngestJob>,
 ) {
     while let Ok(job) = rx.try_recv() {
-        if let Err(err) =
-            process_job_with_retry(pool, artifacts_dir, velocity_tracker, grouping, job).await
+        if let Err(err) = process_job_with_retry(
+            pool,
+            artifacts_dir,
+            velocity_tracker,
+            grouping,
+            outcomes,
+            job,
+        )
+        .await
         {
             tracing::error!("ingest worker processing error: {err}");
             record_lost_event(&sanitize_error(err.as_ref()));
@@ -125,15 +137,41 @@ async fn process_job_with_retry(
     artifacts_dir: &Path,
     velocity_tracker: &Arc<VelocityTracker>,
     grouping: &Arc<GroupingCache>,
+    outcomes: &Arc<OutcomeLedger>,
     job: IngestJob,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match process_job(pool, artifacts_dir, velocity_tracker, grouping, job.clone()).await {
+    match process_job(
+        pool,
+        artifacts_dir,
+        velocity_tracker,
+        grouping,
+        outcomes,
+        job.clone(),
+    )
+    .await
+    {
         Ok(()) => Ok(()),
         Err(err) if is_transient(err.as_ref()) => {
             warn!("ingest worker retrying transient error");
-            process_job(pool, artifacts_dir, velocity_tracker, grouping, job).await
+            process_job(
+                pool,
+                artifacts_dir,
+                velocity_tracker,
+                grouping,
+                outcomes,
+                job,
+            )
+            .await
         }
-        Err(err) => Err(err),
+        Err(err) => {
+            if let IngestJob::StoreEvent {
+                org_id, project_id, ..
+            } = &job
+            {
+                outcomes.record(*org_id, *project_id, "lost_after_accept", 1);
+            }
+            Err(err)
+        }
     }
 }
 
@@ -142,6 +180,7 @@ async fn process_job(
     artifacts_dir: &Path,
     velocity_tracker: &Arc<VelocityTracker>,
     grouping: &Arc<GroupingCache>,
+    outcomes: &Arc<OutcomeLedger>,
     job: IngestJob,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match job {
@@ -182,7 +221,19 @@ async fn process_job(
             payload,
             user_agent,
             country_code_hint,
+            accepted_at,
+            client_supplied_id,
         } => {
+            outcomes
+                .note_lag_ms(u64::try_from(accepted_at.elapsed().as_millis()).unwrap_or(u64::MAX));
+            if client_supplied_id
+                && epure_storage::noise::event_id_seen_recently(pool, org_id, project_id, event_id)
+                    .await
+                    .unwrap_or(false)
+            {
+                outcomes.record(org_id, project_id, "duplicate", 1);
+                return Ok(());
+            }
             let payload = decompress_store_payload(&payload)?;
             let mut payload_json: Value = serde_json::from_slice(&payload)?;
             let now = Utc::now();
@@ -297,6 +348,7 @@ async fn process_job(
                 },
             )
             .await?;
+            outcomes.record(org_id, project_id, "stored", 1);
 
             if let Err(err) = process::after_issue_event(
                 pool,

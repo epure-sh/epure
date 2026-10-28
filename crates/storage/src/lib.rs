@@ -10,6 +10,7 @@ pub mod events;
 pub mod issues;
 pub mod members;
 pub mod monitors;
+pub mod noise;
 pub mod oauth;
 pub mod partitions;
 pub mod persist;

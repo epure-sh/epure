@@ -8,11 +8,12 @@ use axum::{
 };
 use epure_auth::{DsnAuthError, DsnRecord};
 use epure_envelope::{
-    parse_auth, parse_envelope, parse_store_payload, preview_multi_fingerprint, scrub_string,
-    AuthError, EnvelopeError, StoreError,
+    client_event_id, match_noise, outcome_reason, parse_auth, parse_envelope, parse_store_payload,
+    preview_multi_fingerprint, scrub_string, AuthError, EnvelopeError, StoreError,
 };
 use epure_storage::{alerts, projects, releases, user_feedback};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::limit::RequestBodyLimitLayer;
@@ -143,6 +144,8 @@ async fn post_envelope(
             )
         }
     };
+
+    record_client_discards(&state, record.org_id, project_id, &parsed.client_discards);
 
     if !parsed.check_ins.is_empty() {
         let mut first_check_in_id = None;
@@ -522,7 +525,20 @@ async fn accept_payload(
     payload: Vec<u8>,
 ) -> Response {
     if let Err(response) = check_ingest_plan_limit(state, org_id).await {
+        state
+            .outcomes
+            .record(org_id, project_id, "plan_rejected", 1);
         return response;
+    }
+
+    if let Some(noise) = suppressed_noise(state, org_id, project_id, headers, &payload).await {
+        note_noise(state, org_id, project_id, &noise).await;
+        let event_id = client_event_id(&payload).unwrap_or_else(Uuid::new_v4);
+        return with_cors(
+            state,
+            headers,
+            (StatusCode::ACCEPTED, Json(IngestAccepted { id: event_id })).into_response(),
+        );
     }
 
     let multi = preview_multi_fingerprint(&payload);
@@ -530,7 +546,19 @@ async fn accept_payload(
         .grouping
         .resolve_issue_key(&state.pools.ingest, org_id, project_id, &multi)
         .await;
-    let event_id = Uuid::new_v4();
+    let client_supplied_id = client_event_id(&payload);
+    let supplied = client_supplied_id.is_some();
+    if let Some(event_id) = client_supplied_id {
+        if !state.outcomes.claim_event_id(project_id, event_id) {
+            state.outcomes.record(org_id, project_id, "duplicate", 1);
+            return with_cors(
+                state,
+                headers,
+                (StatusCode::ACCEPTED, Json(IngestAccepted { id: event_id })).into_response(),
+            );
+        }
+    }
+    let event_id = client_supplied_id.unwrap_or_else(Uuid::new_v4);
     let user_agent = headers
         .get("user-agent")
         .and_then(|value| value.to_str().ok())
@@ -566,9 +594,14 @@ async fn accept_payload(
             // Coalesced duplicates never reach this branch, so they cannot
             // exhaust the hourly project cap.
             if let Err(response) = check_ingest_cap(state, project_id).await {
+                if let Some(event_id) = client_supplied_id {
+                    state.outcomes.release_event_id(project_id, event_id);
+                }
+                state.outcomes.record(org_id, project_id, "cap_rejected", 1);
                 return response;
             }
             state.grouping.observe(project_id, &multi, &fingerprint);
+            state.outcomes.record(org_id, project_id, "queued", 1);
             IngestJob::StoreEvent {
                 event_id,
                 project_id,
@@ -577,11 +610,16 @@ async fn accept_payload(
                 payload,
                 user_agent,
                 country_code_hint,
+                accepted_at: std::time::Instant::now(),
+                client_supplied_id: supplied,
             }
         }
         SpikeDecision::CounterOnly => {
             // Counted in RAM and flushed onto the parent issue. Not charged
             // against the project cap.
+            state
+                .outcomes
+                .record(org_id, project_id, "spike_coalesced", 1);
             return with_cors(
                 state,
                 headers,
@@ -591,6 +629,12 @@ async fn accept_payload(
     };
 
     if state.ingest_tx.send(job).await.is_err() {
+        if let Some(event_id) = client_supplied_id {
+            state.outcomes.release_event_id(project_id, event_id);
+        }
+        state
+            .outcomes
+            .record(org_id, project_id, "queue_rejected", 1);
         return error_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "queue_unavailable",
@@ -603,6 +647,80 @@ async fn accept_payload(
         headers,
         (StatusCode::ACCEPTED, Json(IngestAccepted { id: event_id })).into_response(),
     )
+}
+
+fn record_client_discards(
+    state: &AppState,
+    org_id: Uuid,
+    project_id: Uuid,
+    discards: &[epure_envelope::ClientDiscard],
+) {
+    for discard in discards {
+        let reason = format!("client:{}", discard.reason);
+        state
+            .outcomes
+            .record(org_id, project_id, &reason, discard.quantity);
+    }
+}
+
+async fn suppressed_noise(
+    state: &AppState,
+    org_id: Uuid,
+    project_id: Uuid,
+    headers: &HeaderMap,
+    payload: &[u8],
+) -> Option<epure_envelope::NoiseMatch> {
+    let Ok(event) = serde_json::from_slice::<serde_json::Value>(payload) else {
+        return None;
+    };
+    let policy = state
+        .noise_policies
+        .get(&state.pools.ingest, org_id, project_id)
+        .await;
+    if policy == epure_envelope::NoisePolicy::default() {
+        return None;
+    }
+    let user_agent = headers
+        .get("user-agent")
+        .and_then(|value| value.to_str().ok());
+    match_noise(&event, user_agent, &policy)
+}
+
+async fn note_noise(
+    state: &AppState,
+    org_id: Uuid,
+    project_id: Uuid,
+    noise: &epure_envelope::NoiseMatch,
+) {
+    let reason = outcome_reason(noise);
+    let spike = state.outcomes.record(org_id, project_id, &reason, 1);
+    let Some(spike) = spike else {
+        return;
+    };
+    if alerts::insert_alert_unless_suppressed(
+        &state.pools.ingest,
+        alerts::InsertAlertParams {
+            org_id,
+            project_id,
+            issue_id: None,
+            kind: "noise_spike".to_string(),
+            payload_json: json!({
+                "rule": spike.rule,
+                "detail": noise.detail,
+                "count_this_minute": spike.count_this_minute,
+                "previous_minute": spike.previous_minute,
+                "message": format!(
+                    "Suppressed {} errors jumped to {} this minute (previous minute {})",
+                    spike.rule, spike.count_this_minute, spike.previous_minute
+                ),
+            }),
+        },
+    )
+    .await
+    .is_err()
+    {
+        tracing::warn!("failed to persist noise spike alert");
+    }
 }
 
 fn extract_auth(

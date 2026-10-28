@@ -5,6 +5,7 @@ pub mod fingerprint;
 pub mod frames;
 pub mod grouping;
 pub mod metadata;
+pub mod noise;
 pub mod scrub;
 pub mod store;
 
@@ -23,6 +24,10 @@ pub use grouping::{
     hash_from_i64, hash_to_i64, GroupingSeed, MultiFingerprint, ProjectGroupingIndex,
 };
 pub use metadata::{normalize_metadata, EventMetadata};
+pub use noise::{
+    client_event_id, match_noise, outcome_reason, parse_client_report, ClientDiscard, NoiseMatch,
+    NoisePolicy,
+};
 pub use scrub::{
     apply_privacy_policy, looks_like_email, pseudonym_for, scrub_event, scrub_string, PrivacyPolicy,
 };

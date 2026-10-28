@@ -17,6 +17,7 @@ export type AlertKindFilter =
   | "event_milestone"
   | "users_affected"
   | "ingest_cap_hit"
+  | "noise_spike"
   | "custom";
 export type AlertViewMode = "all" | "unread" | "resolved" | "ignored";
 export type AlertSort = "newest" | "oldest" | "severity";
@@ -153,6 +154,18 @@ export const ALERT_RULES: AlertRuleDefinition[] = [
     webhookEvent: "Not dispatched. Appears in Alerts only.",
   },
   {
+    id: "noise_spike",
+    name: "Suppressed noise spiked",
+    description:
+      "Fires when a noise rule that is normally quiet jumps. The events stay suppressed, but the jump is visible.",
+    severity: "warning",
+    threshold: "30 events in a minute, or 6× the previous minute",
+    firesWhen: "A server-side noise preset or message pattern suddenly matches many more events.",
+    pausable: false,
+    pauseHint: "Open Project settings → Inbound filters and review the rule before turning it off.",
+    webhookEvent: "Not dispatched. Appears in Alerts only.",
+  },
+  {
     id: "custom",
     name: "Custom rule",
     description: "A project rule you created under Settings → Alert rules.",
@@ -173,6 +186,7 @@ export const ALERT_KIND_FILTERS: { value: AlertKindFilter; label: string }[] = [
   { value: "event_milestone", label: "High volume" },
   { value: "users_affected", label: "Users affected" },
   { value: "ingest_cap_hit", label: "Ingest cap" },
+  { value: "noise_spike", label: "Noise spike" },
   { value: "custom", label: "Custom rule" },
 ];
 
@@ -1163,6 +1177,9 @@ function getAlertConditionKindLabel(ruleKind: string): string {
   }
   if (normalized === "ingest_cap_hit") {
     return "Ingest cap";
+  }
+  if (normalized === "noise_spike") {
+    return "Noise spike";
   }
   return normalized.replace(/_/g, " ");
 }

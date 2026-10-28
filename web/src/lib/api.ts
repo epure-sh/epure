@@ -801,6 +801,48 @@ export async function stripStoredIdentifiers(
   });
 }
 
+export interface NoisePolicy {
+  extensions: boolean;
+  crawlers: boolean;
+  localhost: boolean;
+  legacy_browsers: boolean;
+  resize_observer: boolean;
+  chunk_load: boolean;
+  message_patterns: string[];
+}
+
+export interface IngestOutcome {
+  reason: string;
+  count: number;
+}
+
+export async function fetchNoisePolicy(projectId: string): Promise<NoisePolicy> {
+  return apiFetch<NoisePolicy>(`/api/v1/projects/${projectId}/noise-policy`);
+}
+
+export async function saveNoisePolicy(projectId: string, policy: NoisePolicy): Promise<NoisePolicy> {
+  return apiFetch<NoisePolicy>(`/api/v1/projects/${projectId}/noise-policy`, {
+    method: "PUT",
+    body: JSON.stringify(policy),
+  });
+}
+
+export async function fetchIngestOutcomes(
+  projectId: string,
+): Promise<{ window: string; reasons: IngestOutcome[] }> {
+  return apiFetch(`/api/v1/projects/${projectId}/ingest-outcomes`);
+}
+
+export async function previewNoisePolicy(
+  projectId: string,
+  sample: string,
+): Promise<{ suppressed: boolean; rule: string | null; detail: string | null }> {
+  return apiFetch(`/api/v1/projects/${projectId}/noise-policy/preview`, {
+    method: "POST",
+    body: JSON.stringify({ sample }),
+  });
+}
+
 export async function updateProject(
   id: string,
   input: {

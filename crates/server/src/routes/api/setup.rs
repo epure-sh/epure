@@ -178,6 +178,8 @@ async fn post_test_event(
         payload: parsed.event_payload,
         user_agent: Some("epure-setup-test".to_string()),
         country_code_hint: None,
+        accepted_at: std::time::Instant::now(),
+        client_supplied_id: false,
     };
 
     if state.ingest_tx.send(job).await.is_err() {

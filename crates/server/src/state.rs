@@ -10,6 +10,8 @@ use crate::pipeline::grouping_cache::GroupingCache;
 use crate::pipeline::ingest_cap::IngestCapTracker;
 use crate::pipeline::ingest_plan_limit::IngestPlanLimitTracker;
 use crate::pipeline::mpsc::IngestJob;
+use crate::pipeline::noise_cache::NoisePolicyCache;
+use crate::pipeline::outcomes::OutcomeLedger;
 use crate::pipeline::spike::SpikeValve;
 
 #[derive(Clone)]
@@ -19,6 +21,8 @@ pub struct AppState {
     pub ingest_tx: mpsc::Sender<IngestJob>,
     pub spike_valve: Arc<SpikeValve>,
     pub grouping: Arc<GroupingCache>,
+    pub outcomes: Arc<OutcomeLedger>,
+    pub noise_policies: Arc<NoisePolicyCache>,
     pub velocity_tracker: Arc<VelocityTracker>,
     pub ingest_cap: Arc<IngestCapTracker>,
     pub ingest_plan_limit: Arc<IngestPlanLimitTracker>,
