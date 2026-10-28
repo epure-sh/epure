@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   test:
-    name: cargo test & web build
+    name: cargo test
     runs-on: ubuntu-latest
     services:
       postgres:
