@@ -63,4 +63,21 @@ if (countAfterClear <= countWithFilter) {
   );
 }
 
+// Visual audit for Create Rule Wizard & Templates
+await page.getByRole("radio", { name: /Rules/i }).click();
+await page.waitForSelector("text=Create rule", { timeout: 10000 });
+await page.getByRole("button", { name: /Create rule/i }).click();
+await page.waitForSelector("text=Select trigger template", { timeout: 10000 });
+await page.waitForTimeout(300);
+await page.screenshot({ path: path.join(dir, "pw-06-create-rule-templates.png"), fullPage: false });
+
+await page.getByRole("button", { name: /Continue/i }).click();
+await page.waitForSelector("text=Trigger logic", { timeout: 10000 });
+await page.screenshot({ path: path.join(dir, "pw-07-rule-conditions.png"), fullPage: false });
+
+// Visual audit for Compact Setup Page
+await page.goto(`http://localhost:5173/p/${projectId}/setup`, { waitUntil: "networkidle" });
+await page.waitForSelector("text=Setup", { timeout: 10000 });
+await page.screenshot({ path: path.join(dir, "pw-08-setup-compact.png"), fullPage: false });
+
 await browser.close();

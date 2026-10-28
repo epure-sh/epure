@@ -1,12 +1,7 @@
-import type { ReactNode } from "react";
-import { Check, Clock, Eye, RotateCcw } from "lucide-react";
+import { BellOff, BellRing, Check, Eye, RotateCcw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { ActionButton } from "@/ui/action-button";
 import { cn } from "@/lib/utils";
 import type { BulkAlertAvailability } from "./alert-bulk-utils";
 
@@ -28,42 +23,7 @@ export interface AlertsHistoryBulkBarProps {
   onJumpToIssue?: () => void;
 }
 
-function BarButton({
-  children,
-  tooltip,
-  disabled,
-  variant = "ghost",
-  onClick,
-}: {
-  children: ReactNode;
-  tooltip?: string;
-  disabled?: boolean;
-  variant?: "primary" | "ghost" | "secondary";
-  onClick?: () => void;
-}) {
-  const button = (
-    <Button variant={variant} size="sm" disabled={disabled} onClick={onClick}>
-      {children}
-    </Button>
-  );
-
-  if (!tooltip) {
-    return button;
-  }
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className={disabled ? "inline-flex cursor-not-allowed" : "inline-flex"}>{button}</span>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-xs text-xs">
-        {tooltip}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
-/** Bulk toolbar — matches Issues `BulkActions` layout and affordances. */
+/** Bulk toolbar — matches design system ActionButton standards. */
 export function AlertsHistoryBulkBar({
   selectedCount,
   totalCount,
@@ -107,49 +67,87 @@ export function AlertsHistoryBulkBar({
         </span>
 
         {availability.resolve ? (
-          <BarButton
+          <ActionButton
             variant="primary"
+            size="sm"
             disabled={busy}
-            tooltip={busyTip ?? "Mark resolved"}
+            tooltip={busyTip ?? "Resolve"}
             onClick={onResolve}
           >
             <Check className="size-3.5" aria-hidden />
-            <span>{busy ? "Saving…" : "Mark resolved"}</span>
-          </BarButton>
+            <span>{busy ? "Saving…" : "Resolve"}</span>
+          </ActionButton>
         ) : null}
 
-        <BarButton disabled={busy} tooltip={busyTip ?? "Mark read"} onClick={onMarkRead}>
+        <ActionButton
+          variant="ghost"
+          size="sm"
+          disabled={busy}
+          tooltip={busyTip ?? "Mark read"}
+          onClick={onMarkRead}
+        >
           <Eye className="size-3.5" aria-hidden />
           <span>Mark read</span>
-        </BarButton>
+        </ActionButton>
 
         {availability.snooze ? (
-          <BarButton disabled={busy} tooltip={busyTip ?? "Snooze"} onClick={onSnooze}>
-            <Clock className="size-3.5" aria-hidden />
+          <ActionButton
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            tooltip={busyTip ?? "Snooze"}
+            onClick={onSnooze}
+          >
+            <BellOff className="size-3.5" aria-hidden />
             <span>Snooze</span>
-          </BarButton>
+          </ActionButton>
         ) : null}
 
         {availability.unsnooze ? (
-          <BarButton disabled={busy} tooltip={busyTip ?? "Unsnooze"} onClick={onUnsnooze}>
+          <ActionButton
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            tooltip={busyTip ?? "Unsnooze"}
+            onClick={onUnsnooze}
+          >
+            <BellRing className="size-3.5" aria-hidden />
             <span>Unsnooze</span>
-          </BarButton>
+          </ActionButton>
         ) : null}
 
         {availability.reopen ? (
-          <BarButton disabled={busy} tooltip={busyTip ?? "Unresolve"} onClick={onReopen}>
+          <ActionButton
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            tooltip={busyTip ?? "Unresolve"}
+            onClick={onReopen}
+          >
             <RotateCcw className="size-3.5" aria-hidden />
             <span>Unresolve</span>
-          </BarButton>
+          </ActionButton>
         ) : null}
 
         {canJumpToIssue && onJumpToIssue ? (
-          <BarButton disabled={busy} tooltip="Open linked issue" onClick={onJumpToIssue}>
+          <ActionButton
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            tooltip="Open linked issue"
+            onClick={onJumpToIssue}
+          >
             <span>Jump to issue</span>
-          </BarButton>
+          </ActionButton>
         ) : null}
 
-        <Button variant="ghost" size="sm" className={cn("ml-auto")} disabled={busy} onClick={onClear}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn("ml-auto")}
+          disabled={busy}
+          onClick={onClear}
+        >
           Clear
         </Button>
 

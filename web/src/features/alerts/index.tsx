@@ -22,7 +22,7 @@ import { useAlertReadState } from "./use-alert-read-state";
 import { INBOX_FEED_BODY_PAD_CLASS } from "@/components/kit/inbox-read-cue";
 import { PageShell } from "@/components/kit/page-shell";
 import { CardRowSkeleton } from "@/ui/skeleton";
-import { useToast } from "@/ui/toast-provider";
+import { toast } from "@/components/ui/sonner";
 import { AlertDetailPanel } from "./alert-detail-panel";
 import { useAlertExportHotkey } from "./export-markdown";
 import { AlertListRow } from "./alert-row";
@@ -74,7 +74,6 @@ export function AlertsPage() {
   const navigate = useNavigate();
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
   const { environment, projectId, projects, projectsLoading, user } = useAppContext();
-  const { toast } = useToast();
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -376,7 +375,12 @@ export function AlertsPage() {
 
   const applyAlertPatch = useCallback(
     async (alertId: string, patch: { read?: boolean; ignored?: boolean }) => {
+      const targetAlert = alerts.find((a) => a.id === alertId);
+      const previousState = targetAlert
+        ? { read: Boolean(targetAlert.read_at), ignored: Boolean(targetAlert.ignored) }
+        : null;
       const previous = alerts;
+
       setBusyId(alertId);
       setAlerts((rows) =>
         (Array.isArray(rows) ? rows : []).map((row) => {
@@ -405,23 +409,36 @@ export function AlertsPage() {
             updated.issue_id,
           );
         }
+
+        const undoAction = previousState
+          ? {
+              label: "Undo",
+              onClick: () => {
+                void applyAlertPatch(alertId, previousState);
+              },
+            }
+          : undefined;
+
         if (patch.ignored === true) {
-          toast("Alert snoozed. It will not notify again for this issue.");
+          toast("Alert snoozed", {
+            description: "Will not notify again for this issue.",
+            action: undoAction,
+          });
         } else if (patch.ignored === false) {
-          toast("Alert unsnoozed");
+          toast("Alert unsnoozed", { action: undoAction });
         } else if (patch.read === true) {
-          toast("Alert resolved");
+          toast("Alert resolved", { action: undoAction });
         } else if (patch.read === false) {
-          toast("Alert marked unread");
+          toast("Alert marked unread", { action: undoAction });
         }
       } catch {
         setAlerts(previous);
-        toast("Failed to update alert");
+        toast.error("Failed to update alert");
       } finally {
         setBusyId(null);
       }
     },
-    [alerts, markAlertRead, toast],
+    [alerts, markAlertRead],
   );
 
   const applyBulkPatch = useCallback(
@@ -454,20 +471,34 @@ export function AlertsPage() {
         return;
       }
 
-      if (event.key === "j" || event.key === "k") {
+      if (
+        event.key === "j" ||
+        event.key === "k" ||
+        event.key === "ArrowDown" ||
+        event.key === "ArrowUp"
+      ) {
         event.preventDefault();
         setFocusedId((current) => {
           if (filteredAlerts.length === 0) {
             return current;
           }
           const index = filteredAlerts.findIndex((alert) => alert.id === current);
-          const nextIndex =
-            event.key === "j"
-              ? index < 0
-                ? 0
-                : Math.min(filteredAlerts.length - 1, index + 1)
-              : Math.max(0, (index < 0 ? 0 : index) - 1);
-          return filteredAlerts[nextIndex]?.id ?? current;
+          const isForward = event.key === "j" || event.key === "ArrowDown";
+          const nextIndex = isForward
+            ? index < 0
+              ? 0
+              : Math.min(filteredAlerts.length - 1, index + 1)
+            : Math.max(0, (index < 0 ? 0 : index) - 1);
+          const nextAlert = filteredAlerts[nextIndex];
+          if (nextAlert) {
+            markAlertRead(
+              nextAlert.id,
+              nextAlert.fired_at ?? new Date().toISOString(),
+              nextAlert.issue_id,
+            );
+            return nextAlert.id;
+          }
+          return current;
         });
         return;
       }

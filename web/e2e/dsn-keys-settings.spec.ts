@@ -10,7 +10,7 @@ test.describe("Web UI: DSN Keys & Dual-Sending Card", () => {
     await page.goto("/p/proj-1/settings/dsn");
 
     // Header and navigation
-    await expect(page.getByRole("heading", { name: "SDK connection" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Active connection string" })).toBeVisible();
     await expect(page.getByText("Active connection string")).toBeVisible();
 
     // Dual sending card title and badge

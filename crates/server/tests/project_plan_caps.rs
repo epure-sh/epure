@@ -3,11 +3,11 @@ use epure_storage::{connect_pools, projects, rls, run_migrations};
 use uuid::Uuid;
 
 fn legacy_pro_org() -> Uuid {
-    Uuid::parse_str("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa").unwrap()
+    Uuid::parse_str("e1e1e1e1-e1e1-e1e1-e1e1-e1e1e1e1e1e1").unwrap()
 }
 
 fn legacy_pro_user() -> Uuid {
-    Uuid::parse_str("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb").unwrap()
+    Uuid::parse_str("e2e2e2e2-e2e2-e2e2-e2e2-e2e2e2e2e2e2").unwrap()
 }
 
 #[test]
@@ -42,11 +42,21 @@ async fn org_plan_and_project_count_sees_legacy_tier_under_rls() {
     .await
     .expect("seed org");
 
+    let _ = sqlx::query("DELETE FROM org_members WHERE user_id = $1 OR org_id = $2")
+        .bind(legacy_pro_user())
+        .bind(legacy_pro_org())
+        .execute(&migrate_pool)
+        .await;
+    let _ = sqlx::query("DELETE FROM users WHERE email = 'legacy-pro-caps@test.com' OR id = $1")
+        .bind(legacy_pro_user())
+        .execute(&migrate_pool)
+        .await;
+
     sqlx::query(
         r#"
         INSERT INTO users (id, email)
-        VALUES ($1, 'legacy-pro@test.com')
-        ON CONFLICT (id) DO NOTHING
+        VALUES ($1, 'legacy-pro-caps@test.com')
+        ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email
         "#,
     )
     .bind(legacy_pro_user())

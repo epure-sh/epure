@@ -74,6 +74,8 @@ import type { RulesStatusFilter } from "./alerts-toolbar";
 function buildFiltersJson(
   minLevel: AlertLevelFilter,
   firstSeen: AlertFirstSeenFilter,
+  customQuery?: string,
+  cooldownMinutes?: number | null,
 ): AlertRuleFilters {
   const filters: AlertRuleFilters = {};
   if (minLevel !== "any") {
@@ -82,26 +84,50 @@ function buildFiltersJson(
   if (firstSeen !== "any") {
     filters.first_seen = firstSeen;
   }
+  if (customQuery && customQuery.trim()) {
+    filters.query = customQuery.trim();
+  }
+  if (cooldownMinutes) {
+    filters.cooldown_minutes = cooldownMinutes;
+  }
   return filters;
 }
 
 function readFilters(rule?: AlertRuleRow | null): {
   minLevel: AlertLevelFilter;
   firstSeen: AlertFirstSeenFilter;
+  customQuery: string;
+  cooldownMinutes: number | null;
 } {
   return {
     minLevel: (rule?.filters_json?.min_level as AlertLevelFilter) ?? "any",
     firstSeen: (rule?.filters_json?.first_seen as AlertFirstSeenFilter) ?? "any",
+    customQuery: (rule?.filters_json?.query as string) ?? "",
+    cooldownMinutes: (rule?.filters_json?.cooldown_minutes as number) ?? null,
   };
 }
 
-function conditionSummary(kind: string, threshold: number | null, environment: string | null): string {
+function conditionSummary(
+  kind: string,
+  threshold: number | null,
+  environment: string | null,
+  customQuery?: string,
+): string {
   const where = environment ? `In ${environment}` : "Every environment";
   if (kind === "velocity_spike") {
     return `${where} · events increase by more than ${threshold ?? 300}% versus the previous 15 minutes`;
   }
+  if (kind === "users_affected") {
+    return `${where} · affects more than ${threshold ?? 50} unique users`;
+  }
+  if (kind === "event_milestone") {
+    return `${where} · reaches ${threshold ?? 1000} cumulative events`;
+  }
   if (kind === "regression") {
     return `${where} · a resolved issue comes back`;
+  }
+  if (kind === "custom") {
+    return `${where} · matches custom query ${customQuery ? `"${customQuery}"` : "criteria"}`;
   }
   return `${where} · a new error fingerprint appears`;
 }
@@ -204,6 +230,8 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
   const [name, setName] = useState("");
   const [minLevel, setMinLevel] = useState<AlertLevelFilter>("any");
   const [firstSeen, setFirstSeen] = useState<AlertFirstSeenFilter>("any");
+  const [customQuery, setCustomQuery] = useState("");
+  const [cooldownMinutes, setCooldownMinutes] = useState<number | null>(null);
   const [editing, setEditing] = useState<AlertRuleRow | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -236,6 +264,8 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
     setName("");
     setMinLevel(defaults.minLevel);
     setFirstSeen(defaults.firstSeen);
+    setCustomQuery("");
+    setCooldownMinutes(null);
     setWizardOpen(true);
   }
 
@@ -247,6 +277,8 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
     setEnvironment(defaults.environment);
     setMinLevel(defaults.minLevel);
     setFirstSeen(defaults.firstSeen);
+    setCustomQuery("");
+    setCooldownMinutes(null);
     if (!name.trim() || name.trim() === template.defaultName) {
       setName(defaults.name);
     }
@@ -268,6 +300,8 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
     const filters = readFilters(rule);
     setMinLevel(filters.minLevel);
     setFirstSeen(filters.firstSeen);
+    setCustomQuery(filters.customQuery);
+    setCooldownMinutes(filters.cooldownMinutes);
     setStep(2);
     setWizardOpen(true);
   }
@@ -276,6 +310,8 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
     setWizardOpen(false);
     setEditing(null);
     setStep(1);
+    setCustomQuery("");
+    setCooldownMinutes(null);
   }
 
   async function save() {
@@ -284,12 +320,18 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
       toast.error("Give the alert a name");
       return;
     }
-    const parsedThreshold = kind === "velocity_spike" ? Number(threshold) : null;
-    if (kind === "velocity_spike" && (!Number.isFinite(parsedThreshold) || (parsedThreshold ?? 0) < 1)) {
-      toast.error("Enter how large the spike should be");
+    const parsedThreshold =
+      kind === "velocity_spike"
+        ? Number(threshold)
+        : null;
+    if (
+      kind === "velocity_spike" &&
+      (!Number.isFinite(parsedThreshold) || (parsedThreshold ?? 0) < 1)
+    ) {
+      toast.error("Enter a valid threshold");
       return;
     }
-    const filters_json = buildFiltersJson(minLevel, firstSeen);
+    const filters_json = buildFiltersJson(minLevel, firstSeen, customQuery, cooldownMinutes);
     setBusy(true);
     try {
       if (editing) {
@@ -450,7 +492,14 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
     [bulkDelete, bulkSetEnabled, rules],
   );
 
-  const summary = conditionSummary(kind, kind === "velocity_spike" ? Number(threshold) || null : null, environment.trim() || null);
+  const summary = conditionSummary(
+    kind,
+    kind === "velocity_spike"
+      ? Number(threshold) || null
+      : null,
+    environment.trim() || null,
+    customQuery,
+  );
 
   const rulesRowGrid =
     "grid items-center grid-cols-[3.5rem_1.25rem_minmax(0,1fr)_auto] sm:grid-cols-[3.5rem_1.25rem_minmax(0,5fr)_minmax(0,3fr)_minmax(0,2fr)_auto]";
@@ -547,9 +596,10 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
                       ) : null}
                     </div>
 
-                    <button
+                    <Button
+                      variant="ghost"
                       type="button"
-                      className="min-w-0 pl-3 text-left focus-ring rounded-sm"
+                      className="h-auto min-w-0 flex-1 flex-col items-start justify-start p-0 pl-3 text-left whitespace-normal font-normal hover:bg-transparent"
                       onClick={() => onActiveRuleIdChange?.(rule.id)}
                       onDoubleClick={() => canManage && openEdit(rule)}
                     >
@@ -568,7 +618,7 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
                         <span className="text-fg-muted/50"> · </span>
                         <span className="uppercase">{ruleScopeEnvironment(rule)}</span>
                       </p>
-                    </button>
+                    </Button>
 
                     <div className="hidden min-w-0 sm:block">
                       <DestinationChip rule={rule} index={ruleIndex} />
@@ -646,7 +696,7 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
           else setWizardOpen(true);
         }}
       >
-        <DialogContent className="flex max-h-[min(90vh,680px)] w-full max-w-[520px] flex-col gap-0 overflow-hidden p-0 shadow-none">
+        <DialogContent className="flex max-h-[min(90vh,740px)] w-full max-w-[560px] flex-col gap-0 overflow-hidden p-0 shadow-none">
           <DialogHeader className="mb-0 shrink-0 space-y-2 border-b border-border-subtle px-5 pb-3 pt-4">
             {editing ? (
               <nav className="flex items-center gap-1.5 text-xs" aria-label="Edit rule steps">
@@ -707,11 +757,18 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
           <div
             className={cn(
               "min-h-0 flex-1 overflow-y-auto px-5 py-2.5",
-              !editing && step === 1 && "bg-bg-subtle/40",
+              !editing && step === 1 && "bg-bg-subtle/30",
             )}
           >
             {!editing && step === 1 ? (
-              <AlertTemplatePicker value={templateId} onChange={chooseTemplate} />
+              <AlertTemplatePicker
+                value={templateId}
+                onChange={chooseTemplate}
+                onPickAndContinue={(tpl) => {
+                  chooseTemplate(tpl);
+                  advanceFromTemplateStep();
+                }}
+              />
             ) : null}
 
             {step === 2 ? (
@@ -740,6 +797,10 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
                   onMinLevelChange={setMinLevel}
                   firstSeen={firstSeen}
                   onFirstSeenChange={setFirstSeen}
+                  customQuery={customQuery}
+                  onCustomQueryChange={setCustomQuery}
+                  cooldownMinutes={cooldownMinutes}
+                  onCooldownMinutesChange={setCooldownMinutes}
                   summary={summary}
                   showKindPicker={Boolean(editing)}
                 />

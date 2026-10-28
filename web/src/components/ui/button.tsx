@@ -84,7 +84,13 @@ export function Button({
       {hotkey ? (
         <kbd
           data-slot="kbd"
-          className="ml-1 inline-flex h-4 items-center rounded-[3px] border border-border-subtle bg-surface-3/70 px-1 font-mono text-[10px] font-normal text-fg-muted"
+          aria-hidden="true"
+          className={cn(
+            "ml-1 inline-flex h-4 items-center rounded-[3px] border px-1 font-mono text-[10px] font-normal",
+            variant === "primary" || variant === "signal"
+              ? "border-white/20 bg-white/20 text-white"
+              : "border-border-subtle bg-surface-3/70 text-fg-muted",
+          )}
         >
           {hotkey}
         </kbd>

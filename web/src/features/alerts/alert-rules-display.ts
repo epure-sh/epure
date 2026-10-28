@@ -20,8 +20,20 @@ export function ruleConditionLine(rule: AlertRuleRow): string {
       level === "fatal" ? "fatal+" : level === "error" ? "error+" : "any level";
     return `≥${pct}% vs prior 15m · ${env} · ${levelLabel}`;
   }
+  if (rule.kind === "users_affected") {
+    const count = rule.threshold ?? 50;
+    return `≥${count} unique users · ${env}`;
+  }
+  if (rule.kind === "event_milestone") {
+    const count = rule.threshold ?? 1000;
+    return `≥${count.toLocaleString()} events · ${env}`;
+  }
   if (rule.kind === "regression") {
     return `Resolved issue returns · ${env}`;
+  }
+  if (rule.kind === "custom") {
+    const query = rule.filters_json?.query ? ` "${rule.filters_json.query}"` : "";
+    return `Custom rule${query} · ${env}`;
   }
   if (firstSeen === "new") {
     const levelLabel = level === "fatal" ? "fatal" : level === "error" ? "error+" : "any level";
@@ -52,6 +64,15 @@ export function ruleTitleBadge(
   }
   if (rule.kind === "velocity_spike" && rule.threshold) {
     return { label: `≥${rule.threshold}%`, variant: "info" };
+  }
+  if (rule.kind === "users_affected" && rule.threshold) {
+    return { label: `≥${rule.threshold} users`, variant: "escalating" };
+  }
+  if (rule.kind === "event_milestone" && rule.threshold) {
+    return { label: `≥${rule.threshold >= 1000 ? `${rule.threshold / 1000}k` : rule.threshold} ev`, variant: "info" };
+  }
+  if (rule.kind === "custom") {
+    return { label: "custom", variant: "info" };
   }
   if (rule.filters_json?.min_level === "fatal") {
     return { label: "fatal", variant: "escalating" };

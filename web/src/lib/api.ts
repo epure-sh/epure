@@ -257,6 +257,11 @@ export async function patchAlert(
 export interface AlertRuleFilters {
   min_level?: "any" | "error" | "fatal" | string | null;
   first_seen?: "any" | "new" | string | null;
+  cooldown_minutes?: number | null;
+  query?: string | null;
+  service?: string | null;
+  release?: string | null;
+  [key: string]: unknown;
 }
 
 export interface AlertRuleRow {
@@ -265,7 +270,14 @@ export interface AlertRuleRow {
   project_id: string;
   name: string;
   enabled: boolean;
-  kind: "velocity_spike" | "regression" | "issue_created" | string;
+  kind:
+    | "velocity_spike"
+    | "regression"
+    | "issue_created"
+    | "users_affected"
+    | "event_milestone"
+    | "custom"
+    | string;
   environment: string | null;
   threshold: number | null;
   filters_json?: AlertRuleFilters;
@@ -412,7 +424,7 @@ export async function fetchMergedChildren(issueId: string): Promise<IssueSummary
   const body = await apiFetch<{ issues: IssueSummary[] }>(
     `/api/v1/issues/${issueId}/merged`,
   );
-  return body.issues;
+  return Array.isArray(body?.issues) ? body.issues : [];
 }
 
 export async function splitIssues(

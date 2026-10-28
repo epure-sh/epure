@@ -10,9 +10,9 @@ export interface ActionButtonProps extends ButtonProps {
  * Button that can show a tooltip when disabled (native disabled buttons block hover).
  */
 export const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
-  function ActionButton({ tooltip, disabled, children, ...props }, ref): ReactElement {
+  function ActionButton({ tooltip, disabled, children, asChild, ...props }, ref): ReactElement {
     const button = (
-      <Button ref={ref} disabled={disabled} aria-disabled={disabled || undefined} {...props}>
+      <Button ref={ref} disabled={disabled} aria-disabled={disabled || undefined} asChild={asChild} {...props}>
         {children}
       </Button>
     );

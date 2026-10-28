@@ -34,11 +34,15 @@ export const DESIGN_KIT_KIT_MODULES = [
   "data-table",
   "empty-state",
   "filter-bar",
+  "inbox-lifecycle-cue",
+  "inbox-read-cue",
   "issue-row-shell",
+  "nav-count-pastille",
   "page-shell",
   "product-tour",
   "section-card",
   "telemetry-chart",
+  "time-window-select",
   "usage-meter-card",
 ] as const;
 

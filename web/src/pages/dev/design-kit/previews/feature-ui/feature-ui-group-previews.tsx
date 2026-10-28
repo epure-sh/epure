@@ -15,6 +15,7 @@ import { ErrorState } from "@/ui/error-state";
 import { FairUseBanner } from "@/ui/fair-use-banner";
 import { FeedListBody, StackedCardList } from "@/ui/feed-list-shell";
 import { Field } from "@/ui/field";
+import { Input } from "@/components/ui/input";
 import { FilterChip } from "@/ui/filter-chip";
 import { FilterPanel } from "@/ui/filter-panel";
 import { IssueAiCopilotCard } from "@/ui/issue-ai-copilot-card";
@@ -114,7 +115,7 @@ function ControlsPreviews() {
       </ModulePreview>
       <ModulePreview id="field" title="field">
         <Field label="Webhook URL" hint="HTTPS only">
-          <input className="h-8 w-full rounded-control border border-border-subtle px-2 text-xs" />
+          <Input placeholder="https://..." />
         </Field>
       </ModulePreview>
       <ModulePreview id="filter-chip" title="filter-chip">

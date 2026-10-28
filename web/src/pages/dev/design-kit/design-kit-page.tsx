@@ -117,13 +117,15 @@ export function DesignKitPage() {
               <CatalogStats />
               <p className="text-xs text-fg-muted">
                 Markdown law:{" "}
-                <button
+                <Button
+                  variant="link"
+                  size="xs"
                   type="button"
-                  className="text-accent underline-offset-2 hover:underline"
+                  className="h-auto p-0 text-accent underline-offset-2 hover:underline inline"
                   onClick={() => scrollTo("product-docs")}
                 >
                   Design docs
-                </button>
+                </Button>
               </p>
             </section>
 

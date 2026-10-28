@@ -145,14 +145,10 @@ async fn patch_alert(
             } else {
                 "unresolved"
             };
-            let _ = issues::update_issue_status(
-                &state.pools.app,
-                dashboard.org_id,
-                issue_id,
-                status,
-            )
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let _ =
+                issues::update_issue_status(&state.pools.app, dashboard.org_id, issue_id, status)
+                    .await
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         }
     }
 

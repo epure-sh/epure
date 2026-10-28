@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BellRing, Check, EyeOff, RotateCcw, Sparkles } from "lucide-react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import { setupNeedsWizard } from "../../lib/api";
 import { projectPath } from "../../lib/paths";
 import { cn } from "../../lib/cn";
@@ -33,7 +33,6 @@ import {
   canReopenIssue,
   canResolveIssue,
 } from "./issue-triage-utils";
-import { getAlertsHistoryLinkForIssue } from "../alerts/alert-utils";
 import {
   copyBulkIssueExport,
   copyIssueExport,
@@ -351,7 +350,7 @@ export function IssuesPage() {
   }
 
   const canMerge = selectedIds.size >= 2 && Boolean(selectedId);
-  const canSplit = Boolean(selectedId) && mergedChildren.length > 0;
+  const canSplit = Boolean(selectedId) && (mergedChildren?.length ?? 0) > 0;
   const allSelected = issues.length > 0 && selectedIds.size === issues.length;
   const someSelected = selectedIds.size > 0 && !allSelected;
   const issueDetailContent = selectedIssue ? (
@@ -409,26 +408,13 @@ export function IssuesPage() {
               <Sparkles className="size-3.5" />
               <span>Copy for agent</span>
             </ActionButton>
-            {scopedProjectId ? (
-              <ActionButton
-                variant="ghost"
-                size="sm"
-                className={DETAIL_INLINE_ACTION_CLASS}
-                asChild
-                tooltip="Alert history for this issue"
-              >
-                <Link to={getAlertsHistoryLinkForIssue(scopedProjectId, selectedIssue.id)}>
-                  <BellRing className="size-3.5" />
-                  <span>Alerts</span>
-                </Link>
-              </ActionButton>
-            ) : null}
             {canResolveIssue(selectedIssue.status) ? (
               <ActionButton
                 variant="primary"
                 size="sm"
                 className={DETAIL_INLINE_ACTION_CLASS}
                 disabled={actionsDisabled}
+                tooltip="Resolve (E)"
                 onClick={() => void handleResolve(selectedIssue.id)}
               >
                 <Check className="size-3.5" />
@@ -441,6 +427,7 @@ export function IssuesPage() {
                 size="sm"
                 className={DETAIL_INLINE_ACTION_CLASS}
                 disabled={actionsDisabled}
+                tooltip="Reopen"
                 onClick={() => void handleReopen(selectedIssue.id)}
               >
                 <RotateCcw className="size-3.5" />

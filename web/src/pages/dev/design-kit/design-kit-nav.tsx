@@ -1,5 +1,5 @@
 import * as React from "react";
-import { X } from "@phosphor-icons/react";
+import { X } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -30,17 +30,21 @@ function NavLink({
   const id = href.replace("#", "");
   if (onNavigate) {
     return (
-      <button
+      <Button
+        variant="ghost"
+        size="xs"
         type="button"
         onClick={() => onNavigate(id)}
-        className={
+        className={cn(
+          "h-auto justify-start px-2 py-1 text-left font-normal",
           active
-            ? "rounded-control bg-accent-muted px-2 py-1 text-left font-medium text-fg-primary"
-            : `rounded-control px-2 py-1 text-left text-fg-muted hover:bg-surface-2 hover:text-fg-primary ${mono ? "font-mono text-[11px]" : "text-xs"}`
-        }
+            ? "bg-accent-muted font-medium text-fg-primary hover:bg-accent-muted"
+            : "text-fg-muted hover:bg-surface-2 hover:text-fg-primary",
+          mono ? "font-mono text-[11px]" : "text-xs",
+        )}
       >
         {label}
-      </button>
+      </Button>
     );
   }
   return (
@@ -160,14 +164,16 @@ export function DesignKitNav({
 
       {featureGroups.map((group) => (
         <div key={group.id} className="space-y-0.5 border-t border-border-subtle pt-2">
-          <button
+          <Button
+            variant="ghost"
+            size="xs"
             type="button"
-            className="w-full rounded-control px-2 py-1 text-left text-[11px] font-medium text-fg-secondary hover:bg-surface-2"
+            className="h-auto w-full justify-start rounded-control px-2 py-1 text-left text-[11px] font-medium text-fg-secondary hover:bg-surface-2 hover:text-fg-secondary"
             onClick={() => handleSelect(group.id)}
           >
             {group.label}
             <span className="ml-1 font-mono font-normal text-fg-muted">({group.modules.length})</span>
-          </button>
+          </Button>
           {group.modules.map((mod) => (
             <NavLink key={mod} href={`#${mod}`} label={mod} mono onNavigate={handleSelect} />
           ))}

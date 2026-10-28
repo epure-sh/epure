@@ -325,6 +325,15 @@ export async function setupMockApi(
       });
     }
 
+    const mergedMatch = path.match(/\/api\/v1\/issues\/([^/]+)\/merged$/);
+    if (mergedMatch && method === "GET") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ issues: [] }),
+      });
+    }
+
     // Default 200 empty JSON fallback for unhandled /api/v1/ requests
     return route.fulfill({
       status: 200,

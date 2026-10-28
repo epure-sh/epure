@@ -138,7 +138,9 @@ export function SnoozeMenu({
       ? "Issue is already snoozed"
       : !canSnooze
         ? "Only open issues can be snoozed"
-        : undefined;
+        : showShortcutHint || iconOnly
+          ? "Snooze (S)"
+          : undefined;
 
   async function handleSnooze(mode: SnoozeMode) {
     if (pending || disabled || !canSnooze) {

@@ -3,12 +3,18 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AlertRuleFilters {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_level: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub first_seen: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub query: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cooldown_minutes: Option<i32>,
+    #[serde(default, flatten)]
+    pub extra: std::collections::HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, sqlx::FromRow, serde::Serialize, Clone)]
@@ -235,6 +241,7 @@ mod tests {
             filters_json: sqlx::types::Json(AlertRuleFilters {
                 min_level: min_level.map(str::to_string),
                 first_seen: first_seen.map(str::to_string),
+                ..Default::default()
             }),
             created_at: Utc::now(),
         }

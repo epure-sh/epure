@@ -119,35 +119,12 @@ test.describe("Web UI: Issue Inbox & Keyboard Navigation", () => {
     await expect(cmdInput).toBeHidden({ timeout: 5000 });
   });
 
-  test("1-click Linear & GitHub issue creation triggers copy and export", async ({ page }) => {
+  test("detail action: Copy for agent button is visible and clickable", async ({ page }) => {
     await page.goto("/p/proj-1/issues");
     await page.getByText("Cannot read properties of undefined").first().click();
 
-    // Track calls to window.open and handle repo prompt dialog
-    page.on("dialog", async (dialog) => {
-      await dialog.accept("acme/production-api");
-    });
-
-    await page.evaluate(() => {
-      (window as any).__openedUrls = [];
-      window.open = (url: any) => {
-        (window as any).__openedUrls.push(url);
-        return null;
-      };
-    });
-
-    const ghButton = page.getByRole("button", { name: /github issue/i });
-    await expect(ghButton).toBeVisible();
-    await ghButton.click();
-
-    const linearButton = page.getByRole("button", { name: /linear issue/i });
-    await expect(linearButton).toBeVisible();
-    await linearButton.click();
-
-    const openedUrls = await page.evaluate(() => (window as any).__openedUrls as string[]);
-    expect(openedUrls.length).toBe(2);
-    expect(openedUrls[0]).toContain("github.com");
-    expect(openedUrls[1]).toContain("linear.app/new");
-    expect(openedUrls[1]).toContain(encodeURIComponent("Cannot read properties of undefined"));
+    const copyAgentBtn = page.getByRole("button", { name: "Copy for agent" });
+    await expect(copyAgentBtn).toBeVisible();
+    await copyAgentBtn.click();
   });
 });

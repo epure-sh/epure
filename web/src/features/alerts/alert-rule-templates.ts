@@ -107,6 +107,48 @@ export const ALERT_TEMPLATE_OPTIONS: AlertTemplateOption[] = [
     defaultMinLevel: "any",
     defaultFirstSeen: "any",
   },
+  {
+    id: "prod-users",
+    kind: "issue_created",
+    title: "High customer impact",
+    preview: "≥50 unique users affected · production",
+    rationale:
+      "Alerts when an exception impacts 50 or more unique customers, regardless of spike percentage or rate jumps.",
+    badge: { label: "blast radius", variant: "escalating" },
+    defaultName: "High customer impact",
+    threshold: 50,
+    defaultEnvironment: "production",
+    defaultMinLevel: "error",
+    defaultFirstSeen: "any",
+  },
+  {
+    id: "prod-volume",
+    kind: "velocity_spike",
+    title: "Event volume milestone",
+    preview: "≥1,000 events · any environment",
+    rationale:
+      "Catches high-volume errors or cascading loops crossing 1,000 total occurrences.",
+    badge: { label: "milestone", variant: "info" },
+    defaultName: "Event volume milestone (1k)",
+    threshold: 1000,
+    defaultEnvironment: "",
+    defaultMinLevel: "any",
+    defaultFirstSeen: "any",
+  },
+  {
+    id: "custom-agent",
+    kind: "issue_created",
+    title: "Custom rule & agent workflow",
+    preview: "Tags, query & cooldown · personalized",
+    rationale:
+      "Tailored criteria for specialized workflows, microservices, or automated rules configured via MCP agent.",
+    badge: { label: "agent ready", variant: "healthy" },
+    defaultName: "Custom alert guard",
+    threshold: null,
+    defaultEnvironment: "production",
+    defaultMinLevel: "any",
+    defaultFirstSeen: "any",
+  },
 ];
 
 export const DEFAULT_ALERT_TEMPLATE_ID = ALERT_TEMPLATE_OPTIONS[0].id;

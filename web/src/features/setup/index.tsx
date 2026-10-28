@@ -181,12 +181,18 @@ export function SetupPage() {
   const headerActions = (
     <div className="flex items-center gap-2">
       {projectId ? (
-        <Link
-          to={projectSettingsPath(projectId, "dsn")}
-          className="text-xs text-fg-muted underline-offset-2 hover:text-fg-primary hover:underline"
-        >
-          DSN keys
-        </Link>
+        <>
+          <Link
+            to={projectSettingsPath(projectId, "dsn")}
+            className="text-xs text-fg-muted underline-offset-2 hover:text-fg-primary hover:underline"
+          >
+            DSN keys
+          </Link>
+          <span className="text-fg-muted/40">·</span>
+          <SetupDocsLink href={EPURE_DOCS_QUICKSTART_URL} className="text-xs text-fg-muted">
+            Quickstart
+          </SetupDocsLink>
+        </>
       ) : null}
       {firstEventReceived ? (
         <Button
@@ -224,62 +230,87 @@ export function SetupPage() {
 
   return (
     <PageShell density="full-bleed">
-      <div className="mx-auto flex w-full max-w-xl min-h-0 flex-1 flex-col gap-2 px-4 py-3">
-        <div className="flex justify-end">{headerActions}</div>
-        <StepIndicator steps={steps} variant="bar" />
+      <div className="mx-auto flex w-full max-w-2xl min-h-0 flex-1 flex-col gap-2.5 px-4 py-3">
+        {/* Compact Header Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle/60 pb-2">
+          <div className="flex items-center gap-2.5">
+            <span className="font-semibold text-sm text-fg-primary tracking-ui">
+              {activeProject?.name ?? "Project"} Setup
+            </span>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono text-[11px] font-medium",
+                firstEventReceived
+                  ? "bg-healthy/10 text-healthy"
+                  : "bg-surface-2 text-fg-muted",
+              )}
+            >
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  firstEventReceived ? "bg-healthy" : "bg-fg-muted/60 animate-pulse",
+                )}
+                aria-hidden
+              />
+              {firstEventReceived ? "Live telemetry" : "Listening for events"}
+            </span>
+          </div>
+          {headerActions}
+        </div>
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs">
+        {/* Step Progress & Path Segment */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
-            <span className="text-fg-muted">Path</span>
+            <span className="text-[11px] font-medium text-fg-muted">Source:</span>
             <Button
               type="button"
               variant={setupPath === "fresh" ? "secondary" : "ghost"}
               size="xs"
+              className="h-6 text-[11px]"
               onClick={() => setSetupPath("fresh")}
             >
-              Fresh
+              Fresh integration
             </Button>
             <Button
               type="button"
               variant={setupPath === "sentry" ? "secondary" : "ghost"}
               size="xs"
+              className="h-6 text-[11px]"
               onClick={() => setSetupPath("sentry")}
             >
               From Sentry
             </Button>
           </div>
-          <SetupDocsLink href={EPURE_DOCS_QUICKSTART_URL} className="text-fg-muted">
-            Quickstart
-          </SetupDocsLink>
-          <span
-            className={cn(
-              "ml-auto font-medium",
-              firstEventReceived ? "text-healthy" : "text-fg-muted",
-            )}
-          >
-            {firstEventReceived ? "Live" : "Listening"}
-          </span>
+          <StepIndicator steps={steps} variant="bar" className="w-44" />
         </div>
 
-        <div className="grid grid-cols-3 gap-1 sm:grid-cols-6">
-          {platforms.map((platform) => (
-            <Button
-              key={platform.id}
-              type="button"
-              variant={platformId === platform.id ? "secondary" : "outline"}
-              size="xs"
-              className="h-auto flex-col gap-1 px-1 py-1.5"
-              onClick={() => setPlatformId(platform.id)}
-            >
-              <SetupPlatformMark logo={platform.logo} size="sm" />
-              <span className="max-w-full truncate text-[10px] font-medium leading-none">
-                {platform.label}
-              </span>
-            </Button>
-          ))}
+        {/* Compact Platform Pills */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {platforms.map((platform) => {
+            const isSelected = platformId === platform.id;
+            return (
+              <Button
+                key={platform.id}
+                type="button"
+                variant={isSelected ? "secondary" : "ghost"}
+                size="xs"
+                className={cn(
+                  "h-7 gap-1.5 px-2 font-mono text-xs transition-colors",
+                  isSelected
+                    ? "border-accent/40 bg-accent-muted/60 text-fg-primary"
+                    : "text-fg-secondary hover:text-fg-primary hover:bg-surface-2",
+                )}
+                onClick={() => setPlatformId(platform.id)}
+              >
+                <SetupPlatformMark logo={platform.logo} size="sm" />
+                <span>{platform.label}</span>
+              </Button>
+            );
+          })}
         </div>
 
-        <div className="flex min-h-[min(20rem,52vh)] min-w-0 flex-1 flex-col overflow-hidden rounded-md border border-border-subtle bg-surface-1 p-2">
+        {/* Connect & SDK Code Panel */}
+        <div className="flex min-h-[min(19rem,48vh)] min-w-0 flex-1 flex-col overflow-hidden rounded-panel border border-border-subtle bg-surface-1 p-3 shadow-none">
           {loadingKeys ? (
             <p className="text-xs text-fg-muted">Loading DSN…</p>
           ) : selectedPlatform ? (
@@ -295,20 +326,21 @@ export function SetupPage() {
           )}
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border-subtle pt-2">
+        {/* Footer: AI prompt brief & MCP configuration */}
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border-subtle/60 pt-2">
           <ApplyWithAiButton
             prompt={aiPrompt}
             size="sm"
             variant="secondary"
             onCopied={() => {
               handleCopied();
-              toast("Copied for Agent.");
+              toast("Copied setup prompt for Cursor / Claude.");
             }}
             onCopyFailed={() => toast("Clipboard blocked.")}
           />
-          <div className="flex items-center gap-1.5">
-            <span className="text-2xs text-fg-muted">MCP</span>
-            <CopyButton value={mcpJson} label="Copy config" className="h-7 px-2 text-xs" />
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[11px] text-fg-muted">Agent MCP:</span>
+            <CopyButton value={mcpJson} label="Copy MCP config" className="h-7 px-2.5 font-mono text-xs" />
           </div>
         </div>
       </div>

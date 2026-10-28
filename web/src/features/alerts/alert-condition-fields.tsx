@@ -13,14 +13,15 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/cn";
 import { AlertWizardSection } from "./alert-wizard-section";
+import type { RuleKind } from "./alert-template-picker.types";
 
 const SPIKE_WINDOW_MINUTES = 15;
 
-export type AlertRuleKind = "velocity_spike" | "issue_created" | "regression";
+export type AlertRuleKind = RuleKind;
 
 const KIND_OPTIONS: { id: AlertRuleKind; label: string; hint: string }[] = [
-  { id: "issue_created", label: "New issue", hint: "First time a fingerprint appears" },
   { id: "velocity_spike", label: "Error spike", hint: "Rate jumps vs prior 15 minutes" },
+  { id: "issue_created", label: "New issue", hint: "First time a fingerprint appears" },
   { id: "regression", label: "Came back", hint: "Resolved issue returns in a release" },
 ];
 
@@ -38,6 +39,10 @@ export interface AlertConditionFieldsProps {
   onMinLevelChange: (value: AlertLevelFilter) => void;
   firstSeen: AlertFirstSeenFilter;
   onFirstSeenChange: (value: AlertFirstSeenFilter) => void;
+  customQuery?: string;
+  onCustomQueryChange?: (value: string) => void;
+  cooldownMinutes?: number | null;
+  onCooldownMinutesChange?: (value: number | null) => void;
   summary: string;
   showKindPicker?: boolean;
   className?: string;
@@ -70,7 +75,7 @@ function TriggerLogicLine({
           size="sm"
           type="number"
           min={1}
-          className="h-6 w-14 tabular-nums"
+          className="h-6 w-16 tabular-nums font-mono text-xs"
           value={threshold}
           onChange={(event) => onThresholdChange(event.target.value)}
         />
@@ -83,6 +88,7 @@ function TriggerLogicLine({
       <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-fg-secondary">
         <span>Notify when</span>
         <span className={chip}>resolved status reoccurs</span>
+        <span>in a new build</span>
       </div>
     );
   }
@@ -91,6 +97,7 @@ function TriggerLogicLine({
     <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-fg-secondary">
       <span>Notify when</span>
       <span className={chip}>first seen fingerprint</span>
+      <span>appears in ingest</span>
     </div>
   );
 }
@@ -107,11 +114,16 @@ export function AlertConditionFields({
   onMinLevelChange,
   firstSeen,
   onFirstSeenChange,
+  customQuery,
+  onCustomQueryChange,
+  cooldownMinutes,
+  onCooldownMinutesChange,
   summary: _summary,
   showKindPicker = true,
   className,
 }: AlertConditionFieldsProps) {
   const [scopeEditorOpen, setScopeEditorOpen] = useState(false);
+  const [customQueryOpen, setCustomQueryOpen] = useState(Boolean(customQuery && customQuery.trim()));
   const envTrimmed = environment.trim();
   const scopeLabel = envTrimmed ? (envTrimmed.includes(":") ? envTrimmed : `env:${envTrimmed}`) : null;
   const workloadCount = scopeLabel ? 1 : 0;
@@ -124,7 +136,11 @@ export function AlertConditionFields({
             type="single"
             value={kind}
             onValueChange={(value) => {
-              if (value === "velocity_spike" || value === "issue_created" || value === "regression") {
+              if (
+                value === "velocity_spike" ||
+                value === "issue_created" ||
+                value === "regression"
+              ) {
                 onKindChange(value);
               }
             }}
@@ -268,15 +284,71 @@ export function AlertConditionFields({
         </ul>
       </AlertWizardSection>
 
-      <AlertWizardSection title="Alert frequency">
-        <RadioGroup defaultValue="episode" className="grid grid-cols-2 gap-1.5">
-          <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-surface-2/50 p-2 transition-colors hover:bg-surface-2/80">
-            <RadioGroupItem value="episode" id="freq-episode" />
-            <span className="text-[12px] font-medium text-fg-primary">Once per episode</span>
+      {/* Custom Tag Query / MCP Agent Filters */}
+      {customQueryOpen || Boolean(customQuery) ? (
+        <AlertWizardSection title="Custom search query & tags (Agent / MCP)">
+          <div className="space-y-1.5">
+            <Input
+              size="sm"
+              className="h-7 font-mono text-[11px]"
+              value={customQuery ?? ""}
+              placeholder="e.g. tag:service:payment handled:no release:v2.1*"
+              onChange={(e) => onCustomQueryChange?.(e.target.value)}
+              aria-label="Custom query"
+            />
+            <p className="text-[11px] text-fg-muted">
+              Matches any Epure search syntax, logger, or tag pair. AI agents can configure this directly via MCP.
+            </p>
+          </div>
+        </AlertWizardSection>
+      ) : (
+        <div className="pt-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="h-6 gap-1 px-1 font-mono text-[10px] text-fg-muted hover:text-fg-primary"
+            onClick={() => setCustomQueryOpen(true)}
+          >
+            <span>+ Add custom query filter (MCP)</span>
+          </Button>
+        </div>
+      )}
+
+      {/* Frequency & Cooldown */}
+      <AlertWizardSection title="Alert frequency & cooldown">
+        <RadioGroup
+          value={String(cooldownMinutes ?? 0)}
+          onValueChange={(val) => onCooldownMinutesChange?.(Number(val) || null)}
+          className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 font-mono text-[11px]"
+        >
+          <label className={cn(
+            "flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors border",
+            (cooldownMinutes ?? 0) === 0 ? "border-accent/60 bg-accent-muted/40" : "border-border-subtle bg-surface-2/30 hover:bg-surface-2/60"
+          )}>
+            <RadioGroupItem value="0" id="freq-0" className="size-3.5" />
+            <span className="font-medium text-fg-primary">Once</span>
           </label>
-          <label className="flex cursor-not-allowed items-center gap-2 rounded-lg bg-surface-1 p-2 opacity-60">
-            <RadioGroupItem value="repeat" id="freq-repeat" disabled />
-            <span className="text-[12px] text-fg-muted">Repeat every 30m</span>
+          <label className={cn(
+            "flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors border",
+            cooldownMinutes === 15 ? "border-accent/60 bg-accent-muted/40" : "border-border-subtle bg-surface-2/30 hover:bg-surface-2/60"
+          )}>
+            <RadioGroupItem value="15" id="freq-15" className="size-3.5" />
+            <span className="font-medium text-fg-primary">15m delay</span>
+          </label>
+          <label className={cn(
+            "flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors border",
+            cooldownMinutes === 30 ? "border-accent/60 bg-accent-muted/40" : "border-border-subtle bg-surface-2/30 hover:bg-surface-2/60"
+          )}>
+            <RadioGroupItem value="30" id="freq-30" className="size-3.5" />
+            <span className="font-medium text-fg-primary">30m delay</span>
+          </label>
+          <label className={cn(
+            "flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors border",
+            cooldownMinutes === 60 ? "border-accent/60 bg-accent-muted/40" : "border-border-subtle bg-surface-2/30 hover:bg-surface-2/60"
+          )}>
+            <RadioGroupItem value="60" id="freq-60" className="size-3.5" />
+            <span className="font-medium text-fg-primary">1h delay</span>
           </label>
         </RadioGroup>
       </AlertWizardSection>

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { List } from "@phosphor-icons/react";
+import { List } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { DesignKitNav } from "./design-kit-nav";
