@@ -51,9 +51,9 @@ const BUILTIN_FILTERS: FilterToggle[] = [
   {
     id: "extensions",
     name: "Browser Extensions & Injected Scripts",
-    description: "Suppress errors originating from browser plugins, ad blockers, or third-party web wallet injections.",
+    description: "Suppress an error only when the throw site itself is a browser-extension URL. An extension frame further up the stack leaves the application error visible.",
     icon: Puzzle,
-    example: "chrome-extension://, moz-extension://, MetaMask, React DevTools, Grammarly",
+    example: "chrome-extension://, moz-extension://, safari-web-extension://",
   },
   {
     id: "localhost",
@@ -468,9 +468,10 @@ export function InboundFiltersSettings() {
           </Field>
 
           <InfoCallout>
-            <strong>Soft-Sampling Policy:</strong> When traffic spikes exceed your cap, Épure does
-            not blind you to error volume. The occurrence counter records 100% of the volume for
-            metric integrity, while detailed stack frames are sampled to protect database storage.
+            <strong>Spike valve:</strong> One throw site stores at most 150 bodies a minute, and at
+            most 20% of this hourly cap. Further copies are counted on that issue and do not spend
+            the cap. A different error is still stored until the cap is full, then rejected until
+            the next hour.
           </InfoCallout>
         </CardContent>
       </Card>
