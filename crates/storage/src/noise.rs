@@ -195,28 +195,32 @@ pub async fn outcome_totals_since(
     Ok(rows)
 }
 
-pub async fn event_id_seen_recently(
+/// Fingerprint already stored for this client event id, when the prior row
+/// is from the last 6 hours. A retry of the same body shares that fingerprint.
+/// A different body under a reused id does not.
+pub async fn recent_event_fingerprint(
     pool: &PgPool,
     org_id: Uuid,
     project_id: Uuid,
     event_id: Uuid,
-) -> Result<bool, sqlx::Error> {
+) -> Result<Option<String>, sqlx::Error> {
     let mut tx = crate::rls::begin_ingest_transaction(pool, org_id).await?;
-    let seen: bool = sqlx::query_scalar(
+    let fingerprint = sqlx::query_scalar(
         r#"
-        SELECT EXISTS(
-            SELECT 1
-            FROM events
-            WHERE project_id = $1
-              AND id = $2
-              AND occurred_at > now() - interval '6 hours'
-        )
+        SELECT i.fingerprint
+        FROM events e
+        JOIN issues i ON i.id = e.issue_id
+        WHERE e.project_id = $1
+          AND e.id = $2
+          AND e.occurred_at > now() - interval '6 hours'
+        ORDER BY e.occurred_at DESC
+        LIMIT 1
         "#,
     )
     .bind(project_id)
     .bind(event_id)
-    .fetch_one(&mut *tx)
+    .fetch_optional(&mut *tx)
     .await?;
     tx.commit().await?;
-    Ok(seen)
+    Ok(fingerprint)
 }

@@ -694,6 +694,12 @@ fn normalize_token(token: &str) -> String {
     demangle_rust_symbol(token).trim().to_ascii_lowercase()
 }
 
+fn has_concrete_throw_site(file: &str, function: &str) -> bool {
+    let file_known = !file.is_empty() && file != "unknown";
+    let function_known = !function.is_empty() && function != "unknown";
+    file_known || function_known
+}
+
 fn truncate_chars(value: &str, max_chars: usize) -> String {
     value.chars().take(max_chars).collect()
 }
@@ -729,6 +735,11 @@ impl ProjectGroupingIndex {
         if let Some(hit) = self.locus_to_issue.get(&fp.h_locus) {
             return Some(hit.clone());
         }
+        // Without a real throw site, message text is the identity. Simhash
+        // weights cannot see that difference, so do not fuzzy-merge.
+        if !has_concrete_throw_site(&fp.throw_file, &fp.throw_function) {
+            return None;
+        }
         for band_index in 0..BANDS {
             let chunk = fp.band(band_index);
             let Some(candidates) = self.bands[band_index].get(&chunk) else {
@@ -736,6 +747,9 @@ impl ProjectGroupingIndex {
             };
             for candidate in candidates {
                 if candidate.exception_type != fp.exception_type {
+                    continue;
+                }
+                if !has_concrete_throw_site(&candidate.file, &candidate.function) {
                     continue;
                 }
                 if candidate.file != fp.throw_file || candidate.function != fp.throw_function {
@@ -1036,6 +1050,17 @@ mod tests {
         assert_eq!(left.fingerprint, right.fingerprint);
         assert_ne!(left.fingerprint, other.fingerprint);
         assert_eq!(left.merge_reason, "message_template");
+    }
+
+    #[test]
+    fn stackless_errors_do_not_simhash_merge() {
+        let listen = compute_multi_fingerprint(&event("Error", "listen EADDRINUSE", json!([])));
+        let missing =
+            compute_multi_fingerprint(&event("Error", "Call to undefined function", json!([])));
+        assert_ne!(listen.fingerprint, missing.fingerprint);
+        let mut index = ProjectGroupingIndex::default();
+        index.observe(&listen, &listen.fingerprint);
+        assert!(index.resolve(&missing).is_none());
     }
 
     #[test]

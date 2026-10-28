@@ -226,13 +226,17 @@ async fn process_job(
         } => {
             outcomes
                 .note_lag_ms(u64::try_from(accepted_at.elapsed().as_millis()).unwrap_or(u64::MAX));
-            if client_supplied_id
-                && epure_storage::noise::event_id_seen_recently(pool, org_id, project_id, event_id)
-                    .await
-                    .unwrap_or(false)
-            {
-                outcomes.record(org_id, project_id, "duplicate", 1);
-                return Ok(());
+            if client_supplied_id && !_preview_fingerprint.is_empty() {
+                let prior = epure_storage::noise::recent_event_fingerprint(
+                    pool, org_id, project_id, event_id,
+                )
+                .await
+                .ok()
+                .flatten();
+                if prior.as_deref() == Some(_preview_fingerprint.as_str()) {
+                    outcomes.record(org_id, project_id, "duplicate", 1);
+                    return Ok(());
+                }
             }
             let payload = decompress_store_payload(&payload)?;
             let mut payload_json: Value = serde_json::from_slice(&payload)?;
