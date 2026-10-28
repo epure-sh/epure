@@ -4,6 +4,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
 pub struct AlertRuleFilters {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_level: Option<String>,
@@ -260,5 +261,42 @@ mod tests {
         assert!(!rule_matches_filters(&rule, true, Some("warning")));
         assert!(rule_matches_filters(&rule, true, Some("error")));
         assert!(rule_matches_filters(&rule, true, Some("fatal")));
+    }
+
+    #[test]
+    fn alert_rule_filters_serde_roundtrip_preserves_extra_fields() {
+        let raw = serde_json::json!({
+            "min_level": "error",
+            "first_seen": "new",
+            "query": "release:v1.2.0 tag:service:billing",
+            "cooldown_minutes": 30,
+            "custom_agent_id": "agent-42",
+            "notify_slack_channel": "#alerts-prod",
+            "arbitrary_tags": ["high_priority", "backend"]
+        });
+
+        let parsed: AlertRuleFilters = serde_json::from_value(raw.clone()).expect("parse filters");
+        assert_eq!(parsed.min_level.as_deref(), Some("error"));
+        assert_eq!(parsed.first_seen.as_deref(), Some("new"));
+        assert_eq!(
+            parsed.query.as_deref(),
+            Some("release:v1.2.0 tag:service:billing")
+        );
+        assert_eq!(parsed.cooldown_minutes, Some(30));
+        assert_eq!(
+            parsed.extra.get("custom_agent_id"),
+            Some(&serde_json::json!("agent-42"))
+        );
+        assert_eq!(
+            parsed.extra.get("notify_slack_channel"),
+            Some(&serde_json::json!("#alerts-prod"))
+        );
+
+        let reserialized = serde_json::to_value(&parsed).expect("serialize filters");
+        assert_eq!(reserialized, raw);
+
+        // Empty json defaults cleanly
+        let empty: AlertRuleFilters = serde_json::from_str("{}").expect("empty parse");
+        assert_eq!(empty, AlertRuleFilters::default());
     }
 }

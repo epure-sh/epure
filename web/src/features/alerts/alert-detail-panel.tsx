@@ -655,7 +655,7 @@ export function AlertDetailPanel({
                 ) : null}
               </div>
 
-              {/* Action buttons cluster: copy for agent, resolve, ignore, snooze */}
+              {/* Action buttons cluster: copy for agent, resolve, snooze/unsnooze */}
               <div className="ml-auto flex shrink-0 items-center gap-1.5">
                 <ActionButton
                   variant="ghost"

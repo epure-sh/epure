@@ -76,19 +76,28 @@ function buildFiltersJson(
   firstSeen: AlertFirstSeenFilter,
   customQuery?: string,
   cooldownMinutes?: number | null,
+  existingFilters?: AlertRuleFilters | null,
 ): AlertRuleFilters {
-  const filters: AlertRuleFilters = {};
+  const filters: AlertRuleFilters = { ...(existingFilters ?? {}) };
   if (minLevel !== "any") {
     filters.min_level = minLevel;
+  } else {
+    delete filters.min_level;
   }
   if (firstSeen !== "any") {
     filters.first_seen = firstSeen;
+  } else {
+    delete filters.first_seen;
   }
   if (customQuery && customQuery.trim()) {
     filters.query = customQuery.trim();
+  } else {
+    delete filters.query;
   }
   if (cooldownMinutes) {
     filters.cooldown_minutes = cooldownMinutes;
+  } else {
+    delete filters.cooldown_minutes;
   }
   return filters;
 }
@@ -331,7 +340,13 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
       toast.error("Enter a valid threshold");
       return;
     }
-    const filters_json = buildFiltersJson(minLevel, firstSeen, customQuery, cooldownMinutes);
+    const filters_json = buildFiltersJson(
+      minLevel,
+      firstSeen,
+      customQuery,
+      cooldownMinutes,
+      editing?.filters_json,
+    );
     setBusy(true);
     try {
       if (editing) {
