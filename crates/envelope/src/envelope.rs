@@ -4,6 +4,7 @@ use serde_json::Value;
 use std::borrow::Cow;
 use thiserror::Error;
 
+use crate::noise::{parse_client_report, ClientDiscard};
 use crate::store::{decompress_store_payload, is_gzip, is_zlib};
 
 #[derive(Debug, Error)]
@@ -36,6 +37,7 @@ pub struct CheckInItem {
 pub struct ParsedEnvelope {
     pub event_payload: Vec<u8>,
     pub check_ins: Vec<CheckInItem>,
+    pub client_discards: Vec<ClientDiscard>,
 }
 
 /// Zero-copy scan of a Sentry envelope; discards transaction items.
@@ -167,6 +169,7 @@ fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> 
         .unwrap_or(body.len());
     let mut event_payload = None;
     let mut check_ins = Vec::new();
+    let mut client_discards = Vec::new();
     let mut has_non_error_items = false;
 
     while offset < body.len() {
@@ -209,11 +212,11 @@ fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> 
                     has_non_error_items = true;
                 }
             }
-            Some("transaction")
-            | Some("session")
-            | Some("client_report")
-            | Some("replay_event")
-            | Some("statsd") => {
+            Some("client_report") => {
+                has_non_error_items = true;
+                client_discards.extend(parse_client_report(&payload));
+            }
+            Some("transaction") | Some("session") | Some("replay_event") | Some("statsd") => {
                 has_non_error_items = true;
             }
             _ => {
@@ -226,11 +229,13 @@ fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> 
         Ok(ParsedEnvelope {
             event_payload,
             check_ins,
+            client_discards,
         })
-    } else if !check_ins.is_empty() {
+    } else if !check_ins.is_empty() || !client_discards.is_empty() {
         Ok(ParsedEnvelope {
             event_payload: Vec::new(),
             check_ins,
+            client_discards,
         })
     } else if has_non_error_items {
         Err(EnvelopeError::NonErrorAbsorbed)

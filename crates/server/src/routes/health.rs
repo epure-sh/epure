@@ -16,6 +16,8 @@ struct ReadyResponse {
     status: &'static str,
     database: &'static str,
     lost_event_count: u64,
+    queue_depth: usize,
+    ingest_lag_ms: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     version: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -46,6 +48,11 @@ async fn health_ready(
         status: "ok",
         database: "ok",
         lost_event_count: lost_event_count(),
+        queue_depth: state
+            .ingest_tx
+            .max_capacity()
+            .saturating_sub(state.ingest_tx.capacity()),
+        ingest_lag_ms: state.outcomes.lag_ms(),
         version: optional_env("EPURE_VERSION"),
         git_sha: optional_env("EPURE_GIT_SHA"),
     }))

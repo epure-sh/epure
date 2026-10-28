@@ -33,7 +33,7 @@ impl IngestCapTracker {
             .unwrap_or(0)
     }
 
-    async fn cap_for_project(
+    pub async fn cap_for_project(
         &self,
         pool: &PgPool,
         project_id: Uuid,

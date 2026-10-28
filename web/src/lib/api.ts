@@ -17,6 +17,12 @@ export interface IssueSummary {
   snooze_until: string | null;
   snooze_until_count: number | null;
   snooze_until_users: number | null;
+  /** Why this issue absorbed later events: exact_stack, crash_site, cycle_folded, message_template, custom. */
+  merge_reason?: string;
+  /** Events counted without a stored body after the causal spike valve tripped. */
+  spike_coalesced?: number;
+  /** Up to five sampled caller or message variants kept on the parent issue. */
+  coalesced_variants?: string[];
   came_back?: boolean;
   affected_users_count?: number;
   velocity_24h?: number;
@@ -792,6 +798,48 @@ export async function stripStoredIdentifiers(
 ): Promise<{ project_id: string; events_updated: number; feedback_cleared: number }> {
   return apiFetch(`/api/v1/projects/${projectId}/privacy/strip-identifiers`, {
     method: "POST",
+  });
+}
+
+export interface NoisePolicy {
+  extensions: boolean;
+  crawlers: boolean;
+  localhost: boolean;
+  legacy_browsers: boolean;
+  resize_observer: boolean;
+  chunk_load: boolean;
+  message_patterns: string[];
+}
+
+export interface IngestOutcome {
+  reason: string;
+  count: number;
+}
+
+export async function fetchNoisePolicy(projectId: string): Promise<NoisePolicy> {
+  return apiFetch<NoisePolicy>(`/api/v1/projects/${projectId}/noise-policy`);
+}
+
+export async function saveNoisePolicy(projectId: string, policy: NoisePolicy): Promise<NoisePolicy> {
+  return apiFetch<NoisePolicy>(`/api/v1/projects/${projectId}/noise-policy`, {
+    method: "PUT",
+    body: JSON.stringify(policy),
+  });
+}
+
+export async function fetchIngestOutcomes(
+  projectId: string,
+): Promise<{ window: string; reasons: IngestOutcome[] }> {
+  return apiFetch(`/api/v1/projects/${projectId}/ingest-outcomes`);
+}
+
+export async function previewNoisePolicy(
+  projectId: string,
+  sample: string,
+): Promise<{ suppressed: boolean; rule: string | null; detail: string | null }> {
+  return apiFetch(`/api/v1/projects/${projectId}/noise-policy/preview`, {
+    method: "POST",
+    body: JSON.stringify({ sample }),
   });
 }
 

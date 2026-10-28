@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tracing::error;
 
+use crate::pipeline::outcomes::OutcomeLedger;
 use crate::pipeline::spike::SpikeValve;
 
 const FLUSH_INTERVAL: Duration = Duration::from_secs(5);
@@ -12,6 +13,7 @@ const FLUSH_INTERVAL: Duration = Duration::from_secs(5);
 pub async fn run_spike_flusher(
     pool: PgPool,
     spike_valve: Arc<SpikeValve>,
+    outcomes: Arc<OutcomeLedger>,
     shutdown: Arc<tokio::sync::Notify>,
 ) {
     let mut interval = tokio::time::interval(FLUSH_INTERVAL);
@@ -21,9 +23,11 @@ pub async fn run_spike_flusher(
         tokio::select! {
             _ = interval.tick() => {
                 flush_pending_deltas(&pool, &spike_valve).await;
+                flush_outcomes(&pool, &outcomes).await;
             }
             _ = shutdown.notified() => {
                 flush_pending_deltas(&pool, &spike_valve).await;
+                flush_outcomes(&pool, &outcomes).await;
                 break;
             }
         }
@@ -47,11 +51,31 @@ async fn flush_pending_deltas(pool: &PgPool, spike_valve: &SpikeValve) {
                 count_delta: delta.count_delta as i64,
                 occurred_at: delta.last_seen,
                 window_start,
+                variants: delta.variants,
             },
         )
         .await
         {
             error!(error = %err, project_id = %delta.project_id, "failed to flush spike counter delta");
+        }
+    }
+}
+
+async fn flush_outcomes(pool: &PgPool, outcomes: &OutcomeLedger) {
+    let deltas = outcomes.take();
+    for delta in deltas {
+        let window_start = window_hour_start(chrono::Utc::now());
+        if let Err(err) = epure_storage::noise::add_outcome(
+            pool,
+            delta.org_id,
+            delta.project_id,
+            window_start,
+            &delta.reason,
+            delta.count as i64,
+        )
+        .await
+        {
+            error!(error = %err, reason = %delta.reason, "failed to flush ingest outcome");
         }
     }
 }

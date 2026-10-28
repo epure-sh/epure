@@ -4,12 +4,14 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, patch},
+    routing::{get, patch, post},
     Extension, Json, Router,
 };
 use epure_auth::DashboardSession;
 use epure_core::PlanTier;
+use epure_envelope::NoisePolicy;
 use epure_storage::events;
+use epure_storage::noise;
 use epure_storage::projects::{self, CreateProjectParams, ProjectRow, UpdateProjectParams};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -25,6 +27,15 @@ pub fn router(state: Arc<AppState>) -> Router {
             patch(update_project).delete(delete_project),
         )
         .route("/projects/{id}/activity", get(project_activity))
+        .route(
+            "/projects/{id}/noise-policy",
+            get(get_noise_policy).put(put_noise_policy),
+        )
+        .route(
+            "/projects/{id}/noise-policy/preview",
+            post(preview_noise_policy),
+        )
+        .route("/projects/{id}/ingest-outcomes", get(ingest_outcomes))
         .with_state(state)
 }
 
@@ -218,4 +229,91 @@ async fn project_activity(
         project_id: project.id,
         buckets,
     }))
+}
+
+async fn get_noise_policy(
+    State(state): State<Arc<AppState>>,
+    Extension(dashboard): Extension<DashboardSession>,
+    Path(id): Path<Uuid>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let policy = noise::get_noise_policy_for_dashboard(&state.pools.app, dashboard.org_id, id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+    Ok(Json(policy))
+}
+
+async fn put_noise_policy(
+    State(state): State<Arc<AppState>>,
+    Extension(dashboard): Extension<DashboardSession>,
+    Path(id): Path<Uuid>,
+    Json(mut body): Json<NoisePolicy>,
+) -> Result<impl IntoResponse, StatusCode> {
+    require_min_role(&dashboard, Role::Admin)?;
+    body.message_patterns = NoisePolicy::sanitize_patterns(&body.message_patterns);
+    let saved = noise::upsert_noise_policy(&state.pools.app, dashboard.org_id, id, &body)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if !saved {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    state.noise_policies.invalidate(id);
+    Ok(Json(body))
+}
+
+#[derive(Deserialize)]
+struct NoisePreviewBody {
+    sample: String,
+    user_agent: Option<String>,
+}
+
+async fn preview_noise_policy(
+    State(state): State<Arc<AppState>>,
+    Extension(dashboard): Extension<DashboardSession>,
+    Path(id): Path<Uuid>,
+    Json(body): Json<NoisePreviewBody>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let policy = noise::get_noise_policy_for_dashboard(&state.pools.app, dashboard.org_id, id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+    let event = preview_event(&body.sample);
+    let matched = epure_envelope::match_noise(&event, body.user_agent.as_deref(), &policy);
+    Ok(Json(serde_json::json!({
+        "suppressed": matched.is_some(),
+        "rule": matched.as_ref().map(|item| item.rule),
+        "detail": matched.map(|item| item.detail),
+    })))
+}
+
+fn preview_event(sample: &str) -> serde_json::Value {
+    let trimmed = sample.trim();
+    if trimmed.starts_with('{') {
+        if let Ok(value) = serde_json::from_str(trimmed) {
+            return value;
+        }
+    }
+    serde_json::json!({
+        "exception": { "values": [{ "type": "Error", "value": trimmed }] }
+    })
+}
+
+async fn ingest_outcomes(
+    State(state): State<Arc<AppState>>,
+    Extension(dashboard): Extension<DashboardSession>,
+    Path(id): Path<Uuid>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let project = projects::get_project(&state.pools.app, dashboard.org_id, id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+    let since = chrono::Utc::now() - chrono::Duration::hours(1);
+    let reasons =
+        noise::outcome_totals_since(&state.pools.app, dashboard.org_id, project.id, since)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Json(serde_json::json!({
+        "window": "1h",
+        "reasons": reasons,
+    })))
 }

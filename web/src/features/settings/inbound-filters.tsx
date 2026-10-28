@@ -13,7 +13,15 @@ import {
   XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { updateProject } from "../../lib/api";
+import {
+  fetchIngestOutcomes,
+  fetchNoisePolicy,
+  previewNoisePolicy,
+  saveNoisePolicy,
+  updateProject,
+  type IngestOutcome,
+  type NoisePolicy,
+} from "../../lib/api";
 import { useAppContext } from "../../shell/app-context";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
@@ -43,9 +51,9 @@ const BUILTIN_FILTERS: FilterToggle[] = [
   {
     id: "extensions",
     name: "Browser Extensions & Injected Scripts",
-    description: "Suppress errors originating from browser plugins, ad blockers, or third-party web wallet injections.",
+    description: "Suppress an error only when the throw site itself is a browser-extension URL. An extension frame further up the stack leaves the application error visible.",
     icon: Puzzle,
-    example: "chrome-extension://, moz-extension://, MetaMask, React DevTools, Grammarly",
+    example: "chrome-extension://, moz-extension://, safari-web-extension://",
   },
   {
     id: "localhost",
@@ -55,20 +63,37 @@ const BUILTIN_FILTERS: FilterToggle[] = [
     example: "Origin localhost, 127.0.0.1, or ::1 on production events",
   },
   {
-    id: "legacy",
+    id: "legacy_browsers",
     name: "Legacy & Obsolete Browsers",
-    description: "Drop JavaScript syntax and polyfill exceptions from unmaintained or legacy browsers.",
+    description: "Drop exceptions from Internet Explorer. Other old browsers stay visible.",
     icon: Compass,
-    example: "Internet Explorer 11, Safari < 14, Android WebKit < 80",
+    example: "MSIE, Trident",
+  },
+  {
+    id: "resize_observer",
+    name: "ResizeObserver loop",
+    description: "Suppress the browser's benign ResizeObserver notification. A sudden jump still raises an alert.",
+    icon: ShieldCheck,
+    example: "ResizeObserver loop limit exceeded",
+  },
+  {
+    id: "chunk_load",
+    name: "Chunk load after deploy",
+    description: "Suppress missing JavaScript chunks. A sharp increase raises an alert instead of staying silent.",
+    icon: Zap,
+    example: "ChunkLoadError, Loading chunk",
   },
 ];
 
-const DEFAULT_PATTERNS = [
-  "ResizeObserver loop completed with undelivered notifications",
-  "ResizeObserver loop limit exceeded",
-  "Script error.",
-  "Network request failed",
-];
+const EMPTY_POLICY: NoisePolicy = {
+  extensions: false,
+  crawlers: false,
+  localhost: false,
+  legacy_browsers: false,
+  resize_observer: false,
+  chunk_load: false,
+  message_patterns: [],
+};
 
 export function InboundFiltersSettings() {
   const { projectId: paramId } = useParams<{ projectId: string }>();
@@ -79,29 +104,9 @@ export function InboundFiltersSettings() {
 
   const canManage = user?.role === "owner" || user?.role === "admin";
 
-  // Filter Toggles (persisted in project-specific localStorage)
-  const storageKey = `epure:filters:${paramId ?? "default"}`;
-  const [activeFilters, setActiveFilters] = useState<Record<string, boolean>>(() => {
-    try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) return JSON.parse(stored);
-    } catch {
-      // fallback
-    }
-    return { crawlers: true, extensions: true, localhost: true, legacy: true };
-  });
-
-  // Custom Message Patterns
-  const patternsKey = `epure:patterns:${paramId ?? "default"}`;
-  const [patterns, setPatterns] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem(patternsKey);
-      if (stored) return JSON.parse(stored);
-    } catch {
-      // fallback
-    }
-    return DEFAULT_PATTERNS;
-  });
+  const [policy, setPolicy] = useState<NoisePolicy>(EMPTY_POLICY);
+  const [outcomes, setOutcomes] = useState<IngestOutcome[]>([]);
+  const [policyReady, setPolicyReady] = useState(false);
   const [newPattern, setNewPattern] = useState("");
 
   // Spike Valve Cap
@@ -114,50 +119,95 @@ export function InboundFiltersSettings() {
     }
   }, [project?.ingest_cap_per_hour]);
 
+  useEffect(() => {
+    if (!project) {
+      return;
+    }
+    setPolicyReady(false);
+    let cancelled = false;
+    void Promise.all([fetchNoisePolicy(project.id), fetchIngestOutcomes(project.id)])
+      .then(([nextPolicy, nextOutcomes]) => {
+        if (cancelled) {
+          return;
+        }
+        setPolicy(nextPolicy);
+        setOutcomes(nextOutcomes.reasons);
+        setPolicyReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          toast("Could not load ingest filters");
+          setPolicyReady(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [project?.id]);
+
+  const activeFilters: Record<string, boolean> = {
+    extensions: policy.extensions,
+    crawlers: policy.crawlers,
+    localhost: policy.localhost,
+    legacy_browsers: policy.legacy_browsers,
+    resize_observer: policy.resize_observer,
+    chunk_load: policy.chunk_load,
+  };
+  const patterns = policy.message_patterns;
+
   // Interactive Test Simulator
   const [testPayload, setTestPayload] = useState("");
   const [simResult, setSimResult] = useState<{ dropped: boolean; reason: string } | null>(null);
 
+  async function persistPolicy(next: NoisePolicy, success: string) {
+    if (!project) {
+      return;
+    }
+    const previous = policy;
+    setPolicy(next);
+    try {
+      const saved = await saveNoisePolicy(project.id, next);
+      setPolicy(saved);
+      toast(success);
+    } catch {
+      setPolicy(previous);
+      toast("Failed to save filter");
+    }
+  }
+
   function toggleFilter(id: string) {
     if (!canManage) return;
-    const next = { ...activeFilters, [id]: !activeFilters[id] };
-    setActiveFilters(next);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(next));
-    } catch {
-      // ignore
-    }
-    toast(`Inbound filter rule ${next[id] ? "enabled" : "disabled"}`);
+    const next = {
+      ...policy,
+      [id]: !activeFilters[id],
+    };
+    void persistPolicy(next, `Inbound filter ${next[id as keyof NoisePolicy] ? "enabled" : "disabled"}`);
   }
 
   function handleAddPattern() {
     if (!canManage || !newPattern.trim()) return;
     const trimmed = newPattern.trim();
+    if (trimmed.length < 8) {
+      toast("Patterns need at least 8 characters so they cannot hide unrelated errors");
+      return;
+    }
     if (patterns.includes(trimmed)) {
       toast("Pattern rule already exists");
       return;
     }
-    const next = [...patterns, trimmed];
-    setPatterns(next);
-    try {
-      localStorage.setItem(patternsKey, JSON.stringify(next));
-    } catch {
-      // ignore
-    }
     setNewPattern("");
-    toast("Filter pattern added");
+    void persistPolicy(
+      { ...policy, message_patterns: [...patterns, trimmed] },
+      "Filter pattern added",
+    );
   }
 
   function handleRemovePattern(pattern: string) {
     if (!canManage) return;
-    const next = patterns.filter((p) => p !== pattern);
-    setPatterns(next);
-    try {
-      localStorage.setItem(patternsKey, JSON.stringify(next));
-    } catch {
-      // ignore
-    }
-    toast("Filter pattern removed");
+    void persistPolicy(
+      { ...policy, message_patterns: patterns.filter((item) => item !== pattern) },
+      "Filter pattern removed",
+    );
   }
 
   async function handleSaveCap(cap: number) {
@@ -175,74 +225,25 @@ export function InboundFiltersSettings() {
     }
   }
 
-  function runSimulation() {
-    if (!testPayload.trim()) {
+  async function runSimulation() {
+    if (!project || !testPayload.trim()) {
       setSimResult(null);
       return;
     }
-    const text = testPayload.toLowerCase();
-
-    // Check crawlers
-    if (
-      activeFilters.crawlers &&
-      (text.includes("googlebot") ||
-        text.includes("bingbot") ||
-        text.includes("baiduspider") ||
-        text.includes("yandex") ||
-        text.includes("duckduckbot"))
-    ) {
+    try {
+      const result = await previewNoisePolicy(project.id, testPayload.trim());
       setSimResult({
-        dropped: true,
-        reason: "Matched Web Crawlers & Spiders filter (User-Agent spider detected)",
+        dropped: result.suppressed,
+        reason: result.suppressed
+          ? `Server rule ${result.rule ?? "noise"}${result.detail ? `: ${result.detail}` : ""}`
+          : "Passed the saved server rules. The event would be grouped and stored.",
       });
-      return;
+    } catch {
+      toast("Could not preview this sample");
     }
-
-    // Check extensions
-    if (
-      activeFilters.extensions &&
-      (text.includes("chrome-extension://") ||
-        text.includes("moz-extension://") ||
-        text.includes("metamask") ||
-        text.includes("react_devtools"))
-    ) {
-      setSimResult({
-        dropped: true,
-        reason: "Matched Browser Extensions rule (extension scheme detected in stack/URL)",
-      });
-      return;
-    }
-
-    // Check localhost
-    if (
-      activeFilters.localhost &&
-      (text.includes("localhost") || text.includes("127.0.0.1") || text.includes("::1"))
-    ) {
-      setSimResult({
-        dropped: true,
-        reason: "Matched Localhost filter (loopback host identified in payload)",
-      });
-      return;
-    }
-
-    // Check custom patterns
-    for (const pat of patterns) {
-      if (text.includes(pat.toLowerCase())) {
-        setSimResult({
-          dropped: true,
-          reason: `Matched custom rule: "${pat}"`,
-        });
-        return;
-      }
-    }
-
-    setSimResult({
-      dropped: false,
-      reason: "Passed all active noise filters. Event is eligible for ingestion & triage.",
-    });
   }
 
-  if (projectsLoading || userLoading) {
+  if (projectsLoading || userLoading || (project && !policyReady)) {
     return (
       <div className="space-y-4">
         <div className="h-32 rounded-lg border border-border-subtle bg-surface-1 animate-pulse" />
@@ -264,6 +265,24 @@ export function InboundFiltersSettings() {
 
   return (
     <div className="space-y-6">
+      {outcomes.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold">Ingest outcomes this hour</CardTitle>
+            <CardDescription className="text-xs">
+              Stored, coalesced, suppressed, duplicate, and rejected events. Client SDK discards show up as client:reason.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            {outcomes.map((row) => (
+              <div key={row.reason} className="flex items-center justify-between gap-3 text-xs">
+                <span className="truncate font-mono text-fg-secondary">{row.reason}</span>
+                <span className="tabular-nums text-fg-primary">{row.count.toLocaleString()}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
       {/* 1. Automated Noise Filters */}
       <Card>
         <CardHeader>
@@ -274,7 +293,7 @@ export function InboundFiltersSettings() {
                 <span>Noise Suppression Rules</span>
               </CardTitle>
               <CardDescription className="text-xs">
-                Discard unhandled noise before it pollutes your issues feed or triggers webhook alerts.
+                These rules run on the server. Suppressed events are counted, and a sharp jump raises a noise alert instead of staying hidden.
               </CardDescription>
             </div>
             <Badge variant="env" className="text-2xs font-mono">
@@ -311,6 +330,9 @@ export function InboundFiltersSettings() {
                     <p className="text-[11px] font-mono text-fg-muted truncate">
                       Matches: {filter.example}
                     </p>
+                    <p className="text-[11px] tabular-nums text-fg-secondary">
+                      {(outcomes.find((row) => row.reason === `noise:${filter.id}`)?.count ?? 0).toLocaleString()} suppressed this hour
+                    </p>
                   </div>
                 </div>
 
@@ -333,7 +355,7 @@ export function InboundFiltersSettings() {
         <CardHeader>
           <CardTitle className="text-sm font-semibold">Custom Message Patterns</CardTitle>
           <CardDescription className="text-xs">
-            Filter out benign or third-party error substrings from your application code.
+            Substring match, at least 8 characters. Broad phrases such as “Failed to fetch” will hide real outages.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -446,9 +468,10 @@ export function InboundFiltersSettings() {
           </Field>
 
           <InfoCallout>
-            <strong>Soft-Sampling Policy:</strong> When traffic spikes exceed your cap, Épure does
-            not blind you to error volume. The occurrence counter records 100% of the volume for
-            metric integrity, while detailed stack frames are sampled to protect database storage.
+            <strong>Spike valve:</strong> One throw site stores at most 150 bodies a minute, and at
+            most 20% of this hourly cap. Further copies are counted on that issue and do not spend
+            the cap. A different error is still stored until the cap is full, then rejected until
+            the next hour.
           </InfoCallout>
         </CardContent>
       </Card>

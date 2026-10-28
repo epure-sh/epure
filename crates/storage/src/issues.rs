@@ -13,6 +13,47 @@ pub struct UpsertIssueParams {
     pub release: Option<String>,
     pub occurred_at: DateTime<Utc>,
     pub increment_by: i64,
+    pub grouping: Option<IssueGrouping>,
+}
+
+/// Signatures written beside the issue key. Hashes use the PostgreSQL BIGINT bit pattern.
+#[derive(Debug, Clone)]
+pub struct IssueGrouping {
+    pub h_exact: Option<i64>,
+    pub h_locus: Option<i64>,
+    pub h_sim: Option<i64>,
+    pub exception_type: Option<String>,
+    pub merge_reason: Option<String>,
+    pub grouping_anchor: Option<Value>,
+    pub variants: Value,
+    pub spike_coalesced_delta: i64,
+}
+
+impl IssueGrouping {
+    pub fn hashes(
+        h_exact: i64,
+        h_locus: i64,
+        h_sim: i64,
+        exception_type: String,
+        merge_reason: String,
+        grouping_anchor: Value,
+        variant: Option<String>,
+    ) -> Self {
+        let variants = match variant {
+            Some(label) if !label.is_empty() => Value::Array(vec![Value::String(label)]),
+            _ => Value::Array(Vec::new()),
+        };
+        Self {
+            h_exact: Some(h_exact),
+            h_locus: Some(h_locus),
+            h_sim: Some(h_sim),
+            exception_type: Some(exception_type),
+            merge_reason: Some(merge_reason),
+            grouping_anchor: Some(grouping_anchor),
+            variants,
+            spike_coalesced_delta: 0,
+        }
+    }
 }
 
 pub async fn upsert_issue(pool: &PgPool, params: UpsertIssueParams) -> Result<Uuid, sqlx::Error> {
@@ -177,6 +218,9 @@ pub struct IssueSummary {
     pub snooze_until: Option<DateTime<Utc>>,
     pub snooze_until_count: Option<i32>,
     pub snooze_until_users: Option<i32>,
+    pub merge_reason: String,
+    pub spike_coalesced: i64,
+    pub coalesced_variants: Value,
 }
 
 pub const SNOOZE_ACTIVE_SQL: &str = r#"
@@ -209,7 +253,10 @@ const ISSUE_SUMMARY_COLUMNS: &str = r#"
         (snooze_until IS NOT NULL AND snooze_until > now())
         OR (snooze_until_count IS NOT NULL AND event_count < snooze_until_count)
         OR (snooze_until_users IS NOT NULL AND unique_user_count < snooze_until_users)
-    ) AS snoozed
+    ) AS snoozed,
+    merge_reason,
+    spike_coalesced,
+    coalesced_variants
 "#;
 
 pub async fn list_issue_summaries(
@@ -787,6 +834,43 @@ pub async fn wake_issue_if_expired(
     .await?;
     tx.commit().await?;
     Ok(result.rows_affected() > 0)
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct GroupingSeedRow {
+    pub fingerprint: String,
+    pub h_exact: i64,
+    pub h_locus: i64,
+    pub h_sim: i64,
+    pub exception_type: Option<String>,
+    pub grouping_anchor: Value,
+}
+
+/// Recent issues that already carry a locus signature, used to warm the in-memory index.
+pub async fn load_grouping_seeds(
+    pool: &PgPool,
+    org_id: Uuid,
+    project_id: Uuid,
+) -> Result<Vec<GroupingSeedRow>, sqlx::Error> {
+    let mut tx = crate::rls::begin_ingest_transaction(pool, org_id).await?;
+    let rows = sqlx::query_as::<_, GroupingSeedRow>(
+        r#"
+        SELECT fingerprint, h_exact, h_locus, h_sim, exception_type, grouping_anchor
+        FROM issues
+        WHERE project_id = $1
+          AND merge_parent_id IS NULL
+          AND h_locus IS NOT NULL
+          AND h_exact IS NOT NULL
+          AND h_sim IS NOT NULL
+        ORDER BY last_seen_at DESC NULLS LAST
+        LIMIT 5000
+        "#,
+    )
+    .bind(project_id)
+    .fetch_all(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(rows)
 }
 
 #[cfg(test)]

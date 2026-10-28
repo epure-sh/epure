@@ -14,7 +14,8 @@ pub enum StoreError {
     DecompressFailed,
 }
 
-/// Parse legacy store JSON. Compression is handled asynchronously in the worker.
+/// Parse legacy store JSON. Gzip and zlib bodies are decompressed here so the
+/// ingest edge fingerprints the same document the worker stores.
 pub fn parse_store_payload(body: &[u8]) -> Result<Vec<u8>, StoreError> {
     if body.is_empty() {
         return Err(StoreError::Empty);
@@ -25,7 +26,7 @@ pub fn parse_store_payload(body: &[u8]) -> Result<Vec<u8>, StoreError> {
     }
 
     if is_gzip(body) || is_zlib(body) {
-        return Ok(body.to_vec());
+        return decompress_store_payload(body);
     }
 
     Err(StoreError::InvalidJson)
@@ -102,9 +103,7 @@ mod tests {
         encoder.write_all(json).expect("gzip write");
         let compressed = encoder.finish().expect("gzip finish");
         let accepted = parse_store_payload(&compressed).expect("accept gzip store");
-        assert_eq!(accepted, compressed);
-        let decompressed = decompress_store_payload(&compressed).expect("decompress gzip");
-        assert_eq!(decompressed, json);
+        assert_eq!(accepted, json);
     }
 
     #[test]

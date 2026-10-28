@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { EventDetail, IssueSummary, UserFeedback } from "../lib/api";
 import { fetchEventFeedback } from "../lib/api";
 import { useIssueEventsPage } from "../features/issues/use-issue-events-page";
+import { groupingLabel } from "../lib/grouping-label";
 import { Badge } from "./badge";
 import { ActionButton } from "./action-button";
 import { IssueOccurrencesTable } from "./issue-occurrences-table";
@@ -89,6 +90,8 @@ export function IssueMorePanel({
   const fingerprintShort = issue.fingerprint
     ? `${issue.fingerprint.slice(0, 12)}…`
     : "—";
+  const groupedBy = groupingLabel(issue);
+  const variants = Array.isArray(issue.coalesced_variants) ? issue.coalesced_variants : [];
 
   const sectionClass = "px-5 py-2.5";
 
@@ -133,12 +136,26 @@ export function IssueMorePanel({
 
         <Section className={sectionClass}>
           <SectionHeader title="Grouping" className="mb-1.5" />
+          {groupedBy ? (
+            <Badge variant="info" className="mb-2 max-w-full font-normal">
+              <span className="truncate tabular-nums">{groupedBy}</span>
+            </Badge>
+          ) : null}
           <dl className="text-sm">
             <dt className="text-xs text-ink-muted">Fingerprint</dt>
             <dd className="mt-0.5 font-mono text-xs text-ink" title={issue.fingerprint}>
               {fingerprintShort}
             </dd>
           </dl>
+          {variants.length > 0 ? (
+            <ul className="mt-2 space-y-1">
+              {variants.map((variant) => (
+                <li key={variant} className="truncate font-mono text-xs text-fg-secondary" title={variant}>
+                  {variant}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </Section>
 
         {mergedChildren.length > 0 ? (

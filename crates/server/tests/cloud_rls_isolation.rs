@@ -177,6 +177,7 @@ async fn seed_agency_hierarchy(pool: &PgPool) -> Result<(), sqlx::Error> {
             release: None,
             occurred_at: now,
             increment_by: 1,
+            grouping: None,
         },
     )
     .await?;
@@ -193,6 +194,7 @@ async fn seed_agency_hierarchy(pool: &PgPool) -> Result<(), sqlx::Error> {
             release: None,
             occurred_at: now,
             increment_by: 1,
+            grouping: None,
         },
     )
     .await?;
