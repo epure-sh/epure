@@ -6,6 +6,7 @@ use tokio::sync::mpsc;
 use tower_sessions::SessionManagerLayer;
 
 use crate::lifecycle::velocity::VelocityTracker;
+use crate::pipeline::grouping_cache::GroupingCache;
 use crate::pipeline::ingest_cap::IngestCapTracker;
 use crate::pipeline::ingest_plan_limit::IngestPlanLimitTracker;
 use crate::pipeline::mpsc::IngestJob;
@@ -17,6 +18,7 @@ pub struct AppState {
     pub dsn_validator: Arc<DsnValidator>,
     pub ingest_tx: mpsc::Sender<IngestJob>,
     pub spike_valve: Arc<SpikeValve>,
+    pub grouping: Arc<GroupingCache>,
     pub velocity_tracker: Arc<VelocityTracker>,
     pub ingest_cap: Arc<IngestCapTracker>,
     pub ingest_plan_limit: Arc<IngestPlanLimitTracker>,

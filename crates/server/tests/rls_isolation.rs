@@ -216,6 +216,7 @@ async fn seed_two_orgs(pool: &PgPool) -> Result<(), sqlx::Error> {
             release: None,
             occurred_at: now,
             increment_by: 3,
+            grouping: None,
         },
     )
     .await?;
@@ -232,6 +233,7 @@ async fn seed_two_orgs(pool: &PgPool) -> Result<(), sqlx::Error> {
             release: None,
             occurred_at: now,
             increment_by: 1,
+            grouping: None,
         },
     )
     .await?;

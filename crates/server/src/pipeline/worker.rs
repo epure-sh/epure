@@ -1,8 +1,8 @@
 use chrono::{DateTime, Timelike, Utc};
 use epure_demangle::demangle_stack_frames;
 use epure_envelope::{
-    apply_privacy_policy, breadcrumbs_to_json, compute_fingerprint, decompress_store_payload,
-    extract_breadcrumbs, normalize_metadata, PrivacyPolicy,
+    apply_privacy_policy, breadcrumbs_to_json, compute_multi_fingerprint, decompress_store_payload,
+    extract_breadcrumbs, hash_to_i64, normalize_metadata, PrivacyPolicy,
 };
 use epure_storage::projects;
 use epure_storage::PgPool;
@@ -19,6 +19,7 @@ use uuid::Uuid;
 
 use crate::lifecycle::{process, velocity::VelocityTracker};
 
+use super::grouping_cache::GroupingCache;
 use super::mpsc::IngestJob;
 
 const BATCH_FLUSH_INTERVAL: Duration = Duration::from_millis(500);
@@ -61,6 +62,7 @@ pub async fn run_worker(
     pool: PgPool,
     artifacts_dir: PathBuf,
     velocity_tracker: Arc<VelocityTracker>,
+    grouping: Arc<GroupingCache>,
     mut rx: Receiver<IngestJob>,
 ) {
     let mut flush_interval = tokio::time::interval(BATCH_FLUSH_INTERVAL);
@@ -75,6 +77,7 @@ pub async fn run_worker(
                             &pool,
                             &artifacts_dir,
                             &velocity_tracker,
+                            &grouping,
                             job,
                         ).await {
                             tracing::error!("ingest worker processing error: {err}");
@@ -87,6 +90,7 @@ pub async fn run_worker(
                             &pool,
                             &artifacts_dir,
                             &velocity_tracker,
+                            &grouping,
                             &mut rx,
                         )
                         .await;
@@ -103,10 +107,13 @@ async fn drain_pending_jobs(
     pool: &PgPool,
     artifacts_dir: &Path,
     velocity_tracker: &Arc<VelocityTracker>,
+    grouping: &Arc<GroupingCache>,
     rx: &mut Receiver<IngestJob>,
 ) {
     while let Ok(job) = rx.try_recv() {
-        if let Err(err) = process_job_with_retry(pool, artifacts_dir, velocity_tracker, job).await {
+        if let Err(err) =
+            process_job_with_retry(pool, artifacts_dir, velocity_tracker, grouping, job).await
+        {
             tracing::error!("ingest worker processing error: {err}");
             record_lost_event(&sanitize_error(err.as_ref()));
         }
@@ -117,13 +124,14 @@ async fn process_job_with_retry(
     pool: &PgPool,
     artifacts_dir: &Path,
     velocity_tracker: &Arc<VelocityTracker>,
+    grouping: &Arc<GroupingCache>,
     job: IngestJob,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match process_job(pool, artifacts_dir, velocity_tracker, job.clone()).await {
+    match process_job(pool, artifacts_dir, velocity_tracker, grouping, job.clone()).await {
         Ok(()) => Ok(()),
         Err(err) if is_transient(err.as_ref()) => {
             warn!("ingest worker retrying transient error");
-            process_job(pool, artifacts_dir, velocity_tracker, job).await
+            process_job(pool, artifacts_dir, velocity_tracker, grouping, job).await
         }
         Err(err) => Err(err),
     }
@@ -133,6 +141,7 @@ async fn process_job(
     pool: &PgPool,
     artifacts_dir: &Path,
     velocity_tracker: &Arc<VelocityTracker>,
+    grouping: &Arc<GroupingCache>,
     job: IngestJob,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match job {
@@ -193,13 +202,19 @@ async fn process_job(
                         false
                     }
                 };
+            let multi = compute_multi_fingerprint(&payload_json);
+            let fingerprint = if _preview_fingerprint.is_empty() {
+                multi.fingerprint.clone()
+            } else {
+                _preview_fingerprint
+            };
+            grouping.observe(project_id, &multi, &fingerprint);
             apply_privacy_policy(
                 &mut payload_json,
                 PrivacyPolicy {
                     store_end_user_identifiers: store_identifiers,
                 },
             );
-            let fingerprint = compute_fingerprint(&payload_json);
             let breadcrumbs = extract_breadcrumbs(&payload_json);
             let breadcrumbs_json = breadcrumbs_to_json(&breadcrumbs);
             let metadata = normalize_metadata(
@@ -231,6 +246,22 @@ async fn process_job(
                         release: release.clone(),
                         occurred_at: now,
                         increment_by: 1,
+                        grouping: Some(issues::IssueGrouping::hashes(
+                            hash_to_i64(multi.h_exact),
+                            hash_to_i64(multi.h_locus),
+                            hash_to_i64(multi.h_sim),
+                            multi.exception_type.clone(),
+                            multi.merge_reason.to_string(),
+                            multi.anchor_json(),
+                            if multi.custom
+                                || multi.variant_label.is_empty()
+                                || (multi.call_path_count <= 1 && !multi.cycle_folded)
+                            {
+                                None
+                            } else {
+                                Some(multi.variant_label.clone())
+                            },
+                        )),
                     },
                     event: events::InsertEventParams {
                         id: event_id,

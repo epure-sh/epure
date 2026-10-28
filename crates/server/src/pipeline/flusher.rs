@@ -47,6 +47,7 @@ async fn flush_pending_deltas(pool: &PgPool, spike_valve: &SpikeValve) {
                 count_delta: delta.count_delta as i64,
                 occurred_at: delta.last_seen,
                 window_start,
+                variants: delta.variants,
             },
         )
         .await

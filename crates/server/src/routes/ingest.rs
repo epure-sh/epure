@@ -8,8 +8,8 @@ use axum::{
 };
 use epure_auth::{DsnAuthError, DsnRecord};
 use epure_envelope::{
-    parse_auth, parse_envelope, parse_store_payload, preview_fingerprint, scrub_string, AuthError,
-    EnvelopeError, StoreError,
+    parse_auth, parse_envelope, parse_store_payload, preview_multi_fingerprint, scrub_string,
+    AuthError, EnvelopeError, StoreError,
 };
 use epure_storage::{alerts, projects, releases, user_feedback};
 use serde::{Deserialize, Serialize};
@@ -20,7 +20,7 @@ use uuid::Uuid;
 
 use crate::pipeline::ingest_cap::IngestAllowance;
 use crate::pipeline::mpsc::IngestJob;
-use crate::pipeline::spike::SpikeDecision;
+use crate::pipeline::spike::{GroupedSpikeInput, SpikeDecision};
 use crate::state::AppState;
 
 const BODY_LIMIT: usize = 2 * 1024 * 1024;
@@ -115,10 +115,6 @@ async fn post_envelope(
         Ok(record) => record,
         Err(response) => return response,
     };
-
-    if let Err(response) = check_ingest_cap(&state, project_id).await {
-        return response;
-    }
 
     let parsed = match parse_envelope(&body) {
         Ok(parsed) => parsed,
@@ -412,10 +408,6 @@ async fn post_store(
         Err(response) => return response,
     };
 
-    if let Err(response) = check_ingest_cap(&state, project_id).await {
-        return response;
-    }
-
     let payload = match parse_store_payload(&body) {
         Ok(payload) => payload,
         Err(StoreError::Empty)
@@ -529,33 +521,67 @@ async fn accept_payload(
     org_id: Uuid,
     payload: Vec<u8>,
 ) -> Response {
-    let fingerprint = preview_fingerprint(&payload);
+    if let Err(response) = check_ingest_plan_limit(state, org_id).await {
+        return response;
+    }
+
+    let multi = preview_multi_fingerprint(&payload);
+    let fingerprint = state
+        .grouping
+        .resolve_issue_key(&state.pools.ingest, org_id, project_id, &multi)
+        .await;
     let event_id = Uuid::new_v4();
     let user_agent = headers
         .get("user-agent")
         .and_then(|value| value.to_str().ok())
         .map(str::to_string);
     let country_code_hint = country_code_from_headers(headers);
-
-    if let Err(response) = check_ingest_plan_limit(state, org_id).await {
-        return response;
-    }
-
-    let job = match state
-        .spike_valve
-        .check_scoped(project_id, org_id, &fingerprint)
+    let project_cap = match state
+        .ingest_cap
+        .cap_for_project(&state.pools.ingest, project_id)
+        .await
     {
-        SpikeDecision::AllowStore => IngestJob::StoreEvent {
-            event_id,
-            project_id,
-            org_id,
-            fingerprint,
-            payload,
-            user_agent,
-            country_code_hint,
+        Ok(cap) => cap,
+        Err(_) => {
+            return error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "storage_error",
+                "Failed to check ingest cap",
+            )
+        }
+    };
+
+    let job = match state.spike_valve.check_grouped(
+        project_id,
+        org_id,
+        GroupedSpikeInput {
+            fingerprint: &fingerprint,
+            h_exact: multi.h_exact,
+            h_locus: multi.h_locus,
+            project_cap_per_hour: project_cap,
+            variant_label: &multi.variant_label,
         },
+    ) {
+        SpikeDecision::AllowStore => {
+            // Coalesced duplicates never reach this branch, so they cannot
+            // exhaust the hourly project cap.
+            if let Err(response) = check_ingest_cap(state, project_id).await {
+                return response;
+            }
+            state.grouping.observe(project_id, &multi, &fingerprint);
+            IngestJob::StoreEvent {
+                event_id,
+                project_id,
+                org_id,
+                fingerprint,
+                payload,
+                user_agent,
+                country_code_hint,
+            }
+        }
         SpikeDecision::CounterOnly => {
-            // Counted in RAM; will be flushed to PostgreSQL by background spike flusher.
+            // Counted in RAM and flushed onto the parent issue. Not charged
+            // against the project cap.
             return with_cors(
                 state,
                 headers,

@@ -48,6 +48,7 @@ pub async fn persist_counter_only(
             release: None,
             occurred_at: params.occurred_at,
             increment_by: 1,
+            grouping: None,
         },
     )
     .await?;
@@ -73,6 +74,7 @@ pub struct PersistCounterDelta {
     pub count_delta: i64,
     pub occurred_at: DateTime<Utc>,
     pub window_start: DateTime<Utc>,
+    pub variants: Vec<String>,
 }
 
 pub async fn persist_counter_delta(
@@ -92,6 +94,22 @@ pub async fn persist_counter_delta(
             release: None,
             occurred_at: params.occurred_at,
             increment_by: params.count_delta,
+            grouping: Some(crate::issues::IssueGrouping {
+                h_exact: None,
+                h_locus: None,
+                h_sim: None,
+                exception_type: None,
+                merge_reason: None,
+                grouping_anchor: None,
+                variants: serde_json::Value::Array(
+                    params
+                        .variants
+                        .iter()
+                        .map(|label| serde_json::Value::String(label.clone()))
+                        .collect(),
+                ),
+                spike_coalesced_delta: params.count_delta,
+            }),
         },
     )
     .await?;
@@ -171,6 +189,21 @@ pub async fn upsert_issue_in_tx(
         }
     }
 
+    let grouping = params.grouping.unwrap_or(crate::issues::IssueGrouping {
+        h_exact: None,
+        h_locus: None,
+        h_sim: None,
+        exception_type: None,
+        merge_reason: None,
+        grouping_anchor: None,
+        variants: serde_json::Value::Array(Vec::new()),
+        spike_coalesced_delta: 0,
+    });
+    let merge_reason = grouping.merge_reason.unwrap_or_default();
+    let anchor = grouping
+        .grouping_anchor
+        .unwrap_or_else(|| serde_json::json!({}));
+
     sqlx::query_scalar(
         r#"
         INSERT INTO issues (
@@ -183,9 +216,24 @@ pub async fn upsert_issue_in_tx(
             release,
             first_seen_at,
             last_seen_at,
-            event_count
+            event_count,
+            h_exact,
+            h_locus,
+            h_sim,
+            exception_type,
+            merge_reason,
+            grouping_anchor,
+            coalesced_variants,
+            spike_coalesced
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9)
+        VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $8, $9,
+            $10, $11, $12, $13,
+            COALESCE(NULLIF($14, ''), 'exact_stack'),
+            COALESCE($15, '{}'::jsonb),
+            COALESCE($16, '[]'::jsonb),
+            $17
+        )
         ON CONFLICT (project_id, fingerprint) WHERE merge_parent_id IS NULL
         DO UPDATE SET
             title = COALESCE(EXCLUDED.title, issues.title),
@@ -193,7 +241,33 @@ pub async fn upsert_issue_in_tx(
             environment = COALESCE(EXCLUDED.environment, issues.environment),
             release = COALESCE(EXCLUDED.release, issues.release),
             last_seen_at = GREATEST(issues.last_seen_at, EXCLUDED.last_seen_at),
-            event_count = issues.event_count + EXCLUDED.event_count
+            event_count = issues.event_count + EXCLUDED.event_count,
+            h_exact = COALESCE(issues.h_exact, EXCLUDED.h_exact),
+            h_locus = COALESCE(issues.h_locus, EXCLUDED.h_locus),
+            h_sim = COALESCE(issues.h_sim, EXCLUDED.h_sim),
+            exception_type = COALESCE(issues.exception_type, EXCLUDED.exception_type),
+            merge_reason = CASE
+                WHEN issues.merge_reason IN ('', 'exact_stack') THEN EXCLUDED.merge_reason
+                ELSE issues.merge_reason
+            END,
+            grouping_anchor = CASE
+                WHEN issues.grouping_anchor = '{}'::jsonb THEN EXCLUDED.grouping_anchor
+                ELSE issues.grouping_anchor
+            END,
+            spike_coalesced = issues.spike_coalesced + EXCLUDED.spike_coalesced,
+            coalesced_variants = (
+                SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+                FROM (
+                    SELECT DISTINCT elem
+                    FROM jsonb_array_elements(
+                        CASE
+                            WHEN EXCLUDED.coalesced_variants = '[]'::jsonb THEN issues.coalesced_variants
+                            ELSE issues.coalesced_variants || EXCLUDED.coalesced_variants
+                        END
+                    ) AS elem
+                    LIMIT 5
+                ) AS sampled
+            )
         RETURNING id
         "#,
     )
@@ -206,6 +280,14 @@ pub async fn upsert_issue_in_tx(
     .bind(&params.release)
     .bind(params.occurred_at)
     .bind(params.increment_by)
+    .bind(grouping.h_exact)
+    .bind(grouping.h_locus)
+    .bind(grouping.h_sim)
+    .bind(&grouping.exception_type)
+    .bind(&merge_reason)
+    .bind(&anchor)
+    .bind(&grouping.variants)
+    .bind(grouping.spike_coalesced_delta)
     .fetch_one(&mut **tx)
     .await
 }
