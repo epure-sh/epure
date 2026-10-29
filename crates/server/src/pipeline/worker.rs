@@ -1,8 +1,9 @@
 use chrono::{DateTime, Timelike, Utc};
 use epure_demangle::demangle_stack_frames;
 use epure_envelope::{
-    apply_privacy_policy, breadcrumbs_to_json, compute_multi_fingerprint, decompress_store_payload,
-    extract_breadcrumbs, hash_to_i64, normalize_metadata, PrivacyPolicy,
+    apply_privacy_policy, breadcrumbs_to_json, compute_multi_fingerprint, culprit_from_event,
+    decompress_store_payload, event_occurred_at, extract_breadcrumbs, hash_to_i64, is_unhandled,
+    normalize_metadata, project_event, PrivacyPolicy,
 };
 use epure_storage::projects;
 use epure_storage::PgPool;
@@ -26,6 +27,13 @@ use super::outcomes::OutcomeLedger;
 const BATCH_FLUSH_INTERVAL: Duration = Duration::from_millis(500);
 
 static LOST_EVENTS: AtomicU64 = AtomicU64::new(0);
+
+fn event_timestamp(event: &Value) -> Option<chrono::DateTime<Utc>> {
+    let raw = event_occurred_at(event)?;
+    chrono::DateTime::parse_from_rfc3339(&raw)
+        .ok()
+        .map(|time| time.with_timezone(&Utc))
+}
 
 pub fn lost_event_count() -> u64 {
     LOST_EVENTS.load(Ordering::Relaxed)
@@ -240,7 +248,6 @@ async fn process_job(
             }
             let payload = decompress_store_payload(&payload)?;
             let mut payload_json: Value = serde_json::from_slice(&payload)?;
-            let now = Utc::now();
 
             let stack_frames =
                 demangle_event_frames(pool, artifacts_dir, org_id, project_id, &payload_json)
@@ -257,6 +264,7 @@ async fn process_job(
                         false
                     }
                 };
+            let now = event_timestamp(&payload_json).unwrap_or_else(Utc::now);
             let multi = compute_multi_fingerprint(&payload_json);
             let fingerprint = if _preview_fingerprint.is_empty() {
                 multi.fingerprint.clone()
@@ -264,12 +272,20 @@ async fn process_job(
                 _preview_fingerprint
             };
             grouping.observe(project_id, &multi, &fingerprint);
+            let unhandled = is_unhandled(&payload_json);
+            let platform = payload_json
+                .get("platform")
+                .and_then(Value::as_str)
+                .map(str::to_string);
             apply_privacy_policy(
                 &mut payload_json,
                 PrivacyPolicy {
                     store_end_user_identifiers: store_identifiers,
                 },
             );
+            let stored_event = project_event(&payload_json, &now.to_rfc3339());
+            let culprit = culprit_from_event(&stored_event);
+            payload_json = stored_event;
             let breadcrumbs = extract_breadcrumbs(&payload_json);
             let breadcrumbs_json = breadcrumbs_to_json(&breadcrumbs);
             let metadata = normalize_metadata(
@@ -282,8 +298,13 @@ async fn process_job(
                 .get("release")
                 .and_then(Value::as_str)
                 .map(str::to_string);
+            let username = payload_json
+                .pointer("/user/username")
+                .and_then(Value::as_str)
+                .map(str::to_string);
             let user_key =
-                unique_users::user_key(metadata.user_id.as_deref(), metadata.user_email.as_deref());
+                unique_users::user_key(metadata.user_id.as_deref(), metadata.user_email.as_deref())
+                    .or(username);
 
             let outcome = persist::persist_store_event(
                 pool,
@@ -301,6 +322,12 @@ async fn process_job(
                         release: release.clone(),
                         occurred_at: now,
                         increment_by: 1,
+                        rollup: issues::IssueRollup {
+                            culprit,
+                            platform,
+                            is_unhandled: unhandled,
+                            latest_event_id: Some(event_id),
+                        },
                         grouping: Some(issues::IssueGrouping::hashes(
                             hash_to_i64(multi.h_exact),
                             hash_to_i64(multi.h_locus),

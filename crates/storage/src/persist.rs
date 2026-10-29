@@ -49,6 +49,7 @@ pub async fn persist_counter_only(
             occurred_at: params.occurred_at,
             increment_by: 1,
             grouping: None,
+            rollup: crate::issues::IssueRollup::default(),
         },
     )
     .await?;
@@ -110,6 +111,7 @@ pub async fn persist_counter_delta(
                 ),
                 spike_coalesced_delta: params.count_delta,
             }),
+            rollup: crate::issues::IssueRollup::default(),
         },
     )
     .await?;
@@ -199,6 +201,27 @@ pub async fn upsert_issue_in_tx(
         variants: serde_json::Value::Array(Vec::new()),
         spike_coalesced_delta: 0,
     });
+    let existing_number = sqlx::query_scalar::<_, Option<i64>>(
+        r#"
+        SELECT issue_number
+        FROM issues
+        WHERE project_id = $1 AND fingerprint = $2 AND merge_parent_id IS NULL
+        "#,
+    )
+    .bind(params.project_id)
+    .bind(&params.fingerprint)
+    .fetch_optional(&mut **tx)
+    .await?;
+    let issue_number = if matches!(existing_number, None | Some(None)) {
+        Some(
+            sqlx::query_scalar::<_, i64>("SELECT next_issue_number($1)")
+                .bind(params.project_id)
+                .fetch_one(&mut **tx)
+                .await?,
+        )
+    } else {
+        None
+    };
     let merge_reason = grouping.merge_reason.unwrap_or_default();
     let anchor = grouping
         .grouping_anchor
@@ -224,7 +247,17 @@ pub async fn upsert_issue_in_tx(
             merge_reason,
             grouping_anchor,
             coalesced_variants,
-            spike_coalesced
+            spike_coalesced,
+            culprit,
+            platform,
+            is_unhandled,
+            first_release,
+            last_release,
+            latest_event_id,
+            environments,
+            issue_number,
+            priority,
+            priority_score
         )
         VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $8, $9,
@@ -232,7 +265,12 @@ pub async fn upsert_issue_in_tx(
             COALESCE(NULLIF($14, ''), 'exact_stack'),
             COALESCE($15, '{}'::jsonb),
             COALESCE($16, '[]'::jsonb),
-            $17
+            $17,
+            $18, $19, $20, $7, $7, $21,
+            CASE WHEN $6 IS NULL THEN '[]'::jsonb ELSE jsonb_build_array($6) END,
+            $22,
+            issue_priority_label(issue_priority_score($5, $20, 'unresolved', $9, 0)),
+            issue_priority_score($5, $20, 'unresolved', $9, 0)
         )
         ON CONFLICT (project_id, fingerprint) WHERE merge_parent_id IS NULL
         DO UPDATE SET
@@ -255,6 +293,38 @@ pub async fn upsert_issue_in_tx(
                 ELSE issues.grouping_anchor
             END,
             spike_coalesced = issues.spike_coalesced + EXCLUDED.spike_coalesced,
+            culprit = COALESCE(issues.culprit, EXCLUDED.culprit),
+            platform = COALESCE(issues.platform, EXCLUDED.platform),
+            is_unhandled = issues.is_unhandled OR EXCLUDED.is_unhandled,
+            first_release = COALESCE(issues.first_release, EXCLUDED.first_release),
+            last_release = COALESCE(EXCLUDED.last_release, issues.last_release),
+            latest_event_id = COALESCE(EXCLUDED.latest_event_id, issues.latest_event_id),
+            environments = CASE
+                WHEN EXCLUDED.environment IS NULL OR issues.environments ? EXCLUDED.environment
+                    THEN issues.environments
+                ELSE issues.environments || jsonb_build_array(EXCLUDED.environment)
+            END,
+            issue_number = COALESCE(issues.issue_number, EXCLUDED.issue_number),
+            priority_score = CASE
+                WHEN issues.priority_locked OR EXCLUDED.platform IS NULL THEN issues.priority_score
+                ELSE issue_priority_score(
+                    COALESCE(EXCLUDED.level, issues.level),
+                    issues.is_unhandled OR EXCLUDED.is_unhandled,
+                    issues.status,
+                    issues.event_count + EXCLUDED.event_count,
+                    issues.unique_user_count
+                )
+            END,
+            priority = CASE
+                WHEN issues.priority_locked OR EXCLUDED.platform IS NULL THEN issues.priority
+                ELSE issue_priority_label(issue_priority_score(
+                    COALESCE(EXCLUDED.level, issues.level),
+                    issues.is_unhandled OR EXCLUDED.is_unhandled,
+                    issues.status,
+                    issues.event_count + EXCLUDED.event_count,
+                    issues.unique_user_count
+                ))
+            END,
             coalesced_variants = (
                 SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
                 FROM (
@@ -288,6 +358,11 @@ pub async fn upsert_issue_in_tx(
     .bind(&anchor)
     .bind(&grouping.variants)
     .bind(grouping.spike_coalesced_delta)
+    .bind(&params.rollup.culprit)
+    .bind(&params.rollup.platform)
+    .bind(params.rollup.is_unhandled)
+    .bind(params.rollup.latest_event_id)
+    .bind(issue_number)
     .fetch_one(&mut **tx)
     .await
 }
@@ -398,20 +473,22 @@ async fn record_unique_user_in_tx(
     issue_id: Uuid,
     user_key: &str,
 ) -> Result<bool, sqlx::Error> {
-    let inserted = sqlx::query_scalar::<_, Uuid>(
+    let inserted = sqlx::query_scalar::<_, bool>(
         r#"
-        INSERT INTO issue_unique_users (issue_id, user_key)
-        VALUES ($1, $2)
-        ON CONFLICT DO NOTHING
-        RETURNING issue_id
+        INSERT INTO issue_unique_users (issue_id, user_key, first_seen_at, last_seen_at, event_count)
+        VALUES ($1, $2, now(), now(), 1)
+        ON CONFLICT (issue_id, user_key) DO UPDATE
+        SET last_seen_at = now(),
+            event_count = issue_unique_users.event_count + 1
+        RETURNING (xmax = 0)
         "#,
     )
     .bind(issue_id)
     .bind(user_key)
-    .fetch_optional(&mut **tx)
+    .fetch_one(&mut **tx)
     .await?;
 
-    if inserted.is_some() {
+    if inserted {
         sqlx::query(
             r#"
             UPDATE issues

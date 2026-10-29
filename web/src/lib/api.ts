@@ -23,6 +23,19 @@ export interface IssueSummary {
   spike_coalesced?: number;
   /** Up to five sampled caller or message variants kept on the parent issue. */
   coalesced_variants?: string[];
+  culprit?: string | null;
+  platform?: string | null;
+  is_unhandled?: boolean;
+  first_release?: string | null;
+  last_release?: string | null;
+  resolved_at?: string | null;
+  regressed_count?: number;
+  latest_event_id?: string | null;
+  environments?: string[];
+  issue_number?: number | null;
+  priority?: string;
+  priority_score?: number;
+  priority_locked?: boolean;
   came_back?: boolean;
   affected_users_count?: number;
   velocity_24h?: number;

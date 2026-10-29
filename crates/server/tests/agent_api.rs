@@ -254,6 +254,7 @@ async fn seed_org_b_issue(pool: &PgPool) {
             occurred_at: chrono::Utc::now(),
             increment_by: 1,
             grouping: None,
+            rollup: epure_storage::issues::IssueRollup::default(),
         },
     )
     .await
@@ -476,6 +477,7 @@ async fn seed_dev_issue(pool: &PgPool) -> Uuid {
             occurred_at: chrono::Utc::now(),
             increment_by: 1,
             grouping: None,
+            rollup: epure_storage::issues::IssueRollup::default(),
         },
     )
     .await

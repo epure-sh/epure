@@ -703,6 +703,7 @@ dependencies = [
 name = "epure-envelope"
 version = "0.1.7"
 dependencies = [
+ "chrono",
  "flate2",
  "hex",
  "memchr",

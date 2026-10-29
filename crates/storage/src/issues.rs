@@ -14,6 +14,16 @@ pub struct UpsertIssueParams {
     pub occurred_at: DateTime<Utc>,
     pub increment_by: i64,
     pub grouping: Option<IssueGrouping>,
+    pub rollup: IssueRollup,
+}
+
+/// Fields maintained on the issue from each stored occurrence.
+#[derive(Debug, Clone, Default)]
+pub struct IssueRollup {
+    pub culprit: Option<String>,
+    pub platform: Option<String>,
+    pub is_unhandled: bool,
+    pub latest_event_id: Option<Uuid>,
 }
 
 /// Signatures written beside the issue key. Hashes use the PostgreSQL BIGINT bit pattern.
@@ -221,6 +231,19 @@ pub struct IssueSummary {
     pub merge_reason: String,
     pub spike_coalesced: i64,
     pub coalesced_variants: Value,
+    pub culprit: Option<String>,
+    pub platform: Option<String>,
+    pub is_unhandled: bool,
+    pub first_release: Option<String>,
+    pub last_release: Option<String>,
+    pub resolved_at: Option<DateTime<Utc>>,
+    pub regressed_count: i32,
+    pub latest_event_id: Option<Uuid>,
+    pub environments: Value,
+    pub issue_number: Option<i64>,
+    pub priority: String,
+    pub priority_score: i32,
+    pub priority_locked: bool,
 }
 
 pub const SNOOZE_ACTIVE_SQL: &str = r#"
@@ -256,7 +279,20 @@ const ISSUE_SUMMARY_COLUMNS: &str = r#"
     ) AS snoozed,
     merge_reason,
     spike_coalesced,
-    coalesced_variants
+    coalesced_variants,
+    culprit,
+    platform,
+    is_unhandled,
+    first_release,
+    last_release,
+    resolved_at,
+    regressed_count,
+    latest_event_id,
+    environments,
+    issue_number,
+    priority,
+    priority_score,
+    priority_locked
 "#;
 
 pub async fn list_issue_summaries(
@@ -632,8 +668,10 @@ pub async fn mark_regression(
     sqlx::query(
         r#"
         UPDATE issues
-        SET status = 'regression'
-        WHERE id = $1 AND merge_parent_id IS NULL
+        SET status = 'regression',
+            regressed_count = regressed_count + 1,
+            resolved_at = NULL
+        WHERE id = $1 AND merge_parent_id IS NULL AND status = 'resolved'
         "#,
     )
     .bind(issue_id)
@@ -660,7 +698,15 @@ pub async fn update_issue(
         UPDATE issues
         SET
             status = COALESCE($2, status),
-            resolved_in_release = COALESCE($3, resolved_in_release),
+            resolved_in_release = CASE
+                WHEN $2 = 'unresolved' OR $2 = 'regression' THEN NULL
+                ELSE COALESCE($3, resolved_in_release)
+            END,
+            resolved_at = CASE
+                WHEN $2 = 'resolved' THEN COALESCE(resolved_at, now())
+                WHEN $2 IN ('unresolved', 'regression') THEN NULL
+                ELSE resolved_at
+            END,
             snooze_until = CASE WHEN $2 IS NOT NULL THEN NULL ELSE snooze_until END,
             snooze_until_count = CASE WHEN $2 IS NOT NULL THEN NULL ELSE snooze_until_count END,
             snooze_until_users = CASE WHEN $2 IS NOT NULL THEN NULL ELSE snooze_until_users END,
