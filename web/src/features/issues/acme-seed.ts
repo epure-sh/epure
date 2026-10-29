@@ -27,7 +27,8 @@ export const ACME_SEED_ISSUES: IssueSummary[] = [
     affected_users_count: 420,
     velocity_24h: 9420,
     is_escalating_3d: true,
-    priority_score: "critical",
+    priority: "critical",
+    priority_score: 92,
   },
   {
     id: "acme-issue-002",
@@ -52,7 +53,8 @@ export const ACME_SEED_ISSUES: IssueSummary[] = [
     affected_users_count: 189,
     velocity_24h: 1250,
     is_escalating_3d: true,
-    priority_score: "high",
+    priority: "high",
+    priority_score: 64,
   },
   {
     id: "acme-issue-003",
@@ -77,7 +79,8 @@ export const ACME_SEED_ISSUES: IssueSummary[] = [
     affected_users_count: 310,
     velocity_24h: 320,
     is_escalating_3d: false,
-    priority_score: "critical",
+    priority: "critical",
+    priority_score: 92,
   },
   {
     id: "acme-issue-004",
@@ -102,7 +105,8 @@ export const ACME_SEED_ISSUES: IssueSummary[] = [
     affected_users_count: 12,
     velocity_24h: 18,
     is_escalating_3d: false,
-    priority_score: "low",
+    priority: "low",
+    priority_score: 12,
   },
   {
     id: "acme-issue-005",
@@ -127,7 +131,8 @@ export const ACME_SEED_ISSUES: IssueSummary[] = [
     affected_users_count: 4,
     velocity_24h: 0,
     is_escalating_3d: false,
-    priority_score: "low",
+    priority: "low",
+    priority_score: 12,
   },
   {
     id: "acme-issue-006",
@@ -152,7 +157,8 @@ export const ACME_SEED_ISSUES: IssueSummary[] = [
     affected_users_count: 3,
     velocity_24h: 42,
     is_escalating_3d: true,
-    priority_score: "medium",
+    priority: "medium",
+    priority_score: 36,
   },
   {
     id: "acme-issue-007",
@@ -177,7 +183,8 @@ export const ACME_SEED_ISSUES: IssueSummary[] = [
     affected_users_count: 230,
     velocity_24h: 1400,
     is_escalating_3d: true,
-    priority_score: "high",
+    priority: "high",
+    priority_score: 64,
   },
   {
     id: "acme-issue-008",
@@ -202,7 +209,8 @@ export const ACME_SEED_ISSUES: IssueSummary[] = [
     affected_users_count: 14,
     velocity_24h: 22,
     is_escalating_3d: false,
-    priority_score: "medium",
+    priority: "medium",
+    priority_score: 36,
   },
   {
     id: "acme-issue-009",
@@ -227,7 +235,8 @@ export const ACME_SEED_ISSUES: IssueSummary[] = [
     affected_users_count: 2,
     velocity_24h: 15,
     is_escalating_3d: false,
-    priority_score: "low",
+    priority: "low",
+    priority_score: 12,
   },
   {
     id: "acme-issue-010",
@@ -252,7 +261,8 @@ export const ACME_SEED_ISSUES: IssueSummary[] = [
     affected_users_count: 95,
     velocity_24h: 0,
     is_escalating_3d: false,
-    priority_score: "medium",
+    priority: "medium",
+    priority_score: 36,
   },
   {
     id: "acme-issue-011",
@@ -277,7 +287,8 @@ export const ACME_SEED_ISSUES: IssueSummary[] = [
     affected_users_count: 85,
     velocity_24h: 310,
     is_escalating_3d: true,
-    priority_score: "high",
+    priority: "high",
+    priority_score: 64,
   },
   {
     id: "acme-issue-012",
@@ -302,7 +313,8 @@ export const ACME_SEED_ISSUES: IssueSummary[] = [
     affected_users_count: 2,
     velocity_24h: 6,
     is_escalating_3d: false,
-    priority_score: "low",
+    priority: "low",
+    priority_score: 12,
   },
 ];
 

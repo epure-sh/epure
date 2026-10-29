@@ -14,7 +14,7 @@ use epure_auth::{ApiPatAuth, DashboardSession};
 use epure_storage::agent_queue::{self, AgentQueueParams, AGENT_QUEUE_DEFAULT, AGENT_QUEUE_MAX};
 use epure_storage::alerts::{self, AlertListFilter};
 use epure_storage::events;
-use epure_storage::issues::{self, IssueSummary, SnoozeMode, TimeWindow, UpdateIssueParams};
+use epure_storage::issues::{self, IssueSummary, TimeWindow, UpdateIssueParams};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -256,12 +256,7 @@ async fn snooze_issue(
     Path(id): Path<Uuid>,
     Json(body): Json<SnoozeBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let mode = match body.mode.as_str() {
-        "hours" | "4h" => SnoozeMode::Hours4,
-        "occurrences" | "100" => SnoozeMode::Occurrences100,
-        "users" | "10" => SnoozeMode::Users10,
-        _ => return Err(StatusCode::BAD_REQUEST),
-    };
+    let mode = issues::parse_snooze_mode(&body.mode).ok_or(StatusCode::BAD_REQUEST)?;
 
     let row = issues::apply_snooze(&state.pools.app, dashboard.org_id, id, mode)
         .await

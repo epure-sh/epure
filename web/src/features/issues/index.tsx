@@ -639,7 +639,7 @@ export function IssuesPage() {
                 onResolve={handleResolve}
                 onReopen={handleReopen}
                 onIgnore={handleIgnore}
-                onSnooze={(id) => void handleSnooze("hours", id)}
+                onSnooze={(id) => void handleSnooze("4h", id)}
                 onUnsnooze={(id) => void handleUnsnooze(id)}
                 actionsDisabled={actionsDisabled}
                 onMoveSelection={handleMoveSelection}

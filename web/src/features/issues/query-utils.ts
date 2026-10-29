@@ -56,7 +56,8 @@ export type IssueSortValue =
   | "events_asc"
   | "first_seen_desc"
   | "first_seen_asc"
-  | "title_asc";
+  | "title_asc"
+  | "priority_desc";
 
 export const DEFAULT_ISSUE_SORT: IssueSortValue = "last_seen_desc";
 
@@ -64,6 +65,7 @@ export const ISSUE_SORT_OPTIONS: ReadonlyArray<{
   value: IssueSortValue;
   label: string;
 }> = [
+  { value: "priority_desc", label: "Most critical" },
   { value: "last_seen_desc", label: "Last seen (newest first)" },
   { value: "last_seen_asc", label: "Last seen (oldest first)" },
   { value: "events_desc", label: "Most events" },
@@ -103,6 +105,8 @@ export function getIssueSortShortLabel(value: IssueSortValue): string {
       return "Age";
     case "title_asc":
       return "Title";
+    case "priority_desc":
+      return "Priority";
     default:
       return "Last seen";
   }

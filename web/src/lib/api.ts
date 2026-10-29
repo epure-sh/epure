@@ -36,11 +36,12 @@ export interface IssueSummary {
   priority?: string;
   priority_score?: number;
   priority_locked?: boolean;
+  /** spike, ramp, regression, spread, new, steady, trickle, noise, or stale. */
+  priority_pattern?: string | null;
   came_back?: boolean;
   affected_users_count?: number;
   velocity_24h?: number;
   is_escalating_3d?: boolean;
-  priority_score?: string;
 }
 
 export interface TimelineBucket {
@@ -190,7 +191,15 @@ export async function patchIssue(
   });
 }
 
-export type SnoozeMode = "hours" | "occurrences" | "users";
+export type SnoozeMode =
+  | "1h"
+  | "4h"
+  | "1d"
+  | "7d"
+  | "30d"
+  | "90d"
+  | "occurrences"
+  | "users";
 
 export async function snoozeIssue(id: string, mode: SnoozeMode): Promise<IssueSummary> {
   return apiFetch<IssueSummary>(`/api/v1/issues/${id}/snooze`, {

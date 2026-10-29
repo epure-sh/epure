@@ -21,33 +21,59 @@ export function canSnoozeIssue(issue: Pick<IssueSummary, "status" | "snoozed">):
   );
 }
 
+const SNOOZE_HOURS: Record<Exclude<SnoozeMode, "occurrences" | "users">, number> = {
+  "1h": 1,
+  "4h": 4,
+  "1d": 24,
+  "7d": 24 * 7,
+  "30d": 24 * 30,
+  "90d": 24 * 90,
+};
+
 export function applyOptimisticSnooze(issue: IssueSummary, mode: SnoozeMode): IssueSummary {
-  switch (mode) {
-    case "hours":
-      return {
-        ...issue,
-        snoozed: true,
-        snooze_until: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
-        snooze_until_count: null,
-        snooze_until_users: null,
-      };
-    case "occurrences":
-      return {
-        ...issue,
-        snoozed: true,
-        snooze_until: null,
-        snooze_until_count: issue.event_count + 100,
-        snooze_until_users: null,
-      };
-    case "users":
-      return {
-        ...issue,
-        snoozed: true,
-        snooze_until: null,
-        snooze_until_count: null,
-        snooze_until_users: issue.unique_user_count + 10,
-      };
+  if (mode === "occurrences") {
+    return {
+      ...issue,
+      snoozed: true,
+      snooze_until: null,
+      snooze_until_count: issue.event_count + 100,
+      snooze_until_users: null,
+    };
   }
+  if (mode === "users") {
+    return {
+      ...issue,
+      snoozed: true,
+      snooze_until: null,
+      snooze_until_count: null,
+      snooze_until_users: issue.unique_user_count + 10,
+    };
+  }
+  return {
+    ...issue,
+    snoozed: true,
+    snooze_until: new Date(Date.now() + SNOOZE_HOURS[mode] * 60 * 60 * 1000).toISOString(),
+    snooze_until_count: null,
+    snooze_until_users: null,
+  };
+}
+
+/** Closest menu duration for an undo after someone unsnoozes. */
+export function snoozeModeFromIssue(issue: Pick<IssueSummary, "snooze_until" | "snooze_until_count" | "snooze_until_users">): SnoozeMode {
+  if (issue.snooze_until_count != null) {
+    return "occurrences";
+  }
+  if (issue.snooze_until_users != null) {
+    return "users";
+  }
+  const until = issue.snooze_until ? Date.parse(issue.snooze_until) : Number.NaN;
+  const hours = Number.isFinite(until) ? (until - Date.now()) / 3_600_000 : 4;
+  if (hours <= 2) return "1h";
+  if (hours <= 8) return "4h";
+  if (hours <= 36) return "1d";
+  if (hours <= 24 * 10) return "7d";
+  if (hours <= 24 * 45) return "30d";
+  return "90d";
 }
 
 const LIST_STATUSES = new Set(["unresolved", "resolved", "ignored", "regression"]);

@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Timelike, Utc};
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
@@ -64,6 +64,7 @@ pub async fn persist_counter_only(
         },
     )
     .await?;
+    refresh_issue_priority_in_tx(&mut tx, issue_id, Utc::now()).await?;
     tx.commit().await?;
     Ok((prior, issue_id))
 }
@@ -126,6 +127,7 @@ pub async fn persist_counter_delta(
         },
     )
     .await?;
+    refresh_issue_priority_in_tx(&mut tx, issue_id, Utc::now()).await?;
     tx.commit().await?;
     Ok(issue_id)
 }
@@ -160,6 +162,7 @@ pub async fn persist_store_event(
     event.issue_id = issue_id;
     insert_event_in_tx(&mut tx, &event).await?;
     sync_counter_in_tx(&mut tx, params.counter).await?;
+    refresh_issue_priority_in_tx(&mut tx, issue_id, Utc::now()).await?;
     tx.commit().await?;
 
     Ok(PersistOutcome {
@@ -269,8 +272,8 @@ pub async fn upsert_issue_in_tx(
             $18, $19, $20, $7, $7, $21,
             CASE WHEN $6 IS NULL THEN '[]'::jsonb ELSE jsonb_build_array($6) END,
             $22,
-            issue_priority_label(issue_priority_score($5, $20, 'unresolved', $9, 0)),
-            issue_priority_score($5, $20, 'unresolved', $9, 0)
+            'low',
+            0
         )
         ON CONFLICT (project_id, fingerprint) WHERE merge_parent_id IS NULL
         DO UPDATE SET
@@ -305,26 +308,6 @@ pub async fn upsert_issue_in_tx(
                 ELSE issues.environments || jsonb_build_array(EXCLUDED.environment)
             END,
             issue_number = COALESCE(issues.issue_number, EXCLUDED.issue_number),
-            priority_score = CASE
-                WHEN issues.priority_locked OR EXCLUDED.platform IS NULL THEN issues.priority_score
-                ELSE issue_priority_score(
-                    COALESCE(EXCLUDED.level, issues.level),
-                    issues.is_unhandled OR EXCLUDED.is_unhandled,
-                    issues.status,
-                    issues.event_count + EXCLUDED.event_count,
-                    issues.unique_user_count
-                )
-            END,
-            priority = CASE
-                WHEN issues.priority_locked OR EXCLUDED.platform IS NULL THEN issues.priority
-                ELSE issue_priority_label(issue_priority_score(
-                    COALESCE(EXCLUDED.level, issues.level),
-                    issues.is_unhandled OR EXCLUDED.is_unhandled,
-                    issues.status,
-                    issues.event_count + EXCLUDED.event_count,
-                    issues.unique_user_count
-                ))
-            END,
             coalesced_variants = (
                 SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
                 FROM (
@@ -503,4 +486,123 @@ async fn record_unique_user_in_tx(
     } else {
         Ok(false)
     }
+}
+
+async fn refresh_issue_priority_in_tx(
+    tx: &mut Transaction<'_, Postgres>,
+    issue_id: Uuid,
+    now: DateTime<Utc>,
+) -> Result<(), sqlx::Error> {
+    #[derive(sqlx::FromRow)]
+    struct PriorityRow {
+        level: Option<String>,
+        is_unhandled: bool,
+        status: String,
+        event_count: i64,
+        unique_user_count: i32,
+        environment: Option<String>,
+        environment_count: i32,
+        first_seen_at: Option<DateTime<Utc>>,
+        last_seen_at: Option<DateTime<Utc>>,
+        regressed_count: i32,
+        priority_locked: bool,
+        project_id: Uuid,
+        fingerprint: String,
+    }
+
+    let Some(row) = sqlx::query_as::<_, PriorityRow>(
+        r#"
+        SELECT
+            level,
+            is_unhandled,
+            status,
+            event_count,
+            unique_user_count,
+            environment,
+            jsonb_array_length(environments)::int AS environment_count,
+            first_seen_at,
+            last_seen_at,
+            regressed_count,
+            priority_locked,
+            project_id,
+            fingerprint
+        FROM issues
+        WHERE id = $1
+        "#,
+    )
+    .bind(issue_id)
+    .fetch_optional(&mut **tx)
+    .await?
+    else {
+        return Ok(());
+    };
+    if row.priority_locked {
+        return Ok(());
+    }
+
+    let points: Vec<(DateTime<Utc>, i64)> = sqlx::query_as(
+        r#"
+        SELECT window_start, count
+        FROM issue_counters
+        WHERE project_id = $1 AND fingerprint = $2 AND window_start >= $3
+        ORDER BY window_start ASC
+        "#,
+    )
+    .bind(row.project_id)
+    .bind(&row.fingerprint)
+    .bind(now - chrono::Duration::hours(24))
+    .fetch_all(&mut **tx)
+    .await?;
+    let hours = dense_hours(&points, now);
+    let assessment = crate::issue_state::assess_priority(&crate::issue_state::PrioritySignals {
+        level: row.level.as_deref(),
+        unhandled: row.is_unhandled,
+        status: &row.status,
+        event_count: row.event_count,
+        user_count: row.unique_user_count,
+        environment: row.environment.as_deref(),
+        environment_count: row.environment_count,
+        first_seen: row.first_seen_at,
+        last_seen: row.last_seen_at,
+        regressed_count: row.regressed_count,
+        hourly_counts: &hours,
+        now,
+    });
+
+    sqlx::query(
+        r#"
+        UPDATE issues
+        SET priority_score = $2,
+            priority = $3,
+            priority_pattern = $4
+        WHERE id = $1 AND priority_locked = false
+        "#,
+    )
+    .bind(issue_id)
+    .bind(assessment.score)
+    .bind(assessment.label)
+    .bind(assessment.pattern)
+    .execute(&mut **tx)
+    .await?;
+    Ok(())
+}
+
+fn dense_hours(points: &[(DateTime<Utc>, i64)], now: DateTime<Utc>) -> Vec<i64> {
+    let end = hour_floor(now);
+    let mut counts = vec![0_i64; 24];
+    for (start, count) in points {
+        let ago = (end - hour_floor(*start)).num_hours();
+        if (0..24).contains(&ago) {
+            let index = (23 - ago) as usize;
+            counts[index] = counts[index].saturating_add(*count);
+        }
+    }
+    counts
+}
+
+fn hour_floor(time: DateTime<Utc>) -> DateTime<Utc> {
+    time.date_naive()
+        .and_hms_opt(time.hour(), 0, 0)
+        .map(|naive| naive.and_utc())
+        .unwrap_or(time)
 }

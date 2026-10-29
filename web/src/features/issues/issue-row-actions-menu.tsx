@@ -24,12 +24,7 @@ import {
 } from "@/components/ui/icon";
 import type { BulkTriageAvailability } from "./issue-triage-utils";
 import { bulkTriageAvailability, canSnoozeIssue } from "./issue-triage-utils";
-
-const SNOOZE_OPTIONS: { mode: SnoozeMode; label: string }[] = [
-  { mode: "hours", label: "4 hours" },
-  { mode: "occurrences", label: "100 more occurrences" },
-  { mode: "users", label: "10 more users" },
-];
+import { SnoozeMenuItems } from "./snooze-menu";
 
 export interface IssueRowActionsMenuProps {
   issue: IssueSummary;
@@ -144,15 +139,7 @@ export function IssueRowActionsMenu({
               Snooze
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
-              {SNOOZE_OPTIONS.map((option) => (
-                <DropdownMenuItem
-                  key={option.mode}
-                  disabled={busy}
-                  onSelect={() => onSnooze(option.mode, ids)}
-                >
-                  {option.label}
-                </DropdownMenuItem>
-              ))}
+              <SnoozeMenuItems pending={busy} onSelect={(mode) => onSnooze(mode, ids)} />
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         ) : null}
@@ -164,15 +151,7 @@ export function IssueRowActionsMenu({
               Snooze
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
-              {SNOOZE_OPTIONS.map((option) => (
-                <DropdownMenuItem
-                  key={option.mode}
-                  disabled={busy}
-                  onSelect={() => onSnooze(option.mode, ids)}
-                >
-                  {option.label}
-                </DropdownMenuItem>
-              ))}
+              <SnoozeMenuItems pending={busy} onSelect={(mode) => onSnooze(mode, ids)} />
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         ) : null}

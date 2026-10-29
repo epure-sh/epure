@@ -17,10 +17,22 @@ const PRIORITY_BARS: Record<IssuePriority, number> = {
   low: 1,
 };
 
+const PRIORITY_SET = new Set<IssuePriority>(["critical", "high", "medium", "low"]);
+
+function isIssuePriority(value: string | null | undefined): value is IssuePriority {
+  return PRIORITY_SET.has(value as IssuePriority);
+}
+
+/** Prefer the score stored on the issue. Fall back to level and status for rows not scored yet. */
 export function resolveIssuePriority(
   level?: string | null,
   status?: string | null,
+  stored?: { priority?: string | null; priority_score?: number | null },
 ): IssuePriority {
+  if (isIssuePriority(stored?.priority) && (stored?.priority_score ?? 0) > 0) {
+    return stored.priority;
+  }
+
   if (status === "regression") {
     return "critical";
   }

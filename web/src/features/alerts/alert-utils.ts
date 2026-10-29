@@ -2034,6 +2034,7 @@ export function issueSortToAlertSort(sort: IssueSortValue): AlertSort {
     case "first_seen_asc":
       return "oldest";
     case "events_desc":
+    case "priority_desc":
       return "severity";
     default:
       return "newest";

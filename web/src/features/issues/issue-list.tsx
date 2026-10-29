@@ -378,7 +378,7 @@ export function IssueList({
           const trendStatus = inferTrendStatus(issue, buckets);
           const isEscalating = Boolean(issue.is_escalating_3d || trendStatus === "escalating");
           const windowEvents = buckets.reduce((sum, bucket) => sum + bucket.count, 0);
-          const priority = resolveIssuePriority(issue.level, issue.status);
+          const priority = resolveIssuePriority(issue.level, issue.status, issue);
           const lifecycleKinds = issueInboxLifecycleKinds(issue);
           return (
             <div key={issue.id} data-issue-id={issue.id}>

@@ -64,7 +64,10 @@ describe("use-issue-triage-machine semantics", () => {
     assert.equal(userSnooze.snoozed, true);
     assert.equal(userSnooze.snooze_until_users, 12);
 
-    const hourSnooze = applyOptimisticSnooze(original, "hours");
+    const hourSnooze = applyOptimisticSnooze(original, "4h");
+    const monthSnooze = applyOptimisticSnooze(original, "30d");
+    assert.equal(monthSnooze.snoozed, true);
+    assert.ok(monthSnooze.snooze_until);
     assert.equal(hourSnooze.snoozed, true);
     assert.ok(hourSnooze.snooze_until);
   });

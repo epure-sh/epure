@@ -94,7 +94,8 @@ enum TriageCommands {
     },
     Snooze {
         issue_id: String,
-        #[arg(long, default_value = "hours")]
+        /// 1h, 4h, 1d, 7d, 30d, 90d, occurrences, or users. Time snoozes hold while events keep arriving.
+        #[arg(long, default_value = "4h")]
         mode: String,
     },
 }

@@ -38,6 +38,7 @@ import {
   canResolveIssue,
   canSnoozeIssue,
   headlineStatsDelta,
+  snoozeModeFromIssue,
   issueMatchesParsedQuery,
   type HeadlineStatsDelta,
 } from "./issue-triage-utils";
@@ -98,7 +99,7 @@ function issueMatchesClientRefiners(
     if (!escalating) return false;
   }
   if (parsed.priority) {
-    if (resolveIssuePriority(issue.level, issue.status) !== parsed.priority) {
+    if (resolveIssuePriority(issue.level, issue.status, issue) !== parsed.priority) {
       return false;
     }
   }
@@ -918,11 +919,7 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
         snooze_until_count: null,
         snooze_until_users: null,
       };
-      const previousMode: SnoozeMode = current.snooze_until_count
-        ? "occurrences"
-        : current.snooze_until_users
-          ? "users"
-          : "hours";
+      const previousMode = snoozeModeFromIssue(current);
 
       toast.success("Issue unsnoozed", {
         action: {
