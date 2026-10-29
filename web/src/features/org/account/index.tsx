@@ -17,7 +17,7 @@ export function AccountSettingsPage() {
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <WorkspaceSettingsNav />
 
-        <div className="min-w-0 flex-1 overflow-auto bg-canvas p-4 md:p-6">
+        <div className="min-w-0 flex-1 overflow-auto epure-page-gutter-x py-6">
           <div className="mx-auto max-w-default space-y-4">
             <RouteErrorBoundary title="Account Settings error" backHref="/settings">
               <Routes>

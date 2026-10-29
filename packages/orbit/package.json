@@ -1,0 +1,75 @@
+{
+  "name": "@polar-sh/orbit",
+  "version": "0.1.0",
+  "description": "Orbit — Design system for Polar (vendored for Epure)",
+  "author": "Polar",
+  "license": "Apache-2.0",
+  "type": "module",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/polarsource/polar.git",
+    "directory": "clients/packages/orbit"
+  },
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./src/index.ts"
+    },
+    "./theme": {
+      "types": "./dist/tokens/tokens.stylex.d.ts",
+      "default": "./src/tokens/tokens.stylex.ts"
+    },
+    "./icons": {
+      "types": "./dist/icons/index.d.ts",
+      "default": "./src/icons/index.ts"
+    },
+    "./*": {
+      "types": "./dist/components/*.d.ts",
+      "default": "./src/components/*.tsx"
+    }
+  },
+  "files": [
+    "src",
+    "dist",
+    "LICENSE",
+    "NOTICE",
+    "VENDOR.md"
+  ],
+  "scripts": {
+    "build:types": "tsc -p tsconfig.declarations.json",
+    "prepare": "npm run build:types",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.11",
+    "@mui/material": "^7.3.11",
+    "@radix-ui/react-checkbox": "^1.4.1",
+    "@radix-ui/react-select": "^2.4.1",
+    "@radix-ui/react-slot": "^1.5.0",
+    "@radix-ui/react-switch": "^1.4.1",
+    "@radix-ui/react-tabs": "^1.2.1",
+    "@radix-ui/react-tooltip": "^1.4.1",
+    "@stylexjs/stylex": "0.18.3",
+    "@tanstack/react-table": "^9.2.4",
+    "class-variance-authority": "^0.7.1",
+    "lucide-react": "^0.577.0",
+    "motion": "^12.43.0",
+    "react-focus-lock": "^2.13.7",
+    "tailwind-merge": "^3.7.0"
+  },
+  "peerDependencies": {
+    "react": "^18 || ^19",
+    "react-dom": "^18 || ^19"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "typescript": "^5.9.2"
+  }
+}

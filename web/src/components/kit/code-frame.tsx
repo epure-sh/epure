@@ -1,9 +1,10 @@
-// src/components/kit/code-frame.tsx
+// src/components/kit/code-frame.tsx — Phase 4: Orbit Box/Text chrome (Shiki body kept)
 import * as React from "react";
 import { codeToHtml } from "shiki";
+import { Box } from "@polar-sh/orbit/Box";
+import { Text } from "@polar-sh/orbit/Text";
 import { Button } from "@/components/ui/button";
 import { Check, Copy } from "@/components/ui/icon";
-import { cn } from "@/lib/utils";
 
 export interface CodeFrameProps {
   code: string;
@@ -22,12 +23,28 @@ export function CodeFrame({
 }: CodeFrameProps) {
   const [highlightedHtml, setHighlightedHtml] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
+  const [theme, setTheme] = React.useState<"vitesse-dark" | "vitesse-light">("vitesse-dark");
+
+  React.useEffect(() => {
+    const root = document.documentElement;
+    const resolve = () => {
+      const mode =
+        root.getAttribute("data-theme") === "light" || root.classList.contains("light")
+          ? "vitesse-light"
+          : "vitesse-dark";
+      setTheme(mode);
+    };
+    resolve();
+    const observer = new MutationObserver(resolve);
+    observer.observe(root, { attributes: true, attributeFilter: ["data-theme", "class"] });
+    return () => observer.disconnect();
+  }, []);
 
   React.useEffect(() => {
     let cancelled = false;
     codeToHtml(code, {
       lang: language,
-      theme: "vitesse-dark",
+      theme,
     })
       .then((html) => {
         if (!cancelled) {
@@ -43,7 +60,7 @@ export function CodeFrame({
     return () => {
       cancelled = true;
     };
-  }, [code, language]);
+  }, [code, language, theme]);
 
   const handleCopy = async () => {
     try {
@@ -58,63 +75,109 @@ export function CodeFrame({
   const lines = React.useMemo(() => code.split("\n"), [code]);
 
   return (
-    <div
+    <Box
       data-slot="code-frame"
-      className={cn(
-        "rounded-panel border border-border-subtle bg-canvas shadow-tactile overflow-hidden flex flex-col font-mono text-xs",
-        className
-      )}
+      borderRadius="m"
+      borderWidth={1}
+      borderStyle="solid"
+      borderColor="border-primary"
+      backgroundColor="background-primary"
+      boxShadow="s"
+      overflow="hidden"
+      flexDirection="column"
+      // eslint-disable-next-line no-restricted-syntax -- kit API className
+      className={className}
     >
-      {/* Header with filename/language and copy button */}
-      <div className="flex h-8 shrink-0 items-center justify-between border-b border-border-subtle bg-surface-1 px-3 text-[11px] text-fg-muted select-none">
-        <div className="flex items-center gap-2">
-          {filename && <span className="font-medium text-fg-primary">{filename}</span>}
-          <span className="rounded-[3px] border border-border-subtle bg-surface-2 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-fg-muted">
-            {language}
-          </span>
-        </div>
+      <Box
+        alignItems="center"
+        justifyContent="between"
+        height={32}
+        flexShrink={0}
+        borderBottomWidth={1}
+        borderStyle="solid"
+        borderColor="border-primary"
+        backgroundColor="background-card"
+        paddingHorizontal="m"
+        userSelect="none"
+      >
+        <Box alignItems="center" columnGap="s">
+          {filename ? (
+            <Text as="span" variant="label">
+              {filename}
+            </Text>
+          ) : null}
+          <Box
+            as="span"
+            borderRadius="s"
+            borderWidth={1}
+            borderStyle="solid"
+            borderColor="border-primary"
+            backgroundColor="background-secondary"
+            paddingHorizontal="xs"
+            paddingVertical="xs"
+          >
+            <Text as="span" variant="caption" color="muted" monospace>
+              {language}
+            </Text>
+          </Box>
+        </Box>
         <Button
           variant="ghost"
           size="icon-xs"
           onClick={handleCopy}
           title={copied ? "Copied" : "Copy snippet"}
         >
-          {copied ? <Check className="size-3 text-healthy" weight="bold" /> : <Copy className="size-3" />}
+          {copied ? <Check size={12} weight="bold" /> : <Copy size={12} />}
         </Button>
-      </div>
+      </Box>
 
-      {/* Code body */}
-      <div className="overflow-x-auto p-3 text-xs leading-relaxed tabular-nums">
+      <Box overflowX="auto" padding="m">
         {highlightedHtml ? (
-          <div
+          <Box
+            // Shiki HTML glue — keep pre/code styling from highlighter.
+            // eslint-disable-next-line no-restricted-syntax -- third-party shiki class hooks
             className="[&>pre]:!bg-transparent [&>pre]:!p-0 [&>pre]:!m-0 [&_code]:font-mono text-xs"
             dangerouslySetInnerHTML={{ __html: highlightedHtml }}
           />
         ) : (
-          <pre className="m-0 p-0 font-mono text-fg-secondary">
-            <code>
-              {lines.map((line, idx) => {
-                const lineNum = idx + 1;
-                const isTarget = highlightLine === lineNum;
-                return (
-                  <div
-                    key={idx}
-                    className={cn(
-                      "flex gap-3 px-1",
-                      isTarget && "bg-escalating/15 text-escalating font-semibold border-l-2 border-escalating -ml-1 pl-2"
-                    )}
-                  >
-                    <span className="w-8 shrink-0 select-none text-right font-mono text-[11px] text-fg-muted">
+          <Box flexDirection="column" color="text-secondary">
+            {lines.map((line, idx) => {
+              const lineNum = idx + 1;
+              const isTarget = highlightLine === lineNum;
+              return (
+                <Box
+                  key={idx}
+                  alignItems="start"
+                  columnGap="m"
+                  paddingHorizontal="xs"
+                  backgroundColor={isTarget ? "background-danger" : undefined}
+                  borderLeftWidth={isTarget ? 2 : 0}
+                  borderStyle={isTarget ? "solid" : undefined}
+                  borderColor={isTarget ? "border-warning" : undefined}
+                >
+                  <Box width={32} flexShrink={0}>
+                    <Text
+                      as="span"
+                      variant="caption"
+                      color="muted"
+                      monospace
+                      tabularNums
+                      align="right"
+                    >
                       {lineNum}
-                    </span>
-                    <span className="flex-1 whitespace-pre">{line || " "}</span>
-                  </div>
-                );
-              })}
-            </code>
-          </pre>
+                    </Text>
+                  </Box>
+                  <Box flex={1}>
+                    <Text as="span" variant="caption" monospace wrap="nowrap">
+                      {line || " "}
+                    </Text>
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }

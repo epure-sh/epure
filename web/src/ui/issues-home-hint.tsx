@@ -27,7 +27,7 @@ export function IssuesHomeHint({ className }: IssuesHomeHintProps) {
   return (
     <div
       className={cn(
-        "epure-home-hint flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border bg-bg-subtle/40 px-6 py-2",
+        "epure-home-hint flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border bg-bg-subtle/40 epure-page-gutter-x py-2",
         className,
       )}
     >

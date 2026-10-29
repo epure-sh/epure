@@ -1,6 +1,7 @@
 import * as React from "react";
+import { Box } from "@polar-sh/orbit/Box";
+import { Text } from "@polar-sh/orbit/Text";
 import { Button } from "@/components/ui/button";
-import { PageShell } from "@/components/kit/page-shell";
 import { useThemeMode } from "@/lib/style-theme";
 import { isPlaygroundMode } from "@/lib/deployment";
 import { Navigate } from "react-router-dom";
@@ -10,17 +11,30 @@ import {
 } from "./registry";
 import {
   DESIGN_KIT_FEATURE_UI_FACADES,
+  DESIGN_KIT_FEATURE_UI_GROUPS,
   DESIGN_KIT_FEATURE_UI_MODULES,
 } from "./feature-ui-registry";
 import { DesignKitCatalogShell } from "./design-kit-catalog-shell";
+import { DesignKitSearch, useDesignKitSearchHotkey } from "./design-kit-search";
+import {
+  CanvasArtboard,
+  DesignKitCanvas,
+  type DesignKitCanvasApi,
+} from "./design-kit-canvas";
+import { DocsEntry } from "./docs-entry";
+import { FeatureUiGroupPreviews } from "./previews/feature-ui/feature-ui-group-previews";
 import { TokensSection } from "./sections/tokens-section";
 import { TypographySection } from "./sections/typography-section";
-import { FeatureUiSection } from "./sections/feature-ui-section";
 import { ShellSection } from "./sections/shell-section";
 import { MotionSection } from "./sections/motion-section";
 import { StatesSection } from "./sections/states-section";
 import { ProductDocsSection } from "./sections/product-docs-section";
 import { AlertsSection } from "./sections/alerts-section";
+import { BrandSection } from "./sections/brand-section";
+import { LibrariesSection } from "./sections/libraries-section";
+import { A11ySection } from "./sections/a11y-section";
+import { PreviewChromeProvider } from "./preview-chrome";
+import { cn } from "@/lib/utils";
 
 const uiPreviewModules = import.meta.glob<{ default: React.ComponentType }>(
   "./previews/ui/*.preview.tsx",
@@ -39,6 +53,19 @@ function resolvePreview(
   return key ? modules[key].default : null;
 }
 
+/** Wider tiles for denser tables / shells. */
+const WIDE_TILES = new Set([
+  "table",
+  "data-table",
+  "page-shell",
+  "command-bar",
+  "filter-bar",
+  "telemetry-chart",
+  "code-frame",
+  "issue-row-shell",
+  "empty-state",
+]);
+
 function CatalogStats() {
   const total =
     DESIGN_KIT_UI_MODULES.length +
@@ -46,132 +73,326 @@ function CatalogStats() {
     DESIGN_KIT_FEATURE_UI_MODULES.length +
     DESIGN_KIT_FEATURE_UI_FACADES.length;
   return (
-    <dl className="mt-3 grid max-w-xl grid-cols-2 gap-2 sm:grid-cols-4">
+    <dl className="mt-3 grid grid-cols-2 gap-2">
       {[
-        { label: "UI primitives", value: DESIGN_KIT_UI_MODULES.length },
+        { label: "UI", value: DESIGN_KIT_UI_MODULES.length },
         { label: "Kit", value: DESIGN_KIT_KIT_MODULES.length },
-        { label: "Feature UI", value: DESIGN_KIT_FEATURE_UI_MODULES.length },
-        { label: "Total indexed", value: total },
+        { label: "Feature", value: DESIGN_KIT_FEATURE_UI_MODULES.length },
+        { label: "Indexed", value: total },
       ].map((row) => (
         <div
           key={row.label}
           className="rounded-control border border-border-subtle bg-surface-2/40 px-2.5 py-2"
         >
           <dt className="text-[10px] uppercase tracking-wide text-fg-muted">{row.label}</dt>
-          <dd className="font-mono text-lg font-semibold tabular-nums text-fg-primary">{row.value}</dd>
+          <dd className="font-mono text-lg font-semibold tabular-nums text-fg-primary">
+            {row.value}
+          </dd>
         </div>
       ))}
     </dl>
   );
 }
 
-export function DesignKitPage() {
-  const [themeMode, toggleTheme] = useThemeMode();
-  const [navFocus, setNavFocus] = React.useState("overview");
+function DistrictPin({ id, label }: { id: string; label: string }) {
+  return (
+    <div
+      id={id}
+      data-design-kit-artboard={id}
+      className="col-span-1 flex min-h-[72px] items-end"
+    >
+      <span className="rounded-control border border-accent/30 bg-accent-muted/40 px-2.5 py-1.5 font-mono text-[10px] font-semibold tracking-[0.14em] text-fg-primary uppercase">
+        {label}
+      </span>
+    </div>
+  );
+}
 
-  if (!isPlaygroundMode()) {
+type ViewMode = "docs" | "canvas";
+
+function readInitialView(): ViewMode {
+  if (typeof window === "undefined") return "docs";
+  return new URLSearchParams(window.location.search).get("view") === "canvas"
+    ? "canvas"
+    : "docs";
+}
+
+/**
+ * Phase 5 default: Orbit-style registry docs (PageHeader / Section / Example).
+ * Canvas board remains optional via Docs|Canvas toggle or `?view=canvas`.
+ */
+export function DesignKitPage() {
+  const playground = isPlaygroundMode();
+  const [themeMode, toggleTheme] = useThemeMode();
+  const [view, setView] = React.useState<ViewMode>(readInitialView);
+  const [navFocus, setNavFocus] = React.useState("overview");
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const canvasRef = React.useRef<DesignKitCanvasApi>(null);
+  const docsScrollRef = React.useRef<HTMLDivElement>(null);
+
+  const syncViewParam = React.useCallback((next: ViewMode) => {
+    setView(next);
+    if (typeof history === "undefined") return;
+    const url = new URL(window.location.href);
+    if (next === "canvas") url.searchParams.set("view", "canvas");
+    else url.searchParams.delete("view");
+    history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, []);
+
+  const focus = React.useCallback(
+    (id: string) => {
+      setNavFocus(id);
+      if (typeof history !== "undefined") {
+        const url = new URL(window.location.href);
+        url.hash = id;
+        history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+      }
+      if (view === "canvas") {
+        canvasRef.current?.focus(id);
+      } else {
+        docsScrollRef.current?.scrollTo({ top: 0 });
+      }
+    },
+    [view],
+  );
+
+  const openSearch = React.useCallback(() => setSearchOpen(true), []);
+  useDesignKitSearchHotkey(openSearch);
+
+  React.useEffect(() => {
+    if (!playground) return;
+    const applyHash = () => {
+      const hash = window.location.hash.replace(/^#/, "");
+      if (!hash) return;
+      focus(hash);
+    };
+    const t = window.setTimeout(applyHash, 120);
+    window.addEventListener("hashchange", applyHash);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("hashchange", applyHash);
+    };
+  }, [playground, focus]);
+
+  if (!playground) {
     return <Navigate to="/" replace />;
   }
 
-  const scrollTo = (id: string) => {
-    setNavFocus(id);
-    const el = document.getElementById(id);
-    el?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
   return (
-    <PageShell
-      density="full-bleed"
-      actions={
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={toggleTheme}>
+    <div className="flex h-dvh min-h-0 flex-col bg-canvas text-fg-primary">
+      <header className="relative z-30 flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-surface-1/90 px-3 backdrop-blur-sm md:px-4">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-xs font-semibold tracking-tight text-fg-primary">
+            Orbit
+          </span>
+          <span className="hidden font-mono text-[10px] text-fg-muted sm:inline">
+            Epure design system · /__design · {view === "docs" ? "docs" : "canvas"}
+          </span>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+          <div className="flex rounded-control border border-border-subtle p-0.5">
+            <Button
+              type="button"
+              variant={view === "docs" ? "secondary" : "ghost"}
+              size="xs"
+              onClick={() => syncViewParam("docs")}
+            >
+              Docs
+            </Button>
+            <Button
+              type="button"
+              variant={view === "canvas" ? "secondary" : "ghost"}
+              size="xs"
+              onClick={() => syncViewParam("canvas")}
+            >
+              Canvas
+            </Button>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            className="hidden sm:inline-flex"
+            onClick={() => setSearchOpen(true)}
+          >
+            Search
+            <kbd className="ml-1.5 font-mono text-[10px] text-fg-muted">⌘K</kbd>
+          </Button>
+          <Button variant="outline" size="xs" onClick={toggleTheme}>
             {themeMode === "dark" ? "Light" : "Dark"}
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => scrollTo("primitives")}>
-            Primitives
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            onClick={() => focus("recipes")}
+          >
+            Recipes
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => scrollTo("feature-ui")}>
-            Feature UI
-          </Button>
+          {view === "canvas" ? (
+            <Button variant="ghost" size="xs" onClick={() => canvasRef.current?.fit()}>
+              Fit board
+            </Button>
+          ) : null}
         </div>
-      }
-    >
-      <div className="flex-1 overflow-auto px-4 py-6 md:px-6">
-        <div className="grid gap-6 lg:grid-cols-[minmax(12rem,14rem)_minmax(0,1fr)] xl:grid-cols-[16rem_minmax(0,1fr)]">
-          <DesignKitCatalogShell active={navFocus} onSelect={scrollTo} />
+      </header>
 
-          <div className="min-w-0 space-y-12 pb-20">
-            <section id="overview" className="scroll-mt-24 space-y-2">
-              <h2 className="text-sm font-semibold text-fg-primary">Overview</h2>
-              <p className="max-w-2xl text-xs leading-relaxed text-fg-muted">
-                Single inventory for Epure UI. Add{" "}
-                <code className="font-mono text-[11px]">src/components/ui/*</code> or{" "}
-                <code className="font-mono text-[11px]">kit/*</code> → register in{" "}
-                <code className="font-mono text-[11px]">registry.ts</code> +{" "}
-                <code className="font-mono text-[11px]">previews/ui|kit</code>. Add{" "}
-                <code className="font-mono text-[11px]">src/ui/*</code> →{" "}
-                <code className="font-mono text-[11px]">feature-ui-registry.ts</code> + preview in{" "}
-                <code className="font-mono text-[11px]">feature-ui-group-previews.tsx</code>.{" "}
-                <code className="font-mono text-[11px]">npm test</code> enforces sync.
-              </p>
-              <CatalogStats />
-              <p className="text-xs text-fg-muted">
-                Markdown law:{" "}
-                <Button
-                  variant="link"
-                  size="xs"
-                  type="button"
-                  className="h-auto p-0 text-accent underline-offset-2 hover:underline inline"
-                  onClick={() => scrollTo("product-docs")}
+      <div className="flex min-h-0 flex-1">
+        <DesignKitCatalogShell
+          active={navFocus}
+          onSelect={focus}
+          onOpenSearch={() => setSearchOpen(true)}
+        />
+
+        {view === "docs" ? (
+          <div
+            ref={docsScrollRef}
+            className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-canvas"
+          >
+            <Box
+              flexDirection="column"
+              width="100%"
+              maxWidth={840}
+              marginHorizontal="auto"
+              paddingHorizontal="xl"
+              paddingVertical="2xl"
+            >
+              <DocsEntry active={navFocus} onSelect={focus} />
+            </Box>
+          </div>
+        ) : (
+          <DesignKitCanvas ref={canvasRef} onActiveChange={setNavFocus}>
+            <PreviewChromeProvider chrome>
+              <div className="grid w-[5600px] grid-cols-10 items-start gap-5">
+                <DistrictPin id="overview" label="01 Start" />
+                <CanvasArtboard
+                  id="overview-card"
+                  title="Overview"
+                  subtitle="Registry · optional canvas"
+                  className="col-span-2"
                 >
-                  Design docs
-                </Button>
-              </p>
-            </section>
+                  <h1 className="text-base font-semibold tracking-tight text-fg-primary">
+                    Design canvas
+                  </h1>
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-fg-muted">
+                    Optional board view. Default IA is Docs (registry + Example pages).
+                  </p>
+                  <CatalogStats />
+                  <Text as="span" variant="caption" color="muted">
+                    Switch to Docs for Orbit-style pages.
+                  </Text>
+                </CanvasArtboard>
 
-            <ProductDocsSection />
-            <TokensSection />
-            <TypographySection />
+                <DistrictPin id="brand" label="02 Brand" />
+                <CanvasArtboard
+                  title="Brand identity"
+                  subtitle="Vision · tokens · marks"
+                  className="col-span-3"
+                >
+                  <BrandSection />
+                </CanvasArtboard>
 
-            <section id="primitives" className="scroll-mt-24 space-y-4">
-              <header className="border-b border-border-subtle pb-2">
-                <h2 className="text-sm font-semibold text-fg-primary">UI primitives</h2>
-                <p className="mt-1 text-xs text-fg-muted">
-                  Personalized shadcn layer — <code className="font-mono text-[11px]">@/components/ui</code>
-                </p>
-              </header>
-              <div className="space-y-4">
+                <DistrictPin id="tokens" label="03 Foundations" />
+                <CanvasArtboard title="Color & surfaces" className="col-span-2">
+                  <TokensSection />
+                </CanvasArtboard>
+                <CanvasArtboard id="typography" title="Typography" className="col-span-2">
+                  <TypographySection />
+                </CanvasArtboard>
+                <CanvasArtboard id="libraries" title="Library stack" className="col-span-2">
+                  <LibrariesSection />
+                </CanvasArtboard>
+
+                <DistrictPin id="motion" label="04 Lab" />
+                <CanvasArtboard title="Motion lab" className="col-span-3">
+                  <MotionSection />
+                </CanvasArtboard>
+                <CanvasArtboard
+                  id="states"
+                  title="State matrix"
+                  subtitle="Idle · active · busy · error"
+                  className="col-span-3"
+                >
+                  <StatesSection />
+                </CanvasArtboard>
+                <CanvasArtboard
+                  id="alerts-patterns"
+                  title="Alerts"
+                  subtitle="Mock history · configure"
+                  className="col-span-3"
+                >
+                  <AlertsSection />
+                </CanvasArtboard>
+
+                <DistrictPin id="primitives" label="05 UI" />
                 {DESIGN_KIT_UI_MODULES.map((mod) => {
                   const Preview = resolvePreview(uiPreviewModules, mod);
-                  return Preview ? <Preview key={mod} /> : null;
+                  if (!Preview) return null;
+                  return (
+                    <CanvasArtboard
+                      key={mod}
+                      id={mod}
+                      title={mod}
+                      subtitle="@/components/ui"
+                      className={cn(WIDE_TILES.has(mod) ? "col-span-3" : "col-span-2")}
+                    >
+                      <Preview />
+                    </CanvasArtboard>
+                  );
                 })}
-              </div>
-            </section>
 
-            <section id="kit" className="scroll-mt-24 space-y-4">
-              <header className="border-b border-border-subtle pb-2">
-                <h2 className="text-sm font-semibold text-fg-primary">Composite kit</h2>
-                <p className="mt-1 text-xs text-fg-muted">
-                  Domain composites — <code className="font-mono text-[11px]">@/components/kit</code>
-                </p>
-              </header>
-              <div className="space-y-4">
+                <DistrictPin id="kit" label="06 Kit" />
                 {DESIGN_KIT_KIT_MODULES.map((mod) => {
                   const Preview = resolvePreview(kitPreviewModules, mod);
-                  return Preview ? <Preview key={mod} /> : null;
+                  if (!Preview) return null;
+                  return (
+                    <CanvasArtboard
+                      key={mod}
+                      id={mod}
+                      title={mod}
+                      subtitle="@/components/kit · mock / empty"
+                      className={cn(WIDE_TILES.has(mod) ? "col-span-3" : "col-span-2")}
+                    >
+                      <Preview />
+                    </CanvasArtboard>
+                  );
                 })}
-              </div>
-            </section>
 
-            <FeatureUiSection />
-            <AlertsSection />
-            <ShellSection />
-            <MotionSection />
-            <StatesSection />
-          </div>
-        </div>
+                <DistrictPin id="feature-ui" label="07 Feature" />
+                {DESIGN_KIT_FEATURE_UI_GROUPS.map((group) => (
+                  <CanvasArtboard
+                    key={group.id}
+                    id={group.id}
+                    title={group.label}
+                    subtitle={group.description}
+                    className="col-span-3"
+                  >
+                    <FeatureUiGroupPreviews groupId={group.id} />
+                  </CanvasArtboard>
+                ))}
+
+                <DistrictPin id="a11y" label="08 Quality" />
+                <CanvasArtboard id="shell" title="App shell" className="col-span-3">
+                  <ShellSection />
+                </CanvasArtboard>
+                <CanvasArtboard title="Accessibility" className="col-span-2">
+                  <A11ySection />
+                </CanvasArtboard>
+                <CanvasArtboard id="product-docs" title="Design docs" className="col-span-2">
+                  <ProductDocsSection />
+                </CanvasArtboard>
+              </div>
+            </PreviewChromeProvider>
+          </DesignKitCanvas>
+        )}
       </div>
-    </PageShell>
+
+      <DesignKitSearch
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        onSelect={focus}
+      />
+    </div>
   );
 }
 

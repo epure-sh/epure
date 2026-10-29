@@ -3,11 +3,17 @@ import alertsUiMd from "@design/alerts-ui.md?raw";
 import componentsMd from "@design/components.md?raw";
 import qaMd from "@design/qa.md?raw";
 import designReadmeMd from "@design/README.md?raw";
+import orbitContractMd from "@design/ORBIT_CONTRACT.md?raw";
+import orbitRecipesMd from "@design/ORBIT_RECIPES.md?raw";
+import orbitMigrationMd from "@design/ORBIT_MIGRATION.md?raw";
 import { PreviewBlock } from "../shared";
 
 const DOCS: { id: string; title: string; path: string; body: string }[] = [
+  { id: "orbit-contract", title: "ORBIT_CONTRACT", path: "web/design/ORBIT_CONTRACT.md", body: orbitContractMd },
+  { id: "orbit-recipes", title: "ORBIT_RECIPES", path: "web/design/ORBIT_RECIPES.md", body: orbitRecipesMd },
+  { id: "orbit-migration", title: "ORBIT_MIGRATION", path: "web/design/ORBIT_MIGRATION.md", body: orbitMigrationMd },
   { id: "design-readme", title: "Design README", path: "web/design/README.md", body: designReadmeMd },
-  { id: "system", title: "Calm Ledger — SYSTEM", path: "web/design/SYSTEM.md", body: systemMd },
+  { id: "system", title: "SYSTEM (legacy notes)", path: "web/design/SYSTEM.md", body: systemMd },
   { id: "alerts-ui", title: "Alerts UI", path: "web/design/alerts-ui.md", body: alertsUiMd },
   { id: "components", title: "Component recipes", path: "web/design/components.md", body: componentsMd },
   { id: "qa", title: "Visual QA", path: "web/design/qa.md", body: qaMd },

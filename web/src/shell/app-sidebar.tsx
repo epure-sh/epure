@@ -1,7 +1,6 @@
 import {
   Activity,
   ArrowLeft,
-  ArrowRight,
   Bell,
   BookOpen,
   Building2,
@@ -53,8 +52,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
@@ -62,7 +59,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { useLogout } from "../lib/use-logout";
 import { NavCountPastille } from "@/components/kit/nav-count-pastille";
 import { Badge } from "../ui/badge";
-import { isSharedProjectRole, SharedProjectBadge } from "../ui/shared-project-badge";
 import { useProjectNavCounts } from "./use-project-nav-counts";
 
 export interface AppSidebarProps {
@@ -77,7 +73,6 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
   const inProject = isProjectRoute(pathname);
 
   const {
-    setProjectId,
     projectId,
     projects,
     user,
@@ -85,7 +80,6 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
     environment,
   } = useAppContext();
   const logout = useLogout();
-  const viewerRole = user?.role;
 
   const routeProjectId = projectIdFromPath(pathname);
   const safeProjects = Array.isArray(projects) ? projects : [];
@@ -103,14 +97,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
     safeProjects[0] ??
     null;
 
-  function enterProject(id: string) {
-    setProjectId(id);
-    onMobileClose?.();
-    navigate(projectPath(id, "issues"));
-  }
-
   const navCounts = useProjectNavCounts(activeProject?.id ?? null, environment);
-
   // 1. Project Context Navigation Items
   const projectNavItems = activeProject
     ? [
@@ -222,8 +209,8 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
 
   const sidebarContent = (
     <>
-      {/* 1. Header Zone — Dynamic per Navigation Context with Zero Shift */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border-subtle px-3 bg-surface-1">
+      {/* 1. Brand row — same height as TopStrip (epure-shell-top-chrome) */}
+      <div className="epure-shell-top-chrome flex shrink-0 items-center justify-between border-b border-border-subtle bg-surface-1 px-3">
         <Link
           to={workspacePath()}
           onClick={onMobileClose}
@@ -235,10 +222,8 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
           </span>
         </Link>
 
-        {/* Dynamic Context Header Controls */}
-        <div className="flex items-center gap-1.5 min-w-0">
+        <div className="flex min-w-0 items-center gap-1.5">
           {navContext === "project" ? (
-            /* In Project Context: Back to Organisation Button */
             <Button
               type="button"
               variant="ghost"
@@ -247,7 +232,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
                 onMobileClose?.();
                 navigate(workspacePath());
               }}
-              className="flex items-center gap-1.5 px-2 py-1 text-xs text-fg-muted hover:text-fg-primary h-7 max-w-[130px]"
+              className="flex h-7 max-w-[130px] items-center gap-1.5 px-2 py-1 text-xs text-fg-muted hover:text-fg-primary"
               title={`Return to ${workspaceLabel}`}
             >
               <ArrowLeft size={12} className="shrink-0 text-fg-muted" />
@@ -262,7 +247,6 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
               <span className="truncate">{workspaceLabel}</span>
             </span>
           ) : (
-            /* In Main / Global Context: Global Scope Badge */
             <Badge variant="accent" size="compact" className="font-mono uppercase">
               Global
             </Badge>
@@ -274,7 +258,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
               variant="ghost"
               size="icon-xs"
               onClick={onMobileClose}
-              className="md:hidden text-fg-muted hover:text-fg-primary ml-1"
+              className="ml-1 text-fg-muted hover:text-fg-primary md:hidden"
               aria-label="Close navigation"
             >
               <X size={16} />
@@ -283,90 +267,8 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
         </div>
       </div>
 
-      {/* 2. Sub-Header Zone — Dynamic Context Scope & Search */}
-      <div className="p-2.5 pb-1.5 border-b border-border-subtle bg-surface-1/40">
-        {navContext === "global" ? (
-          /* In Global Context: Active Workspace Return Banner */
-          <Link
-            to={workspacePath()}
-            onClick={onMobileClose}
-            className="btn-tactile flex w-full items-center justify-between h-8 px-2.5 text-xs font-medium text-fg-primary rounded-md border border-border-subtle bg-surface-1 hover:bg-surface-2 transition-colors shadow-2xs"
-            title={`Active workspace: ${workspaceLabel}`}
-          >
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="size-1.5 rounded-full bg-healthy shrink-0" />
-              <span className="truncate font-medium text-xs">{workspaceLabel}</span>
-            </div>
-            <div className="flex items-center gap-1 text-[11px] text-fg-muted shrink-0">
-              <span>Open</span>
-              <ArrowRight size={11} />
-            </div>
-          </Link>
-        ) : (
-          /* In Project or Organisation Context: Project Selector Dropdown */
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                data-tour="project-switcher"
-                className="btn-tactile flex w-full items-center justify-between h-8 px-2.5 text-xs font-medium text-fg-primary shadow-2xs"
-                title={activeProject?.name ?? "Select project"}
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="size-1.5 rounded-full bg-healthy shrink-0" />
-                  <span className="truncate font-semibold">
-                    {activeProject?.name ?? "Select project"}
-                  </span>
-                </div>
-                <ChevronDown className="h-3 w-3 text-fg-muted shrink-0" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="w-64 max-w-[calc(100vw-2rem)] shadow-lg border border-border-subtle bg-surface-1"
-            >
-              <DropdownMenuLabel className="text-2xs font-semibold text-fg-muted uppercase tracking-wider">
-                Switch Project
-              </DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={activeProject?.id ?? ""}
-                onValueChange={enterProject}
-              >
-                {safeProjects.map((project) => (
-                  <DropdownMenuRadioItem key={project.id} value={project.id} className="text-xs">
-                    <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                      <span className="flex items-center gap-2 min-w-0">
-                        <span className="size-1.5 rounded-full bg-healthy shrink-0" />
-                        <span className="truncate font-medium">{project.name}</span>
-                      </span>
-                      <span className="font-mono text-[11px] text-fg-muted shrink-0">
-                        /{project.slug}
-                      </span>
-                      {isSharedProjectRole(project.role ?? viewerRole) ? (
-                        <SharedProjectBadge />
-                      ) : null}
-                    </span>
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={() => {
-                  onMobileClose?.();
-                  navigate(workspacePath());
-                }}
-                className="text-xs"
-              >
-                <Layers className="mr-2 h-3.5 w-3.5" />
-                <span>Manage all projects</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-
-        {/* Quick Search Shortcut Omnibar Trigger */}
+      {/* 2. Search strip — below TopStrip alignment band */}
+      <div className="shrink-0 border-b border-border-subtle bg-surface-1/40 px-2.5 py-1.5">
         <Button
           type="button"
           variant="outline"
@@ -376,13 +278,13 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
             dispatchOpenCommandPalette();
           }}
           data-tour="command-palette-trigger"
-          className="btn-tactile mt-2 flex w-full items-center justify-between h-7 px-2.5 text-2xs text-fg-muted transition-colors hover:text-fg-primary font-normal"
+          className="btn-tactile flex h-7 w-full items-center justify-between px-2.5 text-2xs font-normal text-fg-muted transition-colors hover:text-fg-primary"
         >
           <span className="flex items-center gap-1.5">
             <Search size={12} className="text-fg-muted" />
             <span>Search or command…</span>
           </span>
-          <kbd className="font-mono text-[10px] text-fg-muted border border-border-subtle px-1 py-0.5 rounded">
+          <kbd className="rounded border border-border-subtle px-1 py-0.5 font-mono text-[10px] text-fg-muted">
             ⌘K
           </kbd>
         </Button>

@@ -1,62 +1,86 @@
-// src/components/ui/badge.tsx
+// src/components/ui/badge.tsx — Phase 2: Orbit Pill under Epure Badge API
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
+import { Pill, type PillColor } from "@polar-sh/orbit/Pill";
 import { cn } from "@/lib/utils";
 
-export const badgeVariants = cva(
-  [
-    "inline-flex items-center justify-center font-medium select-none tabular-nums rounded-control",
-    "border border-solid bg-opacity-100 transition-colors duration-100",
-  ],
-  {
-    variants: {
-      variant: {
-        neutral: "bg-surface-2 text-fg-secondary border-border-subtle",
-        escalating: "bg-badge-escalating-bg text-escalating border-badge-escalating-border",
-        regression: "bg-badge-regression-bg text-regression border-badge-regression-border",
-        healthy: "bg-badge-healthy-bg text-healthy border-badge-healthy-border",
-        info: "bg-badge-info-bg text-info border-badge-info-border",
-        warning: "bg-badge-regression-bg text-regression border-badge-regression-border",
-        error: "bg-badge-escalating-bg text-escalating border-badge-escalating-border",
-        accent: "bg-badge-accent-bg text-badge-accent-fg border-badge-accent-border",
-        env: "bg-surface-2 text-fg-secondary border-border-subtle",
-        flat: "bg-surface-2 text-fg-secondary border-transparent",
-        resolved: "bg-badge-healthy-bg text-healthy border-badge-healthy-border",
-        default: "bg-surface-2 text-fg-secondary border-border-subtle",
-        secondary: "bg-surface-2 text-fg-secondary border-border-subtle",
-      },
-      size: {
-        sm: "h-5 px-1.5 text-[11px] gap-1",
-        md: "h-6 px-2 text-xs gap-1.5",
-        default: "h-5 px-1.5 text-[11px] gap-1",
-        compact: "h-4 px-1.5 text-[10px] gap-1",
-      },
+export const badgeVariants = cva("", {
+  variants: {
+    variant: {
+      neutral: "",
+      escalating: "",
+      regression: "",
+      healthy: "",
+      info: "",
+      warning: "",
+      error: "",
+      accent: "",
+      env: "",
+      flat: "",
+      resolved: "",
+      default: "",
+      secondary: "",
     },
-    defaultVariants: {
-      variant: "neutral",
-      size: "sm",
+    size: {
+      sm: "",
+      md: "",
+      default: "",
+      compact: "",
     },
-  }
-);
+  },
+  defaultVariants: {
+    variant: "neutral",
+    size: "sm",
+  },
+});
 
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLSpanElement>,
+  extends Omit<React.HTMLAttributes<HTMLSpanElement>, "color">,
     VariantProps<typeof badgeVariants> {}
 
+type EpureBadgeVariant = NonNullable<
+  VariantProps<typeof badgeVariants>["variant"]
+>;
+
+const PILL_COLOR: Record<EpureBadgeVariant, PillColor> = {
+  neutral: "gray",
+  default: "gray",
+  secondary: "gray",
+  env: "gray",
+  flat: "gray",
+  escalating: "red",
+  error: "red",
+  regression: "yellow",
+  warning: "yellow",
+  healthy: "green",
+  resolved: "green",
+  info: "blue",
+  accent: "gray",
+};
+
+const SIZE_CLASS: Record<
+  NonNullable<VariantProps<typeof badgeVariants>["size"]>,
+  string
+> = {
+  sm: "h-5 min-h-5 px-1.5 text-[11px]",
+  default: "h-5 min-h-5 px-1.5 text-[11px]",
+  md: "h-6 min-h-6 px-2 text-xs",
+  compact: "h-4 min-h-4 px-1.5 text-[10px]",
+};
+
+/** Epure Badge → Orbit Pill (no wrapper span — Pill is the surface). */
 export function Badge({
-  variant,
-  size,
+  variant = "neutral",
+  size = "sm",
   className,
   children,
-  ...props
 }: BadgeProps) {
+  const v = variant ?? "neutral";
+  const s = size ?? "sm";
+
   return (
-    <span
-      data-slot="badge"
-      className={cn(badgeVariants({ variant, size }), className)}
-      {...props}
-    >
+    <Pill color={PILL_COLOR[v]} className={cn(SIZE_CLASS[s], className)}>
       {children}
-    </span>
+    </Pill>
   );
 }

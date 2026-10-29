@@ -20,8 +20,12 @@ export function PopoverContent({
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          "epure-popover-content z-[100] w-72 rounded-control border border-border-strong bg-surface-1 p-3 text-xs text-fg-primary shadow-float outline-none",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          "epure-popover-content z-[100] w-72 rounded-2xl border border-gray-200 bg-white p-3 text-xs text-black shadow-md outline-none   ",
+          "[transform-origin:var(--radix-popper-transform-origin,center)]",
+          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+          "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          "duration-150 ease-[var(--ease-out,cubic-bezier(0.23,1,0.32,1))]",
           className
         )}
         {...props}

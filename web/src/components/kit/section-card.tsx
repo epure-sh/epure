@@ -1,6 +1,7 @@
-// src/components/kit/section-card.tsx
+// src/components/kit/section-card.tsx — Phase 4: Orbit Box/Text card chrome
 import * as React from "react";
-import { cn } from "@/lib/utils";
+import { Box } from "@polar-sh/orbit/Box";
+import { Text } from "@polar-sh/orbit/Text";
 
 export interface SectionCardProps {
   title?: React.ReactNode;
@@ -26,41 +27,75 @@ export function SectionCard({
   const hasHeader = Boolean(title || description || headerActions);
 
   return (
-    <section
+    <Box
+      as="section"
       data-slot="section-card"
-      className={cn(
-        "rounded-panel border bg-surface-1 shadow-tactile overflow-hidden",
-        danger ? "border-escalating/40" : "border-border-subtle",
-        className
-      )}
+      borderRadius="m"
+      borderWidth={1}
+      borderStyle="solid"
+      borderColor={danger ? "border-warning" : "border-primary"}
+      backgroundColor={danger ? "background-danger" : "background-card"}
+      boxShadow="s"
+      overflow="hidden"
+      flexDirection="column"
+      // eslint-disable-next-line no-restricted-syntax -- kit API className
+      className={className}
     >
-      {hasHeader && (
-        <div className="flex items-center justify-between border-b border-border-subtle px-5 py-3.5 bg-surface-1/50">
-          <div className="space-y-0.5">
-            {title && (
-              <h3 className="text-sm font-semibold tracking-tight text-fg-primary">
+      {hasHeader ? (
+        <Box
+          alignItems="center"
+          justifyContent="between"
+          borderBottomWidth={1}
+          borderStyle="solid"
+          borderColor="border-primary"
+          paddingHorizontal="l"
+          paddingVertical="m"
+          backgroundColor="background-card"
+        >
+          <Box flexDirection="column" rowGap="xs" minWidth={0}>
+            {title ? (
+              <Text as="h3" variant="label">
                 {title}
-              </h3>
-            )}
-            {description && (
-              <p className="text-xs text-fg-muted">{description}</p>
-            )}
-          </div>
-          {headerActions && (
-            <div className="flex items-center gap-2">{headerActions}</div>
-          )}
-        </div>
-      )}
+              </Text>
+            ) : null}
+            {description ? (
+              <Text as="p" variant="caption" color="muted">
+                {description}
+              </Text>
+            ) : null}
+          </Box>
+          {headerActions ? (
+            <Box alignItems="center" columnGap="s" flexShrink={0}>
+              {headerActions}
+            </Box>
+          ) : null}
+        </Box>
+      ) : null}
 
-      <div className={cn("p-5 text-xs text-fg-secondary", contentClassName)}>
+      <Box
+        padding="l"
+        color="text-secondary"
+        // eslint-disable-next-line no-restricted-syntax -- kit API contentClassName
+        className={contentClassName}
+      >
         {children}
-      </div>
+      </Box>
 
-      {footer && (
-        <div className="border-t border-border-subtle bg-surface-2/40 px-5 py-3 text-xs text-fg-muted flex items-center justify-between">
+      {footer ? (
+        <Box
+          alignItems="center"
+          justifyContent="between"
+          borderTopWidth={1}
+          borderStyle="solid"
+          borderColor="border-primary"
+          backgroundColor="background-secondary"
+          paddingHorizontal="l"
+          paddingVertical="m"
+          color="text-secondary"
+        >
           {footer}
-        </div>
-      )}
-    </section>
+        </Box>
+      ) : null}
+    </Box>
   );
 }

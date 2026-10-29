@@ -288,7 +288,7 @@ export function MonitoringPage({ isEmbed = false }: { isEmbed?: boolean }) {
 
   if (isEmbed) {
     return (
-      <div className="min-h-screen bg-canvas p-4 sm:p-6">
+      <div className="min-h-screen bg-canvas epure-page-gutter-x py-6">
         <div className="mx-auto max-w-4xl">{content}</div>
       </div>
     );

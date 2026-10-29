@@ -1,0 +1,22 @@
+/*
+ * Orbit / StyleX theme host for Epure.
+ *
+ * Polar tokens use CSS `light-dark()`. LightningCSS (via @stylexjs/unplugin)
+ * rewrites those to --lightningcss-light / --lightningcss-dark. Toggling the
+ * existing `.dark` class on <html> (see style-theme.ts) flips token resolution.
+ * Native `color-scheme` covers browsers that already understand light-dark().
+ */
+
+html {
+  color-scheme: light dark;
+}
+
+html:not(.dark) {
+  --lightningcss-light: initial;
+  --lightningcss-dark: ;
+}
+
+html.dark {
+  --lightningcss-light: ;
+  --lightningcss-dark: initial;
+}

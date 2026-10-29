@@ -1,17 +1,28 @@
 import type { Config } from "tailwindcss";
 import designTheme from "./design/tailwind.theme.cjs";
 
-const spacing: Record<string, string> = {};
+/**
+ * Do NOT remap Tailwind numeric spacing (h-8, px-5, …) onto Epure `--space-*`.
+ * Orbit Button/Input/Pill assume the default scale (h-8=2rem, h-10=2.5rem).
+ * Epure chrome dims stay as CSS vars (`--space-*`, `--chrome-*`) for explicit use.
+ */
+const epureSpacing: Record<string, string> = {};
 for (let i = 1; i <= 10; i += 1) {
-  spacing[String(i)] = `var(--space-${i})`;
+  epureSpacing[`epure-${i}`] = `var(--space-${i})`;
 }
 
 export default {
-  content: ["./index.html", "./playground/index.html", "./src/**/*.{js,ts,jsx,tsx}", "./playground/**/*.{js,ts,jsx,tsx}"],
+  content: [
+    "./index.html",
+    "./playground/index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+    "./playground/**/*.{js,ts,jsx,tsx}",
+    "../packages/orbit/src/**/*.{js,ts,jsx,tsx}",
+  ],
   theme: {
     extend: {
       ...designTheme,
-      spacing,
+      spacing: epureSpacing,
       width: {
         rail: "var(--chrome-rail-width)",
         "issue-list": "var(--chrome-list-width)",

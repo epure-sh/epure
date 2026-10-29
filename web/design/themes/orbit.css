@@ -1,0 +1,201 @@
+/* Orbit — product surface tokens (Polar Orbit palette).
+ *
+ * Owns light/dark surfaces for Epure. CSS var *names* stay product-shaped
+ * (--bg, --text, --accent, …) so kit / app.css / remaining Calm Ledger ui keep
+ * resolving until Phase 4–6 rewrite them onto Box/Text. Values are Orbit gray /
+ * polar / indigo / semantic ramps — not Calm Ledger paper/indigo.
+ *
+ * data-style="orbit" is canonical; calm-ledger is remapped in style-theme.ts.
+ */
+
+:root,
+[data-style="orbit"],
+[data-style="calm-ledger"] {
+  /* Light — Orbit background-primary / gray ramp */
+  --bg: #ffffff;
+  --bg-subtle: oklch(0.985 0.002 247.839); /* gray50 */
+  --surface: #ffffff;
+  --surface-inset: oklch(0.967 0.003 264.542); /* gray100 */
+  --surface-elevated: #ffffff;
+  --surface-raised: #ffffff;
+
+  --border: oklch(0.928 0.006 264.531); /* gray200 */
+  --border-strong: oklch(0.872 0.01 258.338); /* gray300 */
+  --control-checkbox-border: oklch(0.872 0.01 258.338);
+  --control-checkbox-bg: oklch(0.985 0.002 247.839);
+
+  --text: #000000;
+  --text-muted: oklch(0.551 0.027 264.364); /* gray500 */
+  --text-subtle: oklch(0.707 0.022 261.325); /* gray400 */
+  --text-inverse: #ffffff;
+
+  /* Accent = Polar black primary chrome (not Calm Ledger indigo selection) */
+  --accent: #000000;
+  --accent-muted: oklch(0.967 0.003 264.542); /* gray100 */
+  --accent-contrast: #ffffff;
+  --accent-hover-border: oklch(0.373 0.034 259.733); /* gray700 */
+
+  --signal: var(--accent);
+  --signal-muted: var(--accent-muted);
+  --signal-contrast: var(--accent-contrast);
+  --unread-bar: #000000;
+
+  --success: oklch(0.696 0.17 162.48); /* emerald500 */
+  --warning: oklch(0.769 0.188 70.08); /* amber500 */
+  --danger: oklch(0.637 0.237 25.331); /* red500 */
+  --info: oklch(0.623 0.214 259.815); /* blue500 */
+  --focus-ring: oklch(0.928 0.006 264.531); /* gray200 — Polar ring */
+
+  --state-hover: oklch(0.967 0.003 264.542); /* gray100 */
+  --state-selected: oklch(0.967 0.003 264.542); /* gray100 — Polar wash, not indigo */
+  --state-pressed: oklch(0.928 0.006 264.531); /* gray200 */
+
+  --body-size: 0.875rem;
+  --body-leading: 1.5;
+  --section-header-font: var(--font-sans);
+  --section-header-size: var(--text-sm);
+  --section-header-leading: var(--leading-sm);
+  --section-header-transform: none;
+  --section-header-weight: var(--font-weight-medium);
+  --section-header-tracking: var(--tracking-ui);
+  --page-title-size: var(--text-base);
+  --page-title-leading: var(--leading-md);
+  --stat-value-size: var(--text-xl);
+  --stat-value-leading: var(--leading-xl);
+  --stat-value-size-compact: var(--text-lg);
+  --stat-value-leading-compact: var(--leading-lg);
+  --stat-value-font: var(--font-sans);
+
+  /* Orbit borderRadii: s=8 m=12 l=16 */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 32px;
+
+  --control-height: 2rem;
+  --row-height: 2.25rem;
+  --row-padding-y: 0.25rem;
+  --unread-bar-width: 2px;
+  --chrome-list-width: 100%;
+
+  /* Status chips — Orbit red/amber/emerald/blue/indigo washes */
+  --badge-escalating-bg: oklch(0.936 0.032 17.717); /* red100 */
+  --badge-escalating-border: oklch(0.885 0.062 18.334); /* red200 */
+  --badge-regression-bg: oklch(0.962 0.059 95.617); /* amber100 */
+  --badge-regression-border: oklch(0.924 0.12 95.746); /* amber200 */
+  --badge-healthy-bg: oklch(0.95 0.052 163.051); /* emerald100 */
+  --badge-healthy-border: oklch(0.905 0.093 164.15); /* emerald200 */
+  --badge-info-bg: oklch(0.932 0.032 255.585); /* blue100 */
+  --badge-info-border: oklch(0.882 0.059 254.128); /* blue200 */
+  --badge-accent-bg: oklch(0.967 0.003 264.542); /* gray100 — Polar wash */
+  --badge-accent-border: oklch(0.928 0.006 264.531); /* gray200 */
+  --badge-accent-fg: #000000;
+
+  /* Orbit shadows */
+  --shadow-bevel: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-popover: 0 0px 15px rgba(0, 0, 0, 0.04), 0 0px 2px rgba(0, 0, 0, 0.06);
+  --shadow-specular: 0 0px 20px rgba(0, 0, 0, 0.04), 0 0px 5px rgba(0, 0, 0, 0.06);
+
+  --channel-slack: #e01e5a;
+  --channel-discord: #5865f2;
+
+  /* shadcn / Orbit Tailwind host (Polar globals parity) */
+  --background: oklch(0.985 0.002 247.839);
+  --foreground: oklch(0.21 0.034 264.665);
+  --card: #ffffff;
+  --card-foreground: oklch(0.21 0.034 264.665);
+  --popover: #ffffff;
+  --popover-foreground: oklch(0.21 0.034 264.665);
+  --primary: oklch(0.546 0.245 262.881); /* blue600 */
+  --primary-foreground: oklch(0.985 0.002 247.839);
+  --secondary: oklch(0.967 0.003 264.542);
+  --secondary-foreground: oklch(0.21 0.034 264.665);
+  --muted: oklch(0.967 0.003 264.542);
+  --muted-foreground: oklch(0.551 0.027 264.364);
+  --destructive: oklch(0.637 0.237 25.331);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
+  --input: oklch(0.928 0.006 264.531);
+  --ring: oklch(0.928 0.006 264.531);
+  --radius: 0.6rem;
+}
+
+[data-theme="dark"],
+.dark,
+[data-style="orbit"][data-theme="dark"],
+[data-theme="dark"][data-style="orbit"],
+[data-style="calm-ledger"][data-theme="dark"],
+[data-theme="dark"][data-style="calm-ledger"] {
+  /* Dark — Orbit polar ramp */
+  --bg: hsl(0, 0%, 3.5%); /* polar950 */
+  --bg-subtle: hsl(0, 0%, 6.5%); /* polar900 */
+  --surface: hsl(0, 0%, 9.5%); /* polar800 */
+  --surface-inset: hsl(0, 0%, 6.5%);
+  --surface-elevated: hsl(0, 0%, 13%); /* polar700 */
+  --surface-raised: var(--surface-elevated);
+
+  --border: hsl(0, 0%, 13%); /* polar700 */
+  --border-strong: hsl(0, 0%, 16%); /* polar600 */
+  --control-checkbox-border: hsl(0, 0%, 16%);
+  --control-checkbox-bg: hsl(0, 0%, 6.5%);
+
+  --text: #ffffff;
+  --text-muted: hsl(0, 0%, 52%); /* polar400 */
+  --text-subtle: hsl(0, 0%, 46%); /* polar500 */
+  --text-inverse: hsl(0, 0%, 3.5%);
+
+  --accent: oklch(0.673 0.182 276.935); /* indigo400 — readable on dark */
+  --accent-muted: oklch(0.257 0.09 281.288); /* indigo950 */
+  --accent-contrast: hsl(0, 0%, 3.5%);
+  --accent-hover-border: oklch(0.785 0.115 274.713);
+
+  --signal: var(--accent);
+  --signal-muted: var(--accent-muted);
+  --signal-contrast: var(--accent-contrast);
+
+  --success: oklch(0.696 0.17 162.48);
+  --warning: oklch(0.769 0.188 70.08);
+  --danger: oklch(0.637 0.237 25.331);
+  --info: oklch(0.707 0.165 254.624);
+  --focus-ring: hsl(0, 0%, 13%);
+
+  --state-hover: hsl(0, 0%, 13%);
+  --state-selected: oklch(0.257 0.09 281.288);
+  --state-pressed: hsl(0, 0%, 6.5%);
+
+  --badge-escalating-bg: oklch(0.396 0.141 25.723); /* red900 */
+  --badge-escalating-border: oklch(0.505 0.213 27.518); /* red700 */
+  --badge-regression-bg: oklch(0.414 0.112 45.904); /* amber900 */
+  --badge-regression-border: oklch(0.555 0.163 48.998); /* amber700 */
+  --badge-healthy-bg: oklch(0.378 0.077 168.94); /* emerald900 */
+  --badge-healthy-border: oklch(0.508 0.118 165.612); /* emerald700 */
+  --badge-info-bg: oklch(0.379 0.146 265.522); /* blue900 */
+  --badge-info-border: oklch(0.488 0.243 264.376); /* blue700 */
+  --badge-accent-bg: oklch(0.257 0.09 281.288);
+  --badge-accent-border: oklch(0.398 0.195 277.366);
+  --badge-accent-fg: oklch(0.785 0.115 274.713);
+
+  --shadow-bevel: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-popover: 0 0px 15px rgba(0, 0, 0, 0.35), 0 0 0 1px hsl(0, 0%, 13%);
+  --shadow-specular: 0 0px 20px rgba(0, 0, 0, 0.4), 0 0px 5px rgba(0, 0, 0, 0.25);
+
+  --channel-slack: #e01e5a;
+  --channel-discord: #5865f2;
+
+  --background: hsl(0, 0%, 9.5%);
+  --foreground: hsl(0, 0%, 46%);
+  --card: hsl(0, 0%, 9.5%);
+  --card-foreground: hsl(0, 0%, 85%);
+  --popover: hsl(0, 0%, 6.5%);
+  --popover-foreground: hsl(0, 0%, 85%);
+  --primary: oklch(0.546 0.245 262.881);
+  --primary-foreground: hsl(0, 0%, 85%);
+  --secondary: hsl(0, 0%, 6.5%);
+  --secondary-foreground: hsl(0, 0%, 85%);
+  --muted: hsl(0, 0%, 13%);
+  --muted-foreground: hsl(0, 0%, 46%);
+  --destructive: oklch(0.637 0.237 25.331);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --input: hsl(0, 0%, 13%);
+  --ring: hsl(0, 0%, 13%);
+}

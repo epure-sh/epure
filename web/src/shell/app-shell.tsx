@@ -126,7 +126,7 @@ export function AppShell() {
         <TopStrip onOpenMobileSidebar={() => setMobileSidebarOpen(true)} />
         <EnvironmentUrlSync />
         <FeedQueryUrlSync />
-        <main className="epure-app-shell-main flex min-h-0 flex-1 flex-col overflow-hidden bg-bg">
+        <main className="epure-app-shell-main flex min-h-0 flex-1 flex-col overflow-hidden bg-bg-subtle">
               <Routes>
                 {/* Global scope */}
                 <Route path="/organizations/*" element={<Navigate to="/" replace />} />

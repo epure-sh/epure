@@ -12,7 +12,7 @@ npm run dev:playground
 
 Opens http://localhost:5173 with hot reload (same Vite root + Tailwind scan as `npm run dev`). No login required — session is mocked.
 
-**Design system (full docs + components):** [http://localhost:5173/__design](http://localhost:5173/__design) — embeds `web/design/*.md` and live previews. Not available on `npm run dev` (production app redirects away).
+**Orbit design system (canonical):** [http://localhost:5173/__design](http://localhost:5173/__design) — Polar handbook + foundations + component catalog + recipes (`#recipes`). Optional canvas via `?view=canvas`. `/__orbit` redirects to `/__design#recipes`. Not available on `npm run dev` (production app redirects away).
 
 ## What's included
 
@@ -23,7 +23,7 @@ Opens http://localhost:5173 with hot reload (same Vite root + Tailwind scan as `
 | Alerts | **18** history rows: every kind (velocity, regression, new issue, milestones, users, ingest cap, custom), firing/fired/resolved/muted, multi-issue custom, 2 projects; **6** configure rules (enabled/paused, filters) |
 | Releases | 3 web releases, 1 API release |
 | Settings | DSN keys, team, webhooks |
-| Design kit | `/__design` — full token + ui + kit catalog (playground only) |
+| Orbit design system | `/__design` — handbook, foundations, components, recipes (playground only) |
 
 Fixtures live in `playground/fixtures/seed.ts`. Event payloads reuse `fixtures/seed/events/*.json` from the repo root so playground and backend seeds stay aligned.
 
@@ -48,7 +48,7 @@ window.__EPURE_PLAYGROUND__.openSetup()
 Or open `/?setup=880e8400-e29b-41d4-a716-446655440099` — dialog overlays the projects dashboard.
 ### Theme
 
-Production style is **Calm Ledger (Indigo)** only (`data-style="calm-ledger"`). On `/__design`, check 8px buttons (not pills), paper/indigo tokens, unread = weight+dot/edge (no row wash), underline tabs, indigo-wash secondary, and quiet empty states (no dashed frame).
+Production style is **Polar Orbit** (`data-style="orbit"`). On `/__design`, use **Docs** (default) for handbook + registry Example pages + `#recipes`; **Canvas** is optional tooling.
 
 Try these queries on the Issues feed:
 

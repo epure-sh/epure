@@ -1,74 +1,48 @@
 # Product design (`web/design/`)
 
-Visual source for the Epure dashboard only. Marketing lives in `apps/landing/design/` — do not import across repos.
+Visual source for the Epure dashboard. **Phase 3:** Polar Orbit owns color/radius/shadow/fonts; Calm Ledger palette is gone.
 
 ## Read order
 
 | Step | Doc | Purpose |
 |------|-----|---------|
-| 1 | [`SYSTEM.md`](./SYSTEM.md) | Calm Ledger rules: palette, density, unread vs selected, chrome |
-| 2 | [`tokens.css`](./tokens.css) + [`themes/calm-ledger.css`](./themes/calm-ledger.css) | **Edit colors here** (hex in theme CSS) |
-| 3 | [`tailwind.theme.cjs`](./tailwind.theme.cjs) | Tailwind → `var(--*)` |
-| 4 | [`components.md`](./components.md) | Button/input/list recipes |
-| 5 | [`qa.md`](./qa.md) | Pre-ship checklist |
-| 6 | [`alerts-ui.md`](./alerts-ui.md) | Alert surfaces |
-| 7 | [`brand/README.md`](./brand/README.md) | Logo strategy + legacy marks |
-| 8 | [`brand/kit/README.md`](./brand/kit/README.md) | **Export kit** (favicon, icons, lockups) |
+| 1 | [`ORBIT_MIGRATION.md`](./ORBIT_MIGRATION.md) + [`AGENTS.md`](../AGENTS.md) | Migration status + Box/Text authoring |
+| 2 | [`ORBIT_RECIPES.md`](./ORBIT_RECIPES.md) | Copy-paste Orbit layouts |
+| 3 | [`tokens.css`](./tokens.css) + [`themes/orbit.css`](./themes/orbit.css) | Surfaces + chrome/type/motion extensions |
+| 4 | [`src/styles/tokens.css`](../src/styles/tokens.css) | Tailwind `@theme` (Polar ramps + product aliases) |
+| 5 | [`components.md`](./components.md) / kit | Legacy recipes until Phase 4 |
+| 6 | [`brand/README.md`](./brand/README.md) | Logo strategy |
 
-Runtime UI: [`src/components/INDEX.md`](../src/components/INDEX.md) (primitives + kit). App entry imports `@design/tokens.css` then [`src/styles/tokens.css`](../src/styles/tokens.css) — **bridge only** (Tailwind `@theme` names → Calm Ledger vars). Do not add a second palette in `src/styles/`.
+Runtime: entry imports `fonts.css` → `@design/tokens.css` → `src/styles/tokens.css` → `orbit-stylex.css`.
 
 ## Folder map
 
 ```
 design/
-├── README.md              ← you are here (index)
-├── SYSTEM.md              visual law
-├── tokens.css             type, space, radius; imports themes/
-├── tokens.json            machine-readable palette (keep in sync with theme)
+├── ORBIT_MIGRATION.md     phase plan
+├── ORBIT_RECIPES.md       Box/Text recipes
+├── tokens.css             type, space, chrome, motion; imports themes/
+├── tokens.json            machine-readable (keep aligned with orbit theme)
 ├── themes/
 │   ├── index.css
-│   └── calm-ledger.css    product color tokens (:root + dark)
-├── tailwind.theme.cjs
-├── components.md          component recipes
-├── qa.md
-├── alerts-ui.md
-└── brand/
-    ├── README.md          mark metaphors, usage in React
-    ├── epure-mark.svg     quick-import symbol (synced from kit)
-    ├── marks/             exploration SVGs (01–25), not for production
-    └── kit/               canonical chain-link exports
-        ├── README.md      kit layout + generate
-        ├── palette.json   hex for generator only (align with calm-ledger)
-        ├── generate.py
-        ├── source/        mark, wordmark, lockup masters
-        ├── mark/          symbol on backgrounds
-        ├── lockup/        mark + wordmark on backgrounds
-        ├── icon/          square app icons (primary, surface, …)
-        ├── favicon/       tab + PWA
-        └── social/        512 profile squares
+│   └── orbit.css          product surface CSS vars (:root + dark)
+├── tailwind.theme.cjs     legacy Tailwind → var(--*) helpers
+└── brand/                 mark / kit exports
 ```
 
 ## Edit workflow
 
 | Goal | Where |
 |------|--------|
-| Rebrand / product colors | `themes/calm-ledger.css`, then update `tokens.json` + `brand/kit/palette.json`, run `kit/generate.py` |
-| Typography / spacing | `tokens.css` |
-| Button, badge, control shape | `src/components/ui/*` (CVA) |
-| New screen | `src/features/*` using `src/components/ui` + `kit` only |
-| Favicon / app icon files | `brand/kit/` → `python3 generate.py` (syncs `public/favicon.svg`) |
-| In-app logo geometry | `src/ui/logo.tsx` (React); keep in sync with `kit/source/mark.svg` |
-
-## Design system vs brand kit
-
-| Layer | Location | Scope |
-|-------|----------|--------|
-| **Design system** | `tokens.css`, `themes/`, `SYSTEM.md`, `components.md` | In-app UI: color, type, components |
-| **Brand kit** | `brand/kit/` | Static exports: SVG/PNG touchpoints, social, favicon |
-| **Exploration** | `brand/marks/` | Archived directions; chain link (#25) is canonical |
+| Product / Orbit surface colors | `themes/orbit.css`, then sync `tokens.json` |
+| Polar Tailwind ramps (`gray-*`, `polar-*`) | `src/styles/tokens.css` `@theme` |
+| Typography / chrome dims / motion | `tokens.css` |
+| New Orbit UI | Box/Text per `AGENTS.md` |
+| Kit visuals | Phase 4 — `src/components/kit/*` |
 
 ## Rules (short)
 
-- Token classes only in components — no `bg-[#…]`, no default Tailwind palette as brand.
-- `--signal` aliases `--accent` (one indigo; unread ≠ selected — see `SYSTEM.md`).
+- Orbit look is the bar — do not reintroduce a Calm Ledger competing palette.
+- Product utility names (`bg-canvas`, `text-fg-*`, badge chips) are aliases onto Orbit until kit/product migrate.
+- Record tables use Orbit `DataTable` (`@/components/kit/data-table`); markup tables use Orbit `Table` (`@/components/ui/table`).
 - Do not import landing `marketing.css`.

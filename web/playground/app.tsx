@@ -1,5 +1,5 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { DesignKitPage } from "../src/pages/dev/design-kit/design-kit-page";
 import { RouteErrorBoundary } from "../src/ui/route-error-boundary";
 import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -10,6 +10,12 @@ import { AppShell } from "../src/shell/app-shell";
 import { AppProvider } from "../src/shell/app-context";
 import { ToastProvider } from "../src/ui/toast-provider";
 
+/** Lazy — design-kit eagerly pulls every preview + Orbit StyleX; must not block / boot. */
+const DesignKitPage = lazy(() =>
+  import("../src/pages/dev/design-kit/design-kit-page").then((m) => ({
+    default: m.DesignKitPage,
+  })),
+);
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -24,7 +30,7 @@ function PlaygroundBanner() {
     <div className="border-b border-border-subtle bg-accent-muted/40 px-4 py-1.5 text-center font-mono text-xs text-fg-muted">
       Playground mode ·{" "}
       <a href="/__design" className="font-medium text-accent underline-offset-2 hover:underline">
-        Design system catalog (/__design)
+        Orbit design system (/__design)
       </a>
       {" · "}Setup:{" "}
       <code className="text-fg-secondary">window.__EPURE_PLAYGROUND__.openSetup()</code>
@@ -50,13 +56,26 @@ export function PlaygroundApp() {
                         <PlaygroundBanner />
                         <div className="min-h-0 flex-1 overflow-hidden">
                           <RouteErrorBoundary title="Design kit error" backHref="/">
-                            <DesignKitPage />
+                            <Suspense
+                              fallback={
+                                <div className="flex h-full items-center justify-center font-mono text-xs text-fg-muted">
+                                  Loading design system…
+                                </div>
+                              }
+                            >
+                              <DesignKitPage />
+                            </Suspense>
                           </RouteErrorBoundary>
                         </div>
                       </div>
                     }
                   />
                   <Route path="/dev/ds" element={<Navigate to="/__design" replace />} />
+                  {/* Legacy proof route — recipes live on the unified catalog */}
+                  <Route
+                    path="/__orbit"
+                    element={<Navigate to="/__design#recipes" replace />}
+                  />
                   <Route path="/privacy" element={<PrivacyNoticePage />} />
                   <Route
                     path="/*"

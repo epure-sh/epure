@@ -1,24 +1,24 @@
 import { useRef } from "react";
+import { Box } from "@polar-sh/orbit/Box";
+import { Text } from "@polar-sh/orbit/Text";
 import type { AlertRow } from "../../lib/api";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/ui/icon";
-import { AlertInboxLifecycleCue } from "@/components/kit/inbox-lifecycle-cue";
 import {
   ALERT_FEED_ROW_HEIGHT_CLASS,
   InboxUnreadRail,
-  inboxPrimaryTitleClass,
   inboxRowDataAttrs,
-  inboxSecondaryLineClass,
 } from "@/components/kit/inbox-read-cue";
 import { cn } from "../../lib/cn";
 import { alertKindIconColorClass, getAlertKindIcon, getAlertKindVisualTone } from "./alert-kind-visual";
-import { ALERT_FEED_CARD_ROW_GRID, ALERT_ROW_GRID } from "./alert-list-column-header";
-import { AlertStateBadge } from "./alert-state-badge";
+import {
+  ALERT_FEED_CARD_ROW_GRID,
+  ALERT_LIST_INSET_CLASS,
+  ALERT_ROW_GRID,
+} from "./alert-list-column-header";
 import {
   formatAlertListTime,
   getAlertListIssueLine,
-  getAlertListProofSnippet,
   getAlertListRuleName,
 } from "./alert-utils";
 
@@ -50,10 +50,8 @@ export function AlertListRow({
   }
 
   const ruleName = getAlertListRuleName(alert);
-  const issueLine = layout === "embedded" ? getAlertListIssueLine(alert) : null;
-  const proofSnippet = layout === "embedded" ? getAlertListProofSnippet(alert) : null;
+  const issueLine = getAlertListIssueLine(alert);
   const firedAt = formatAlertListTime(alert.fired_at);
-  const singleLineFeed = layout === "feed";
   const embedded = layout === "embedded";
   const shiftKeyRef = useRef(false);
   const KindIcon = getAlertKindIcon(alert.kind);
@@ -61,25 +59,46 @@ export function AlertListRow({
   const rowGrid = embedded ? ALERT_ROW_GRID : ALERT_FEED_CARD_ROW_GRID;
 
   const row = (
-    <article
+    <Box
+      as="article"
       data-alert-id={alert.id}
+      data-focused={detailActive || undefined}
       {...inboxRowDataAttrs(unread)}
+      role={onActivate ? "button" : undefined}
+      tabIndex={onActivate ? 0 : undefined}
+      onClick={onActivate}
+      onKeyDown={
+        onActivate
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onActivate();
+              }
+            }
+          : undefined
+      }
+      width="100%"
+      alignItems="start"
+      transitionProperty="common"
+      transitionDuration="fast"
+      ease="decelerate"
+      backgroundColor={
+        detailActive || bulkSelected
+          ? "background-secondary"
+          : { base: "background-primary", hover: "background-secondary" }
+      }
+      cursor={onActivate ? { hover: "pointer" } : undefined}
       className={cn(
-        "group relative grid w-full items-center gap-x-3 px-4 py-0 text-left transition-colors sm:gap-x-3.5",
+        "group relative grid w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        ALERT_LIST_INSET_CLASS,
         rowGrid,
         ALERT_FEED_ROW_HEIGHT_CLASS,
+        "py-2.5",
         embedded
-          ? cn(
-              "epure-feed-row border-b border-border-subtle",
-              detailActive && "bg-accent-muted",
-              !detailActive && bulkSelected && "bg-accent-muted/70",
-              !detailActive && !bulkSelected && "hover:bg-state-hover",
-            )
+          ? "epure-feed-row border-b border-border-subtle"
           : cn(
-              "rounded-md border border-border-subtle bg-surface-1",
-              detailActive && "border-border bg-accent-muted shadow-sm",
-              !detailActive && bulkSelected && "bg-accent-muted/70",
-              !detailActive && !bulkSelected && "hover:border-border hover:bg-state-hover",
+              "epure-feed-row rounded-md border border-border-subtle",
+              detailActive && "border-border shadow-sm",
               !unread && !detailActive && "border-border-subtle/90",
             ),
       )}
@@ -87,14 +106,15 @@ export function AlertListRow({
       <InboxUnreadRail unread={unread} />
       {onBulkSelectChange ? (
         <div
-          className="flex size-4 shrink-0 items-center justify-center self-center"
+          className="flex size-4 shrink-0 items-center justify-center self-start pt-0.5"
           onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
         >
           <Checkbox
             checked={bulkSelected}
             aria-label={bulkSelected ? "Deselect alert" : "Select alert"}
             className={cn(
-              "transition-opacity duration-75",
+              "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
               bulkSelected || selectionActive
                 ? "pointer-events-auto opacity-100"
                 : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
@@ -108,13 +128,13 @@ export function AlertListRow({
           />
         </div>
       ) : (
-        <span className="size-4 shrink-0" aria-hidden />
+        <span className="size-4 shrink-0 self-start" aria-hidden />
       )}
 
       {!embedded ? (
         <div
           className={cn(
-            "flex size-5 shrink-0 items-center justify-center self-center",
+            "flex size-5 shrink-0 items-center justify-center self-start pt-0.5",
             alertKindIconColorClass[iconTone],
             unread && iconTone === "neutral" && "text-accent",
             !unread && "opacity-80",
@@ -125,48 +145,32 @@ export function AlertListRow({
         </div>
       ) : null}
 
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={onActivate}
-        className={cn(
-          "min-h-0 min-w-0 px-0 text-left hover:bg-transparent",
-          singleLineFeed
-            ? "flex h-full items-center"
-            : "h-auto flex-col items-stretch justify-center gap-1 py-0.5",
-        )}
-      >
-        <div className="flex w-full min-w-0 items-center justify-between gap-2">
-          <p className={inboxPrimaryTitleClass(unread, "min-w-0 flex-1 truncate")}>
-            {ruleName}
-            {unread ? <span className="sr-only"> (unread)</span> : null}
-          </p>
-          <time
-            dateTime={alert.fired_at ?? undefined}
-            className={cn(
-              "shrink-0 font-mono text-[11px] tabular-nums",
-              unread ? "text-fg-secondary" : "text-fg-muted/80",
-            )}
-          >
-            {firedAt}
-          </time>
-        </div>
+      <Box flexDirection="column" rowGap="xs" minWidth={0} width="100%">
+        <Text
+          as="p"
+          variant={unread ? "title" : "default"}
+          color={unread ? "default" : "muted"}
+          truncate
+        >
+          {ruleName}
+          {unread ? <span className="sr-only"> (unread)</span> : null}
+        </Text>
         {issueLine ? (
-          <p className={inboxSecondaryLineClass(unread, "font-mono text-[11px] leading-snug")}>
+          <Text as="p" variant="caption" color="muted" monospace truncate>
             {issueLine}
-          </p>
+          </Text>
         ) : null}
-        {embedded ? (
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-            <AlertStateBadge alert={alert} showOpenDuration className="max-w-full truncate" />
-            {proofSnippet ? (
-              <span className="font-mono text-[11px] tabular-nums text-fg-muted">{proofSnippet}</span>
-            ) : null}
-          </div>
-        ) : null}
-        {!singleLineFeed && !embedded ? <AlertInboxLifecycleCue alert={alert} /> : null}
-      </Button>
-    </article>
+      </Box>
+
+      <time
+        dateTime={alert.fired_at ?? undefined}
+        className="shrink-0 self-start pt-0.5 text-right"
+      >
+        <Text as="span" variant="caption" color="muted" monospace tabularNums>
+          {firedAt}
+        </Text>
+      </time>
+    </Box>
   );
 
   if (layout === "embedded") {

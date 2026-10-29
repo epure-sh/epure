@@ -3,7 +3,7 @@ import { FeatureUiGroupPreviews } from "../previews/feature-ui/feature-ui-group-
 
 export function FeatureUiSection() {
   return (
-    <section id="feature-ui" className="scroll-mt-24 space-y-8">
+    <section className="space-y-8">
       <header className="space-y-2 border-b border-border-subtle pb-4">
         <h2 className="text-sm font-semibold text-fg-primary">Feature UI (`src/ui`)</h2>
         <p className="max-w-3xl text-xs leading-relaxed text-fg-muted">

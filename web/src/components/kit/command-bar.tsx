@@ -1,6 +1,8 @@
-// src/components/kit/command-bar.tsx
+// src/components/kit/command-bar.tsx — Phase 4: Orbit Box trigger chrome
 import * as React from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { Box } from "@polar-sh/orbit/Box";
+import { Text } from "@polar-sh/orbit/Text";
 import {
   CommandDialog,
   CommandInput,
@@ -35,13 +37,11 @@ export function CommandBar({
 }: CommandBarProps) {
   const [open, setOpen] = React.useState(false);
 
-  // Global shortcut ⌘K / Ctrl+K
   useHotkeys("mod+k", (e) => {
     e.preventDefault();
     setOpen((prev) => !prev);
   });
 
-  // Group items by category
   const grouped = React.useMemo(() => {
     const map = new Map<string, CommandItemDef[]>();
     for (const item of items) {
@@ -56,10 +56,11 @@ export function CommandBar({
 
   return (
     <>
-      <div
+      <Box
         data-slot="command-bar-trigger"
         onClick={() => setOpen(true)}
-        className="cursor-pointer w-full"
+        cursor="pointer"
+        width="100%"
       >
         <Input
           readOnly
@@ -69,7 +70,7 @@ export function CommandBar({
           placeholder={triggerPlaceholder}
           className="cursor-pointer pointer-events-none"
         />
-      </div>
+      </Box>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput placeholder={placeholder} />
@@ -84,17 +85,31 @@ export function CommandBar({
                     item.onSelect();
                     setOpen(false);
                   }}
-                  className="flex items-center justify-between"
                 >
-                  <div className="flex items-center gap-2">
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </div>
-                  {item.shortcut && (
-                    <kbd className="rounded border border-border-subtle bg-surface-3/70 px-1 font-mono text-[10px] text-fg-muted">
-                      {item.shortcut}
-                    </kbd>
-                  )}
+                  <Box alignItems="center" justifyContent="between" width="100%">
+                    <Box alignItems="center" columnGap="s">
+                      {item.icon}
+                      <Text as="span" variant="default">
+                        {item.label}
+                      </Text>
+                    </Box>
+                    {item.shortcut ? (
+                      <Box
+                        as="span"
+                        borderRadius="s"
+                        borderWidth={1}
+                        borderStyle="solid"
+                        borderColor="border-primary"
+                        backgroundColor="background-secondary"
+                        paddingHorizontal="xs"
+                        paddingVertical="none"
+                      >
+                        <Text as="span" variant="caption" color="muted" monospace>
+                          {item.shortcut}
+                        </Text>
+                      </Box>
+                    ) : null}
+                  </Box>
                 </CommandItem>
               ))}
             </CommandGroup>

@@ -202,8 +202,8 @@ export function OrganisationsPage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-bg">
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 md:p-6 space-y-5">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-bg-subtle">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto epure-page-gutter-x py-6 space-y-5">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
             <Search

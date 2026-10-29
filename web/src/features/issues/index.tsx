@@ -543,7 +543,7 @@ export function IssuesPage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col bg-canvas">
       {showTestDataBanner && scopedProjectId ? (
         <TestDataBanner projectId={scopedProjectId} />
       ) : null}
@@ -579,13 +579,13 @@ export function IssuesPage() {
       >
         <aside
           className={cn(
-            "epure-issues-layout__list flex min-h-0 flex-col overflow-hidden px-4 pt-3 md:px-6 md:pt-4",
+            "epure-issues-layout__list flex min-h-0 flex-col overflow-hidden bg-canvas epure-page-gutter-x pt-3 md:pt-4",
             issues.length === 0 && !loading ? "w-full shrink-0 grow-0" : "min-h-0 flex-1",
             isOverlayLayout
-              ? "min-w-0 flex-1 bg-bg"
+              ? "min-w-0 flex-1"
               : layoutMode === "split-narrow"
-                ? "w-full shrink-0 border-r border-border bg-bg lg:w-issue-list"
-                : "w-full shrink-0 border-r border-border bg-surface-inset lg:w-issue-list",
+                ? "w-full shrink-0 border-r border-border lg:w-issue-list"
+                : "w-full shrink-0 border-r border-border lg:w-issue-list",
             selectedIssue && (isOverlayLayout ? "hidden lg:flex" : "max-lg:hidden"),
           )}
         >

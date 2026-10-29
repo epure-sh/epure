@@ -11,6 +11,7 @@ import { CopyDsnBlock } from "./copy-dsn-block";
 import { SetupDocsLink } from "./setup-docs-link";
 import { SetupPlatformMark } from "./setup-platform-mark";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
+import { Box } from "@polar-sh/orbit/Box";
 
 export interface SetupConnectPanelProps {
   dsn: string;
@@ -96,21 +97,21 @@ Sentry.init({
   }, [dsn, platform]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-      <div className="flex shrink-0 items-start justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
+    <Box minHeight={0} flexGrow={1} flexDirection="column" gap="s" overflow="hidden">
+      <Box flexShrink={0} alignItems="start" justifyContent="between" gap="s">
+        <Box minWidth={0} alignItems="center" gap="s">
           <SetupPlatformMark logo={platform.logo} />
-          <div className="min-w-0">
+          <Box minWidth={0}>
             <p className="truncate text-sm font-medium tracking-ui text-ink">{platform.label}</p>
             <p className="truncate font-mono text-2xs text-ink-muted">{platform.packageName}</p>
-          </div>
-        </div>
+          </Box>
+        </Box>
         <p className="shrink-0 pt-0.5 text-2xs text-ink-muted">
           <SetupDocsLink href={guideHref}>{guideLabel}</SetupDocsLink>
           {" · "}
           <SetupDocsLink href={platformDoc}>Docs</SetupDocsLink>
         </p>
-      </div>
+      </Box>
 
       <Tabs
         defaultValue={defaultTab}
@@ -142,14 +143,14 @@ Sentry.init({
             value="install"
             className="mt-2 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"
           >
-            <div className="mb-1.5 flex shrink-0 justify-end">
+            <Box flexShrink={0} justifyContent="end">
               <CopyButton
                 value={platform.installCommand}
                 label="Copy"
                 className="h-7 px-2"
                 onCopied={onCopied}
               />
-            </div>
+            </Box>
             <pre className="epure-code-well min-h-0 flex-1 overflow-auto rounded-md border border-border bg-bg-subtle p-2.5 font-mono text-xs text-ink">
               {platform.installCommand}
             </pre>
@@ -174,15 +175,15 @@ Sentry.init({
             value="dual-send"
             className="mt-2 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"
           >
-            <div className="mb-1.5 flex shrink-0 items-center justify-between">
-              <span className="text-2xs text-ink-muted">Shadow Sentry traffic to Epure with zero risk:</span>
+            <Box flexShrink={0} alignItems="center" justifyContent="between">
+              <Box as="span">Shadow Sentry traffic to Epure with zero risk:</Box>
               <CopyButton
                 value={dualSendingSnippet}
                 label="Copy"
                 className="h-7 px-2"
                 onCopied={onCopied}
               />
-            </div>
+            </Box>
             <pre className="epure-code-well min-h-0 flex-1 overflow-auto rounded-md border border-border bg-bg-subtle p-2.5 font-mono text-xs text-ink leading-relaxed">
               {dualSendingSnippet}
             </pre>
@@ -195,20 +196,20 @@ Sentry.init({
             value={file.filename}
             className="mt-2 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"
           >
-            <div className="mb-1.5 flex shrink-0 justify-end">
+            <Box flexShrink={0} justifyContent="end">
               <CopyButton
                 value={file.code}
                 label="Copy"
                 className="h-7 px-2"
                 onCopied={onCopied}
               />
-            </div>
+            </Box>
             <pre className="epure-code-well min-h-0 flex-1 overflow-auto rounded-md border border-border bg-bg-subtle p-2.5 font-mono text-xs text-ink">
               {file.code}
             </pre>
           </TabsContent>
         ))}
       </Tabs>
-    </div>
+    </Box>
   );
 }

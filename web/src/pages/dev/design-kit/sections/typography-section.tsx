@@ -6,7 +6,7 @@ export function TypographySection() {
       <PreviewBlock
         id="type-scale"
         title="Operational type scale"
-        description="IBM Plex Sans (chrome), Plex Mono (IDs, counts, stack). No display sizes in-app."
+        description="Inter (chrome), Geist Mono (IDs, counts, stack). Orbit display falls back to Inter (no PP Neue Montreal)."
       >
         <div className="space-y-3 rounded-control border border-border-subtle bg-surface-2/30 p-3">
           <p className="text-[11px] text-fg-muted">
@@ -19,7 +19,7 @@ export function TypographySection() {
             14px (text-sm) — section headers, page titles
           </p>
           <p className="font-mono text-xs tabular-nums text-fg-secondary">
-            IBM Plex Mono — issue IDs, counts: 14,920 · #82910
+            Geist Mono — issue IDs, counts: 14,920 · #82910
           </p>
           <p className="font-mono-slash text-sm text-fg-muted">Slashed zero · 1,024 events</p>
         </div>

@@ -1,6 +1,9 @@
+// src/components/kit/usage-meter-card.tsx — Phase 4: Orbit Box/Text chrome
+import { Box } from "@polar-sh/orbit/Box";
+import { Text } from "@polar-sh/orbit/Text";
+import { PolarCard, PolarCardHeader } from "@/components/kit/polar-card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
 
 export interface UsageMeterCardProps {
   label: string;
@@ -9,7 +12,6 @@ export interface UsageMeterCardProps {
   unit?: string;
   warningThreshold?: number; // 0..1 default 0.8
   criticalThreshold?: number; // 0..1 default 0.95
-  className?: string;
 }
 
 export function UsageMeterCard({
@@ -19,7 +21,6 @@ export function UsageMeterCard({
   unit = "events",
   warningThreshold = 0.8,
   criticalThreshold = 0.95,
-  className,
 }: UsageMeterCardProps) {
   const ratio = limit > 0 ? Math.min(used / limit, 1) : 0;
   const percent = Math.round(ratio * 100);
@@ -37,35 +38,39 @@ export function UsageMeterCard({
 
   const fillClass =
     status === "escalating"
-      ? "bg-escalating"
+      ? "bg-red-500"
       : status === "regression"
-        ? "bg-regression"
-        : "bg-healthy";
+        ? "bg-amber-500"
+        : "bg-emerald-500";
 
   return (
-    <div
-      data-slot="usage-meter-card"
-      className={cn(
-        "rounded-panel border border-border-subtle bg-surface-1 p-4 shadow-tactile flex flex-col gap-2.5",
-        className
-      )}
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-fg-primary">{label}</span>
-        <Badge variant={status} size="sm">
-          {statusText}
-        </Badge>
-      </div>
+    <PolarCard padding="l">
+      <Box flexDirection="column" rowGap="m" width="100%">
+        <PolarCardHeader>
+          <Text as="span" variant="label">
+            {label}
+          </Text>
+          <Badge variant={status} size="sm">
+            {statusText}
+          </Badge>
+        </PolarCardHeader>
 
-      <div className="flex items-baseline justify-between font-mono text-[11px] tabular-nums">
-        <span className="text-fg-primary font-medium">
-          {used.toLocaleString()}{" "}
-          <span className="text-fg-muted font-normal">/ {limit.toLocaleString()} {unit}</span>
-        </span>
-        <span className="text-fg-secondary">{percent}%</span>
-      </div>
+        <Box alignItems="baseline" justifyContent="between" width="100%" columnGap="s">
+          <Box alignItems="baseline" columnGap="xs">
+            <Text as="span" variant="caption" monospace tabularNums>
+              {used.toLocaleString()}
+            </Text>
+            <Text as="span" variant="caption" color="muted" monospace>
+              / {limit.toLocaleString()} {unit}
+            </Text>
+          </Box>
+          <Text as="span" variant="caption" color="muted" monospace tabularNums>
+            {percent}%
+          </Text>
+        </Box>
 
-      <Progress value={percent} indicatorClassName={fillClass} />
-    </div>
+        <Progress value={percent} indicatorClassName={fillClass} />
+      </Box>
+    </PolarCard>
   );
 }

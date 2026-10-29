@@ -16,12 +16,13 @@ export function AlertsSection() {
     null;
 
   return (
-    <section id="alerts-patterns" className="scroll-mt-24 space-y-4">
+    <section className="space-y-4">
       <div className="space-y-1">
         <h2 className="text-sm font-semibold text-fg-primary">Alerts patterns</h2>
         <p className="max-w-2xl text-xs leading-relaxed text-fg-muted">
-          History master–detail, lifecycle badges, calm list rows, and configure toggle. Full seed data
-          lives in <code className="font-mono text-[11px]">playground/fixtures/seed.ts</code>.
+          History master–detail: alert title with error title underneath (no firing badge / +N proof).
+          Full seed data lives in{" "}
+          <code className="font-mono text-[11px]">playground/fixtures/seed.ts</code>.
         </p>
       </div>
 
@@ -32,7 +33,7 @@ export function AlertsSection() {
       <PreviewBlock
         id="alerts-master-detail"
         title="History list + detail"
-        description="Select a row — firing, custom multi-issue, muted"
+        description="Select a row — title + error line only"
       >
         <div className="grid min-h-[22rem] overflow-hidden rounded-panel border border-border-subtle lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <div className="space-y-3 overflow-auto border-b border-border-subtle bg-canvas p-4 lg:border-b-0 lg:border-r">

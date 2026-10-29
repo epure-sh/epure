@@ -1,0 +1,11 @@
+Orbit Design System
+Copyright Polar Software Inc. and contributors
+https://github.com/polarsource/polar
+
+This product includes software developed by Polar Software Inc.
+Licensed under the Apache License, Version 2.0.
+See the LICENSE file in this directory.
+
+Vendored into the Epure monorepo for local consumption because
+@polar-sh/orbit is private and not published to npm.
+Source path upstream: clients/packages/orbit

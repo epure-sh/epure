@@ -34,6 +34,7 @@ import { isCloudDeployment } from "../lib/deployment";
 import { cn } from "../lib/cn";
 import { useAppContext } from "./app-context";
 import { useLogout } from "../lib/use-logout";
+import { ShellContentFrame } from "./shell-layout";
 
 function getPageName(pathname: string): string {
   if (pathname.startsWith("/user/settings/security")) return "User Settings › Security";
@@ -149,150 +150,151 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
   );
 
   return (
-    <header className="epure-top-strip flex h-11 shrink-0 select-none items-center justify-between border-b border-border-subtle bg-surface-1 px-4">
-      <div className="flex min-w-0 items-center gap-2">
-        {onOpenMobileSidebar ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            onClick={onOpenMobileSidebar}
-            className="-ml-1 text-fg-muted hover:text-fg-primary md:hidden"
-            aria-label="Open navigation menu"
-          >
-            <Menu size={16} />
-          </Button>
-        ) : null}
-
-        {navContext === "global" ? (
-          <>
-            <div className="flex h-7 items-center gap-1.5 px-2 py-1 text-xs font-semibold text-fg-primary">
-              <Badge variant="accent" size="compact" className="font-mono uppercase text-[9px]">
-                Global
-              </Badge>
-            </div>
-            <span className="text-xs text-fg-muted" aria-hidden>
-              /
-            </span>
-            <span className="truncate text-xs font-medium text-fg-muted">{pageName}</span>
-            {user?.org_name ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate(workspacePath())}
-                className="ml-1.5 hidden h-6 items-center gap-1.5 rounded border border-border-subtle bg-surface-2/40 px-2 py-0.5 text-2xs text-fg-muted hover:text-fg-primary sm:inline-flex"
-                title={`Return to ${user.org_name}`}
-              >
-                <span className="size-1.5 shrink-0 rounded-full bg-healthy" />
-                <span className="max-w-[120px] truncate">{user.org_name}</span>
-                <ArrowRight size={10} className="shrink-0 text-fg-muted" />
-              </Button>
-            ) : null}
-          </>
-        ) : (
-          <>
-            {navContext === "project" ? projectSwitcher : null}
-            {navContext === "organization" ? projectSwitcher : null}
-            {!hideProjectPageCrumb ? (
-              <>
-                <span className="text-xs text-fg-muted" aria-hidden>
-                  /
-                </span>
-                <span className="truncate text-xs font-medium text-fg-muted">{pageName}</span>
-              </>
-            ) : null}
-          </>
-        )}
-      </div>
-
-      <div className="flex shrink-0 items-center gap-2.5">
-        {isCloudDeployment() ? (
-          <a
-            href="mailto:support@epure.sh?subject=Epure%20Cloud%20Feedback"
-            className="hidden h-7 items-center px-2 text-xs text-fg-muted transition-colors hover:text-fg-primary lg:inline-flex"
-          >
-            Feedback
-          </a>
-        ) : (
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            className="hidden h-7 items-center px-2 text-xs text-fg-muted transition-colors hover:text-fg-primary lg:inline-flex"
-            onClick={() => window.open("https://github.com/epure-sh/epure/issues", "_blank")}
-          >
-            Feedback
-          </Button>
-        )}
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          onClick={toggleTheme}
-          aria-label={themeMode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-          title={themeMode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-          className="text-fg-muted hover:text-fg-primary"
-        >
-          {themeMode === "dark" ? <Sun size={14} /> : <Moon size={14} />}
-        </Button>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+    <header className="epure-top-strip epure-shell-top-chrome flex shrink-0 select-none items-center border-b border-border-subtle bg-surface-1">
+      <ShellContentFrame className="h-full flex-1 items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          {onOpenMobileSidebar ? (
             <Button
               type="button"
               variant="ghost"
               size="icon-xs"
-              aria-label="Account"
-              className="rounded-full"
+              onClick={onOpenMobileSidebar}
+              className="-ml-1 text-fg-muted hover:text-fg-primary md:hidden"
+              aria-label="Open navigation menu"
             >
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-2xs font-semibold text-primary">
-                {(user?.email ?? "?").slice(0, 1).toUpperCase()}
-              </span>
+              <Menu size={16} />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 border border-border-subtle bg-surface-1 shadow-md">
-            <DropdownMenuLabel className="font-normal">
-              <span className="text-2xs text-fg-muted">Signed in as</span>
-              <p className="truncate text-xs font-semibold text-fg-primary">{user?.email ?? "…"}</p>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={() => navigate(userSettingsPath())}
-              className="cursor-pointer gap-2 text-xs"
-            >
-              <UserCheck size={13} className="text-fg-muted" />
-              <span>User Settings</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => navigate(workspaceSettingsPath())}
-              className="cursor-pointer gap-2 text-xs"
-            >
-              <Settings size={13} className="text-fg-muted" />
-              <span>Workspace Settings</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={toggleTheme}
-              className="flex cursor-pointer items-center justify-between text-xs"
-            >
-              <span className="flex items-center gap-2">
-                {themeMode === "dark" ? <Sun size={13} /> : <Moon size={13} />}
-                <span>Theme: {themeMode === "dark" ? "Dark" : "Light"}</span>
+          ) : null}
+
+          {navContext === "global" ? (
+            <>
+              <div className="flex h-7 items-center gap-1.5 px-2 py-1 text-xs font-semibold text-fg-primary">
+                <Badge variant="accent" size="compact" className="font-mono uppercase text-[9px]">
+                  Global
+                </Badge>
+              </div>
+              <span className="text-xs text-fg-muted" aria-hidden>
+                /
               </span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={() => void logout()}
-              className="cursor-pointer gap-2 text-xs text-semantic-danger"
+              <span className="truncate text-xs font-medium text-fg-muted">{pageName}</span>
+              {user?.org_name ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate(workspacePath())}
+                  className="ml-1.5 hidden h-6 items-center gap-1.5 rounded border border-border-subtle bg-surface-2/40 px-2 py-0.5 text-2xs text-fg-muted hover:text-fg-primary sm:inline-flex"
+                  title={`Return to ${user.org_name}`}
+                >
+                  <span className="size-1.5 shrink-0 rounded-full bg-healthy" />
+                  <span className="max-w-[120px] truncate">{user.org_name}</span>
+                  <ArrowRight size={10} className="shrink-0 text-fg-muted" />
+                </Button>
+              ) : null}
+            </>
+          ) : (
+            <>
+              {navContext === "project" || navContext === "organization" ? projectSwitcher : null}
+              {!hideProjectPageCrumb ? (
+                <>
+                  <span className="text-xs text-fg-muted" aria-hidden>
+                    /
+                  </span>
+                  <span className="truncate text-xs font-medium text-fg-muted">{pageName}</span>
+                </>
+              ) : null}
+            </>
+          )}
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2.5">
+          {isCloudDeployment() ? (
+            <a
+              href="mailto:support@epure.sh?subject=Epure%20Cloud%20Feedback"
+              className="hidden h-7 items-center px-2 text-xs text-fg-muted transition-colors hover:text-fg-primary lg:inline-flex"
             >
-              <LogOut size={13} />
-              <span>Log out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+              Feedback
+            </a>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="hidden h-7 items-center px-2 text-xs text-fg-muted transition-colors hover:text-fg-primary lg:inline-flex"
+              onClick={() => window.open("https://github.com/epure-sh/epure/issues", "_blank")}
+            >
+              Feedback
+            </Button>
+          )}
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            onClick={toggleTheme}
+            aria-label={themeMode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={themeMode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            className="text-fg-muted hover:text-fg-primary"
+          >
+            {themeMode === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Account"
+                className="rounded-full"
+              >
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-2xs font-semibold text-primary">
+                  {(user?.email ?? "?").slice(0, 1).toUpperCase()}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 border border-border-subtle bg-surface-1 shadow-md">
+              <DropdownMenuLabel className="font-normal">
+                <span className="text-2xs text-fg-muted">Signed in as</span>
+                <p className="truncate text-xs font-semibold text-fg-primary">{user?.email ?? "…"}</p>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => navigate(userSettingsPath())}
+                className="cursor-pointer gap-2 text-xs"
+              >
+                <UserCheck size={13} className="text-fg-muted" />
+                <span>User Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => navigate(workspaceSettingsPath())}
+                className="cursor-pointer gap-2 text-xs"
+              >
+                <Settings size={13} className="text-fg-muted" />
+                <span>Workspace Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={toggleTheme}
+                className="flex cursor-pointer items-center justify-between text-xs"
+              >
+                <span className="flex items-center gap-2">
+                  {themeMode === "dark" ? <Sun size={13} /> : <Moon size={13} />}
+                  <span>Theme: {themeMode === "dark" ? "Dark" : "Light"}</span>
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => void logout()}
+                className="cursor-pointer gap-2 text-xs text-semantic-danger"
+              >
+                <LogOut size={13} />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </ShellContentFrame>
     </header>
   );
 }

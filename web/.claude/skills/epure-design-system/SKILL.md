@@ -5,9 +5,11 @@ description: Use whenever creating, styling, personalizing, or refactoring UI co
 
 # Epure Design System Execution Protocol
 
+**Canonical live reference:** playground `/__design` (handbook + foundations + components + `#recipes`). Read `AGENTS.md` + `design/ORBIT_CONTRACT.md` before authoring Orbit-zone UI.
+
 ## Step 1: Check Existing Primitives & Kit
-1. Read `src/components/INDEX.md` and `src/styles/tokens.css`.
-2. If a primitive is missing from `src/components/ui/`, inspect it first with `pnpm dlx shadcn@latest docs <component>` and add it via `pnpm dlx shadcn@latest add <component>`.
+1. Read `src/components/INDEX.md`, `AGENTS.md`, and `src/styles/tokens.css`.
+2. Prefer Orbit Box/Text token props over new Tailwind layout. If a primitive is missing from `src/components/ui/`, inspect upstream Orbit / existing façades before inventing one.
 
 ## Step 2: Personalize Layer 1 (`src/components/ui/*`)
 When adding or editing a primitive in `src/components/ui/`:

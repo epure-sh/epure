@@ -1,36 +1,37 @@
 import { useSyncExternalStore } from "react";
 
-/** Calm Ledger (Indigo) — the only production style theme. */
-export const STYLE_THEMES = [{ id: "calm-ledger", label: "Calm Ledger" }] as const;
+/** Polar Orbit — the only production style theme (Phase 3). */
+export const STYLE_THEMES = [{ id: "orbit", label: "Orbit" }] as const;
 
 export type StyleThemeId = (typeof STYLE_THEMES)[number]["id"];
 
 const STORAGE_KEY = "epure-style-theme";
 const THEME_MODE_STORAGE_KEY = "epure-theme-mode";
-const DEFAULT_STYLE: StyleThemeId = "calm-ledger";
+const DEFAULT_STYLE: StyleThemeId = "orbit";
 
 export type ThemeMode = "dark" | "light";
 
-/** Any stored or legacy theme id maps to calm-ledger. */
+/** Stored or legacy theme ids map to orbit. */
 const LEGACY_STYLE_MAP: Record<string, StyleThemeId> = {
-  "signal-room": "calm-ledger",
-  "plausible-calm": "calm-ledger",
-  "linear-instrument": "calm-ledger",
-  "instrument-cool": "calm-ledger",
-  "instrument-console": "calm-ledger",
-  "quiet-ledger": "calm-ledger",
-  "calm-dense": "calm-ledger",
-  "calm-ledger-slate": "calm-ledger",
-  "calm-ledger-sage": "calm-ledger",
-  "calm-ledger-ink": "calm-ledger",
-  "calm-ledger-violet": "calm-ledger",
-  "calm-ledger-amber": "calm-ledger",
-  "calm-ledger-ocean": "calm-ledger",
-  "calm-ledger-rose": "calm-ledger",
-  "calm-ledger-moss": "calm-ledger",
-  "calm-ledger-graphite": "calm-ledger",
-  "calm-ledger-coral": "calm-ledger",
-  "calm-ledger-frost": "calm-ledger",
+  "calm-ledger": "orbit",
+  "signal-room": "orbit",
+  "plausible-calm": "orbit",
+  "linear-instrument": "orbit",
+  "instrument-cool": "orbit",
+  "instrument-console": "orbit",
+  "quiet-ledger": "orbit",
+  "calm-dense": "orbit",
+  "calm-ledger-slate": "orbit",
+  "calm-ledger-sage": "orbit",
+  "calm-ledger-ink": "orbit",
+  "calm-ledger-violet": "orbit",
+  "calm-ledger-amber": "orbit",
+  "calm-ledger-ocean": "orbit",
+  "calm-ledger-rose": "orbit",
+  "calm-ledger-moss": "orbit",
+  "calm-ledger-graphite": "orbit",
+  "calm-ledger-coral": "orbit",
+  "calm-ledger-frost": "orbit",
 };
 
 export function isStyleThemeId(value: string | null | undefined): value is StyleThemeId {
@@ -179,7 +180,7 @@ function subscribeStyleTheme(onStoreChange: () => void): () => void {
   return () => observer.disconnect();
 }
 
-/** Reactive theme id — always calm-ledger; re-renders if data-style changes. */
+/** Reactive theme id — always orbit; re-renders if data-style changes. */
 export function useStyleTheme(): StyleThemeId {
   return useSyncExternalStore(subscribeStyleTheme, getStyleTheme, () => DEFAULT_STYLE);
 }

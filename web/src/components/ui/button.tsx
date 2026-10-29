@@ -1,52 +1,129 @@
-// src/components/ui/button.tsx
+// src/components/ui/button.tsx — Phase 2: Orbit Button + Epure product variants
 import * as React from "react";
 import { Slot, Slottable } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
-import { CircleNotch } from "@phosphor-icons/react";
+import {
+  Button as OrbitButton,
+  type ButtonProps as OrbitButtonProps,
+} from "@polar-sh/orbit/Button";
+import { Box } from "@polar-sh/orbit/Box";
+import { Text } from "@polar-sh/orbit/Text";
 import { cn } from "@/lib/utils";
 
-export const buttonVariants = cva(
-  [
-    "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-control",
-    "text-xs font-medium tracking-tight select-none tabular-nums",
-    "transition-[background-color,border-color,transform,opacity] duration-100 ease-out",
-    "active:translate-y-[0.5px] disabled:pointer-events-none disabled:opacity-40 cursor-pointer",
-    "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong",
-    "[&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-3.5 [&_svg]:shrink-0",
-  ],
+/**
+ * Epure product variant / size names. Mapped onto Orbit Button where possible;
+ * filter* use Orbit red/amber Tailwind ramps (Phase 3).
+ *
+ * Exported for `@/ui` re-exports; classes are empty — look comes from Orbit.
+ */
+export const buttonVariants = cva("", {
+  variants: {
+    variant: {
+      primary: "",
+      secondary: "",
+      outline: "",
+      ghost: "",
+      danger: "",
+      signal: "",
+      link: "",
+      filterEscalating: "",
+      filterRegression: "",
+    },
+    size: {
+      xs: "",
+      sm: "",
+      md: "",
+      default: "",
+      toolbar: "",
+      lg: "",
+      icon: "",
+      "icon-xs": "",
+    },
+  },
+  defaultVariants: {
+    variant: "secondary",
+    size: "sm",
+  },
+});
+
+type EpureVariant = NonNullable<VariantProps<typeof buttonVariants>["variant"]>;
+type EpureSize = NonNullable<VariantProps<typeof buttonVariants>["size"]>;
+
+const ORBIT_VARIANT: Record<
+  EpureVariant,
+  NonNullable<OrbitButtonProps["variant"]>
+> = {
+  primary: "default",
+  signal: "default",
+  danger: "destructive",
+  secondary: "secondary",
+  outline: "outline",
+  ghost: "ghost",
+  link: "link",
+  filterEscalating: "outline",
+  filterRegression: "outline",
+};
+
+const ORBIT_SIZE: Record<EpureSize, NonNullable<OrbitButtonProps["size"]>> = {
+  xs: "sm",
+  sm: "sm",
+  md: "default",
+  default: "sm",
+  toolbar: "sm",
+  lg: "lg",
+  icon: "icon",
+  "icon-xs": "icon",
+};
+
+/**
+ * Orbit Button wraps children in a div, which breaks Radix Slot `asChild`.
+ * Mirror Orbit's CVA for the asChild path only (see @polar-sh/orbit Button).
+ */
+const asChildVariants = cva(
+  "relative inline-flex items-center gap-2 cursor-pointer font-display font-[550] tracking-[0.01em] select-none justify-center rounded-full text-sm ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 whitespace-nowrap",
   {
     variants: {
       variant: {
-        primary: "bg-accent text-accent-contrast shadow-tactile hover:opacity-90",
-        secondary: "bg-accent-muted text-accent border border-transparent shadow-tactile hover:bg-state-hover",
-        outline: "bg-transparent text-fg-secondary border border-border-subtle hover:bg-surface-2 hover:text-fg-primary hover:border-border-strong",
-        ghost: "bg-transparent text-fg-secondary hover:bg-surface-2 hover:text-fg-primary active:translate-y-0",
-        danger:
-          "bg-badge-escalating-bg text-escalating border border-badge-escalating-border hover:bg-badge-escalating-border/40",
-        signal: "bg-accent text-accent-contrast shadow-tactile hover:opacity-90",
-        link: "bg-transparent text-fg-primary underline-offset-4 hover:underline",
-        filterEscalating:
-          "bg-badge-escalating-bg text-escalating border border-badge-escalating-border shadow-tactile hover:bg-badge-escalating-border/40",
-        filterRegression:
-          "bg-badge-regression-bg text-regression border border-badge-regression-border shadow-tactile hover:bg-badge-regression-border/40",
+        default:
+          "bg-black text-white hover:opacity-85 transition-opacity duration-100 hover:bg-black",
+        destructive: "bg-red-500 text-white hover:bg-red-400",
+        outline:
+          "text-black hover:bg-gray-200 border-transparent hover:border-gray-200 border bg-transparent border-gray-100",
+        secondary:
+          "text-black hover:bg-gray-200 bg-gray-100 border border-black/4",
+        underline:
+          "text-black bg-transparent border-b hover:border-black border-transparent transition-colors duration-300 p-0! hover:bg-transparent rounded-none!",
+        link: "text-blue-400 underline-offset-4 hover:underline bg-transparent hover:bg-transparent",
+        ghost: "bg-transparent hover:bg-gray-200 text-black",
       },
       size: {
-        xs: "h-6 px-2 text-[11px] rounded-xs",
-        sm: "h-7 px-2.5 text-xs",
-        md: "h-8 px-3 text-xs",
-        default: "h-7 px-2.5 text-xs",
-        toolbar: "h-7 px-2 text-xs",
-        lg: "h-8 px-3 text-xs",
-        icon: "size-7 p-0",
-        "icon-xs": "size-6 p-0 rounded-xs",
+        default: "h-10 px-5 py-3 text-sm",
+        sm: "h-8 px-3 py-1.5 text-xs",
+        lg: "h-12 px-5 py-4 text-sm",
+        icon: "flex items-center justify-center aspect-square p-2 text-sm",
       },
     },
     defaultVariants: {
-      variant: "secondary",
-      size: "sm",
+      variant: "default",
+      size: "default",
     },
-  }
+  },
 );
+
+/**
+ * Product-only overlays for filter / compact sizes.
+ * Uses theme CSS vars (Orbit values in orbit.css) — no dark: (lint-banned on this file).
+ */
+const PRODUCT_CLASS: Partial<Record<EpureVariant | EpureSize, string>> = {
+  filterEscalating:
+    "bg-badge-escalating-bg text-escalating border-badge-escalating-border hover:bg-badge-escalating-border/40",
+  filterRegression:
+    "bg-badge-regression-bg text-regression border-badge-regression-border hover:bg-badge-regression-border/40",
+  xs: "h-6 min-h-6 px-2 text-[11px]",
+  toolbar: "h-7 min-h-7 px-2 text-xs",
+  "icon-xs": "size-6 min-h-6 p-0",
+  md: "h-8 min-h-8",
+};
 
 export interface ButtonProps
   extends Omit<React.ComponentProps<"button">, "className">,
@@ -55,11 +132,12 @@ export interface ButtonProps
   hotkey?: string;
   loading?: boolean;
   className?: string;
+  fullWidth?: boolean;
 }
 
 export function Button({
-  variant,
-  size,
+  variant = "secondary",
+  size = "sm",
   asChild = false,
   hotkey,
   loading = false,
@@ -67,34 +145,92 @@ export function Button({
   children,
   className,
   type = "button",
+  fullWidth,
   ...props
 }: ButtonProps) {
-  const Comp = asChild ? Slot : "button";
+  const orbitVariant = ORBIT_VARIANT[variant ?? "secondary"];
+  const orbitSize = ORBIT_SIZE[size ?? "sm"];
+  const productClass = cn(
+    PRODUCT_CLASS[variant ?? "secondary"],
+    PRODUCT_CLASS[size ?? "sm"],
+    fullWidth ? "w-full" : undefined,
+  );
 
+  if (asChild) {
+    return (
+      <Slot
+        data-slot="button"
+        className={cn(
+          asChildVariants({ variant: orbitVariant, size: orbitSize }),
+          productClass,
+          className,
+        )}
+        {...props}
+      >
+        <Slottable>{children}</Slottable>
+        {hotkey ? (
+          <Box
+            as="span"
+            data-slot="kbd"
+            aria-hidden="true"
+            display="inline-flex"
+            alignItems="center"
+            height={16}
+            marginLeft="xs"
+            borderRadius="s"
+            borderWidth={1}
+            borderStyle="solid"
+            borderColor="border-primary"
+            backgroundColor="background-secondary"
+            paddingHorizontal="xs">
+            <Text as="span" variant="caption" color="muted" monospace>
+              {hotkey}
+            </Text>
+          </Box>
+        ) : null}
+      </Slot>
+    );
+  }
+
+  // Prefer Orbit classes; only layer product overlays (filter*/compact sizes).
+  // Do not re-skin rounded/bg — spacing scale must stay Tailwind-default for Orbit.
   return (
-    <Comp
+    <OrbitButton
       data-slot="button"
-      type={asChild ? undefined : type}
+      type={type}
+      variant={orbitVariant}
+      size={orbitSize}
+      loading={loading}
       disabled={disabled || loading}
-      className={cn(buttonVariants({ variant, size }), className)}
-      {...props}
+      fullWidth={fullWidth}
+      className={cn(productClass || undefined, className)}
+      {...(props as Omit<
+        OrbitButtonProps,
+        | "variant"
+        | "size"
+        | "loading"
+        | "fullWidth"
+        | "className"
+        | "type"
+        | "disabled"
+        | "children"
+      >)}
     >
-      {loading ? <CircleNotch className="animate-spin" weight="bold" /> : null}
-      <Slottable>{children}</Slottable>
+      {children}
       {hotkey ? (
         <kbd
           data-slot="kbd"
           aria-hidden="true"
           className={cn(
-            "ml-1 inline-flex h-4 items-center rounded-[3px] border px-1 font-mono text-[10px] font-normal",
+            "ml-1 inline-flex h-4 items-center rounded-full border px-1.5 font-mono text-[10px] font-normal",
             variant === "primary" || variant === "signal"
               ? "border-white/20 bg-white/20 text-white"
-              : "border-border-subtle bg-surface-3/70 text-fg-muted",
+              : "border-gray-200 bg-gray-100 text-gray-500",
           )}
         >
           {hotkey}
         </kbd>
       ) : null}
-    </Comp>
+    </OrbitButton>
   );
 }

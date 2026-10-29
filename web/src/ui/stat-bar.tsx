@@ -140,7 +140,7 @@ export function StatBar({ items, className, inline = false }: StatBarProps) {
 
   if (variant === "cards" && !inline) {
     return (
-      <div className={cn("epure-stat-bar border-b border-border bg-bg px-4 py-3", className)}>
+      <div className={cn("epure-stat-bar border-b border-border bg-bg-subtle epure-page-gutter-x py-3", className)}>
         <StatCards items={items} />
       </div>
     );
@@ -158,7 +158,7 @@ export function StatBar({ items, className, inline = false }: StatBarProps) {
     <div
       className={cn(
         "epure-stat-bar min-w-0",
-        inline ? "flex-1" : "border-b border-border px-6 py-2",
+        inline ? "flex-1" : "border-b border-border epure-page-gutter-x py-2",
         className,
       )}
     >

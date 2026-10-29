@@ -8,7 +8,7 @@ import {
   organizationsPath,
   userSettingsPath,
 } from "../../lib/paths";
-import { extractInviteToken } from "./index";
+import { extractInviteToken } from "./invite-token";
 
 describe("contextual navigation hierarchy & global routes", () => {
   it("determines global navigation context for user settings only", () => {

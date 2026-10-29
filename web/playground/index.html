@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="light" data-theme="light" data-style="calm-ledger">
+<html lang="en" class="light" data-theme="light" data-style="orbit">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -17,13 +17,12 @@
           root.classList.remove("dark");
           root.setAttribute("data-theme", "light");
         }
-        const style = localStorage.getItem("epure-style-theme");
-        if (style) {
-          root.setAttribute("data-style", style === "calm-ledger" ? style : "calm-ledger");
-        }
+        root.setAttribute("data-style", "orbit");
       } catch {}
     </script>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- StyleX dev CSS (devMode: css-only — no virtual runtime; avoids Vite dep deadlock) -->
+    <link rel="stylesheet" href="/virtual:stylex.css" />
   </head>
   <body>
     <div id="root"></div>

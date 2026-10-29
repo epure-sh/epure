@@ -9,7 +9,11 @@ import {
   DESIGN_KIT_FEATURE_UI_MODULES,
 } from "./feature-ui-registry";
 import {
+  DESIGN_KIT_KIT_META,
   DESIGN_KIT_KIT_MODULES,
+  DESIGN_KIT_SECTION_GROUPS,
+  DESIGN_KIT_SECTIONS,
+  DESIGN_KIT_UI_META,
   DESIGN_KIT_UI_MODULES,
 } from "./registry";
 
@@ -88,5 +92,48 @@ test("every cataloged module has a playground preview file", () => {
   }
   for (const mod of DESIGN_KIT_KIT_MODULES) {
     assert.ok(kitPreviews.includes(mod), `Missing previews/kit/${mod}.preview.tsx`);
+  }
+});
+
+test("registry meta covers every ui/kit module", () => {
+  for (const mod of DESIGN_KIT_UI_MODULES) {
+    assert.ok(DESIGN_KIT_UI_META[mod], `Missing DESIGN_KIT_UI_META.${mod}`);
+    assert.ok(DESIGN_KIT_UI_META[mod].importPath.includes(mod));
+  }
+  for (const mod of DESIGN_KIT_KIT_MODULES) {
+    assert.ok(DESIGN_KIT_KIT_META[mod], `Missing DESIGN_KIT_KIT_META.${mod}`);
+    assert.ok(DESIGN_KIT_KIT_META[mod].importPath.includes(mod));
+  }
+});
+
+test("section groups match Orbit-style IA labels", () => {
+  assert.deepEqual([...DESIGN_KIT_SECTION_GROUPS], [
+    "Start",
+    "Handbook",
+    "Cookbook",
+    "Brand",
+    "Foundations",
+    "Components",
+    "Feature",
+    "Lab",
+    "Quality",
+  ]);
+  for (const section of DESIGN_KIT_SECTIONS) {
+    assert.ok(
+      (DESIGN_KIT_SECTION_GROUPS as readonly string[]).includes(section.group),
+      `Unknown group ${section.group} on ${section.id}`,
+    );
+  }
+  const ids = DESIGN_KIT_SECTIONS.map((s) => s.id);
+  for (const required of [
+    "overview",
+    "handbook",
+    "principles",
+    "recipes",
+    "llm-contract",
+    "tokens",
+    "primitives",
+  ] as const) {
+    assert.ok(ids.includes(required), `Missing IA section ${required}`);
   }
 });

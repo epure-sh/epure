@@ -19,7 +19,7 @@ export function SettingsPage() {
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <SettingsNav />
 
-        <div className="min-w-0 flex-1 overflow-auto bg-canvas p-4 md:p-6">
+        <div className="min-w-0 flex-1 overflow-auto epure-page-gutter-x py-6">
           <div className="mx-auto max-w-5xl space-y-4">
             <RouteErrorBoundary title="Settings crashed" backHref={projectId ? projectPath(projectId, "issues") : "/"}>
               <Routes>

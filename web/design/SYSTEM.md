@@ -1,35 +1,35 @@
-# Product design system — Calm Ledger
+# Product design system — Polar Orbit (Phase 3)
 
-Visual law for the Epure dashboard (`web/`). This folder is the only design source for the product repo. The marketing site has its own `design/` and is not imported here.
+Visual law for the Epure dashboard (`web/`). Orbit owns surfaces; Calm Ledger palette is removed. Marketing has its own `design/` — do not import it.
 
-**Folder index:** [`README.md`](./README.md) (file map, edit workflow, kit vs tokens).
+**Folder index:** [`README.md`](./README.md). **Authoring:** [`AGENTS.md`](../AGENTS.md). **Migration:** [`ORBIT_MIGRATION.md`](./ORBIT_MIGRATION.md).
 
 ## Layers
 
 ```
-web/design/tokens.css          1. Colors, type, space, motion (hex only here)
-web/design/themes/*.css        2. Calm Ledger theme (`data-style="calm-ledger"`)
-web/design/tailwind.theme.cjs  3. Tailwind names → var(--*)
-web/src/ui/                    4. shadcn + Radix kit
-web/src/shell/                 5. App chrome (rail, navbar, page header)
-web/src/features/              6. Screens — compose ui + shell only
+web/design/themes/orbit.css    1. Product surface CSS vars (Orbit values)
+web/src/styles/tokens.css      2. Tailwind @theme — Polar ramps + product aliases
+web/design/tokens.css          3. Type, chrome dims, motion (extensions, not a second palette)
+web/src/components/ui/         4. Phase 2 Orbit wrappers (+ remaining Radix)
+web/src/components/kit/        5. Kit (Phase 4 restyle)
+web/src/shell/ + features/     6. Chrome + screens (Phase 6 for Epure-only surfaces)
 ```
 
-Alias: `@design` → `web/design`. Import tokens once in `src/main.tsx`.
+Alias: `@design` → `web/design`. Entry: `fonts.css` → `@design/tokens.css` → `src/styles/tokens.css`.
 
 ## Palette
 
-Warm **paper canvas**, **one indigo chroma**. Hex lives in theme CSS only. Copy landing light values into the product theme — do not import `marketing.css`.
+**Orbit gray (light) / polar (dark)** canvas. Accent = indigo (Orbit semantic). Fonts = Inter + Geist Mono.
 
 | Role | Use |
 |---|---|
-| `--bg` / `--bg-subtle` | Warm ivory paper (`#faf9f7`) and tinted rail wash (`#f3f1ed`) |
-| `--surface` | Cards, list well — white |
-| `--text` | Near-black ink (`#141210`); muted/subtle = warm greys (`#5c5954` / `#8a857c`) |
-| `--border` | 8% hairline (`rgba(10,10,10,0.08)`), not opaque slate |
-| `--accent` | Primary actions, focus, selected wash (`--accent-muted`), unread cue |
-| `--signal` | **Alias of `--accent`** — unread / hot use the same indigo, never a second green brand chroma |
-| `--danger` / `--success` / `--warning` | Semantics only (live exceptions, ok, caution) — not unread |
+| `--bg` / `--bg-subtle` | White / gray50 (light); polar950 / polar900 (dark) |
+| `--surface` | Cards — white (light) / polar800 (dark) |
+| `--text` | Black / white; muted = gray500 / polar400 |
+| `--border` | gray200 / polar700 |
+| `--accent` | Indigo accent + `--accent-muted` wash; unread cue |
+| `--signal` | **Alias of `--accent`** |
+| `--danger` / `--success` / `--warning` | Orbit red / emerald / amber — semantics only |
 
 ## Density and shape
 

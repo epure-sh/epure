@@ -24,7 +24,7 @@ export function RegressionStrip({
   return (
     <div
       className={cn(
-        "epure-regression-strip flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border border-l-[3px] border-l-semantic-danger bg-surface px-6 py-2.5",
+        "epure-regression-strip flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border border-l-[3px] border-l-semantic-danger bg-surface epure-page-gutter-x py-2.5",
         className,
       )}
     >

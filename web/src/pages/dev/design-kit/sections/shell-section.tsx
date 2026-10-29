@@ -2,7 +2,7 @@ import { PreviewBlock } from "../shared";
 
 export function ShellSection() {
   return (
-    <div id="shell" className="scroll-mt-24 space-y-4">
+    <div className="space-y-4">
       <PreviewBlock
         id="shell-chrome"
         title="App shell (src/shell/)"

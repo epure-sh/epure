@@ -27,7 +27,7 @@ export function SetupWaitingBanner({ projectId, className }: SetupWaitingBannerP
   return (
     <div
       className={cn(
-        "epure-setup-waiting-banner flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border bg-bg-subtle px-4 py-2",
+        "epure-setup-waiting-banner flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border bg-bg-subtle epure-page-gutter-x py-2",
         className,
       )}
     >
@@ -87,7 +87,7 @@ export function TestDataBanner({ projectId, className }: TestDataBannerProps) {
   return (
     <div
       className={cn(
-        "epure-test-data-banner flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border bg-bg-subtle px-4 py-2",
+        "epure-test-data-banner flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border bg-bg-subtle epure-page-gutter-x py-2",
         className,
       )}
     >

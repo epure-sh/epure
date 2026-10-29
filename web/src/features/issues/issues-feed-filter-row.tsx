@@ -271,7 +271,7 @@ export function IssuesFeedFilterRow({
     <div
       data-slot="filter-bar"
       className={
-        className ?? "flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2 md:px-6"
+        className ?? "flex flex-wrap items-center justify-between gap-x-3 gap-y-2 epure-page-gutter-x py-2"
       }
     >
       <IssuesFeedFilterChips

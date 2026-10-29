@@ -2,6 +2,7 @@ import type { EventDetail } from "../lib/api";
 import { formatRelativeTime } from "../lib/format-time";
 import { cn } from "../lib/cn";
 import { Button } from "./button";
+import { Box } from "@polar-sh/orbit/Box";
 import {
   Select,
   SelectContent,
@@ -62,7 +63,7 @@ export function OccurrencePicker({
 
   if (events.length === 1) {
     return (
-      <div className="epure-occurrence-picker w-full max-w-md">
+      <Box width="100%">
         <Button
           variant="outline"
           size="default"
@@ -70,14 +71,14 @@ export function OccurrencePicker({
           disabled
           aria-label={`Occurrence: ${formatOccurrenceDetail(selectedEvent)}`}
         >
-          <span className="truncate">{triggerLabel}</span>
+          <Box as="span" overflow="hidden">{triggerLabel}</Box>
         </Button>
-      </div>
+      </Box>
     );
   }
 
   return (
-    <div className="epure-occurrence-picker w-full max-w-md">
+    <Box width="100%">
       <Select
         value={selectedId}
         onValueChange={(id) => {
@@ -105,6 +106,6 @@ export function OccurrencePicker({
           ))}
         </SelectContent>
       </Select>
-    </div>
+    </Box>
   );
 }

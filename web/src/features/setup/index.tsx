@@ -220,7 +220,7 @@ export function SetupPage() {
   if (projectsLoading) {
     return (
       <PageShell density="full-bleed">
-        <div className="mx-auto w-full max-w-xl animate-pulse space-y-2 px-4 py-3">
+        <div className="mx-auto w-full max-w-xl animate-pulse space-y-2 epure-page-gutter-x py-3">
           <div className="h-8 rounded-md bg-surface-2" />
           <div className="h-48 rounded-md bg-surface-2" />
         </div>
@@ -230,7 +230,7 @@ export function SetupPage() {
 
   return (
     <PageShell density="full-bleed">
-      <div className="mx-auto flex w-full max-w-2xl min-h-0 flex-1 flex-col gap-2.5 px-4 py-3">
+      <div className="mx-auto flex w-full max-w-2xl min-h-0 flex-1 flex-col gap-2.5 epure-page-gutter-x py-3">
         {/* Compact Header Bar */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle/60 pb-2">
           <div className="flex items-center gap-2.5">

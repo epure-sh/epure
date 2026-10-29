@@ -1,4 +1,6 @@
+// src/components/kit/filter-bar.tsx — Phase 4: Orbit Box chrome (Epure Button/Input/Dropdown kept)
 import type { Ref } from "react";
+import { Box } from "@polar-sh/orbit/Box";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -19,7 +21,6 @@ import {
   Check,
   Tag,
 } from "@/components/ui/icon";
-import { cn } from "@/lib/utils";
 
 export interface FilterOption {
   key: string;
@@ -33,7 +34,6 @@ export interface FilterBarProps {
   activeKey?: string;
   onSelect?: (key: string) => void;
   onReset?: () => void;
-  className?: string;
 
   // Rich Feed FilterBar props (Sprint 4):
   environment?: string;
@@ -50,7 +50,7 @@ export interface FilterBarProps {
   releases?: string[];
   onReleaseChange?: (release: string | null) => void;
   search?: string;
-  onSearchChange?: (search: string) => void;
+  onSearchChange?: (q: string) => void;
   searchPlaceholder?: string;
   searchInputRef?: Ref<HTMLInputElement>;
   stats?: {
@@ -60,12 +60,20 @@ export interface FilterBarProps {
   };
 }
 
+function MenuCheck({ show }: { show: boolean }) {
+  if (!show) return null;
+  return (
+    <Box as="span" marginLeft="auto" display="inline-flex">
+      <Check size={12} weight="bold" />
+    </Box>
+  );
+}
+
 export function FilterBar({
   options,
   activeKey,
   onSelect,
   onReset,
-  className,
   environment,
   onEnvironmentChange,
   status,
@@ -85,15 +93,17 @@ export function FilterBar({
   searchInputRef,
   stats,
 }: FilterBarProps) {
-  // If only options are passed, render standard segmented filter bar
-  if (options && !environment && !onEnvironmentChange && !search && !onSearchChange) {
+  if (options) {
     const isAll = activeKey === "all" || !activeKey;
 
     return (
-      <div
+      <Box
         data-slot="filter-bar"
-        className={cn("flex flex-wrap items-center gap-1.5 py-1", className)}
-      >
+        flexWrap="wrap"
+        alignItems="center"
+        columnGap="xs"
+        rowGap="xs"
+        paddingVertical="xs">
         <Button
           variant={isAll ? "primary" : "outline"}
           size="xs"
@@ -114,33 +124,34 @@ export function FilterBar({
               size="xs"
               onClick={() => onSelect?.(option.key)}
             >
-              <span>{option.label}</span>
+              {option.label}
               {typeof option.count === "number" && (
-                <Badge variant="neutral" size="compact" className="tabular-nums">
+                <Badge variant="neutral" size="compact">
                   {option.count}
                 </Badge>
               )}
               {selected && (
-                <span
+                <Box
+                  as="span"
                   role="button"
                   tabIndex={0}
+                  marginLeft="xs"
+                  color={{ base: "text-secondary", hover: "text-primary" }}
                   onClick={(e) => {
                     e.stopPropagation();
                     onSelect?.("all");
                   }}
-                  className="hover:text-fg-primary ml-0.5"
                 >
-                  <X className="size-2.5" weight="bold" />
-                </span>
+                  <X size={10} weight="bold" />
+                </Box>
               )}
             </Button>
           );
         })}
-      </div>
+      </Box>
     );
   }
 
-  // Rich Sprint 4 Feed FilterBar
   const isAllActive =
     (!status || status === "all" || status === "unresolved") &&
     !escalating &&
@@ -150,18 +161,17 @@ export function FilterBar({
     (!search || search.trim() === "");
 
   return (
-    <div
+    <Box
       data-slot="filter-bar"
-      className={cn(
-        "flex flex-wrap items-center gap-1.5 py-1.5 text-xs select-none",
-        className
-      )}
-    >
-      {/* 1. Far-left [All] Reset Button */}
+      flexWrap="wrap"
+      alignItems="center"
+      columnGap="xs"
+      rowGap="xs"
+      paddingVertical="s"
+      userSelect="none">
       <Button
         variant={isAllActive ? "primary" : "outline"}
         size="xs"
-        className="h-7 text-xs font-medium"
         onClick={() => {
           if (onReset) onReset();
           else {
@@ -177,61 +187,47 @@ export function FilterBar({
         All
       </Button>
 
-      {/* 2. Environment Switcher Pill: [Env: production ▾] */}
       {onEnvironmentChange && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="xs"
-              className="h-7 text-xs font-mono font-medium gap-1 text-fg-secondary hover:text-fg-primary"
-            >
-              <span>Env: {environment || "all"}</span>
-              <CaretDown className="size-3 text-fg-muted" weight="bold" />
+            <Button variant="outline" size="xs">
+              Env: {environment || "all"}
+              <CaretDown size={12} weight="bold" />
             </Button>
           </DropdownMenuTrigger>
+          {/* Radix menu width — third-party glue, not Orbit layout. */}
           <DropdownMenuContent align="start" className="w-36">
             <DropdownMenuItem onSelect={() => onEnvironmentChange("production")}>
-              <span>production</span>
-              {environment === "production" && (
-                <Check className="ml-auto size-3" weight="bold" />
-              )}
+              production
+              <MenuCheck show={environment === "production"} />
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => onEnvironmentChange("staging")}>
-              <span>staging</span>
-              {environment === "staging" && (
-                <Check className="ml-auto size-3" weight="bold" />
-              )}
+              staging
+              <MenuCheck show={environment === "staging"} />
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => onEnvironmentChange("local")}>
-              <span>local / dev</span>
-              {environment === "local" && (
-                <Check className="ml-auto size-3" weight="bold" />
-              )}
+              local / dev
+              <MenuCheck show={environment === "local"} />
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => onEnvironmentChange("all")}>
-              <span>all environments</span>
-              {(!environment || environment === "all") && (
-                <Check className="ml-auto size-3" weight="bold" />
-              )}
+              all environments
+              <MenuCheck show={!environment || environment === "all"} />
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )}
 
-      {/* 3. Status Filters */}
       {onStatusChange && (
         <>
           <Button
             variant={status === "unresolved" ? "secondary" : "outline"}
             size="xs"
-            className="h-7 text-xs gap-1"
             onClick={() => onStatusChange(status === "unresolved" ? "all" : "unresolved")}
           >
-            <span>Unresolved</span>
+            Unresolved
             {typeof stats?.unresolved === "number" && (
-              <Badge variant="neutral" size="compact" className="tabular-nums">
+              <Badge variant="neutral" size="compact">
                 {stats.unresolved}
               </Badge>
             )}
@@ -240,7 +236,6 @@ export function FilterBar({
           <Button
             variant={status === "resolved" ? "secondary" : "outline"}
             size="xs"
-            className="h-7 text-xs"
             onClick={() => onStatusChange(status === "resolved" ? "all" : "resolved")}
           >
             Resolved
@@ -249,12 +244,11 @@ export function FilterBar({
           <Button
             variant={status === "snoozed" ? "secondary" : "outline"}
             size="xs"
-            className="h-7 text-xs gap-1"
             onClick={() => onStatusChange(status === "snoozed" ? "all" : "snoozed")}
           >
-            <span>Snoozed</span>
+            Snoozed
             {typeof stats?.snoozed === "number" && stats.snoozed > 0 && (
-              <Badge variant="neutral" size="compact" className="tabular-nums">
+              <Badge variant="neutral" size="compact">
                 {stats.snoozed}
               </Badge>
             )}
@@ -262,120 +256,99 @@ export function FilterBar({
         </>
       )}
 
-      {/* 4. Escalating (3d) Toggle Pill */}
       {onToggleEscalating && (
         <Button
           variant={escalating ? "filterEscalating" : "outline"}
           size="xs"
-          className="h-7 gap-1 text-xs font-medium"
           onClick={onToggleEscalating}
         >
-          <Flame
-            className={cn("size-3", escalating ? "text-escalating" : "text-fg-muted")}
-            weight={escalating ? "fill" : "bold"}
-          />
-          <span>Escalating (3d)</span>
+          <Flame size={12} weight={escalating ? "fill" : "bold"} />
+          Escalating (3d)
         </Button>
       )}
 
-      {/* 5. Came Back (Regression) Toggle Pill */}
       {onToggleRegression && (
         <Button
           variant={regression ? "filterRegression" : "outline"}
           size="xs"
-          className="h-7 gap-1 text-xs font-medium"
           onClick={onToggleRegression}
         >
-          <Warning
-            className={cn("size-3", regression ? "text-warning" : "text-fg-muted")}
-            weight={regression ? "fill" : "bold"}
-          />
-          <span>Came Back</span>
+          <Warning size={12} weight={regression ? "fill" : "bold"} />
+          Came Back
           {typeof stats?.regressions === "number" && stats.regressions > 0 && (
-            <Badge variant="warning" size="compact" className="tabular-nums">
+            <Badge variant="warning" size="compact">
               {stats.regressions}
             </Badge>
           )}
         </Button>
       )}
 
-      {/* 6. Priority Selector */}
       {onPriorityChange && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant={priority ? "secondary" : "outline"}
-              size="xs"
-              className="h-7 text-xs gap-1 text-fg-secondary hover:text-fg-primary"
-            >
-              <SlidersHorizontal className="size-3 text-fg-muted" weight="bold" />
-              <span>{priority ? `Priority: ${priority}` : "Priority"}</span>
-              <CaretDown className="size-2.5 text-fg-muted" weight="bold" />
+            <Button variant={priority ? "secondary" : "outline"} size="xs">
+              <SlidersHorizontal size={12} weight="bold" />
+              {priority ? `Priority: ${priority}` : "Priority"}
+              <CaretDown size={10} weight="bold" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-36">
             <DropdownMenuItem onSelect={() => onPriorityChange("")}>
-              <span>All priorities</span>
-              {!priority && <Check className="ml-auto size-3" weight="bold" />}
+              All priorities
+              <MenuCheck show={!priority} />
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => onPriorityChange("critical")}>
-              <span className="text-danger font-medium">Critical</span>
-              {priority === "critical" && <Check className="ml-auto size-3" weight="bold" />}
+              Critical
+              <MenuCheck show={priority === "critical"} />
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => onPriorityChange("high")}>
-              <span className="text-warning font-medium">High</span>
-              {priority === "high" && <Check className="ml-auto size-3" weight="bold" />}
+              High
+              <MenuCheck show={priority === "high"} />
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => onPriorityChange("medium")}>
-              <span>Medium</span>
-              {priority === "medium" && <Check className="ml-auto size-3" weight="bold" />}
+              Medium
+              <MenuCheck show={priority === "medium"} />
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => onPriorityChange("low")}>
-              <span className="text-fg-muted">Low</span>
-              {priority === "low" && <Check className="ml-auto size-3" weight="bold" />}
+              Low
+              <MenuCheck show={priority === "low"} />
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )}
 
-      {/* 7. Release Selector */}
       {releases.length > 0 && onReleaseChange && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant={release ? "secondary" : "outline"}
-              size="xs"
-              className="h-7 text-xs gap-1 font-mono text-fg-secondary hover:text-fg-primary"
-            >
-              <Tag className="size-3 text-fg-muted" weight="bold" />
-              <span>{release ? `Release: ${release}` : "Release"}</span>
-              <CaretDown className="size-2.5 text-fg-muted" weight="bold" />
+            <Button variant={release ? "secondary" : "outline"} size="xs">
+              <Tag size={12} weight="bold" />
+              {release ? `Release: ${release}` : "Release"}
+              <CaretDown size={10} weight="bold" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-44 max-h-60 overflow-y-auto">
             <DropdownMenuItem onSelect={() => onReleaseChange(null)}>
-              <span>All releases</span>
-              {!release && <Check className="ml-auto size-3" weight="bold" />}
+              All releases
+              <MenuCheck show={!release} />
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {releases.map((rel) => (
               <DropdownMenuItem key={rel} onSelect={() => onReleaseChange(rel)}>
-                <span className="font-mono text-xs">{rel}</span>
-                {release === rel && <Check className="ml-auto size-3" weight="bold" />}
+                {rel}
+                <MenuCheck show={release === rel} />
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
       )}
 
-      {/* 8. Text Search Input */}
       {onSearchChange && (
-        <div className="w-48 shrink-0">
+        <Box width={192} flexShrink={0}>
           <Input
             ref={searchInputRef}
             size="sm"
-            leadingIcon={<MagnifyingGlass className="size-3.5" />}
+            leadingIcon={<MagnifyingGlass size={14} />}
             trailingShortcut="/"
             placeholder={searchPlaceholder}
             aria-label="Search issues"
@@ -388,8 +361,8 @@ export function FilterBar({
               }
             }}
           />
-        </div>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }

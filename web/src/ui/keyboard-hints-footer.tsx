@@ -1,5 +1,6 @@
 import { Kbd } from "./kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import { Box } from "@polar-sh/orbit/Box";
 
 const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ["j", "k"], label: "Navigate" },
@@ -25,21 +26,19 @@ export function KeyboardHintsFooter() {
       </PopoverTrigger>
       <PopoverContent align="end" side="top" className="w-56 p-3 shadow-none">
         <p className="mb-2 text-xs font-medium tracking-ui text-ink">Shortcuts</p>
-        <ul className="space-y-1.5">
+        <Box as="ul" flexDirection="column" rowGap="s">
           {SHORTCUTS.map((row) => (
-            <li
-              key={row.label}
-              className="flex items-center justify-between gap-3 text-xs tracking-ui text-ink-muted"
-            >
-              <span>{row.label}</span>
-              <span className="inline-flex items-center gap-0.5">
+            <Box as="li" alignItems="center" justifyContent="between" gap="m"
+              key={row.label}>
+              <Box as="span">{row.label}</Box>
+              <Box as="span" alignItems="center" gap="xs">
                 {row.keys.map((key) => (
                   <Kbd key={key} keys={key} />
                 ))}
-              </span>
-            </li>
+              </Box>
+            </Box>
           ))}
-        </ul>
+        </Box>
       </PopoverContent>
     </Popover>
   );

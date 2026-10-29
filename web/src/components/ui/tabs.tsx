@@ -1,6 +1,11 @@
-// src/components/ui/tabs.tsx
+// src/components/ui/tabs.tsx — Phase 2: Orbit Tabs + Epure line/folder variants
 import * as React from "react";
-import * as TabsPrimitive from "@radix-ui/react-tabs";
+import {
+  Tabs as OrbitTabs,
+  TabsContent as OrbitTabsContent,
+  TabsList as OrbitTabsList,
+  TabsTrigger as OrbitTabsTrigger,
+} from "@polar-sh/orbit/Tabs";
 import { cn } from "@/lib/utils";
 
 export type TabsVariant = "default" | "line" | "folder";
@@ -11,7 +16,7 @@ interface TabsContextValue {
 
 const TabsContext = React.createContext<TabsContextValue>({ variant: "default" });
 
-export interface TabsProps extends React.ComponentProps<typeof TabsPrimitive.Root> {
+export interface TabsProps extends React.ComponentProps<typeof OrbitTabs> {
   variant?: TabsVariant;
 }
 
@@ -22,16 +27,12 @@ export function Tabs({
 }: TabsProps) {
   return (
     <TabsContext.Provider value={{ variant }}>
-      <TabsPrimitive.Root
-        data-slot="tabs"
-        className={cn(className)}
-        {...props}
-      />
+      <OrbitTabs data-slot="tabs" className={cn(className)} {...props} />
     </TabsContext.Provider>
   );
 }
 
-export interface TabsListProps extends React.ComponentProps<typeof TabsPrimitive.List> {
+export interface TabsListProps extends React.ComponentProps<typeof OrbitTabsList> {
   variant?: TabsVariant;
 }
 
@@ -44,22 +45,23 @@ export function TabsList({
   const variant = variantProp ?? context.variant;
 
   return (
-    <TabsPrimitive.List
+    <OrbitTabsList
       data-slot="tabs-list"
       className={cn(
         variant === "line"
-          ? "inline-flex items-center gap-1 border-b border-border/80 bg-transparent p-0 text-fg-muted"
+          ? "h-auto gap-1 rounded-none border-b border-border/80 bg-transparent p-0 ring-0"
           : variant === "folder"
-            ? "flex h-9 items-end gap-1 border-b border-border-subtle bg-surface-2 px-2 pt-1 text-fg-muted"
-            : "inline-flex h-8 items-center justify-center rounded-control bg-surface-2 p-0.5 text-fg-muted",
-        className
+            ? "h-9 w-full items-end gap-1 rounded-none border-b border-border-subtle bg-surface-2 px-2 pt-1 ring-0"
+            : undefined,
+        className,
       )}
       {...props}
     />
   );
 }
 
-export interface TabsTriggerProps extends React.ComponentProps<typeof TabsPrimitive.Trigger> {
+export interface TabsTriggerProps
+  extends React.ComponentProps<typeof OrbitTabsTrigger> {
   variant?: TabsVariant;
 }
 
@@ -72,34 +74,33 @@ export function TabsTrigger({
   const variant = variantProp ?? context.variant;
 
   return (
-    <TabsPrimitive.Trigger
+    <OrbitTabsTrigger
       data-slot="tabs-trigger"
+      size="small"
       className={cn(
-        "inline-flex items-center justify-center whitespace-nowrap text-xs font-medium transition-all select-none cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong disabled:pointer-events-none disabled:opacity-40",
+        "cursor-pointer",
         variant === "line"
-          ? "rounded-none border-b-2 border-transparent px-3 py-1.5 text-fg-muted hover:text-fg-primary data-[state=active]:border-accent data-[state=active]:text-fg-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          ? "rounded-none border-b-2 border-transparent px-3 py-1.5 text-fg-muted shadow-none hover:text-fg-primary data-[state=active]:rounded-none data-[state=active]:border-accent data-[state=active]:bg-transparent data-[state=active]:text-fg-primary data-[state=active]:shadow-none"
           : variant === "folder"
-            ? "-mb-px rounded-t-md border border-transparent px-3 py-1.5 text-fg-muted hover:text-fg-primary data-[state=active]:border-border-subtle data-[state=active]:border-b-surface-1 data-[state=active]:bg-surface-1 data-[state=active]:font-semibold data-[state=active]:text-fg-primary"
-            : "rounded-xs px-2.5 py-1 text-fg-secondary hover:text-fg-primary data-[state=active]:bg-surface-1 data-[state=active]:text-fg-primary data-[state=active]:shadow-tactile",
-        className
+            ? "-mb-px rounded-t-md border border-transparent px-3 py-1.5 text-fg-muted shadow-none hover:text-fg-primary data-[state=active]:rounded-t-md data-[state=active]:border-border-subtle data-[state=active]:border-b-surface-1 data-[state=active]:bg-surface-1 data-[state=active]:font-semibold data-[state=active]:text-fg-primary data-[state=active]:shadow-none"
+            : undefined,
+        className,
       )}
       {...props}
     />
   );
 }
 
-export interface TabsContentProps extends React.ComponentProps<typeof TabsPrimitive.Content> {}
+export interface TabsContentProps
+  extends React.ComponentProps<typeof OrbitTabsContent> {}
 
-export function TabsContent({
-  className,
-  ...props
-}: TabsContentProps) {
+export function TabsContent({ className, ...props }: TabsContentProps) {
   return (
-    <TabsPrimitive.Content
+    <OrbitTabsContent
       data-slot="tabs-content"
       className={cn(
         "min-h-0 flex-1 outline-none focus-visible:outline-none data-[state=inactive]:hidden data-[state=inactive]:!hidden",
-        className
+        className,
       )}
       {...props}
     />

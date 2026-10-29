@@ -1,57 +1,84 @@
+import { Box } from "@polar-sh/orbit/Box";
+import { Grid } from "@polar-sh/orbit/Grid";
+import { Text } from "@polar-sh/orbit/Text";
 import { Checkbox } from "@/components/ui/checkbox";
-import { cn } from "@/lib/utils";
 
-/** Embedded History feed — checkbox · title stack (no kind icon per alerts-ui.md). */
-export const ALERT_ROW_GRID = "grid-cols-[16px_minmax(0,1fr)]";
+/** Embedded History feed — checkbox · title stack · fired time. */
+export const ALERT_ROW_TEMPLATE = "16px minmax(0, 1fr) auto";
 
-/** Notification feed cards — checkbox · kind icon · title. */
-export const ALERT_FEED_CARD_ROW_GRID = "grid-cols-[16px_1.25rem_minmax(0,1fr)]";
+/** Notification feed cards — checkbox · kind icon · title · fired time. */
+export const ALERT_FEED_CARD_TEMPLATE = "16px 1.25rem minmax(0, 1fr) auto";
+
+/** @deprecated Prefer ALERT_ROW_TEMPLATE with Orbit Grid. */
+export const ALERT_ROW_GRID = "grid-cols-[16px_minmax(0,1fr)_auto]";
+
+/** @deprecated Prefer ALERT_FEED_CARD_TEMPLATE with Orbit Grid. */
+export const ALERT_FEED_CARD_ROW_GRID = "grid-cols-[16px_1.25rem_minmax(0,1fr)_auto]";
+
+/** Shared horizontal inset — keep in sync with alert rows (Tailwind until rows migrate). */
+export const ALERT_LIST_INSET_CLASS = "gap-x-3 px-4 sm:gap-x-3.5";
 
 export interface AlertListColumnHeaderProps {
   selectAllChecked?: boolean;
   selectAllIndeterminate?: boolean;
   onToggleSelectAll?: () => void;
   selectionActive?: boolean;
-  className?: string;
 }
 
+/**
+ * Column labels — Orbit Text roles + Grid (Polar authoring).
+ * Alert = primary `title`; Fired = muted mono `caption`.
+ */
 export function AlertListColumnHeader({
   selectAllChecked = false,
   selectAllIndeterminate = false,
   onToggleSelectAll,
   selectionActive = false,
-  className,
 }: AlertListColumnHeaderProps) {
   return (
-    <div
+    <Grid
+      as="div"
       data-slot="alert-list-column-header"
-      className={cn(
-        "group sticky top-0 z-10 grid h-8 w-full items-center gap-x-3 border-b border-border-subtle bg-surface-2/90 px-4 text-[11px] font-medium text-fg-muted backdrop-blur-xs select-none sm:gap-x-3.5",
-        ALERT_ROW_GRID,
-        className,
-      )}
+      templateColumns={ALERT_ROW_TEMPLATE}
+      alignItems="center"
+      width="100%"
+      height={32}
+      columnGap="m"
+      paddingHorizontal="l"
+      backgroundColor="background-secondary"
+      borderBottomWidth={1}
+      borderStyle="solid"
+      borderColor="border-primary"
+      position="sticky"
+      top={0}
+      zIndex={10}
+      userSelect="none"
       aria-hidden
     >
-      <div className="flex size-4 shrink-0 items-center justify-center">
+      <Box alignItems="center" justifyContent="center" width={16} height={16} flexShrink={0}>
         {onToggleSelectAll ? (
           <Checkbox
             checked={selectAllIndeterminate ? "indeterminate" : selectAllChecked}
             aria-label="Select all alerts"
             title="Select all"
             onCheckedChange={() => onToggleSelectAll()}
-            className={cn(
-              "transition-opacity duration-75",
+            // Opacity affordance is product glue on Checkbox (not Box/Text)
+            className={
               selectionActive
-                ? "pointer-events-auto opacity-100"
-                : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
-            )}
+                ? "opacity-100"
+                : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+            }
           />
         ) : null}
-      </div>
-      <div className="flex min-w-0 items-center justify-between gap-2">
-        <span className="min-w-0 truncate">Alert</span>
-        <span className="shrink-0 font-mono tabular-nums">Fired</span>
-      </div>
-    </div>
+      </Box>
+      <Box minWidth={0} overflow="hidden">
+        <Text as="span" variant="title">
+          Alert
+        </Text>
+      </Box>
+      <Text as="span" variant="caption" color="muted" monospace tabularNums>
+        Fired
+      </Text>
+    </Grid>
   );
 }

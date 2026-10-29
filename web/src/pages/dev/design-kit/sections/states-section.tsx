@@ -6,7 +6,7 @@ import { PreviewBlock } from "../shared";
 
 export function StatesSection() {
   return (
-    <div id="states" className="scroll-mt-24 space-y-4">
+    <div className="space-y-4">
       <PreviewBlock
         id="states-matrix"
         title="4-state stress matrix"

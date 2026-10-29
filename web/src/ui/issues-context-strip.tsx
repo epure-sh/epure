@@ -43,8 +43,8 @@ export function IssuesContextStrip({
   return (
     <div
       className={cn(
-        "epure-context-strip flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border bg-bg-subtle/30 px-4 py-1.5 md:px-6",
-        showRegression && "border-l-[3px] border-l-semantic-danger pl-[13px] md:pl-[calc(1.5rem+1px)]",
+        "epure-context-strip flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border bg-bg-subtle/30 epure-page-gutter-x py-1.5",
+        showRegression && "border-l-[3px] border-l-semantic-danger pl-[calc(var(--epure-page-gutter)+1px)]",
         className,
       )}
     >

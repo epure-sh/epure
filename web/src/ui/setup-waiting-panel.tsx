@@ -7,6 +7,7 @@ import { Card, CardContent } from "./card";
 import { CopyDsnBlock } from "./copy-dsn-block";
 import { SetupConnectGuide } from "./setup-connect-guide";
 import { useToast } from "./toast-provider";
+import { Box } from "@polar-sh/orbit/Box";
 
 export interface SetupWaitingPanelProps {
   projectId: string;
@@ -55,7 +56,7 @@ export function SetupWaitingPanel({
   const envMismatch = environment !== "production";
 
   return (
-    <div className="flex flex-1 min-h-0 items-center justify-center p-4">
+    <Box flexGrow={1} minHeight={0} alignItems="center" justifyContent="center" padding="l">
       <Card className="w-full max-w-md">
         <CardContent className="space-y-3 p-4">
           <p className="text-xl font-medium tracking-ui text-ink">You&apos;re wired.</p>
@@ -97,6 +98,6 @@ export function SetupWaitingPanel({
           ) : null}
         </CardContent>
       </Card>
-    </div>
+    </Box>
   );
 }

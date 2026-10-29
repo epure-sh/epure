@@ -1,11 +1,102 @@
 // src/components/ui/icon.tsx
 import * as React from "react";
 import type { Icon as PhosphorIcon, IconWeight } from "@phosphor-icons/react";
+import {
+  Archive,
+  ArrowCounterClockwise,
+  ArrowRight,
+  ArrowSquareOut,
+  Bell,
+  CaretDown,
+  CaretLeft,
+  ChartBar,
+  Check,
+  CheckCircle,
+  CircleNotch,
+  Clock,
+  ClockCounterClockwise,
+  Copy,
+  DotsThree,
+  EnvelopeSimple,
+  Eye,
+  Flame,
+  Gear,
+  Hash,
+  Info,
+  List,
+  MagnifyingGlass,
+  Pause,
+  PencilSimple,
+  Plus,
+  Radio,
+  ShieldWarning,
+  SlidersHorizontal,
+  Sparkle,
+  Tag,
+  Terminal,
+  Trash,
+  Tray,
+  TrendUp,
+  Users,
+  Warning,
+  WarningCircle,
+  WarningOctagon,
+  WebhooksLogo,
+  X,
+} from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
-// Re-export all Phosphor icons so caller layers can import icons from "@/components/ui/icon"
-// without violating the architectural law that Layer 1 is the only layer importing from @phosphor-icons/react
-export * from "@phosphor-icons/react";
+/**
+ * Explicit Phosphor re-exports only.
+ * Never `export * from "@phosphor-icons/react"` — with Vite `optimizeDeps.noDiscovery`
+ * that barrel fans out to ~4k module requests and leaves `#root` blank until
+ * (or unless) the graph finishes.
+ */
+export {
+  Archive,
+  ArrowCounterClockwise,
+  ArrowRight,
+  ArrowSquareOut,
+  Bell,
+  CaretDown,
+  CaretLeft,
+  ChartBar,
+  Check,
+  CheckCircle,
+  CircleNotch,
+  Clock,
+  ClockCounterClockwise,
+  Copy,
+  DotsThree,
+  EnvelopeSimple,
+  Eye,
+  Flame,
+  Gear,
+  Hash,
+  Info,
+  List,
+  MagnifyingGlass,
+  Pause,
+  PencilSimple,
+  Plus,
+  Radio,
+  ShieldWarning,
+  SlidersHorizontal,
+  Sparkle,
+  Tag,
+  Terminal,
+  Trash,
+  Tray,
+  TrendUp,
+  Users,
+  Warning,
+  WarningCircle,
+  WarningOctagon,
+  WebhooksLogo,
+  X,
+};
+
+export type { PhosphorIcon as IconType, IconWeight };
 
 export interface IconProps extends Omit<React.SVGAttributes<SVGSVGElement>, "size"> {
   icon: PhosphorIcon | React.ComponentType<any>;
@@ -31,4 +122,3 @@ export function Icon({
     />
   );
 }
-

@@ -21,7 +21,8 @@
 - `Sonner` (`@/components/ui/sonner`): `Toaster`, `toast` notification system
 
 ## Layer 2: Epure Composite Kit (`@/components/kit/*`)
-- `PageShell` (`@/components/kit/page-shell`): `title`, `description`, `actions`, `density="standard|full-bleed"`
+- `PageShell` (`@/components/kit/page-shell`): `title`, `description`, `actions`, `density="standard|full-bleed"` — standard = `--epure-page-gutter` (class `epure-page-gutter-x`) + full-width column; page wash = `background-secondary` / `bg-canvas`
+- `PolarCard` (`@/components/kit/polar-card`): Polar gallery card (`interactive`, `selected`, `to`, `padding`) + `PolarCardHeader` / `Title` / `Description` / `Body` / `Footer`
 - `SectionCard` (`@/components/kit/section-card`): Standard settings/billing panel with header, body, and footer slots
 - `CommandBar` (`@/components/kit/command-bar`): Unified `⌘K` search palette & trigger input
 - `FilterBar` (`@/components/kit/filter-bar`): URL-synced filter pills + leading `[All]` reset button; optional inline compact search (`search`, `onSearchChange`, `searchPlaceholder`, `searchInputRef`)
@@ -35,12 +36,12 @@
 - `AskAgentCard` (`@/components/kit/ask-agent-card`): Primary `[Ask Agent]` copy button + secondary `Check docs ↗` link
 - `UsageMeterCard` (`@/components/kit/usage-meter-card`): Resource usage quota meter card with status thresholds
 - `EmptyState` (`@/components/kit/empty-state`): Standard zero-data / empty state display
-- `DataTable` (`@/components/kit/data-table`): High-performance table combining `@tanstack/react-table` v8 and `@tanstack/react-virtual`
+- `DataTable` (`@/components/kit/data-table`): Orbit DataTable façade (`@tanstack/react-table` v9 · manual sort/pagination)
 - `CodeFrame` (`@/components/kit/code-frame`): Syntax-highlighted code block wrapping `shiki` with copy actions and target line highlighting
 - `ProductTour` / `startEpureProductTour` (`@/components/kit/product-tour`): Issues feed tour (driver.js) styled with Calm Ledger tokens in `app.css`
 - `useEpureShortcut` (`@/components/kit/use-epure-shortcut`): Hotkey hook wrapping `react-hotkeys-hook` with automatic form and dialog suppression
 
 ## Playground design kit
 
-`npm run dev:playground` → **`/__design`** (not shipped on production builds). Catalog: `src/pages/dev/design-kit/` — register `@/components/ui` + `@/components/kit` in `registry.ts` + `previews/ui|kit/*.preview.tsx`; register `src/ui/*` in `feature-ui-registry.ts` + `previews/feature-ui/feature-ui-group-previews.tsx`. `npm test` fails if any module is missing.
+`npm run dev:playground` → **`/__design`** (canonical Orbit docs: handbook, foundations, component Examples, `#recipes`; `?view=canvas` optional). Catalog: `src/pages/dev/design-kit/` — register `@/components/ui` + `@/components/kit` in `registry.ts` (+ `DESIGN_KIT_UI_META` / `DESIGN_KIT_KIT_META`) + `previews/ui|kit/*.preview.tsx`; register `src/ui/*` in `feature-ui-registry.ts` + `previews/feature-ui/feature-ui-group-previews.tsx`. `/__orbit` redirects to `/__design#recipes`. `npm test` fails if any module is missing.
 

@@ -1,6 +1,6 @@
 import { PreviewBlock, PreviewRow } from "../shared";
 
-const calmSwatches = [
+const orbitSwatches = [
   { token: "--bg / bg-bg", className: "bg-bg" },
   { token: "--bg-subtle", className: "bg-bg-subtle" },
   { token: "--surface", className: "bg-surface" },
@@ -14,7 +14,7 @@ const calmSwatches = [
   { token: "--semantic-info", className: "bg-semantic-info" },
 ] as const;
 
-const obsidianSwatches = [
+const bridgeSwatches = [
   { token: "canvas", className: "bg-canvas" },
   { token: "surface-1", className: "bg-surface-1" },
   { token: "surface-2", className: "bg-surface-2" },
@@ -26,6 +26,18 @@ const obsidianSwatches = [
   { token: "regression", className: "bg-regression" },
   { token: "healthy", className: "bg-healthy" },
   { token: "info", className: "bg-info" },
+] as const;
+
+/** Mirrors --space-1…8 from design/tokens.css (Tailwind size utilities). */
+const SPACE_STEPS = [
+  { n: 1, box: "size-1" },
+  { n: 2, box: "size-2" },
+  { n: 3, box: "size-3" },
+  { n: 4, box: "size-4" },
+  { n: 5, box: "size-5" },
+  { n: 6, box: "size-6" },
+  { n: 7, box: "size-8" },
+  { n: 8, box: "size-12" },
 ] as const;
 
 function SwatchGrid({
@@ -49,45 +61,72 @@ function SwatchGrid({
 
 export function TokensSection() {
   return (
-    <div id="tokens" className="scroll-mt-24 space-y-4">
+    <div className="space-y-4">
+      <header className="space-y-1 border-b border-border-subtle pb-2">
+        <h2 className="text-sm font-semibold text-fg-primary">Foundations — color</h2>
+        <p className="max-w-2xl text-xs text-fg-muted">
+          Source of truth: <code className="font-mono text-[11px]">design/themes/orbit.css</code>{" "}
+          + Polar ramps in <code className="font-mono text-[11px]">src/styles/tokens.css</code>{" "}
+          <code className="font-mono text-[11px]">@theme</code>. Product utility aliases (fg-*,
+          badge-*) map to Orbit surfaces until Phase 4–6.
+        </p>
+      </header>
+
       <PreviewBlock
-        id="tokens-calm"
-        title="Calm Ledger tokens (design/tokens.css + calm-ledger theme)"
-        description="Paper canvas, indigo accent, semantic danger/warning/success. Edit design/tokens.css and reload."
+        id="tokens-orbit"
+        title="Orbit surface tokens"
+        description="White/polar canvas, indigo accent, semantic emerald/amber/red."
       >
-        <SwatchGrid items={calmSwatches} />
+        <SwatchGrid items={orbitSwatches} />
       </PreviewBlock>
 
       <PreviewBlock
-        id="tokens-obsidian"
-        title="Obsidian / Tailwind semantic utilities (src/styles/tokens.css)"
-        description="Layer used by @/components/ui primitives — fg-*, surface-*, status colors."
+        id="tokens-bridge"
+        title="Product utility aliases (fg-*, surface-*)"
+        description="Kit / remaining ui classNames — same Orbit CSS variables, Epure Tailwind names."
       >
-        <SwatchGrid items={obsidianSwatches} />
+        <SwatchGrid items={bridgeSwatches} />
       </PreviewBlock>
 
-      <PreviewBlock
-        id="tokens-radius-shadow"
-        title="Radius & elevation"
-        description="Controls use rounded-control (6px). Cards use rounded-panel (8px). Hairlines over drop shadows on chrome."
-      >
-        <PreviewRow label="Radius samples">
-          <div className="flex h-8 w-16 items-center justify-center rounded-xs border border-border-subtle bg-surface-2 text-[10px]">
-            xs
+      <div id="space-radius" className="scroll-mt-24 space-y-4">
+        <PreviewBlock
+          id="tokens-space"
+          title="Space scale"
+          description="--space-1 … --space-8 from design/tokens.css."
+        >
+          <div className="flex flex-wrap items-end gap-3">
+            {SPACE_STEPS.map((step) => (
+              <div key={step.n} className="flex flex-col items-center gap-1">
+                <div className={`rounded-xs bg-accent/80 ${step.box}`} />
+                <p className="font-mono text-[10px] text-fg-muted">{step.n}</p>
+              </div>
+            ))}
           </div>
-          <div className="flex h-8 w-16 items-center justify-center rounded-control border border-border-subtle bg-surface-2 text-[10px]">
-            control
-          </div>
-          <div className="flex h-12 w-24 items-center justify-center rounded-panel border border-border-subtle bg-surface-2 text-[10px]">
-            panel
-          </div>
-        </PreviewRow>
-        <PreviewRow label="Shadow tokens">
-          <div className="h-10 w-28 rounded-control border border-border-subtle bg-surface-1 shadow-tactile" />
-          <div className="h-10 w-28 rounded-control border border-border-subtle bg-surface-1 shadow-float" />
-          <div className="epure-surface-specular h-10 w-28 rounded-panel border border-border bg-surface" />
-        </PreviewRow>
-      </PreviewBlock>
+        </PreviewBlock>
+
+        <PreviewBlock
+          id="tokens-radius-shadow"
+          title="Radius & elevation"
+          description="Controls use rounded-control. Cards use rounded-panel. Hairlines over drop shadows on chrome."
+        >
+          <PreviewRow label="Radius samples">
+            <div className="flex h-8 w-16 items-center justify-center rounded-xs border border-border-subtle bg-surface-2 text-[10px]">
+              xs
+            </div>
+            <div className="flex h-8 w-16 items-center justify-center rounded-control border border-border-subtle bg-surface-2 text-[10px]">
+              control
+            </div>
+            <div className="flex h-12 w-24 items-center justify-center rounded-panel border border-border-subtle bg-surface-2 text-[10px]">
+              panel
+            </div>
+          </PreviewRow>
+          <PreviewRow label="Shadow tokens">
+            <div className="h-10 w-28 rounded-control border border-border-subtle bg-surface-1 shadow-tactile" />
+            <div className="h-10 w-28 rounded-control border border-border-subtle bg-surface-1 shadow-float" />
+            <div className="epure-surface-specular h-10 w-28 rounded-panel border border-border bg-surface" />
+          </PreviewRow>
+        </PreviewBlock>
+      </div>
     </div>
   );
 }

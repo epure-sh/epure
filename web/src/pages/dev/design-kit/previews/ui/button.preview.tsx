@@ -7,7 +7,11 @@ const sizes = ["xs","sm","md","default","toolbar","lg","icon","icon-xs"] as cons
 
 export default function ButtonPreview() {
   return (
-    <PreviewBlock id="button" title="Button" description="CVA variants · sizes xs–lg · hotkey · loading · 100ms press">
+    <PreviewBlock
+      id="button"
+      title="Button"
+      description="Orbit Button · Epure variants (signal / filter*) · hotkey · loading"
+    >
       <PreviewRow label="Variants (sm)">
         {variants.map((v) => (
           <Button key={v} variant={v} size="sm">{v}</Button>

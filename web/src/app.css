@@ -17,6 +17,32 @@ html,
 body,
 #root {
   height: 100%;
+  min-height: 100dvh;
+}
+
+/** Horizontal inset for app pages — matches TopStrip, PageShell, feed toolbars. */
+.epure-page-gutter-x {
+  padding-inline: var(--epure-page-gutter);
+}
+
+[data-slot="page-shell-header"],
+[data-slot="page-shell-main"] {
+  padding-inline: var(--epure-page-gutter) !important;
+}
+
+.epure-safe-pad {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.epure-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.epure-safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 body {
@@ -77,36 +103,30 @@ body {
   contain: layout style paint;
 }
 
+/* Keyboard j/k focus cue — inset shadow only (zero layout shift). */
+.epure-feed-row[data-focused="true"] {
+  background-color: var(--state-selected);
+  box-shadow:
+    inset 2px 0 0 0 var(--accent),
+    inset 0 0 0 1px var(--border-strong);
+}
+
 /* Specular Rim Lighting & Card Depth */
 .epure-surface-specular {
   background-color: var(--surface);
-  box-shadow:
-    0 0 0 1px var(--border),
-    inset 0 1px 0 0 oklch(1 0 0 / 0.08),
-    0 1px 2px -0.5px rgba(0, 0, 0, 0.04),
-    0 4px 12px -2px rgba(0, 0, 0, 0.06);
-}
-
-[data-theme="dark"] .epure-surface-specular,
-.dark .epure-surface-specular {
-  background-color: var(--surface);
-  box-shadow:
-    0 0 0 1px var(--border),
-    inset 0 1px 0 0 oklch(1 0 0 / 0.12),
-    0 1px 2px -0.5px rgba(0, 0, 0, 0.25),
-    0 4px 12px -2px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-specular);
 }
 
 /* Tactile button mechanical press depression */
 .btn-tactile {
-  transition: transform 120ms cubic-bezier(0.2, 0, 0, 1),
+  transition: transform 100ms cubic-bezier(0.23, 1, 0.32, 1),
               background-color 150ms ease,
               border-color 150ms ease;
   will-change: transform;
 }
 
 .btn-tactile:active {
-  transform: scale(0.98) translateY(0.5px);
+  transform: scale(0.97);
 }
 
 /* Light scrim when a product popover is open (dialogs use their own overlay). */

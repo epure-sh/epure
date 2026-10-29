@@ -1,6 +1,6 @@
-// src/components/kit/page-shell.tsx
+// src/components/kit/page-shell.tsx — Phase 4: Orbit Box chrome
 import * as React from "react";
-import { cn } from "@/lib/utils";
+import { Box } from "@polar-sh/orbit/Box";
 
 export interface PageShellProps {
   title?: string;
@@ -10,40 +10,95 @@ export interface PageShellProps {
   actions?: React.ReactNode;
   children: React.ReactNode;
   density?: "standard" | "full-bleed";
-  className?: string;
 }
 
+/**
+ * Standard density: full-width content pane with `--epure-page-gutter` (see tokens.css),
+ * matching TopStrip so page edges align with the navbar.
+ */
 export function PageShell({
   leadingActions,
   actions,
   children,
   density = "standard",
-  className,
 }: PageShellProps) {
   const showHeader = Boolean(leadingActions || actions);
 
   return (
-    <div data-slot="page-shell" className={cn("flex h-full min-h-0 flex-1 flex-col bg-canvas", className)}>
+    <Box
+      data-slot="page-shell"
+      flexDirection="column"
+      height="100%"
+      minHeight={0}
+      flex={1}
+      // Page wash — matches `--surface-canvas` / `bg-canvas` on feed routes.
+      backgroundColor="background-secondary"
+    >
       {showHeader ? (
-        <header className="flex h-12 shrink-0 items-center justify-between border-b border-border-subtle bg-surface-1/60 px-6">
+        <Box
+          as="header"
+          data-slot="page-shell-header"
+          alignItems="center"
+          justifyContent="between"
+          width="100%"
+          height={48}
+          flexShrink={0}
+          borderBottomWidth={1}
+          borderStyle="solid"
+          borderColor="border-primary"
+          backgroundColor="background-secondary"
+          paddingHorizontal="none"
+          columnGap="m"
+        >
           {leadingActions ? (
-            <div className="flex min-w-0 flex-1 items-center">{leadingActions}</div>
+            <Box alignItems="center" minWidth={0} flex={1}>
+              {leadingActions}
+            </Box>
           ) : (
-            <span className="min-w-0 flex-1" aria-hidden />
+            <Box as="span" minWidth={0} flex={1} aria-hidden />
           )}
-          {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
-        </header>
+          {actions ? (
+            <Box alignItems="center" flexShrink={0} columnGap="s">
+              {actions}
+            </Box>
+          ) : null}
+        </Box>
       ) : null}
 
-      <main
-        className={
-          density === "full-bleed"
-            ? "flex min-h-0 flex-1 flex-col overflow-hidden"
-            : "mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 overflow-auto px-6 py-6"
-        }
-      >
-        {children}
-      </main>
-    </div>
+      {density === "full-bleed" ? (
+        <Box
+          as="main"
+          flexDirection="column"
+          minHeight={0}
+          flex={1}
+          overflow="hidden"
+          backgroundColor="background-secondary"
+        >
+          {children}
+        </Box>
+      ) : (
+        <Box
+          as="main"
+          data-slot="page-shell-main"
+          flexDirection="column"
+          width="100%"
+          minHeight={0}
+          flex={1}
+          overflow="auto"
+          paddingHorizontal="none"
+          paddingVertical="xl"
+        >
+          <Box
+            data-slot="page-shell-column"
+            flexDirection="column"
+            width="100%"
+            rowGap="xl"
+            flexShrink={0}
+          >
+            {children}
+          </Box>
+        </Box>
+      )}
+    </Box>
   );
 }

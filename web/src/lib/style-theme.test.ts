@@ -11,7 +11,6 @@ import {
 } from "./style-theme";
 
 describe("style-theme & light/dark theme mode", () => {
-  // Mock mock document & localStorage in node environment if needed
   beforeEach(() => {
     const store = new Map<string, string>();
     const classList = new Set<string>();
@@ -86,15 +85,21 @@ describe("style-theme & light/dark theme mode", () => {
     localStorage.setItem("epure-style-theme", "calm-ledger");
 
     initStyleTheme();
-    assert.equal(document.documentElement.getAttribute("data-style"), "calm-ledger");
+    assert.equal(document.documentElement.getAttribute("data-style"), "orbit");
+    assert.equal(getStoredStyleTheme(), "orbit");
     assert.equal(document.documentElement.classList.contains("dark"), true);
     assert.equal(document.documentElement.getAttribute("data-theme"), "dark");
   });
 
   it("initStyleTheme applies light when no theme mode is stored", () => {
-    localStorage.setItem("epure-style-theme", "calm-ledger");
+    localStorage.setItem("epure-style-theme", "orbit");
     initStyleTheme();
     assert.equal(document.documentElement.classList.contains("light"), true);
     assert.equal(document.documentElement.getAttribute("data-theme"), "light");
+  });
+
+  it("applyStyleTheme writes orbit", () => {
+    applyStyleTheme("orbit");
+    assert.equal(document.documentElement.getAttribute("data-style"), "orbit");
   });
 });

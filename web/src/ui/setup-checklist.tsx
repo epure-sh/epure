@@ -49,7 +49,7 @@ export function SetupChecklist({
   return (
     <div
       className={cn(
-        "epure-setup-checklist flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-bg-subtle px-4 py-2",
+        "epure-setup-checklist flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-bg-subtle epure-page-gutter-x py-2",
         className,
       )}
     >

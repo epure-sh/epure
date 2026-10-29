@@ -1,12 +1,14 @@
-import { ArrowRight, Pencil, Plus, Search, Sparkles, X, Zap } from "lucide-react";
+import { Pencil, Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Box } from "@polar-sh/orbit/Box";
+import { Grid, GridItem } from "@polar-sh/orbit";
+import { Text } from "@polar-sh/orbit/Text";
+import { Alert } from "@polar-sh/orbit/Alert";
 import {
-  createProject,
   deleteProject,
   fetchBillingStatus,
   fetchHeadlineStats,
-  patchSetupProgress,
   type BillingStatus,
   type HeadlineStats,
   type TimelineBucket,
@@ -17,17 +19,18 @@ import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { useToast } from "../../ui/toast-provider";
+import { PageShell } from "@/components/kit/page-shell";
 import { SetupWizardDialog } from "../setup/setup-wizard-dialog";
 import { emptyListTrendBuckets } from "../issues/issue-feed-utils";
 import { fetchProjectActivityBuckets } from "./project-activity";
 import { DeleteProjectsDialog } from "./delete-projects-dialog";
-import { ProjectList } from "./project-list";
+import { PROJECT_GALLERY_GRID_COLUMNS, ProjectList } from "./project-list";
 
 export function OrgHomePage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { projects, refreshProjects, user, setProjectId, projectsLoading } = useAppContext();
+  const { projects, refreshProjects, user, projectsLoading } = useAppContext();
   const safeProjects = useMemo(() => (Array.isArray(projects) ? projects : []), [projects]);
-  const [newProjectName, setNewProjectName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [statsByProject, setStatsByProject] = useState<Map<string, HeadlineStats>>(new Map());
@@ -52,7 +55,8 @@ export function OrgHomePage() {
 
   const isPaused = Boolean(
     billingStatus?.subscription_status === "paused" ||
-    (billingStatus?.canary_expires_at && new Date(billingStatus.canary_expires_at).getTime() <= Date.now())
+      (billingStatus?.canary_expires_at &&
+        new Date(billingStatus.canary_expires_at).getTime() <= Date.now()),
   );
 
   const canManage = user?.role === "owner" || user?.role === "admin";
@@ -156,33 +160,11 @@ export function OrgHomePage() {
     setWizardOpen(true);
   }
 
-  async function handleCreateClick() {
+  function handleCreateClick() {
     if (!canManage || busy) {
       return;
     }
-    const trimmed = newProjectName.trim();
-    if (!trimmed) {
-      openWizard({ name: "" });
-      return;
-    }
-
-    setBusy(true);
-    try {
-      const created = await createProject(trimmed);
-      setNewProjectName("");
-      setProjectId(created.id);
-      await refreshProjects();
-      void patchSetupProgress({
-        project_id: created.id,
-        project_named: true,
-      }).catch(() => undefined);
-      openWizard({ name: created.name, projectId: created.id });
-      toast(`Created ${created.name}`);
-    } catch {
-      toast("Failed to create project");
-    } finally {
-      setBusy(false);
-    }
+    openWizard({ name: "" });
   }
 
   function handleWizardOpenChange(open: boolean) {
@@ -224,16 +206,85 @@ export function OrgHomePage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex-1 overflow-auto bg-bg px-4 py-5 md:px-6">
-        <div className="mx-auto max-w-7xl space-y-4">
-          {canManage || canDeleteProjects ? (
-            <div className="flex flex-wrap items-center justify-end gap-2">
+    <>
+      <PageShell density="standard">
+        <Box flexDirection="column" rowGap="l" width="100%">
+          {isPaused ? (
+            <Alert
+              variant="danger"
+              title="7-day pilot ended"
+              description="Production ingestion is paused. Upgrade to restore live tracking."
+              actions={[
+                {
+                  text: "Upgrade to unpause",
+                  onClick: () => navigate("/billing"),
+                },
+              ]}
+            />
+          ) : null}
+
+          {searchParams.get("welcome") === "canary" ? (
+            <Alert
+              variant="info"
+              title="Welcome to your Epure Cloud sandbox"
+              description="Sample exceptions, a dedicated DSN, and Spike Valve protection are ready. Connect Claude Code or Cursor via epure-mcp, or upgrade to keep data beyond 7 days."
+              onDismiss={() => {
+                const next = new URLSearchParams(searchParams);
+                next.delete("welcome");
+                setSearchParams(next, { replace: true });
+              }}
+              actions={[
+                {
+                  text: "View plans",
+                  onClick: () => navigate("/billing"),
+                },
+              ]}
+            />
+          ) : null}
+
+          <Grid
+            templateColumns={PROJECT_GALLERY_GRID_COLUMNS}
+            gap="l"
+            width="100%"
+            alignItems="center"
+          >
+            <Box alignItems="center" columnGap="s" minWidth={0} width="100%">
+              <Text as="h2" variant="heading-xs" flexShrink={0}>
+                Projects
+              </Text>
+              {projects.length > 0 ? (
+                <Badge variant="neutral" size="compact">
+                  {filteredProjects.length}
+                  {filteredProjects.length !== projects.length ? ` of ${projects.length}` : ""}
+                </Badge>
+              ) : null}
+              {!editMode && projects.length >= 2 ? (
+                <Box flex={1} minWidth={0}>
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Filter by name or slug…"
+                    leadingIcon={<Search size={14} />}
+                  />
+                </Box>
+              ) : null}
+            </Box>
+
+            <GridItem
+              colStart={{ base: 1, sm: 2 }}
+              colEnd={{ base: -1, sm: -1 }}
+              justifyContent="end"
+              alignItems="center"
+              columnGap="s"
+              display="flex"
+              flexWrap="wrap"
+              rowGap="s"
+            >
               {editMode && canDeleteProjects ? (
                 <>
-                  <span className="text-xs text-ink-muted">
+                  <Text variant="caption" color="muted">
                     {selectedIds.size} selected
-                  </span>
+                  </Text>
                   <Button
                     type="button"
                     variant="ghost"
@@ -258,150 +309,33 @@ export function OrgHomePage() {
                 </>
               ) : (
                 <>
-                  {canManage ? (
-                    <>
-                      <Input
-                        aria-label="New project name"
-                        placeholder="Project name"
-                        value={newProjectName}
-                        onChange={(event) => setNewProjectName(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            void handleCreateClick();
-                          }
-                        }}
-                        className="h-8 w-40 sm:w-52"
-                      />
-                      <Button
-                        type="button"
-                        disabled={busy}
-                        className="gap-1.5"
-                        onClick={() => void handleCreateClick()}
-                      >
-                        <Plus size={14} />
-                        Create project
-                      </Button>
-                    </>
-                  ) : null}
                   {canDeleteProjects && projects.length > 0 ? (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="gap-1.5"
                       onClick={() => setEditMode(true)}
                     >
                       <Pencil size={14} />
                       Edit
                     </Button>
                   ) : null}
+                  {canManage ? (
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      disabled={busy}
+                      onClick={handleCreateClick}
+                    >
+                      <Plus size={14} />
+                      Create project
+                    </Button>
+                  ) : null}
                 </>
               )}
-            </div>
-          ) : null}
-          {/* Paused Canary Alert Banner */}
-          {isPaused && (
-            <div className="relative overflow-hidden rounded-xl border border-escalating/50 bg-gradient-to-r from-escalating/15 via-escalating/5 to-transparent p-5 shadow-xs">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="error" className="font-semibold text-2xs uppercase tracking-wide">
-                      Project Paused
-                    </Badge>
-                    <span className="text-xs font-semibold text-fg-primary">
-                      7-Day Pilot Trial Ended
-                    </span>
-                  </div>
-                  <h2 className="text-sm font-semibold text-fg-primary">
-                    Production Error Ingestion is Currently Paused
-                  </h2>
-                  <p className="text-xs text-fg-muted max-w-2xl">
-                    Your 7-day trial has expired and incoming production errors are no longer processed. Upgrade to Cloud Pro ($49/mo) or Team Plus to unpause ingestion and restore live tracking immediately.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button variant="danger" size="sm" asChild className="gap-1.5 shadow-xs">
-                    <Link to="/billing">
-                      <Zap size={13} className="fill-current" />
-                      Upgrade to Unpause
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Canary Welcome Pilot Banner */}
-          {searchParams.get("welcome") === "canary" && (
-            <div className="relative overflow-hidden rounded-xl border border-accent/40 bg-gradient-to-r from-accent/15 via-accent/5 to-transparent p-5 shadow-xs">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => {
-                  const next = new URLSearchParams(searchParams);
-                  next.delete("welcome");
-                  setSearchParams(next, { replace: true });
-                }}
-                className="absolute top-3.5 right-3.5 text-fg-muted hover:text-fg-primary"
-                aria-label="Dismiss banner"
-              >
-                <X size={14} />
-              </Button>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pr-8">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="accent" className="font-semibold">
-                      <Sparkles size={11} className="mr-1 inline-block" />
-                      Canary Pilot Workspace
-                    </Badge>
-                    <span className="text-xs font-semibold text-healthy">
-                      7-Day Trial Active · 0 Credentials Required
-                    </span>
-                  </div>
-                  <h2 className="text-sm font-semibold text-fg-primary">
-                    Welcome to your pre-provisioned Epure Cloud sandbox!
-                  </h2>
-                  <p className="text-xs text-fg-muted max-w-2xl">
-                    Your environment is pre-loaded with sample exceptions, a dedicated DSN, and active Spike Valve crash-loop protection. Connect Claude Code or Cursor via <code className="rounded bg-surface-2 px-1.5 py-0.5 text-fg-primary font-mono text-2xs">epure-mcp</code> to auto-fix issues in seconds, or upgrade to keep your data beyond 7 days.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button variant="signal" size="sm" asChild>
-                    <Link to="/billing">
-                      View Plans & Upgrade
-                      <ArrowRight size={14} className="ml-1" />
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {projects.length > 0 ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-1 select-none">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-fg-primary">Active Projects</span>
-                <Badge variant="neutral" size="compact" className="font-mono font-medium">
-                  {filteredProjects.length}
-                  {filteredProjects.length !== projects.length ? ` of ${projects.length}` : ""}
-                </Badge>
-              </div>
-
-              {projects.length >= 2 ? (
-                <div className="w-56 sm:w-64">
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Filter by name or slug…"
-                    leadingIcon={<Search className="h-3.5 w-3.5 text-fg-muted" />}
-                    className="h-8 text-xs"
-                  />
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+            </GridItem>
+          </Grid>
 
           <ProjectList
             projects={filteredProjects}
@@ -416,10 +350,12 @@ export function OrgHomePage() {
           />
 
           {!canManage && !projectsLoading && safeProjects.length === 0 ? (
-            <p className="text-sm text-fg-muted">Ask an admin to create a project.</p>
+            <Text variant="body" color="muted">
+              Ask an admin to create a project.
+            </Text>
           ) : null}
-        </div>
-      </div>
+        </Box>
+      </PageShell>
 
       <SetupWizardDialog
         open={wizardOpen}
@@ -435,6 +371,6 @@ export function OrgHomePage() {
         onConfirm={handleBulkDelete}
         busy={busy}
       />
-    </div>
+    </>
   );
 }

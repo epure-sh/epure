@@ -92,7 +92,7 @@ export function UserSettingsPage() {
         </nav>
 
         {/* Content Tab View */}
-        <div className="min-w-0 flex-1 overflow-auto bg-canvas p-4 md:p-6">
+        <div className="min-w-0 flex-1 overflow-auto epure-page-gutter-x py-6">
           <div className="mx-auto max-w-default space-y-4">
             <RouteErrorBoundary title="User Settings error" backHref="/user/settings">
               <Routes>

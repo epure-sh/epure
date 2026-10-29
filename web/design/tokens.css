@@ -1,18 +1,23 @@
-/* web/design/tokens.css — product type/space foundation + theme imports */
+/* web/design/tokens.css — Orbit type/space foundation + theme import.
+ *
+ * Color surfaces live in themes/orbit.css. This file keeps Epure chrome dims,
+ * motion, safe areas, and type scale as thin product extensions — not a second
+ * competing palette.
+ */
 
 @import "./themes/index.css";
 
 :root {
-  /* Type — IBM Plex (canonical per tokens.json) */
-  --font-display: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-docs: "IBM Plex Serif", ui-serif, Georgia, serif;
+  /* Type — Inter + Geist Mono (PP Neue Montreal not licensed here; Orbit falls back) */
+  --font-display: "Inter", "InterDisplay", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "GeistMono", "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-docs: "Inter", ui-serif, Georgia, serif;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
-  --tracking-ui: -0.007em;
+  --tracking-ui: 0.015em;
 
-  /* Type scale — role-based (sm bumped to 14px per foundations) */
+  /* Type scale — product roles (Orbit StyleX has its own rem ramp for Box/Text) */
   --text-2xs: 0.6875rem;
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
@@ -36,7 +41,8 @@
   --leading-4xl: 3rem;
   --leading-5xl: 3.75rem;
 
-  /* Space */
+  /* Space — Epure chrome/kit only (`p-epure-8`, or var(--space-*)).
+   * Never wire these into Tailwind's numeric scale — Orbit assumes h-8=2rem. */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -48,13 +54,13 @@
   --space-9: 4rem;
   --space-10: 5.5rem;
 
-  /* Geometry — radius + control sizes live in theme files only */
+  /* Geometry — radius from orbit theme; control size helpers */
   --radius: var(--radius-md);
   --border-width: 1px;
   --control-height-sm: calc(var(--control-height) - 0.25rem);
   --control-height-lg: calc(var(--control-height) + 0.25rem);
 
-  /* Chrome layout */
+  /* Chrome layout — Epure product dims (Phase 4/6 may revisit) */
   --chrome-rail-width: 12rem;
   --chrome-rail-width-collapsed: 3rem;
   --chrome-top-height: 2.75rem;
@@ -64,22 +70,31 @@
   --chrome-list-width: 30rem;
   --chrome-detail-min-width: 40rem;
 
-  /* Content widths — route body max-width */
   --content-width-narrow: 36rem;
   --content-width-default: 42rem;
   --content-width-wide: 48rem;
   --content-width-org: 56rem;
 
-  /* Elevation — hairlines only; shadows reserved for legacy refs */
-  --shadow-sm: none;
-  --shadow-md: none;
+  /* Elevation — Orbit soft shadows (theme also sets --shadow-bevel/popover/specular) */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 0px 15px rgba(0, 0, 0, 0.04), 0 0px 2px rgba(0, 0, 0, 0.06);
 
-  /* Motion */
-  --ease-mechanical: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-out-soft: cubic-bezier(0, 0, 0.2, 1);
-  --duration-fast: 80ms;
-  --duration-base: 120ms;
-  --duration-panel: 160ms;
+  /* Motion — match Orbit StyleX (`value.stylex.ts` durations + easings) */
+  --ease-mechanical: cubic-bezier(0, 0, 0, 1); /* Orbit decelerate */
+  --ease-out-soft: cubic-bezier(0.2, 0, 0, 1); /* Orbit standard */
+  --ease-out: cubic-bezier(0, 0, 0, 1); /* Orbit decelerate */
+  --ease-in-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-drawer: cubic-bezier(0.3, 0, 1, 1); /* Orbit accelerate (exit) */
+  --spring-damping: 1;
+  --spring-response: 0.32s; /* Orbit slow */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-panel: 320ms;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 }
 
 @media (max-width: 1023px) {

@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import { type ButtonHTMLAttributes } from "react";
 import { cn } from "../lib/cn";
+import { Box } from "@polar-sh/orbit/Box";
 
 export interface FilterChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   label: string;
@@ -26,35 +27,28 @@ export function FilterChip({
 }: FilterChipProps) {
   if (onRemove) {
     return (
-      <span
-        className={cn(
-          "epure-filter-chip epure-filter-chip--query group/chip inline-flex max-w-full items-stretch overflow-hidden rounded-md border text-xs select-none",
-          variant === "query"
-            ? "border-badge-accent-border bg-badge-accent-bg text-badge-accent-fg"
-            : active
-              ? "border-transparent bg-badge-accent-bg text-badge-accent-fg"
-              : "border-border bg-surface text-ink-muted",
-          className,
-        )}
-        title={title ?? tokenHint ?? label}
-      >
-        <span className="flex min-w-0 items-center gap-1 px-2 py-1">
+      <Box as="span"
+       
+        title={title ?? tokenHint ?? label}>
+        <Box as="span" minWidth={0} alignItems="center" gap="xs" paddingHorizontal="s" paddingVertical="xs">
           {variant === "query" && filterKey ? (
             <>
-              <span className="font-mono text-2xs uppercase tracking-wide text-accent/80">
+              <Box as="span">
                 {filterKey}
-              </span>
-              <span className="text-ink-muted/50" aria-hidden>:</span>
-              <span className="truncate font-medium text-ink">{label}</span>
+              </Box>
+              <Box as="span" aria-hidden>:</Box>
+              <Box as="span" overflow="hidden">{label}</Box>
             </>
           ) : (
-            <span className="truncate font-medium">{label}</span>
+            <Box as="span" overflow="hidden">{label}</Box>
           )}
-        </span>
+        </Box>
         <button
           type="button"
           className={cn(
-            "inline-flex shrink-0 items-center justify-center border-l px-1.5 cursor-pointer transition-colors duration-fast focus-ring",
+            "inline-flex shrink-0 items-center justify-center border-l px-1.5 cursor-pointer",
+            "transition-[background-color,color,transform] duration-150 ease-[var(--ease-mechanical,cubic-bezier(0.16,1,0.3,1))] focus-ring",
+            "active:scale-[0.97] motion-reduce:active:scale-100",
             variant === "query"
               ? "border-badge-accent-border text-badge-accent-fg hover:bg-state-hover"
               : "border-border/80 text-ink-muted hover:bg-state-hover hover:text-ink",
@@ -70,7 +64,7 @@ export function FilterChip({
         >
           <X size={12} strokeWidth={2.25} aria-hidden />
         </button>
-      </span>
+      </Box>
     );
   }
 
@@ -78,7 +72,9 @@ export function FilterChip({
     <button
       type="button"
       className={cn(
-        "epure-filter-chip inline-flex h-control-sm max-w-full items-center gap-1 rounded-md border px-2.5 text-xs font-medium cursor-pointer select-none transition-colors duration-fast focus-ring",
+        "epure-filter-chip inline-flex h-control-sm max-w-full items-center gap-1 rounded-md border px-2.5 text-xs font-medium cursor-pointer select-none focus-ring",
+        "transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-mechanical,cubic-bezier(0.16,1,0.3,1))]",
+        "active:scale-[0.97] motion-reduce:active:scale-100",
         active
           ? "border-transparent bg-accent-muted text-accent"
           : "border-border bg-surface text-ink-muted hover:bg-state-hover hover:text-ink",
@@ -88,7 +84,7 @@ export function FilterChip({
       title={title}
       {...props}
     >
-      <span className="truncate">{label}</span>
+      <Box as="span" overflow="hidden">{label}</Box>
     </button>
   );
 }

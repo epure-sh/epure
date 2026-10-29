@@ -1,8 +1,9 @@
-// src/components/kit/empty-state.tsx
+// src/components/kit/empty-state.tsx — Phase 4: Orbit Box/Text
 import * as React from "react";
+import { Box } from "@polar-sh/orbit/Box";
+import { Text } from "@polar-sh/orbit/Text";
 import { Button } from "@/components/ui/button";
 import { Tray } from "@/components/ui/icon";
-import { cn } from "@/lib/utils";
 
 export interface EmptyStateProps {
   icon?: React.ReactNode;
@@ -22,27 +23,50 @@ export function EmptyState({
   className,
 }: EmptyStateProps) {
   return (
-    <div
+    <Box
       data-slot="empty-state"
-      className={cn(
-        "flex min-h-[220px] flex-col items-center justify-center rounded-panel border border-dashed border-border-subtle p-8 text-center",
-        className
-      )}
+      flexDirection="column"
+      alignItems="center"
+      justifyContent="center"
+      minHeight={220}
+      borderRadius="m"
+      borderWidth={1}
+      borderStyle="dashed"
+      borderColor="border-primary"
+      padding="2xl"
+      textAlign="center"
+      // eslint-disable-next-line no-restricted-syntax -- kit API className
+      className={className}
     >
-      <div className="mb-3 flex size-9 items-center justify-center rounded-control bg-surface-2 text-fg-muted">
-        {icon || <Tray className="size-5" weight="regular" />}
-      </div>
-      <h3 className="text-xs font-semibold text-fg-primary">{title}</h3>
-      {description && (
-        <p className="mt-1 max-w-sm text-xs text-fg-muted">{description}</p>
-      )}
-      {actionLabel && onAction && (
-        <div className="mt-4">
+      <Box
+        alignItems="center"
+        justifyContent="center"
+        width={36}
+        height={36}
+        borderRadius="s"
+        backgroundColor="background-secondary"
+        color="text-secondary"
+        marginBottom="m"
+      >
+        {icon || <Tray size={20} weight="regular" />}
+      </Box>
+      <Text as="h3" variant="label">
+        {title}
+      </Text>
+      {description ? (
+        <Box marginTop="xs" maxWidth={384}>
+          <Text as="p" variant="caption" color="muted">
+            {description}
+          </Text>
+        </Box>
+      ) : null}
+      {actionLabel && onAction ? (
+        <Box marginTop="l">
           <Button variant="secondary" size="sm" onClick={onAction}>
             {actionLabel}
           </Button>
-        </div>
-      )}
-    </div>
+        </Box>
+      ) : null}
+    </Box>
   );
 }

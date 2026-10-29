@@ -20,11 +20,11 @@ export function SimpleFeedHeader({ actions, stats, className }: SimpleFeedHeader
   return (
     <header
       className={cn(
-        "epure-issues-feed-header shrink-0 border-b border-border-subtle bg-bg select-none",
+        "epure-issues-feed-header shrink-0 border-b border-border-subtle bg-bg-subtle select-none",
         className,
       )}
     >
-      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-3 py-1.5 md:px-5">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 epure-page-gutter-x py-1.5">
         {stats ? (
           <div
             className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 text-[11px] leading-snug text-fg-muted"

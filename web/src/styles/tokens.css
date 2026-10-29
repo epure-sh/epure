@@ -1,34 +1,45 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Explicit scan paths — required when Vite root is not `src/` (playground dev). */
+/* Explicit scan paths — required when Vite root is not `src/` (playground dev).
+ * Orbit lives outside web/src; without this, Button/Input/Pill Tailwind classes
+ * (rounded-full, bg-black, polar-*, gray-*) are not generated. */
 @source "../**/*.{js,ts,jsx,tsx}";
 @source "../../playground/**/*.{js,ts,jsx,tsx}";
+@source "../../../packages/orbit/src/**/*.{js,ts,jsx,tsx}";
 
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *, .dark, .dark *));
 
 /**
- * Tailwind v4 bridge only — palette is Calm Ledger in @design/themes/calm-ledger.css.
- * Do not define competing hex/oklch here (legacy “Obsidian” layer removed).
+ * Orbit owns @theme (Polar gray/polar/semantic ramps + fonts/shadows/radii).
+ * Product CSS vars (--bg, --text, …) come from design/themes/orbit.css.
+ * Legacy Epure utility names (canvas, fg-*, badge-*, escalating, …) alias those
+ * so kit / remaining ui keep compiling until Phase 4–6.
  */
+
 :root,
+[data-style="orbit"],
 [data-style="calm-ledger"],
 [data-theme="light"],
 .light {
-  --surface-canvas: var(--bg);
+  /* TopStrip height = sidebar brand row only (Épure + context). */
+  --epure-shell-top-h: 3rem;
+  /* Shared horizontal inset: TopStrip, PageShell, Issues/Alerts feeds. */
+  --epure-page-gutter: 50px;
+
+  --surface-canvas: var(--bg-subtle);
   --surface-1: var(--surface);
   --surface-2: var(--bg-subtle);
   --surface-3: var(--state-pressed);
   --surface-overlay: color-mix(in oklch, var(--surface) 92%, transparent);
 
   --border-subtle: var(--border);
-  --border-strong: var(--border-strong);
+  /* border-strong already set on theme */
 
   --fg-primary: var(--text);
   --fg-secondary: var(--text-muted);
   --fg-muted: var(--text-subtle);
 
-  /* Primary control = indigo accent, not ink */
   --intent-primary: var(--accent);
   --intent-primary-fg: var(--accent-contrast);
 
@@ -43,17 +54,176 @@
 
 [data-theme="dark"],
 .dark,
+[data-style="orbit"][data-theme="dark"],
 [data-style="calm-ledger"][data-theme="dark"] {
   --surface-overlay: color-mix(in oklch, var(--surface) 88%, transparent);
 }
 
-@theme inline {
-  --color-*: initial;
-  --color-transparent: transparent;
-  --color-current: currentColor;
+@theme {
+  /* Polar Orbit color ramps — required for Orbit Button/Input/Pill Tailwind classes */
   --color-white: #ffffff;
   --color-black: #000000;
 
+  --color-gray-50: oklch(0.985 0.002 247.839);
+  --color-gray-100: oklch(0.967 0.003 264.542);
+  --color-gray-200: oklch(0.928 0.006 264.531);
+  --color-gray-300: oklch(0.872 0.01 258.338);
+  --color-gray-400: oklch(0.707 0.022 261.325);
+  --color-gray-500: oklch(0.551 0.027 264.364);
+  --color-gray-600: oklch(0.446 0.03 256.802);
+  --color-gray-700: oklch(0.373 0.034 259.733);
+  --color-gray-800: oklch(0.278 0.033 256.848);
+  --color-gray-900: oklch(0.21 0.034 264.665);
+  --color-gray-950: oklch(0.13 0.028 261.692);
+
+  --color-polar-50: hsl(0, 0%, 85%);
+  --color-polar-100: hsl(0, 0%, 79%);
+  --color-polar-200: hsl(0, 0%, 68%);
+  --color-polar-300: hsl(0, 0%, 62%);
+  --color-polar-400: hsl(0, 0%, 52%);
+  --color-polar-500: hsl(0, 0%, 46%);
+  --color-polar-600: hsl(0, 0%, 16%);
+  --color-polar-700: hsl(0, 0%, 13%);
+  --color-polar-800: hsl(0, 0%, 9.5%);
+  --color-polar-900: hsl(0, 0%, 6.5%);
+  --color-polar-950: hsl(0, 0%, 3.5%);
+
+  --color-blue-50: oklch(0.97 0.014 254.604);
+  --color-blue-100: oklch(0.932 0.032 255.585);
+  --color-blue-200: oklch(0.882 0.059 254.128);
+  --color-blue-300: oklch(0.809 0.105 251.813);
+  --color-blue-400: oklch(0.707 0.165 254.624);
+  --color-blue-500: oklch(0.623 0.214 259.815);
+  --color-blue-600: oklch(0.546 0.245 262.881);
+  --color-blue-700: oklch(0.488 0.243 264.376);
+  --color-blue-800: oklch(0.424 0.199 265.638);
+  --color-blue-900: oklch(0.379 0.146 265.522);
+  --color-blue-950: oklch(0.282 0.091 267.935);
+  --color-blue: var(--color-blue-600);
+
+  --color-red-50: oklch(0.971 0.013 17.38);
+  --color-red-100: oklch(0.936 0.032 17.717);
+  --color-red-200: oklch(0.885 0.062 18.334);
+  --color-red-300: oklch(0.808 0.114 19.571);
+  --color-red-400: oklch(0.704 0.191 22.216);
+  --color-red-500: oklch(0.637 0.237 25.331);
+  --color-red-600: oklch(0.577 0.245 27.325);
+  --color-red-700: oklch(0.505 0.213 27.518);
+  --color-red-800: oklch(0.444 0.177 26.899);
+  --color-red-900: oklch(0.396 0.141 25.723);
+  --color-red-950: oklch(0.258 0.092 26.042);
+
+  --color-green-50: oklch(0.979 0.021 166.113);
+  --color-green-100: oklch(0.95 0.052 163.051);
+  --color-green-200: oklch(0.905 0.093 164.15);
+  --color-green-300: oklch(0.845 0.143 164.978);
+  --color-green-400: oklch(0.765 0.177 163.223);
+  --color-green-500: oklch(0.696 0.17 162.48);
+  --color-green-600: oklch(0.596 0.145 163.225);
+  --color-green-700: oklch(0.508 0.118 165.612);
+  --color-green-800: oklch(0.432 0.095 166.913);
+  --color-green-900: oklch(0.378 0.077 168.94);
+  --color-green-950: oklch(0.262 0.051 172.552);
+
+  --color-emerald-50: var(--color-green-50);
+  --color-emerald-100: var(--color-green-100);
+  --color-emerald-200: var(--color-green-200);
+  --color-emerald-300: var(--color-green-300);
+  --color-emerald-400: var(--color-green-400);
+  --color-emerald-500: var(--color-green-500);
+  --color-emerald-600: var(--color-green-600);
+  --color-emerald-700: var(--color-green-700);
+  --color-emerald-800: var(--color-green-800);
+  --color-emerald-900: var(--color-green-900);
+  --color-emerald-950: var(--color-green-950);
+
+  --color-amber-50: oklch(0.987 0.022 95.277);
+  --color-amber-100: oklch(0.962 0.059 95.617);
+  --color-amber-200: oklch(0.924 0.12 95.746);
+  --color-amber-300: oklch(0.879 0.169 91.605);
+  --color-amber-400: oklch(0.828 0.189 84.429);
+  --color-amber-500: oklch(0.769 0.188 70.08);
+  --color-amber-600: oklch(0.666 0.179 58.318);
+  --color-amber-700: oklch(0.555 0.163 48.998);
+  --color-amber-800: oklch(0.473 0.137 46.201);
+  --color-amber-900: oklch(0.414 0.112 45.904);
+  --color-amber-950: oklch(0.279 0.077 45.635);
+
+  --color-yellow-50: var(--color-amber-50);
+  --color-yellow-100: var(--color-amber-100);
+  --color-yellow-200: var(--color-amber-200);
+  --color-yellow-300: var(--color-amber-300);
+  --color-yellow-400: var(--color-amber-400);
+  --color-yellow-500: var(--color-amber-500);
+  --color-yellow-600: var(--color-amber-600);
+  --color-yellow-700: var(--color-amber-700);
+  --color-yellow-800: var(--color-amber-800);
+  --color-yellow-900: var(--color-amber-900);
+  --color-yellow-950: var(--color-amber-950);
+
+  --color-indigo-50: oklch(0.962 0.018 272.314);
+  --color-indigo-100: oklch(0.93 0.034 272.788);
+  --color-indigo-200: oklch(0.87 0.065 274.039);
+  --color-indigo-300: oklch(0.785 0.115 274.713);
+  --color-indigo-400: oklch(0.673 0.182 276.935);
+  --color-indigo-500: oklch(0.585 0.233 277.117);
+  --color-indigo-600: oklch(0.511 0.262 276.966);
+  --color-indigo-700: oklch(0.457 0.24 277.023);
+  --color-indigo-800: oklch(0.398 0.195 277.366);
+  --color-indigo-900: oklch(0.359 0.144 278.697);
+  --color-indigo-950: oklch(0.257 0.09 281.288);
+
+  /* Pill purple — Tailwind default-ish, not Calm Ledger */
+  --color-purple-100: oklch(0.946 0.033 294.336);
+  --color-purple-300: oklch(0.827 0.119 298.3);
+  --color-purple-600: oklch(0.558 0.288 302.321);
+  --color-purple-700: oklch(0.496 0.265 301.924);
+
+  /* shadcn / Orbit host tokens */
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-contrast);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Inter", "InterDisplay", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "GeistMono", "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 0px 15px rgba(0, 0, 0, 0.04), 0 0px 2px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 0px 20px rgba(0, 0, 0, 0.04), 0 0px 5px rgba(0, 0, 0, 0.06);
+  --shadow-xl: 0 0px 30px rgba(0, 0, 0, 0.04), 0 0px 10px rgba(0, 0, 0, 0.06);
+  --shadow-tactile: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-float: 0 0px 15px rgba(0, 0, 0, 0.04), 0 0px 2px rgba(0, 0, 0, 0.06);
+  --shadow-specular: 0 0px 20px rgba(0, 0, 0, 0.04), 0 0px 5px rgba(0, 0, 0, 0.06);
+  --shadow-2xs: 0 1px 0 0 rgba(0, 0, 0, 0.06);
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 32px;
+  --radius-control: 12px;
+  --radius-panel: 16px;
+  --radius-4xl: 2rem;
+
+  /* Epure product utility aliases → Orbit surfaces (kit until Phase 4) */
   --color-canvas: var(--surface-canvas);
   --color-surface-1: var(--surface-1);
   --color-surface-2: var(--surface-2);
@@ -67,7 +237,6 @@
   --color-fg-secondary: var(--fg-secondary);
   --color-fg-muted: var(--fg-muted);
 
-  --color-primary: var(--intent-primary);
   --color-primary-fg: var(--intent-primary-fg);
   --color-escalating: var(--status-escalating);
   --color-regression: var(--status-regression);
@@ -92,12 +261,10 @@
   --color-surface-elevated: var(--surface-elevated);
   --color-surface-raised: var(--surface-raised);
   --color-surface-muted: var(--bg-subtle);
-  --color-border: var(--border);
   --color-ink: var(--text);
   --color-ink-muted: var(--text-muted);
   --color-ink-subtle: var(--text-subtle);
   --color-ink-inverse: var(--text-inverse);
-  --color-accent: var(--accent);
   --color-accent-muted: var(--accent-muted);
   --color-accent-contrast: var(--accent-contrast);
   --color-signal: var(--signal);
@@ -115,18 +282,13 @@
   --color-state-pressed: var(--state-pressed);
   --color-state-error: var(--state-error);
   --color-state-success: var(--state-success);
+  --color-channel-slack: var(--channel-slack);
+  --color-channel-discord: var(--channel-discord);
+}
 
-  --radius-xs: 4px;
-  --radius-control: var(--radius-md);
-  --radius-panel: var(--radius-lg);
-
-  --shadow-tactile: var(--shadow-bevel);
-  --shadow-float: var(--shadow-popover);
-  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.08);
-  --shadow-2xs: 0 1px 0 0 rgba(0, 0, 0, 0.06);
-
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
+/* Sidebar top chrome + TopStrip share one height so bottoms align. */
+.epure-shell-top-chrome {
+  height: var(--epure-shell-top-h, 3rem);
 }
 
 @layer base {
@@ -136,12 +298,46 @@
   }
   html,
   body {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
     background-color: var(--bg);
     color: var(--text);
     font-family: var(--font-sans);
+    font-weight: 450;
+    letter-spacing: 0.015em;
     -webkit-font-smoothing: antialiased;
+    min-height: 100dvh;
   }
-  table, time, kbd, code, .tabular-nums {
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  @media (pointer: coarse) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+  table,
+  time,
+  kbd,
+  code,
+  .tabular-nums {
     font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

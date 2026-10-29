@@ -52,10 +52,10 @@ export function inboxRowDataAttrs(unread: boolean) {
 
 /** Fixed single-line feed toolbar (Issues + Alerts History/Rules). Controls stay h-7. */
 export const INBOX_FEED_TOOLBAR_HEADER_CLASS =
-  "flex h-16 shrink-0 items-center border-b border-border bg-bg px-3 select-none md:px-5";
+  "flex h-16 shrink-0 items-center border-b border-border bg-bg-subtle epure-page-gutter-x select-none";
 
 /** Body below inbox feed toolbar — same horizontal inset as `INBOX_FEED_TOOLBAR_HEADER_CLASS`. */
-export const INBOX_FEED_BODY_PAD_CLASS = "px-3 md:px-5";
+export const INBOX_FEED_BODY_PAD_CLASS = "epure-page-gutter-x";
 
 export const INBOX_FEED_TOOLBAR_ROW_CLASS =
   "flex h-full min-h-0 w-full min-w-0 flex-nowrap items-center gap-x-2";

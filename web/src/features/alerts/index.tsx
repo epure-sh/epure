@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   fetchAlertRules,
@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Empty } from "@/ui/empty";
 import { FeedListBody, StackedCardList } from "@/ui/feed-list-shell";
 import { AlertListColumnHeader } from "./alert-list-column-header";
+import { AlertsDayGroup } from "./alerts-day-group";
 import { bulkAlertAvailability } from "./alert-bulk-utils";
 import { AlertsHistoryBulkBar } from "./alerts-history-bulk-bar";
 import { useAlertReadState } from "./use-alert-read-state";
@@ -49,26 +50,6 @@ import type { AlertsSection } from "./alerts-section-toggle";
 import { AlertsToolbar, type RulesStatusFilter } from "./alerts-toolbar";
 import type { RuleDestinationKind } from "./alert-rules-display";
 import { cn } from "../../lib/cn";
-
-function AlertsDayGroup({
-  label,
-  count,
-  children,
-}: {
-  label: string;
-  count: number;
-  children: ReactNode;
-}) {
-  return (
-    <section>
-      <h2 className="border-b border-border-subtle/60 px-1 py-1.5 font-mono text-xs uppercase tracking-wide text-fg-muted">
-        {label}
-        <span className="ml-1.5 tabular-nums">{count}</span>
-      </h2>
-      <div>{children}</div>
-    </section>
-  );
-}
 
 export function AlertsPage() {
   const navigate = useNavigate();
@@ -696,7 +677,7 @@ export function AlertsPage() {
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
           <div
             className={cn(
-              "epure-issues-layout__list flex min-h-0 min-w-0 flex-col overflow-hidden bg-canvas px-4 pt-3 md:px-6 md:pt-4 lg:basis-0 lg:flex-1 lg:border-r lg:border-border-subtle",
+              "epure-issues-layout__list flex min-h-0 min-w-0 flex-col overflow-hidden bg-canvas epure-page-gutter-x pt-3 md:pt-4 lg:basis-0 lg:flex-1 lg:border-r lg:border-border-subtle",
               focusedId && "max-lg:hidden",
             )}
           >
