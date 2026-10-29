@@ -48,7 +48,6 @@ import {
   defaultTrigger,
   describeRule,
   fieldLabel,
-  needsAdvanced,
   templateDraft,
   type AlertChannelChoice,
   type AlertCondition,
@@ -169,17 +168,12 @@ function TemplateStep({
               onClick={() => onChange(templateDraft(item.id))}
             >
               {selected ? <Icon icon={Check} size={16} className="absolute top-3 right-3 text-fg-primary" /> : null}
-              <Icon icon={TEMPLATE_ICON[item.id] ?? Plus} size={22} className="text-fg-secondary" />
-              <span className="flex flex-col gap-1.5">
-                <span className="flex flex-wrap items-center gap-1.5 text-base font-medium text-fg-primary">
-                  {item.title}
-                  {item.recommended ? (
-                    <Badge size="compact" variant="info">
-                      Recommended
-                    </Badge>
-                  ) : null}
+              <span className="flex w-full flex-col items-start gap-2">
+                <span className="flex items-center gap-2">
+                  <Icon icon={TEMPLATE_ICON[item.id] ?? Plus} size={22} className="text-fg-secondary" />
+                  <span className="text-xl font-medium text-fg-primary">{item.title}</span>
                 </span>
-                <span className="text-sm font-normal text-fg-muted">{item.detail}</span>
+                <span className="text-lg font-normal text-fg-muted">{item.detail}</span>
               </span>
             </Button>
           );
@@ -197,10 +191,12 @@ function TemplateStep({
           {draft.templateId === SCRATCH_TEMPLATE_ID ? (
             <Icon icon={Check} size={16} className="absolute top-3 right-3 text-fg-primary" />
           ) : null}
-          <Icon icon={Plus} size={22} className="text-fg-secondary" />
-          <span className="flex flex-col gap-1.5">
-            <span className="text-base font-medium text-fg-primary">Blank</span>
-            <span className="text-sm font-normal text-fg-muted">Empty rule</span>
+          <span className="flex w-full flex-col items-start gap-2">
+            <span className="flex items-center gap-2">
+              <Icon icon={Plus} size={22} className="text-fg-secondary" />
+              <span className="text-xl font-medium text-fg-primary">Blank</span>
+            </span>
+            <span className="text-lg font-normal text-fg-muted">Empty rule</span>
           </span>
         </Button>
       </div>
@@ -215,11 +211,13 @@ function SentenceStep({
   draft: AlertRuleDraft;
   onChange: (next: AlertRuleDraft) => void;
 }) {
-  const [advanced, setAdvanced] = useState(
-    () => draft.templateId === SCRATCH_TEMPLATE_ID || needsAdvanced(draft),
+  const [advancedFields, setAdvancedFields] = useState(() =>
+    draft.conditions.some(
+      (item) => !BASE_FIELDS.includes(item.field as (typeof BASE_FIELDS)[number]),
+    ),
   );
   const triggerChoices =
-    draft.templateId === SCRATCH_TEMPLATE_ID || advanced
+    draft.templateId === SCRATCH_TEMPLATE_ID
       ? [...BASE_TRIGGERS, ...ADVANCED_TRIGGERS]
       : BASE_TRIGGERS;
 
@@ -310,7 +308,7 @@ function SentenceStep({
           {draft.conditions.map((condition, index) => (
             <ConditionRow
               key={`${condition.field}-${index}`}
-              advanced={advanced}
+              advanced={advancedFields}
               condition={condition}
               onChange={(next) => {
                 const conditions = draft.conditions.slice();
@@ -330,6 +328,20 @@ function SentenceStep({
           >
             <Icon icon={Plus} size={14} />
             Add condition
+          </Button>
+          <Button
+            variant="link"
+            size="sm"
+            className="self-start px-0"
+            aria-expanded={advancedFields}
+            onClick={() => setAdvancedFields((value) => !value)}
+          >
+            Advanced
+            <Icon
+              icon={CaretDown}
+              size={14}
+              className={cn("transition-transform duration-200", advancedFields ? "rotate-0" : "-rotate-90")}
+            />
           </Button>
         </div>
       </RuleSection>
@@ -367,15 +379,6 @@ function SentenceStep({
             ))}
           </SelectContent>
         </Select>
-      </div>
-      <div className="flex flex-col gap-2">
-        <Button variant="ghost" size="sm" className="self-start" aria-expanded={advanced} onClick={() => setAdvanced((value) => !value)}>
-          <Icon icon={CaretDown} size={14} className={cn("transition-transform duration-200", advanced ? "rotate-0" : "-rotate-90")} />
-          Advanced
-        </Button>
-        <p className="text-xs leading-relaxed text-fg-muted">
-          Counts, routes, and tags. Environment, level, unhandled, and priority stay above.
-        </p>
       </div>
       <p className="text-sm text-fg-secondary">{describeRule(draft)}</p>
     </div>

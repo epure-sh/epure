@@ -1,7 +1,7 @@
 // src/components/ui/select.tsx — Phase 2: Orbit Select + Epure size API
 import * as React from "react";
+import * as SelectPrimitive from "@radix-ui/react-select";
 import {
-  Select as OrbitSelect,
   SelectContent as OrbitSelectContent,
   SelectGroup as OrbitSelectGroup,
   SelectItem as OrbitSelectItem,
@@ -12,7 +12,9 @@ import {
 } from "@polar-sh/orbit/Select";
 import { cn } from "@/lib/utils";
 
-export const Select = OrbitSelect;
+export function Select(props: React.ComponentProps<typeof SelectPrimitive.Root>) {
+  return <SelectPrimitive.Root data-slot="select" {...props} />;
+}
 export const SelectGroup = OrbitSelectGroup;
 export const SelectValue = OrbitSelectValue;
 export const SelectLabel = OrbitSelectLabel;
@@ -40,6 +42,25 @@ export function SelectTrigger({
   );
 }
 
+function CloseMenuOnOutsidePointer() {
+  React.useEffect(() => {
+    function onPointerDown(event: PointerEvent) {
+      const content = document.querySelector('[data-slot="select-content"][data-state="open"]');
+      if (!(content instanceof HTMLElement)) return;
+      const target = event.target;
+      if (target instanceof Node && content.contains(target)) return;
+      const trigger = document.querySelector('[data-slot="select-trigger"][data-state="open"]');
+      if (target instanceof Node && trigger?.contains(target)) return;
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+      );
+    }
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, []);
+  return null;
+}
+
 export function SelectContent({
   className,
   children,
@@ -53,6 +74,7 @@ export function SelectContent({
       className={cn(className)}
       {...props}
     >
+      <CloseMenuOnOutsidePointer />
       {children}
     </OrbitSelectContent>
   );
