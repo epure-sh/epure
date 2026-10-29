@@ -31,7 +31,7 @@
 - `InboxLifecycleCue` (`@/components/kit/inbox-lifecycle-cue`): Shared snoozed / came back / resolved / ignored line on issue + alert rows (`@/lib/inbox-lifecycle`)
 - Inbox viewed state: `@/lib/inbox-read-state` + `useInboxReadState` (one store per project; issue ↔ alert linked by `issue_id`)
 - `IssueRowShell` (`@/components/kit/issue-row-shell`): Locked CSS Grid feed row (issue, last seen, age, events, users, priority icon, row menu slot) — checkbox on row hover or when any bulk selection is active; unread = left accent rail + semibold title
-- `AlertRowShell` (`@/components/kit/alert-row-shell`): Alerts History grid row (checkbox, title stack, fired time) — same selection/unread behavior as issues; `ALERT_ROW_GRID` pairs with `AlertListColumnHeader`
+- Alerts History (`AlertListRow`, `AlertsDayGroup`): stacked `PolarCard` rows with day buckets
 - `TelemetryChart` (`@/components/kit/telemetry-chart`): Vercel-style Recharts wrapper with locked dark crosshair tooltip
 - `AskAgentCard` (`@/components/kit/ask-agent-card`): Primary `[Ask Agent]` copy button + secondary `Check docs ↗` link
 - `UsageMeterCard` (`@/components/kit/usage-meter-card`): Resource usage quota meter card with status thresholds

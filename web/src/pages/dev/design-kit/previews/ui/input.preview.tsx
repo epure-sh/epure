@@ -1,20 +1,29 @@
-import { Input } from "@/components/ui/input";
-import { MagnifyingGlass } from "@/components/ui/icon";
+import * as React from "react";
+import { Input } from "@polar-sh/orbit/Input";
+import { Search } from "@polar-sh/orbit/icons";
 import { PreviewBlock, PreviewRow } from "../../shared";
 
 export default function InputPreview() {
+  const [value, setValue] = React.useState("");
+
   return (
-    <PreviewBlock id="input" title="Input">
-      <PreviewRow label="Sizes">
-        <Input size="sm" placeholder="Search…" leadingIcon={<MagnifyingGlass />} trailingShortcut="/" className="w-48" />
-        <Input size="md" placeholder="webhook URL" className="w-48" />
-        <Input size="auto" placeholder="auto height" className="w-48" />
+    <PreviewBlock
+      id="input"
+      title="Input"
+      description="Polar Orbit Input — single-line with optional slots."
+    >
+      <PreviewRow label="Basic">
+        <Input
+          placeholder="Enter your name"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
       </PreviewRow>
-      <PreviewRow label="Variant ghost">
-        <Input variant="ghost" size="sm" placeholder="Ghost filter…" className="w-48" />
-      </PreviewRow>
-      <PreviewRow label="Disabled">
-        <Input size="sm" disabled placeholder="Disabled" className="w-48" />
+      <PreviewRow label="Slots" className="mt-3">
+        <Input
+          placeholder="Search…"
+          preSlot={<Search className="h-4 w-4" />}
+        />
       </PreviewRow>
     </PreviewBlock>
   );

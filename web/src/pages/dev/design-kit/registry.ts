@@ -1,46 +1,500 @@
 /**
  * Authoritative catalog for the playground design kit.
- * When you add `src/components/ui/<name>.tsx` or `src/components/kit/<name>.tsx`,
- * add `<name>` here and ship a matching preview in `previews/`.
  *
- * Phase 5 — Orbit-style registry: nav + Example pages are driven from these
- * lists (like orbit.polar.sh `lib/registry.ts`). Canvas remains optional tooling.
+ * Sidebar IA (Orbit parity): Foundations · Primitives · Kit.
+ *
+ * Primitives = Polar `@polar-sh/orbit` components only
+ * (https://github.com/polarsource/polar/tree/main/clients/packages/orbit).
+ * Epure product composites live under Kit. Near-duplicates are variants —
+ * never sibling leaves.
  */
-export const DESIGN_KIT_UI_MODULES = [
-  "alert",
-  "avatar",
-  "badge",
-  "button",
-  "checkbox",
-  "command",
-  "dialog",
-  "dropdown-menu",
-  "icon",
-  "input",
-  "label",
-  "modal",
-  "popover",
-  "progress",
-  "radio-group",
-  "segmented-control",
-  "select",
-  "separator",
-  "sheet",
-  "sonner",
-  "spinner",
-  "status",
-  "switch",
-  "table",
-  "tabs",
-  "textarea",
-  "toggle-group",
-  "tooltip",
+
+// ─── Foundations ──────────────────────────────────────────────────────────────
+
+export const DESIGN_KIT_FOUNDATION_PAGES = [
+  {
+    id: "foundations",
+    label: "Foundations",
+    keywords: "overview principles vision brand voice llm contract handbook",
+  },
+  {
+    id: "colors",
+    label: "Colors",
+    keywords: "palette swatch semantic background text border orbit theme",
+  },
+  {
+    id: "spacing",
+    label: "Spacing",
+    keywords: "space scale xs s m l xl orbit",
+  },
+  {
+    id: "radius",
+    label: "Radius",
+    keywords: "border radius rounded orbit borderRadii",
+  },
+  {
+    id: "shadows",
+    label: "Shadows",
+    keywords: "elevation shadow orbit",
+  },
+  {
+    id: "motion",
+    label: "Motion",
+    keywords: "duration ease decelerate accelerate spring orbit",
+  },
+  {
+    id: "typography",
+    label: "Typography",
+    keywords: "text variants type scale orbit Text",
+  },
+  {
+    id: "icons",
+    label: "Icons",
+    keywords: "lucide material orbit icons",
+  },
 ] as const;
 
+export type DesignKitFoundationId =
+  (typeof DESIGN_KIT_FOUNDATION_PAGES)[number]["id"];
+
+// ─── Primitives — Polar Orbit only ────────────────────────────────────────────
+// Source of truth: clients/packages/orbit + orbit.polar.sh Components.
+
+export const DESIGN_KIT_PRIMITIVE_FAMILIES = [
+  "Layout",
+  "Actions",
+  "Forms",
+  "Choice",
+  "Lists",
+  "Overlays",
+  "Feedback",
+  "Identity",
+  "Data",
+] as const;
+
+export type DesignKitPrimitiveFamily =
+  (typeof DESIGN_KIT_PRIMITIVE_FAMILIES)[number];
+
+export type DesignKitPrimitiveMeta = {
+  description: string;
+  /** Always an `@polar-sh/orbit` import path. */
+  importPath: string;
+  family: DesignKitPrimitiveFamily;
+  orbit: string;
+  preview?: string;
+};
+
+/**
+ * Rail order mirrors orbit.polar.sh Components, then package-only leaves
+ * (Modal, InlineModal, Subnav) that ship in the same repo.
+ */
+export const DESIGN_KIT_PRIMITIVE_MODULES = [
+  // Layout
+  "box",
+  "grid",
+  "text",
+  "truncated",
+  // Actions
+  "button",
+  "button-group",
+  // Forms
+  "input",
+  "textarea",
+  "select",
+  "checkbox",
+  "switch",
+  // Choice
+  "segmented-control",
+  "tabs",
+  // Lists
+  "list",
+  "list-group",
+  "subnav",
+  // Overlays
+  "tooltip",
+  "modal",
+  "inline-modal",
+  // Feedback
+  "alert",
+  "status",
+  "pill",
+  "spinner",
+  // Identity
+  "avatar",
+  // Data
+  "data-table",
+] as const;
+
+export type DesignKitPrimitiveModule =
+  (typeof DESIGN_KIT_PRIMITIVE_MODULES)[number];
+
+export const DESIGN_KIT_PRIMITIVE_META: Record<
+  DesignKitPrimitiveModule,
+  DesignKitPrimitiveMeta
+> = {
+  box: {
+    description: "Polymorphic, token-driven layout and style primitive.",
+    importPath: "@polar-sh/orbit/Box",
+    family: "Layout",
+    orbit: "Box",
+  },
+  grid: {
+    description: "Box preset for CSS grid layouts, with GridItem placement.",
+    importPath: "@polar-sh/orbit/Grid",
+    family: "Layout",
+    orbit: "Grid",
+  },
+  text: {
+    description: "Variant-driven typography for every text node.",
+    importPath: "@polar-sh/orbit/Text",
+    family: "Layout",
+    orbit: "Text",
+  },
+  truncated: {
+    description: "Single and multi-line text truncation with ellipsis.",
+    importPath: "@polar-sh/orbit",
+    family: "Layout",
+    orbit: "Truncated",
+  },
+  button: {
+    description: "Actions across variants, sizes and loading states.",
+    importPath: "@polar-sh/orbit/Button",
+    family: "Actions",
+    orbit: "Button",
+  },
+  "button-group": {
+    description: "One or two related actions, with primary and ghost emphasis.",
+    importPath: "@polar-sh/orbit",
+    family: "Actions",
+    orbit: "ButtonGroup",
+  },
+  input: {
+    description: "Single-line text input with pre/post slots.",
+    importPath: "@polar-sh/orbit/Input",
+    family: "Forms",
+    orbit: "Input",
+  },
+  textarea: {
+    description: "Multi-line text input.",
+    importPath: "@polar-sh/orbit/TextArea",
+    family: "Forms",
+    orbit: "TextArea",
+  },
+  select: {
+    description: "Dropdown selection built on Radix.",
+    importPath: "@polar-sh/orbit/Select",
+    family: "Forms",
+    orbit: "Select",
+  },
+  checkbox: {
+    description: "Boolean and indeterminate selection control.",
+    importPath: "@polar-sh/orbit/Checkbox",
+    family: "Forms",
+    orbit: "Checkbox",
+  },
+  switch: {
+    description: "On/off toggle control.",
+    importPath: "@polar-sh/orbit/Switch",
+    family: "Forms",
+    orbit: "Switch",
+  },
+  "segmented-control": {
+    description: "Horizontal control for switching between options.",
+    importPath: "@polar-sh/orbit/SegmentedControl",
+    family: "Choice",
+    orbit: "SegmentedControl",
+  },
+  tabs: {
+    description: "Tabbed section navigation.",
+    importPath: "@polar-sh/orbit/Tabs",
+    family: "Choice",
+    orbit: "Tabs",
+  },
+  list: {
+    description: "Semantic lists.",
+    importPath: "@polar-sh/orbit",
+    family: "Lists",
+    orbit: "List",
+  },
+  "list-group": {
+    description: "Grouped list sections.",
+    importPath: "@polar-sh/orbit",
+    family: "Lists",
+    orbit: "ListGroup",
+  },
+  subnav: {
+    description: "Secondary in-page navigation.",
+    importPath: "@polar-sh/orbit",
+    family: "Lists",
+    orbit: "Subnav",
+  },
+  tooltip: {
+    description: "Contextual hints on hover and focus.",
+    importPath: "@polar-sh/orbit",
+    family: "Overlays",
+    orbit: "Tooltip",
+  },
+  modal: {
+    description: "Blocking dialog overlay.",
+    importPath: "@polar-sh/orbit/Modal",
+    family: "Overlays",
+    orbit: "Modal",
+  },
+  "inline-modal": {
+    description: "Focus-locked modal rendered via portal.",
+    importPath: "@polar-sh/orbit",
+    family: "Overlays",
+    orbit: "InlineModal",
+  },
+  alert: {
+    description: "Tinted callouts that communicate a message and its severity.",
+    importPath: "@polar-sh/orbit/Alert",
+    family: "Feedback",
+    orbit: "Alert",
+  },
+  status: {
+    description: "Status chips with semantic color treatments.",
+    importPath: "@polar-sh/orbit/Status",
+    family: "Feedback",
+    orbit: "Status",
+  },
+  pill: {
+    description: "Compact, colorful tags and labels.",
+    importPath: "@polar-sh/orbit/Pill",
+    family: "Feedback",
+    orbit: "Pill",
+  },
+  spinner: {
+    description: "Indeterminate progress indicator.",
+    importPath: "@polar-sh/orbit/Spinner",
+    family: "Feedback",
+    orbit: "Spinner",
+  },
+  avatar: {
+    description: "User and entity avatars with initials fallback.",
+    importPath: "@polar-sh/orbit/Avatar",
+    family: "Identity",
+    orbit: "Avatar",
+  },
+  "data-table": {
+    description: "Sortable, paginated tables built on TanStack Table.",
+    importPath: "@polar-sh/orbit",
+    family: "Data",
+    orbit: "DataTable",
+  },
+};
+
+/**
+ * Names that are not Polar Orbit components — retired from the primitive rail.
+ * Epure product wrappers stay in the codebase; they are not Orbit primitives.
+ */
+export const DESIGN_KIT_RETIRED_PRIMITIVES = [
+  "separator",
+  "label",
+  "radio-group",
+  "popover",
+  "dropdown-menu",
+  "sheet",
+  "command",
+  "progress",
+  "toast",
+  "sonner",
+  "table",
+  "badge", // → pill
+  "dialog", // → modal
+  "toggle-group", // → segmented-control
+  "icon", // → foundations/icons (Orbit lucide/material)
+] as const;
+
+// ─── Kit (Epure crafted families) ─────────────────────────────────────────────
+
+export const DESIGN_KIT_KIT_FAMILIES = [
+  "Chrome",
+  "Surfaces",
+  "Controls",
+  "Product",
+] as const;
+
+export type DesignKitKitFamily = (typeof DESIGN_KIT_KIT_FAMILIES)[number];
+
+export type DesignKitKitMeta = {
+  description: string;
+  importPath: string;
+  family: DesignKitKitFamily;
+  absorbs?: readonly string[];
+};
+
 export const DESIGN_KIT_KIT_MODULES = [
+  "page",
+  "nav",
+  "card",
+  "empty",
+  "code",
+  "chart",
+  "field",
+  "filter",
+  "command-bar",
+  "issue-row",
+  "issue-detail",
+  "setup",
+  "agent",
+  "banner",
+  "product-tour",
+] as const;
+
+export type DesignKitKitModule = (typeof DESIGN_KIT_KIT_MODULES)[number];
+
+export const DESIGN_KIT_KIT_META: Record<DesignKitKitModule, DesignKitKitMeta> = {
+  page: {
+    description: "Page density shell, chrome, and feed headers.",
+    importPath: "@/components/kit/page-shell",
+    family: "Chrome",
+    absorbs: ["page-shell", "page-chrome", "page-header", "simple-feed-header"],
+  },
+  nav: {
+    description: "Settings nav, workspace nav, count pastille, logo.",
+    importPath: "@/ui/settings-nav",
+    family: "Chrome",
+    absorbs: [
+      "settings-nav",
+      "workspace-settings-nav",
+      "nav-count-pastille",
+      "logo",
+    ],
+  },
+  card: {
+    description: "Surface cards · section · polar gallery · usage meter.",
+    importPath: "@/ui/card",
+    family: "Surfaces",
+    absorbs: ["card", "section", "section-card", "polar-card", "usage-meter-card"],
+  },
+  empty: {
+    description: "Quiet, with action, error, and loading empty paths.",
+    importPath: "@/components/kit/empty-state",
+    family: "Surfaces",
+    absorbs: ["empty", "empty-state", "error-state", "skeleton"],
+  },
+  code: {
+    description: "Code frames, blocks, SDK snippets, DSN copy.",
+    importPath: "@/components/kit/code-frame",
+    family: "Surfaces",
+    absorbs: [
+      "code-frame",
+      "code-block",
+      "source-code-block",
+      "sdk-snippet-block",
+      "copy-dsn-block",
+    ],
+  },
+  chart: {
+    description: "Sparkline, occurrence line, telemetry chart.",
+    importPath: "@/components/kit/telemetry-chart",
+    family: "Surfaces",
+    absorbs: ["sparkline", "occurrence-line-chart", "telemetry-chart"],
+  },
+  field: {
+    description: "Labeled form field pattern.",
+    importPath: "@/ui/field",
+    family: "Controls",
+    absorbs: ["field", "kbd", "label"],
+  },
+  filter: {
+    description: "Filter bar, chips, and panel.",
+    importPath: "@/components/kit/filter-bar",
+    family: "Controls",
+    absorbs: ["filter-bar", "filter-chip", "filter-panel"],
+  },
+  "command-bar": {
+    description: "Product ⌘K palette chrome.",
+    importPath: "@/components/kit/command-bar",
+    family: "Controls",
+    absorbs: ["command"],
+  },
+  "issue-row": {
+    description: "Inbox / feed rows · read and lifecycle cues as states.",
+    importPath: "@/ui/issue-row",
+    family: "Product",
+    absorbs: [
+      "issue-row",
+      "issue-feed-row",
+      "issue-row-shell",
+      "list-row",
+      "inbox-read-cue",
+      "inbox-lifecycle-cue",
+      "issue-priority",
+      "regression-strip",
+      "issues-context-strip",
+      "issues-home-hint",
+    ],
+  },
+  "issue-detail": {
+    description: "Detail overlay flow · tabs, overview, stack, occurrences.",
+    importPath: "@/ui/issue-detail-overlay",
+    family: "Product",
+    absorbs: [
+      "issue-detail-overlay",
+      "issue-detail-tabs",
+      "issue-overview-panel",
+      "issue-context-fields",
+      "issue-context-snapshot",
+      "issue-occurrence-timeline",
+      "issue-occurrences-table",
+      "issue-recent-occurrences",
+      "issue-impact-strip",
+      "issue-more-panel",
+      "stack-trace-panel",
+      "breadcrumb-timeline",
+      "occurrence-picker",
+      "more-panel",
+      "keyboard-hints-footer",
+      "feed-list-shell",
+      "stat-bar",
+    ],
+  },
+  setup: {
+    description: "Onboarding checklist, connect, waiting, platform mark.",
+    importPath: "@/ui/setup-checklist",
+    family: "Product",
+    absorbs: [
+      "setup-checklist",
+      "setup-connect-guide",
+      "setup-connect-panel",
+      "setup-waiting-panel",
+      "setup-platform-mark",
+      "setup-docs-link",
+      "step-indicator",
+      "dual-sending-card",
+    ],
+  },
+  agent: {
+    description: "AI copilot cards.",
+    importPath: "@/components/kit/ask-agent-card",
+    family: "Product",
+    absorbs: ["ask-agent-card", "issue-ai-copilot-card", "apply-with-ai-button"],
+  },
+  banner: {
+    description: "Product banners as Alert tones.",
+    importPath: "@/ui/fair-use-banner",
+    family: "Product",
+    absorbs: [
+      "fair-use-banner",
+      "setup-status-banner",
+      "toast",
+      "toast-provider",
+      "route-error-boundary",
+      "shared-project-badge",
+    ],
+  },
+  "product-tour": {
+    description: "driver.js product tour popover.",
+    importPath: "@/components/kit/product-tour",
+    family: "Product",
+  },
+};
+
+export const DESIGN_KIT_RETIRED_KIT_LEAVES = [
   "ask-agent-card",
   "code-frame",
-  "command-bar",
   "data-table",
   "empty-state",
   "filter-bar",
@@ -50,404 +504,53 @@ export const DESIGN_KIT_KIT_MODULES = [
   "nav-count-pastille",
   "page-shell",
   "polar-card",
-  "product-tour",
   "section-card",
   "telemetry-chart",
   "time-window-select",
   "usage-meter-card",
 ] as const;
 
-export type DesignKitUiModule = (typeof DESIGN_KIT_UI_MODULES)[number];
-export type DesignKitKitModule = (typeof DESIGN_KIT_KIT_MODULES)[number];
-
-/** Registry blurb for UI wrappers (Phase 2 Orbit mapping). */
-export const DESIGN_KIT_UI_META: Record<
-  DesignKitUiModule,
-  { description: string; importPath: string; orbit?: string }
-> = {
-  alert: {
-    description: "Orbit Alert façade.",
-    importPath: "@/components/ui/alert",
-    orbit: "Alert",
-  },
-  avatar: {
-    description: "Orbit Avatar façade (initials fallback).",
-    importPath: "@/components/ui/avatar",
-    orbit: "Avatar",
-  },
-  badge: {
-    description: "Epure Badge → Orbit Pill (variant names mapped).",
-    importPath: "@/components/ui/badge",
-    orbit: "Pill",
-  },
-  button: {
-    description: "Orbit Button · Epure variants (signal / filter*) · hotkey · loading.",
-    importPath: "@/components/ui/button",
-    orbit: "Button",
-  },
-  checkbox: {
-    description: "Orbit Checkbox wrap.",
-    importPath: "@/components/ui/checkbox",
-    orbit: "Checkbox",
-  },
-  command: {
-    description: "cmdk command palette chrome (no Orbit equiv).",
-    importPath: "@/components/ui/command",
-  },
-  dialog: {
-    description: "Product compound Dialog API; prefer Modal for new overlays.",
-    importPath: "@/components/ui/dialog",
-  },
-  "dropdown-menu": {
-    description: "Radix dropdown (no Orbit equiv yet).",
-    importPath: "@/components/ui/dropdown-menu",
-  },
-  icon: {
-    description: "Phosphor icon façade for product surfaces.",
-    importPath: "@/components/ui/icon",
-  },
-  input: {
-    description: "Orbit Input · leadingIcon → preSlot · trailingShortcut.",
-    importPath: "@/components/ui/input",
-    orbit: "Input",
-  },
-  label: {
-    description: "Form label (Calm Ledger / Radix).",
-    importPath: "@/components/ui/label",
-  },
-  modal: {
-    description: "Orbit Modal for new overlays.",
-    importPath: "@/components/ui/modal",
-    orbit: "Modal",
-  },
-  popover: {
-    description: "Radix popover (no Orbit equiv yet).",
-    importPath: "@/components/ui/popover",
-  },
-  progress: {
-    description: "Progress bar (no Orbit equiv yet).",
-    importPath: "@/components/ui/progress",
-  },
-  "radio-group": {
-    description: "Radio group (no Orbit equiv yet).",
-    importPath: "@/components/ui/radio-group",
-  },
-  "segmented-control": {
-    description: "Orbit SegmentedControl façade.",
-    importPath: "@/components/ui/segmented-control",
-    orbit: "SegmentedControl",
-  },
-  select: {
-    description: "Orbit Select · Epure trigger size sm/md.",
-    importPath: "@/components/ui/select",
-    orbit: "Select",
-  },
-  separator: {
-    description: "Separator (no Orbit equiv yet) · Polar gray border tokens.",
-    importPath: "@/components/ui/separator",
-  },
-  sheet: {
-    description: "Vaul sheet / drawer (no Orbit sheet).",
-    importPath: "@/components/ui/sheet",
-  },
-  sonner: {
-    description: "Toast via sonner (no Orbit toast).",
-    importPath: "@/components/ui/sonner",
-  },
-  spinner: {
-    description: "Orbit Spinner façade.",
-    importPath: "@/components/ui/spinner",
-    orbit: "Spinner",
-  },
-  status: {
-    description: "Orbit Status chip façade.",
-    importPath: "@/components/ui/status",
-    orbit: "Status",
-  },
-  switch: {
-    description: "Orbit Switch · Epure size compact/default.",
-    importPath: "@/components/ui/switch",
-    orbit: "Switch",
-  },
-  table: {
-    description: "Orbit Table primitives · Footer/Caption are Epure locals.",
-    importPath: "@/components/ui/table",
-    orbit: "Table",
-  },
-  tabs: {
-    description: "Orbit Tabs · Epure line/folder overlays.",
-    importPath: "@/components/ui/tabs",
-    orbit: "Tabs",
-  },
-  textarea: {
-    description: "Orbit TextArea façade.",
-    importPath: "@/components/ui/textarea",
-    orbit: "TextArea",
-  },
-  "toggle-group": {
-    description: "Toggle group (no Orbit equiv yet).",
-    importPath: "@/components/ui/toggle-group",
-  },
-  tooltip: {
-    description: "Orbit Tooltip re-export.",
-    importPath: "@/components/ui/tooltip",
-    orbit: "Tooltip",
-  },
-};
-
-/** Registry blurb for kit composites (Phase 4 chrome; Phase 6 surfaces deferred). */
-export const DESIGN_KIT_KIT_META: Record<
-  DesignKitKitModule,
-  { description: string; importPath: string; phase?: "4" | "6" }
-> = {
-  "ask-agent-card": {
-    description: "AI copilot card — Phase 6 surface (deferred).",
-    importPath: "@/components/kit/ask-agent-card",
-    phase: "6",
-  },
-  "code-frame": {
-    description: "Shiki body · Orbit chrome (Phase 4).",
-    importPath: "@/components/kit/code-frame",
-    phase: "4",
-  },
-  "command-bar": {
-    description: "⌘K trigger/item chrome · cmdk dialog kept (Phase 4).",
-    importPath: "@/components/kit/command-bar",
-    phase: "4",
-  },
-  "data-table": {
-    description: "Orbit DataTable façade (TanStack Table v9 · manual sort/page).",
-    importPath: "@/components/kit/data-table",
-    phase: "4",
-  },
-  "empty-state": {
-    description: "Empty / first-run / quiet states on Box/Text (Phase 4).",
-    importPath: "@/components/kit/empty-state",
-    phase: "4",
-  },
-  "filter-bar": {
-    description: "Filter chip row chrome (Phase 4).",
-    importPath: "@/components/kit/filter-bar",
-    phase: "4",
-  },
-  "inbox-lifecycle-cue": {
-    description: "Inbox lifecycle cue — Phase 6 (deferred).",
-    importPath: "@/components/kit/inbox-lifecycle-cue",
-    phase: "6",
-  },
-  "inbox-read-cue": {
-    description: "Inbox read cue — Phase 6 (deferred).",
-    importPath: "@/components/kit/inbox-read-cue",
-    phase: "6",
-  },
-  "issue-row-shell": {
-    description: "Issue row shell — Phase 6 (deferred).",
-    importPath: "@/components/kit/issue-row-shell",
-    phase: "6",
-  },
-  "nav-count-pastille": {
-    description: "Nav count pastille (Phase 4).",
-    importPath: "@/components/kit/nav-count-pastille",
-    phase: "4",
-  },
-  "page-shell": {
-    description: "Page density shell — gutter + centered main column (Phase 4).",
-    importPath: "@/components/kit/page-shell",
-    phase: "4",
-  },
-  "polar-card": {
-    description: "Polar gallery card (Orbit Box chrome; no Orbit Card).",
-    importPath: "@/components/kit/polar-card",
-    phase: "4",
-  },
-  "product-tour": {
-    description: "driver.js tour + app.css popover — leave as-is.",
-    importPath: "@/components/kit/product-tour",
-  },
-  "section-card": {
-    description: "Section card chrome (Phase 4).",
-    importPath: "@/components/kit/section-card",
-    phase: "4",
-  },
-  "telemetry-chart": {
-    description: "Telemetry chart — Phase 6 (deferred).",
-    importPath: "@/components/kit/telemetry-chart",
-    phase: "6",
-  },
-  "time-window-select": {
-    description: "Thin Orbit Select wrapper.",
-    importPath: "@/components/kit/time-window-select",
-    phase: "4",
-  },
-  "usage-meter-card": {
-    description: "Usage meter card on Orbit · Progress still ui (Phase 4).",
-    importPath: "@/components/kit/usage-meter-card",
-    phase: "4",
-  },
-};
-
-/**
- * Playground IA — mirrors orbit.polar.sh (Principles / Foundations / Components)
- * plus Polar handbook.polar.sh/design and Epure recipes.
- * Sidebar order = DESIGN_KIT_SECTION_GROUPS; nested leaves are UI/Kit/Feature modules.
- */
-export const DESIGN_KIT_SECTIONS = [
-  {
-    id: "overview",
-    label: "Overview",
-    group: "Start",
-    keywords: "home intro orbit catalog registry principles foundations",
-  },
-  {
-    id: "handbook",
-    label: "Design at Polar",
-    group: "Handbook",
-    keywords: "handbook vision governing principle perception brand pillars",
-  },
-  {
-    id: "principles",
-    label: "Principles",
-    group: "Handbook",
-    keywords: "subtraction derived decorated precision respect",
-  },
-  {
-    id: "product-design",
-    label: "Product design",
-    group: "Handbook",
-    keywords: "density polish debt speed data artifact",
-  },
-  {
-    id: "visual-design",
-    label: "Visual design",
-    group: "Handbook",
-    keywords: "typography motion magnetism polar coordinates",
-  },
-  {
-    id: "voice-tone",
-    label: "Voice & tone",
-    group: "Handbook",
-    keywords: "copy writing developer point of view",
-  },
-  {
-    id: "llm-contract",
-    label: "LLM contract",
-    group: "Handbook",
-    keywords: "adr-0004 box text tokens eslint orbit zone agents",
-  },
-  {
-    id: "recipes",
-    label: "Recipes",
-    group: "Cookbook",
-    keywords: "stack card toolbar empty loading error grid box text copy",
-  },
-  {
-    id: "brand",
-    label: "Brand identity",
-    group: "Brand",
-    keywords: "vision mission logo mark voice accent",
-  },
-  {
-    id: "brand-tokens",
-    label: "Live token craft",
-    group: "Brand",
-    keywords: "edit color css variable accent paper",
-  },
-  {
-    id: "brand-assets",
-    label: "Marks & assets",
-    group: "Brand",
-    keywords: "logo svg favicon lockup",
-  },
-  {
-    id: "tokens",
-    label: "Colors",
-    group: "Foundations",
-    keywords: "palette swatch semantic danger success orbit background text border",
-  },
-  {
-    id: "typography",
-    label: "Typography",
-    group: "Foundations",
-    keywords: "inter geist type scale mono",
-  },
-  {
-    id: "space-radius",
-    label: "Spacing & radius",
-    group: "Foundations",
-    keywords: "spacing elevation shadow control",
-  },
-  {
-    id: "motion",
-    label: "Motion",
-    group: "Foundations",
-    keywords: "duration ease decelerate accelerate transition",
-  },
-  {
-    id: "libraries",
-    label: "Icons & libraries",
-    group: "Foundations",
-    keywords: "radix orbit vaul sonner cmdk phosphor icons",
-  },
-  {
-    id: "primitives",
-    label: "UI primitives",
-    group: "Components",
-    keywords: "components ui orbit wrappers",
-  },
-  {
-    id: "kit",
-    label: "Composite kit",
-    group: "Components",
-    keywords: "kit composites empty page-shell",
-  },
-  {
-    id: "feature-ui",
-    label: "Feature UI",
-    group: "Feature",
-    keywords: "src/ui product screens",
-  },
-  {
-    id: "alerts-patterns",
-    label: "Alerts",
-    group: "Lab",
-    keywords: "toast alert history firing",
-  },
-  {
-    id: "states",
-    label: "State matrix",
-    group: "Lab",
-    keywords: "idle active busy error stress",
-  },
-  {
-    id: "shell",
-    label: "App shell",
-    group: "Lab",
-    keywords: "chrome rail navbar phase6",
-  },
-  {
-    id: "a11y",
-    label: "Accessibility",
-    group: "Quality",
-    keywords: "focus reduced-motion keyboard contrast",
-  },
-  {
-    id: "product-docs",
-    label: "Repo markdown",
-    group: "Quality",
-    keywords: "markdown system qa recipes orbit contract",
-  },
-] as const;
+// ─── Sidebar groups ───────────────────────────────────────────────────────────
 
 export const DESIGN_KIT_SECTION_GROUPS = [
-  "Start",
-  "Handbook",
-  "Cookbook",
-  "Brand",
   "Foundations",
-  "Components",
-  "Feature",
-  "Lab",
-  "Quality",
+  "Primitives",
+  "Kit",
 ] as const;
 
-export type DesignKitSectionId = (typeof DESIGN_KIT_SECTIONS)[number]["id"];
+export type DesignKitSectionGroup = (typeof DESIGN_KIT_SECTION_GROUPS)[number];
+
+/** @deprecated Use DESIGN_KIT_PRIMITIVE_MODULES */
+export const DESIGN_KIT_UI_MODULES = DESIGN_KIT_PRIMITIVE_MODULES;
+/** @deprecated Use DESIGN_KIT_PRIMITIVE_META */
+export const DESIGN_KIT_UI_META = DESIGN_KIT_PRIMITIVE_META;
+
+export type DesignKitUiModule = DesignKitPrimitiveModule;
+export type DesignKitSectionId = DesignKitFoundationId | "primitives" | "kit";
+
+export function primitivesByFamily(): Record<
+  DesignKitPrimitiveFamily,
+  DesignKitPrimitiveModule[]
+> {
+  const out = Object.fromEntries(
+    DESIGN_KIT_PRIMITIVE_FAMILIES.map((f) => [f, [] as DesignKitPrimitiveModule[]]),
+  ) as Record<DesignKitPrimitiveFamily, DesignKitPrimitiveModule[]>;
+  for (const mod of DESIGN_KIT_PRIMITIVE_MODULES) {
+    out[DESIGN_KIT_PRIMITIVE_META[mod].family].push(mod);
+  }
+  return out;
+}
+
+export function kitByFamily(): Record<DesignKitKitFamily, DesignKitKitModule[]> {
+  const out = Object.fromEntries(
+    DESIGN_KIT_KIT_FAMILIES.map((f) => [f, [] as DesignKitKitModule[]]),
+  ) as Record<DesignKitKitFamily, DesignKitKitModule[]>;
+  for (const mod of DESIGN_KIT_KIT_MODULES) {
+    out[DESIGN_KIT_KIT_META[mod].family].push(mod);
+  }
+  return out;
+}
+
+export function previewStemForPrimitive(mod: DesignKitPrimitiveModule): string {
+  return DESIGN_KIT_PRIMITIVE_META[mod].preview ?? mod;
+}

@@ -16,7 +16,13 @@ import {
 
 const CATALOG = buildCatalogIndex();
 
-const KIND_ORDER: CatalogEntry["kind"][] = ["section", "ui", "kit", "feature"];
+const KIND_ORDER: CatalogEntry["kind"][] = ["foundation", "primitive", "kit"];
+
+const KIND_LABEL: Record<CatalogEntry["kind"], string> = {
+  foundation: "Foundations",
+  primitive: "Primitives",
+  kit: "Kit",
+};
 
 export function DesignKitSearch({
   open,
@@ -40,41 +46,30 @@ export function DesignKitSearch({
 
   const byKind = KIND_ORDER.map((kind) => ({
     kind,
-    items: filtered.filter((e) => e.kind === kind).slice(0, kind === "section" ? 24 : 40),
+    items: filtered.filter((e) => e.kind === kind).slice(0, kind === "foundation" ? 16 : 48),
   })).filter((g) => g.items.length > 0);
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
       <CommandInput
-        placeholder="Jump to brand, token, component…"
+        placeholder="Jump to foundations, primitive, kit…"
         value={query}
         onValueChange={setQuery}
       />
       <CommandList>
         <CommandEmpty>No catalog match.</CommandEmpty>
         {byKind.map(({ kind, items }) => (
-          <CommandGroup
-            key={kind}
-            heading={
-              kind === "section"
-                ? "Sections"
-                : kind === "ui"
-                  ? "UI primitives"
-                  : kind === "kit"
-                    ? "Kit"
-                    : "Feature UI"
-            }
-          >
+          <CommandGroup key={kind} heading={KIND_LABEL[kind]}>
             {items.map((entry) => (
               <CommandItem
-                key={`${entry.kind}:${entry.id}`}
+                key={entry.id}
                 value={`${entry.label} ${entry.group} ${entry.keywords}`}
                 onSelect={() => {
                   onSelect(entry.id);
                   onOpenChange(false);
                 }}
               >
-                <span className="truncate">{entry.label}</span>
+                <span className="font-mono text-xs">{entry.label}</span>
                 <CommandShortcut>{entry.group}</CommandShortcut>
               </CommandItem>
             ))}
@@ -85,17 +80,15 @@ export function DesignKitSearch({
   );
 }
 
-/** ⌘K / Ctrl+K — Storybook-style global find. */
-export function useDesignKitSearchHotkey(onOpen: () => void) {
+export function useDesignKitSearchHotkey(open: () => void) {
   React.useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const meta = event.metaKey || event.ctrlKey;
-      if (meta && event.key.toLowerCase() === "k") {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        onOpen();
+        open();
       }
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onOpen]);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 }

@@ -6,14 +6,11 @@ import { useThemeMode } from "@/lib/style-theme";
 import { isPlaygroundMode } from "@/lib/deployment";
 import { Navigate } from "react-router-dom";
 import {
+  DESIGN_KIT_FOUNDATION_PAGES,
   DESIGN_KIT_KIT_MODULES,
-  DESIGN_KIT_UI_MODULES,
+  DESIGN_KIT_PRIMITIVE_MODULES,
+  previewStemForPrimitive,
 } from "./registry";
-import {
-  DESIGN_KIT_FEATURE_UI_FACADES,
-  DESIGN_KIT_FEATURE_UI_GROUPS,
-  DESIGN_KIT_FEATURE_UI_MODULES,
-} from "./feature-ui-registry";
 import { DesignKitCatalogShell } from "./design-kit-catalog-shell";
 import { DesignKitSearch, useDesignKitSearchHotkey } from "./design-kit-search";
 import {
@@ -22,17 +19,15 @@ import {
   type DesignKitCanvasApi,
 } from "./design-kit-canvas";
 import { DocsEntry } from "./docs-entry";
-import { FeatureUiGroupPreviews } from "./previews/feature-ui/feature-ui-group-previews";
-import { TokensSection } from "./sections/tokens-section";
-import { TypographySection } from "./sections/typography-section";
-import { ShellSection } from "./sections/shell-section";
-import { MotionSection } from "./sections/motion-section";
-import { StatesSection } from "./sections/states-section";
-import { ProductDocsSection } from "./sections/product-docs-section";
-import { AlertsSection } from "./sections/alerts-section";
-import { BrandSection } from "./sections/brand-section";
-import { LibrariesSection } from "./sections/libraries-section";
-import { A11ySection } from "./sections/a11y-section";
+import {
+  ColorsPage,
+  IconsPage,
+  MotionFoundationPage,
+  RadiusPage,
+  ShadowsPage,
+  SpacingPage,
+  TypographyFoundationPage,
+} from "./sections/foundations-pages";
 import { PreviewChromeProvider } from "./preview-chrome";
 import { cn } from "@/lib/utils";
 
@@ -53,32 +48,26 @@ function resolvePreview(
   return key ? modules[key].default : null;
 }
 
-/** Wider tiles for denser tables / shells. */
 const WIDE_TILES = new Set([
   "table",
   "data-table",
-  "page-shell",
+  "page",
   "command-bar",
-  "filter-bar",
-  "telemetry-chart",
-  "code-frame",
-  "issue-row-shell",
-  "empty-state",
+  "filter",
+  "chart",
+  "code",
+  "issue-row",
+  "issue-detail",
+  "empty",
 ]);
 
 function CatalogStats() {
-  const total =
-    DESIGN_KIT_UI_MODULES.length +
-    DESIGN_KIT_KIT_MODULES.length +
-    DESIGN_KIT_FEATURE_UI_MODULES.length +
-    DESIGN_KIT_FEATURE_UI_FACADES.length;
   return (
-    <dl className="mt-3 grid grid-cols-2 gap-2">
+    <dl className="mt-3 grid grid-cols-3 gap-2">
       {[
-        { label: "UI", value: DESIGN_KIT_UI_MODULES.length },
+        { label: "Foundations", value: DESIGN_KIT_FOUNDATION_PAGES.length },
+        { label: "Primitives", value: DESIGN_KIT_PRIMITIVE_MODULES.length },
         { label: "Kit", value: DESIGN_KIT_KIT_MODULES.length },
-        { label: "Feature", value: DESIGN_KIT_FEATURE_UI_MODULES.length },
-        { label: "Indexed", value: total },
       ].map((row) => (
         <div
           key={row.label}
@@ -118,14 +107,14 @@ function readInitialView(): ViewMode {
 }
 
 /**
- * Phase 5 default: Orbit-style registry docs (PageHeader / Section / Example).
- * Canvas board remains optional via Docs|Canvas toggle or `?view=canvas`.
+ * Docs mode: Orbit-style registry (Foundations · Primitives · Kit).
+ * Canvas remains optional via Docs|Canvas toggle or `?view=canvas`.
  */
 export function DesignKitPage() {
   const playground = isPlaygroundMode();
   const [themeMode, toggleTheme] = useThemeMode();
   const [view, setView] = React.useState<ViewMode>(readInitialView);
-  const [navFocus, setNavFocus] = React.useState("overview");
+  const [navFocus, setNavFocus] = React.useState("foundations");
   const [searchOpen, setSearchOpen] = React.useState(false);
   const canvasRef = React.useRef<DesignKitCanvasApi>(null);
   const docsScrollRef = React.useRef<HTMLDivElement>(null);
@@ -225,9 +214,9 @@ export function DesignKitPage() {
             type="button"
             variant="ghost"
             size="xs"
-            onClick={() => focus("recipes")}
+            onClick={() => focus("foundations")}
           >
-            Recipes
+            Foundations
           </Button>
           {view === "canvas" ? (
             <Button variant="ghost" size="xs" onClick={() => canvasRef.current?.fit()}>
@@ -264,76 +253,53 @@ export function DesignKitPage() {
           <DesignKitCanvas ref={canvasRef} onActiveChange={setNavFocus}>
             <PreviewChromeProvider chrome>
               <div className="grid w-[5600px] grid-cols-10 items-start gap-5">
-                <DistrictPin id="overview" label="01 Start" />
+                <DistrictPin id="foundations" label="01 Foundations" />
                 <CanvasArtboard
-                  id="overview-card"
-                  title="Overview"
-                  subtitle="Registry · optional canvas"
-                  className="col-span-2"
+                  id="foundations-card"
+                  title="Foundations"
+                  subtitle="Principles · brand · LLM contract"
+                  className="col-span-3"
                 >
-                  <h1 className="text-base font-semibold tracking-tight text-fg-primary">
-                    Design canvas
-                  </h1>
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-fg-muted">
-                    Optional board view. Default IA is Docs (registry + Example pages).
-                  </p>
                   <CatalogStats />
                   <Text as="span" variant="caption" color="muted">
-                    Switch to Docs for Orbit-style pages.
+                    Prefer Docs mode for Orbit-style pages.
                   </Text>
                 </CanvasArtboard>
-
-                <DistrictPin id="brand" label="02 Brand" />
-                <CanvasArtboard
-                  title="Brand identity"
-                  subtitle="Vision · tokens · marks"
-                  className="col-span-3"
-                >
-                  <BrandSection />
+                <CanvasArtboard id="colors" title="Colors" className="col-span-2">
+                  <ColorsPage />
                 </CanvasArtboard>
-
-                <DistrictPin id="tokens" label="03 Foundations" />
-                <CanvasArtboard title="Color & surfaces" className="col-span-2">
-                  <TokensSection />
+                <CanvasArtboard id="spacing" title="Spacing" className="col-span-2">
+                  <SpacingPage />
+                </CanvasArtboard>
+                <CanvasArtboard id="radius" title="Radius" className="col-span-2">
+                  <RadiusPage />
+                </CanvasArtboard>
+                <CanvasArtboard id="shadows" title="Shadows" className="col-span-2">
+                  <ShadowsPage />
+                </CanvasArtboard>
+                <CanvasArtboard id="motion" title="Motion" className="col-span-3">
+                  <MotionFoundationPage />
                 </CanvasArtboard>
                 <CanvasArtboard id="typography" title="Typography" className="col-span-2">
-                  <TypographySection />
+                  <TypographyFoundationPage />
                 </CanvasArtboard>
-                <CanvasArtboard id="libraries" title="Library stack" className="col-span-2">
-                  <LibrariesSection />
-                </CanvasArtboard>
-
-                <DistrictPin id="motion" label="04 Lab" />
-                <CanvasArtboard title="Motion lab" className="col-span-3">
-                  <MotionSection />
-                </CanvasArtboard>
-                <CanvasArtboard
-                  id="states"
-                  title="State matrix"
-                  subtitle="Idle · active · busy · error"
-                  className="col-span-3"
-                >
-                  <StatesSection />
-                </CanvasArtboard>
-                <CanvasArtboard
-                  id="alerts-patterns"
-                  title="Alerts"
-                  subtitle="Mock history · configure"
-                  className="col-span-3"
-                >
-                  <AlertsSection />
+                <CanvasArtboard id="icons" title="Icons" className="col-span-2">
+                  <IconsPage />
                 </CanvasArtboard>
 
-                <DistrictPin id="primitives" label="05 UI" />
-                {DESIGN_KIT_UI_MODULES.map((mod) => {
-                  const Preview = resolvePreview(uiPreviewModules, mod);
+                <DistrictPin id="primitives" label="02 Primitives" />
+                {DESIGN_KIT_PRIMITIVE_MODULES.map((mod) => {
+                  const Preview = resolvePreview(
+                    uiPreviewModules,
+                    previewStemForPrimitive(mod),
+                  );
                   if (!Preview) return null;
                   return (
                     <CanvasArtboard
                       key={mod}
                       id={mod}
                       title={mod}
-                      subtitle="@/components/ui"
+                      subtitle="primitive"
                       className={cn(WIDE_TILES.has(mod) ? "col-span-3" : "col-span-2")}
                     >
                       <Preview />
@@ -341,7 +307,7 @@ export function DesignKitPage() {
                   );
                 })}
 
-                <DistrictPin id="kit" label="06 Kit" />
+                <DistrictPin id="kit" label="03 Kit" />
                 {DESIGN_KIT_KIT_MODULES.map((mod) => {
                   const Preview = resolvePreview(kitPreviewModules, mod);
                   if (!Preview) return null;
@@ -350,37 +316,13 @@ export function DesignKitPage() {
                       key={mod}
                       id={mod}
                       title={mod}
-                      subtitle="@/components/kit · mock / empty"
+                      subtitle="kit family"
                       className={cn(WIDE_TILES.has(mod) ? "col-span-3" : "col-span-2")}
                     >
                       <Preview />
                     </CanvasArtboard>
                   );
                 })}
-
-                <DistrictPin id="feature-ui" label="07 Feature" />
-                {DESIGN_KIT_FEATURE_UI_GROUPS.map((group) => (
-                  <CanvasArtboard
-                    key={group.id}
-                    id={group.id}
-                    title={group.label}
-                    subtitle={group.description}
-                    className="col-span-3"
-                  >
-                    <FeatureUiGroupPreviews groupId={group.id} />
-                  </CanvasArtboard>
-                ))}
-
-                <DistrictPin id="a11y" label="08 Quality" />
-                <CanvasArtboard id="shell" title="App shell" className="col-span-3">
-                  <ShellSection />
-                </CanvasArtboard>
-                <CanvasArtboard title="Accessibility" className="col-span-2">
-                  <A11ySection />
-                </CanvasArtboard>
-                <CanvasArtboard id="product-docs" title="Design docs" className="col-span-2">
-                  <ProductDocsSection />
-                </CanvasArtboard>
               </div>
             </PreviewChromeProvider>
           </DesignKitCanvas>

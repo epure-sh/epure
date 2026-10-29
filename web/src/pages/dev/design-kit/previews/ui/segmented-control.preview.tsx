@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { SegmentedControl } from "@/components/ui/segmented-control";
+import { SegmentedControl } from "@polar-sh/orbit/SegmentedControl";
 import { PreviewBlock, PreviewRow } from "../../shared";
 
 export default function SegmentedControlPreview() {
@@ -8,10 +8,22 @@ export default function SegmentedControlPreview() {
     <PreviewBlock
       id="segmented-control"
       title="SegmentedControl"
-      description="Orbit SegmentedControl"
+      description="Polar Orbit SegmentedControl."
     >
-      <PreviewRow label="Window">
+      <PreviewRow label="Basic">
         <SegmentedControl
+          value={value}
+          onChange={setValue}
+          options={[
+            { value: "7d", label: "7d" },
+            { value: "30d", label: "30d" },
+            { value: "90d", label: "90d" },
+          ]}
+        />
+      </PreviewRow>
+      <PreviewRow label="Size · sm" className="mt-3">
+        <SegmentedControl
+          size="sm"
           value={value}
           onChange={setValue}
           options={[

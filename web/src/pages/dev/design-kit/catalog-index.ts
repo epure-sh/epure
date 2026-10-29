@@ -1,74 +1,55 @@
 /**
  * Flat search index for sidebar filter + ⌘K jump.
- * Mirrors Storybook’s “search finds stories by name” + shadcn docs groups.
  */
 import {
-  DESIGN_KIT_FEATURE_UI_GROUPS,
-} from "./feature-ui-registry";
-import {
+  DESIGN_KIT_FOUNDATION_PAGES,
+  DESIGN_KIT_KIT_META,
   DESIGN_KIT_KIT_MODULES,
-  DESIGN_KIT_SECTIONS,
-  DESIGN_KIT_UI_MODULES,
+  DESIGN_KIT_PRIMITIVE_META,
+  DESIGN_KIT_PRIMITIVE_MODULES,
 } from "./registry";
 
 export type CatalogEntry = {
   id: string;
   label: string;
   group: string;
-  kind: "section" | "ui" | "kit" | "feature";
+  kind: "foundation" | "primitive" | "kit";
   keywords: string;
 };
 
 export function buildCatalogIndex(): CatalogEntry[] {
   const entries: CatalogEntry[] = [];
 
-  for (const section of DESIGN_KIT_SECTIONS) {
+  for (const page of DESIGN_KIT_FOUNDATION_PAGES) {
     entries.push({
-      id: section.id,
-      label: section.label,
-      group: section.group,
-      kind: "section",
-      keywords: section.keywords ?? "",
+      id: page.id,
+      label: page.label,
+      group: "Foundations",
+      kind: "foundation",
+      keywords: page.keywords,
     });
   }
 
-  for (const mod of DESIGN_KIT_UI_MODULES) {
+  for (const mod of DESIGN_KIT_PRIMITIVE_MODULES) {
+    const meta = DESIGN_KIT_PRIMITIVE_META[mod];
     entries.push({
       id: mod,
       label: mod,
-      group: "UI",
-      kind: "ui",
-      keywords: `ui primitive orbit wrapper ${mod}`,
+      group: meta.family,
+      kind: "primitive",
+      keywords: `primitive ${meta.family} ${meta.orbit ?? ""} ${meta.description}`,
     });
   }
 
   for (const mod of DESIGN_KIT_KIT_MODULES) {
+    const meta = DESIGN_KIT_KIT_META[mod];
     entries.push({
       id: mod,
       label: mod,
-      group: "Kit",
+      group: meta.family,
       kind: "kit",
-      keywords: `kit composite ${mod}`,
+      keywords: `kit ${meta.family} ${meta.description} ${(meta.absorbs ?? []).join(" ")}`,
     });
-  }
-
-  for (const group of DESIGN_KIT_FEATURE_UI_GROUPS) {
-    entries.push({
-      id: group.id,
-      label: group.label,
-      group: "Feature",
-      kind: "feature",
-      keywords: `feature ${group.description}`,
-    });
-    for (const mod of group.modules) {
-      entries.push({
-        id: mod,
-        label: mod,
-        group: group.label,
-        kind: "feature",
-        keywords: `feature-ui ${group.id} ${mod}`,
-      });
-    }
   }
 
   return entries;

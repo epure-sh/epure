@@ -1,6 +1,12 @@
 /**
- * Every `src/ui/*.tsx` module (except test-only files) must appear here or in
- * `DESIGN_KIT_FEATURE_UI_FACADES` (thin re-exports of `@/components/ui/*`).
+ * Historical inventory of `src/ui/*.tsx` modules.
+ *
+ * The playground sidebar no longer lists Feature UI as its own category —
+ * crafted surfaces are absorbed into Kit families in `registry.ts`
+ * (`DESIGN_KIT_KIT_META.*.absorbs`). Keep this file as a disk inventory for
+ * agents; do not wire it into the rail.
+ *
+ * Facades below are thin re-exports of `@/components/ui/*`.
  */
 export const DESIGN_KIT_FEATURE_UI_FACADES = [
   "badge",

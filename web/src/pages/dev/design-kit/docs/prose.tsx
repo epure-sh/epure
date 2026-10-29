@@ -57,6 +57,7 @@ export function DocsList({ items }: { items: ReactNode[] }) {
   );
 }
 
+/** Orbit principles row — index + title left, copy right. */
 export function DocsRuleCard({
   index,
   title,
@@ -70,28 +71,36 @@ export function DocsRuleCard({
 }) {
   return (
     <Box
-      flexDirection="column"
-      rowGap="m"
-      padding="xl"
-      backgroundColor="background-card"
-      borderRadius="l"
-      borderWidth={1}
+      width="100%"
+      paddingVertical="xl"
+      borderBottomWidth={1}
       borderStyle="solid"
       borderColor="border-primary"
-      width="100%"
+      display="grid"
+      gridTemplateColumns={{
+        base: "1fr",
+        md: "minmax(200px, 280px) 1fr",
+      }}
+      columnGap="2xl"
+      rowGap="l"
+      alignItems="start"
     >
-      <Text variant="label" color="muted" monospace>
-        {index}
-      </Text>
-      <Text variant="heading-xxs" as="h3">
-        {title}
-      </Text>
-      <Text variant="body" color="muted">
-        {lead}
-      </Text>
-      <Text variant="body" color="default">
-        {body}
-      </Text>
+      <Box flexDirection="column" rowGap="xs">
+        <Text variant="label" color="muted" monospace>
+          {index}
+        </Text>
+        <Text variant="heading-xxs" as="h3">
+          {title}
+        </Text>
+      </Box>
+      <Box flexDirection="column" rowGap="m">
+        <Text variant="body" color="default">
+          {lead}
+        </Text>
+        <Text variant="body" color="muted">
+          {body}
+        </Text>
+      </Box>
     </Box>
   );
 }

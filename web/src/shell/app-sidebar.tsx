@@ -17,7 +17,6 @@ import {
   Radio,
   Search,
   Settings,
-  ShieldCheck,
   SlidersHorizontal,
   UserCheck,
   Users,
@@ -55,7 +54,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { useLogout } from "../lib/use-logout";
 import { NavCountPastille } from "@/components/kit/nav-count-pastille";
 import { Badge } from "../ui/badge";
@@ -434,46 +432,8 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
         )}
       </div>
 
-      {/* 4. Footer: Live Spike Valve Telemetry & User Account Menu */}
-      <div className="shrink-0 border-t border-border-subtle p-2.5 space-y-2 bg-surface-1/40">
-        {/* Spike Valve Status Widget */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              to="/usage"
-              onClick={onMobileClose}
-              className="btn-tactile block rounded-md border border-border-subtle bg-surface-1 px-2.5 py-2 text-2xs shadow-tactile hover:border-border-strong hover:bg-surface-2 transition-colors"
-            >
-              <div className="flex items-center justify-between font-medium text-fg-primary">
-                <span className="flex items-center gap-1.5">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-healthy/60 opacity-60" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-healthy" />
-                  </span>
-                  <span className="font-semibold">Spike Valve</span>
-                </span>
-                <span className="text-[10px] font-mono text-healthy font-semibold">
-                  0 Overages
-                </span>
-              </div>
-              <p className="mt-1 text-[10px] text-fg-muted leading-tight">
-                Soft-sampling active · 100% count kept
-              </p>
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent side="right" align="center" className="max-w-xs space-y-1 p-3 text-xs shadow-lg">
-            <div className="flex items-center gap-1.5 font-medium text-fg-primary">
-              <ShieldCheck size={14} className="text-healthy" />
-              <span>Spike Valve Protection Active</span>
-            </div>
-            <p className="text-fg-muted leading-relaxed">
-              Accurate event count kept (100%) with automated soft-sampling during traffic spikes.
-              Zero bill overages, zero storage depletion. Click to inspect telemetry.
-            </p>
-          </TooltipContent>
-        </Tooltip>
-
-        {/* User Account Menu */}
+      {/* 4. Footer: User Account Menu */}
+      <div className="shrink-0 space-y-2 border-t border-border-subtle bg-surface-1/40 p-2.5">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

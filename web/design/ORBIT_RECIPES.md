@@ -21,7 +21,7 @@ Prefer Box props `transitionDuration="fast"` + `ease="decelerate"` over hand-rol
 
 ## Alert History row
 
-Alert title (`Text variant="label"`) + error title underneath (`caption` + `monospace`). Fired time is its own right column. Day group labels share Orbit `Grid` + `ALERT_ROW_TEMPLATE` so **Today / Yesterday** lines up with the alert title. No firing badge / `+N` proof on the row.
+Alert title (`Text variant="title"`) + error line (`caption` + `monospace`) inside stacked `PolarCard` rows. Column header is its own card (**Alert** left, **Fired** right). Day buckets use `heading-xxs` + count; `gap-2` between alert cards.
 
 ## Issue feed row (`IssueRowShell`)
 

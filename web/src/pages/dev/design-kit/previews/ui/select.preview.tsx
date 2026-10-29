@@ -1,12 +1,30 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@polar-sh/orbit/Select";
 import { PreviewBlock, PreviewRow } from "../../shared";
 
 export default function SelectPreview() {
   return (
-    <PreviewBlock id="select" title="Select">
-      <PreviewRow label="Trigger sizes">
-        <Select defaultValue="a"><SelectTrigger size="sm" className="w-36"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="a">sm option</SelectItem></SelectContent></Select>
-        <Select defaultValue="b"><SelectTrigger size="md" className="w-36"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="b">md option</SelectItem></SelectContent></Select>
+    <PreviewBlock
+      id="select"
+      title="Select"
+      description="Polar Orbit Select — Radix dropdown."
+    >
+      <PreviewRow label="Basic">
+        <Select defaultValue="a">
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Pick one" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="a">Option A</SelectItem>
+            <SelectItem value="b">Option B</SelectItem>
+            <SelectItem value="c">Option C</SelectItem>
+          </SelectContent>
+        </Select>
       </PreviewRow>
     </PreviewBlock>
   );

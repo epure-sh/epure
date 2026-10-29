@@ -1,37 +1,59 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Modal } from "@/components/ui/modal";
-import { Box } from "@polar-sh/orbit/Box";
-import { Text } from "@polar-sh/orbit/Text";
 import { PreviewBlock, PreviewRow } from "../../shared";
 
 export default function ModalPreview() {
   const [open, setOpen] = React.useState(false);
+
   return (
     <PreviewBlock
       id="modal"
       title="Modal"
-      description="Orbit Modal — prefer for new overlays (`isShown` / `hide` / `modalContent`)"
+      description="Orbit Modal for new overlays · legacy Dialog compound API as a section."
     >
-      <PreviewRow label="Orbit Modal">
-        <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-          Open
+      <PreviewRow label="Basic · Modal">
+        <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+          Open Modal
         </Button>
         <Modal
-          title="Confirm"
+          title="Modal"
           isShown={open}
           hide={() => setOpen(false)}
           modalContent={
-            <Box padding="l" flexDirection="column" rowGap="m">
-              <Text color="muted" variant="caption">
-                Orbit Modal content slot.
-              </Text>
-              <Button size="sm" variant="primary" onClick={() => setOpen(false)}>
-                Done
+            <div className="space-y-3 p-1">
+              <p className="text-xs text-fg-muted">Prefer Modal for new overlays.</p>
+              <Button size="sm" onClick={() => setOpen(false)}>
+                Close
               </Button>
-            </Box>
+            </div>
           }
         />
+      </PreviewRow>
+      <PreviewRow label="Legacy · Dialog" className="mt-3">
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button size="sm" variant="outline">
+              Open Dialog
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Dialog</DialogTitle>
+              <DialogDescription>
+                Legacy compound API — keep for existing call sites.
+              </DialogDescription>
+            </DialogHeader>
+          </DialogContent>
+        </Dialog>
       </PreviewRow>
     </PreviewBlock>
   );

@@ -15,14 +15,13 @@ import { useAppContext } from "../../shell/app-context";
 import { Button } from "@/components/ui/button";
 import { Empty } from "@/ui/empty";
 import { FeedListBody, StackedCardList } from "@/ui/feed-list-shell";
-import { AlertListColumnHeader } from "./alert-list-column-header";
 import { AlertsDayGroup } from "./alerts-day-group";
 import { bulkAlertAvailability } from "./alert-bulk-utils";
 import { AlertsHistoryBulkBar } from "./alerts-history-bulk-bar";
 import { useAlertReadState } from "./use-alert-read-state";
 import { INBOX_FEED_BODY_PAD_CLASS } from "@/components/kit/inbox-read-cue";
 import { PageShell } from "@/components/kit/page-shell";
-import { CardRowSkeleton } from "@/ui/skeleton";
+import { AlertCardSkeleton } from "./alert-card-skeleton";
 import { toast } from "@/components/ui/sonner";
 import { AlertDetailPanel } from "./alert-detail-panel";
 import { useAlertExportHotkey } from "./export-markdown";
@@ -554,7 +553,7 @@ export function AlertsPage() {
         <FeedListBody>
           <StackedCardList>
             {Array.from({ length: 5 }).map((_, index) => (
-              <CardRowSkeleton key={index} />
+              <AlertCardSkeleton key={index} />
             ))}
           </StackedCardList>
         </FeedListBody>
@@ -683,11 +682,11 @@ export function AlertsPage() {
           >
             <div className="mb-3 flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
             {loading ? (
-              <div className="epure-issue-list epure-feed-table flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-surface-1 shadow-xs">
-                {Array.from({ length: 8 }).map((_, index) => (
-                  <CardRowSkeleton key={index} />
+              <ul className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pb-2">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <AlertCardSkeleton key={index} />
                 ))}
-              </div>
+              </ul>
             ) : error ? (
               <div className="space-y-3 px-1">
                 <p className="text-sm text-semantic-danger">{error}</p>
@@ -760,24 +759,17 @@ export function AlertsPage() {
             ) : (
               <div
                 ref={alertListRef}
-                className="epure-issue-list epure-feed-table flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto rounded-lg border border-border bg-surface-1 shadow-xs"
+                className="flex min-h-0 flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto pb-2"
               >
                 <p className="sr-only" aria-live="polite" aria-atomic="true">
                   {filteredAlerts.length} alert{filteredAlerts.length === 1 ? "" : "s"} in view
                 </p>
-                <AlertListColumnHeader
-                  selectAllChecked={allFilteredSelected}
-                  selectAllIndeterminate={someFilteredSelected && !allFilteredSelected}
-                  onToggleSelectAll={toggleSelectAllFiltered}
-                  selectionActive={selectedAlertIds.size > 0}
-                />
                 {(groupedAlerts ?? []).map((group) => (
                   <AlertsDayGroup key={group.key} label={group.label} count={group.alerts?.length ?? 0}>
                     {(group.alerts ?? []).map((alert, alertIdx) =>
                       alert ? (
                         <AlertListRow
                           key={alert.id || `alert-${alertIdx}`}
-                          layout="embedded"
                           alert={alert}
                           unread={isAlertInboxUnread(alert)}
                           detailActive={alert.id === focusedId}
