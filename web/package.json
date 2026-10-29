@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:playground": "vite --config vite.playground.config.ts",
+    "prebuild": "node ../packages/orbit/scripts/ensure-runtime-deps.mjs",
     "build": "tsc -b tsconfig.app.json && vite build",
     "build:playground": "tsc -b tsconfig.playground.json && vite build --config vite.playground.config.ts",
     "preview": "vite preview",
@@ -13,6 +14,7 @@
     "test:e2e": "playwright test",
     "test:playground-smoke": "playwright test --config playwright.playground.config.ts",
     "lint": "eslint .",
+    "pretypecheck": "node ../packages/orbit/scripts/ensure-runtime-deps.mjs",
     "typecheck": "tsc -b tsconfig.app.json"
   },
   "dependencies": {

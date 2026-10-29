@@ -1,0 +1,22 @@
+import { existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+// Orbit's committed dist/*.d.ts import @radix-ui/* (and friends). TypeScript
+// resolves those from packages/orbit/, not from web/node_modules — so a clean
+// `npm ci` in web alone leaves `tsc -b` unable to see Orbit props (children,
+// checked, variant, …). Install Orbit's production deps locally when missing.
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const sentinel = join(root, "node_modules/@radix-ui/react-tabs");
+
+if (existsSync(sentinel)) {
+  process.exit(0);
+}
+
+const result = spawnSync("npm", ["ci", "--omit=dev"], {
+  cwd: root,
+  stdio: "inherit",
+  shell: true,
+});
+process.exit(result.status ?? 1);
