@@ -56,6 +56,79 @@ export function ruleScopeEnvironment(rule: AlertRuleRow): string {
   return rule.environment.toUpperCase();
 }
 
+const DEMO_FIRED_COUNT: Record<string, number> = {
+  "rul-tmpl-prod-spike": 18,
+  "rul-tmpl-prod-new": 42,
+  "rul-tmpl-prod-regression": 6,
+  "rul-tmpl-prod-fatal": 3,
+  "rul-tmpl-staging-new": 11,
+  "rul-tmpl-any-regression": 4,
+  "rul-tmpl-api-prod-spike": 9,
+  "rul-tmpl-api-prod-new": 15,
+  "rul-tmpl-api-prod-regression": 2,
+};
+
+/** How many times this rule has fired. Real counts win; playground templates have a demo number. */
+export function ruleFiredCount(ruleId: string, counts: Record<string, number>): number {
+  const real = counts[ruleId];
+  if (typeof real === "number" && real > 0) return real;
+  return DEMO_FIRED_COUNT[ruleId] ?? real ?? 0;
+}
+
+/** Short reason shown as a badge on the rules row. */
+export function ruleWhyLabel(rule: AlertRuleRow): string {
+  if (!rule.enabled) return "Paused";
+  const trigger = firstTrigger(rule);
+  const cameBack = (rule.conditions ?? []).some(
+    (item) =>
+      isRecord(item) &&
+      item.field === "came_back" &&
+      (item.value === "yes" || item.value === "true"),
+  );
+  if (trigger?.type === "issue_new") return cameBack ? "Came back" : "New issue";
+  if (trigger?.type === "issue_count" || trigger?.type === "users_affected") {
+    const op = trigger.op === "lt" ? "<" : trigger.op === "eq" ? "=" : ">";
+    const noun = trigger.type === "users_affected" ? "users" : "events";
+    const window = windowLabel(trigger.window);
+    return window ? `${op} ${trigger.threshold} ${noun} · ${window}` : `${op} ${trigger.threshold} ${noun}`;
+  }
+  if (rule.kind === "velocity_spike") return "Spike";
+  if (rule.kind === "regression") return "Came back";
+  if (rule.kind === "users_affected") return "Users";
+  if (rule.kind === "event_milestone") return "Milestone";
+  if (rule.filters_json?.min_level === "fatal") return "Fatal";
+  if (rule.filters_json?.first_seen === "new") return "New issue";
+  return "New issue";
+}
+
+function firstTrigger(rule: AlertRuleRow): { type?: string; op?: string; threshold?: number; window?: string } | null {
+  const trigger = rule.triggers?.[0];
+  if (!isRecord(trigger) || typeof trigger.type !== "string") return null;
+  return {
+    type: trigger.type,
+    op: typeof trigger.op === "string" ? trigger.op : undefined,
+    threshold: typeof trigger.threshold === "number" ? trigger.threshold : undefined,
+    window: typeof trigger.window === "string" ? trigger.window : undefined,
+  };
+}
+
+function windowLabel(window: string | undefined): string {
+  if (!window) return "";
+  const labels: Record<string, string> = {
+    "1m": "1 min",
+    "5m": "5 min",
+    "15m": "15 min",
+    "1h": "1 hour",
+    "24h": "24 hours",
+    total: "all time",
+  };
+  return labels[window] ?? window;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export function ruleTitleBadge(
   rule: AlertRuleRow,
 ): { label: string; variant: "neutral" | "info" | "escalating" | "regression" } | null {

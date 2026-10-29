@@ -1,8 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react";
+import { AlertRuleListRow, ALERT_RULE_ROW_GRID, ALERT_RULE_ROW_MIN_WIDTH, type AlertRuleChannelProvider } from "@/components/kit/alert-rule-row";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -36,8 +35,10 @@ import { AlertWizardRail, WizardStepBadge } from "./alert-wizard-rail";
 import {
   createAlertRule,
   deleteAlertRule,
+  fetchAlertChannels,
   fetchAlertRules,
   updateAlertRule,
+  type AlertChannelRow,
   type AlertRuleFilters,
   type AlertRuleRow,
 } from "@/lib/api";
@@ -47,23 +48,18 @@ import {
   ClockCounterClockwise,
   Copy,
   DotsThree,
-  EnvelopeSimple,
-  Hash,
   Icon,
   Pause,
   PencilSimple,
   Trash,
-  WebhooksLogo,
 } from "@/components/ui/icon";
 import { DialogDescription } from "@/components/ui/dialog";
 import {
   matchesDestinationFilter,
-  ruleConditionLine,
   ruleDestinationPreview,
-  ruleScopeEnvironment,
-  ruleScopeProject,
+  ruleFiredCount,
   ruleLastTriggeredDemo,
-  ruleTitleBadge,
+  ruleWhyLabel,
   type RuleDestinationKind,
 } from "./alert-rules-display";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -141,38 +137,31 @@ function conditionSummary(
   return `${where} · a new error fingerprint appears`;
 }
 
-function DestinationChip({ rule, index }: { rule: AlertRuleRow; index: number }) {
+function channelForRule(rule: AlertRuleRow, channels: AlertChannelRow[], index: number) {
+  const linked = (rule.channel_ids ?? [])
+    .map((id) => channels.find((channel) => channel.id === id))
+    .filter((channel): channel is AlertChannelRow => Boolean(channel));
+  if (linked.length > 0) {
+    const first = linked[0];
+    return {
+      provider: asChannelProvider(first.provider),
+      label: first.label,
+      extra: linked.length > 1 ? linked.length - 1 : undefined,
+    };
+  }
   const preview = ruleDestinationPreview(rule, index);
-  const Glyph =
-    preview.kind === "slack"
-      ? Hash
-      : preview.kind === "email"
-        ? EnvelopeSimple
-        : preview.kind === "webhook"
-          ? WebhooksLogo
-          : Hash;
+  const provider = preview.kind === "slack" || preview.kind === "discord" || preview.kind === "email" || preview.kind === "webhook"
+    ? preview.kind
+    : "webhook";
+  const extra = preview.extra ? Number(preview.extra.replace(/[^\d]/g, "")) : undefined;
+  return { provider, label: preview.label, extra: extra && extra > 0 ? extra : undefined };
+}
 
-  return (
-    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-      <div
-        className={cn(
-          "inline-flex max-w-full items-center gap-1.5 rounded px-2 py-1",
-          preview.failing ? "bg-surface-2/60 text-fg-muted" : "bg-surface-2 text-fg-primary",
-        )}
-      >
-        <Icon icon={Glyph} size={14} className="shrink-0 text-fg-muted" />
-        <span className="truncate font-mono text-xs">{preview.label}</span>
-      </div>
-      {preview.extra ? (
-        <Badge variant="neutral" size="sm" className="font-mono text-[10px]">
-          {preview.extra}
-        </Badge>
-      ) : null}
-      {preview.failing ? (
-        <span className="text-[11px] text-semantic-danger">Destination failing</span>
-      ) : null}
-    </div>
-  );
+function asChannelProvider(provider: string): AlertRuleChannelProvider {
+  if (provider === "slack" || provider === "discord" || provider === "telegram" || provider === "email" || provider === "webhook") {
+    return provider;
+  }
+  return "webhook";
 }
 
 export interface AlertRulesManagerHandle {
@@ -195,6 +184,8 @@ export interface AlertRulesManagerProps {
   onEditRule?: (rule: AlertRuleRow) => void;
   /** Latest trigger time per rule id or built-in kind, when the caller has alert history. */
   lastTriggered?: Record<string, string>;
+  /** How many alerts each rule id has fired. */
+  firedCounts?: Record<string, number>;
   selectedRuleIds?: Set<string>;
   onRuleSelectChange?: (ruleId: string, selected: boolean) => void;
   selectionActive?: boolean;
@@ -209,7 +200,7 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
   function AlertRulesManager(
     {
       projectId,
-      projectSlug = "checkout-web",
+      projectSlug: _projectSlug = "checkout-web",
       canManage = true,
       query = "",
       statusFilter = "all",
@@ -219,18 +210,21 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
       onViewHistory,
       onEditRule,
       lastTriggered = {},
+      firedCounts = {},
       selectedRuleIds,
       onRuleSelectChange,
       selectionActive = false,
       onFilteredRuleIdsChange,
       onRulesCountsChange,
-      allFilteredSelected = false,
-      someFilteredSelected = false,
+      allFilteredSelected: _allFilteredSelected = false,
+      someFilteredSelected: _someFilteredSelected = false,
       onToggleSelectAllFiltered,
     },
     ref,
   ) {
   const [rules, setRules] = useState<AlertRuleRow[]>([]);
+  const [channels, setChannels] = useState<AlertChannelRow[]>([]);
+  const [ownedSelection, setOwnedSelection] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -261,6 +255,24 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!projectId) {
+      setChannels([]);
+      return;
+    }
+    let cancelled = false;
+    void fetchAlertChannels(projectId)
+      .then((rows) => {
+        if (!cancelled) setChannels(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setChannels([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
 
   const template = findAlertTemplate(templateId);
 
@@ -518,38 +530,52 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
     customQuery,
   );
 
-  const rulesRowGrid =
-    "grid items-center grid-cols-[3.5rem_1.25rem_minmax(0,1fr)_auto] sm:grid-cols-[3.5rem_1.25rem_minmax(0,5fr)_minmax(0,3fr)_minmax(0,2fr)_auto]";
+  const selection = selectedRuleIds ?? ownedSelection;
+  const visibleIds = visibleCustom.map((row) => row.id);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selection.has(id));
+  const someVisibleSelected = visibleIds.some((id) => selection.has(id)) && !allVisibleSelected;
+  function toggleVisibleSelection() {
+    if (onToggleSelectAllFiltered && selectedRuleIds) {
+      onToggleSelectAllFiltered();
+      return;
+    }
+    setOwnedSelection((current) => {
+      const next = new Set(current);
+      if (allVisibleSelected) {
+        for (const id of visibleIds) next.delete(id);
+      } else {
+        for (const id of visibleIds) next.add(id);
+      }
+      return next;
+    });
+  }
 
   return (
     <div className="space-y-3">
-      <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface-1">
+      <div className="overflow-x-auto rounded-lg border border-border-subtle bg-surface-1">
+        <div className={ALERT_RULE_ROW_MIN_WIDTH}>
         <div
           className={cn(
-            "group border-b border-border-subtle bg-surface-2/60 py-2 pl-3 pr-3 font-mono text-[10px] uppercase tracking-wide text-fg-muted",
-            rulesRowGrid,
+            "group grid items-center border-b border-border-subtle bg-surface-2/60 px-4 py-2 font-mono text-[10px] uppercase tracking-wide text-fg-muted",
+            ALERT_RULE_ROW_GRID,
           )}
         >
-          <span className="border-r border-border-subtle pr-4 text-left">On</span>
-          <div className="flex size-4 shrink-0 items-center justify-center pl-1">
-            {canManage && onToggleSelectAllFiltered ? (
+          <div className="flex size-4 items-center justify-center">
+            {canManage ? (
               <Checkbox
-                checked={someFilteredSelected ? "indeterminate" : allFilteredSelected}
+                checked={someVisibleSelected ? "indeterminate" : allVisibleSelected}
                 aria-label="Select all rules in view"
-                className={cn(
-                  "transition-opacity duration-75",
-                  selectionActive || allFilteredSelected || someFilteredSelected
-                    ? "pointer-events-auto opacity-100"
-                    : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100",
-                )}
-                onCheckedChange={onToggleSelectAllFiltered}
+                className="pointer-events-auto opacity-100"
+                onCheckedChange={toggleVisibleSelection}
               />
             ) : null}
           </div>
-          <span className="pl-3">Rule</span>
-          <span className="hidden sm:block">Destination</span>
-          <span className="hidden md:block">Last triggered</span>
-          <span className="w-8 shrink-0 sr-only">Actions</span>
+          <span>Rule</span>
+          <span>Why</span>
+          <span className="text-right">Fired</span>
+          <span className="text-right">Last</span>
+          <span>Channel</span>
+          <span className="sr-only">Actions</span>
         </div>
         {loading ? (
           <p className="px-4 py-6 text-xs text-fg-muted">Loading rules…</p>
@@ -559,92 +585,37 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
           <ul className="divide-y divide-border-subtle">
             {visibleCustom.map((rule) => {
               const ruleIndex = Math.max(0, rules.findIndex((row) => row.id === rule.id));
-              const titleBadge = ruleTitleBadge(rule);
               const selected = activeRuleId === rule.id;
-              const bulkSelected = selectedRuleIds?.has(rule.id) ?? false;
+              const selection = selectedRuleIds ?? ownedSelection;
+              const bulkSelected = selection.has(rule.id);
+              const setSelected = onRuleSelectChange ?? ((id: string, next: boolean) => {
+                setOwnedSelection((current) => {
+                  const copy = new Set(current);
+                  if (next) copy.add(id);
+                  else copy.delete(id);
+                  return copy;
+                });
+              });
               const lastIso =
                 lastTriggered[rule.id] ?? lastTriggered[rule.kind] ?? ruleLastTriggeredDemo(rule.id);
-              const lastLabel = lastIso ? formatRelativeTime(lastIso) : "N/A";
+              const lastLabel = lastIso ? formatRelativeTime(lastIso) : "—";
               return (
                 <li key={rule.id}>
-                  <div
-                    className={cn(
-                      "group/row py-2.5 pl-3 pr-3 transition-colors",
-                      rulesRowGrid,
-                      selected && "bg-accent-muted/70",
-                      bulkSelected && !selected && "bg-accent-muted/50",
-                      "hover:bg-state-hover",
-                    )}
-                  >
-                    <div
-                      className="flex shrink-0 items-center justify-start border-r border-border-subtle pr-4"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      {canManage ? (
-                        <Switch
-                          size="compact"
-                          checked={rule.enabled}
-                          aria-label={`${rule.enabled ? "Disable" : "Enable"} ${rule.name}`}
-                          onCheckedChange={() => void toggle(rule)}
-                        />
-                      ) : (
-                        <Badge variant={rule.enabled ? "healthy" : "neutral"} size="compact">
-                          {rule.enabled ? "On" : "Off"}
-                        </Badge>
-                      )}
-                    </div>
-
-                    <div
-                      className="flex size-4 shrink-0 items-center justify-center pl-1"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      {canManage && onRuleSelectChange ? (
-                        <Checkbox
-                          checked={bulkSelected}
-                          aria-label={bulkSelected ? "Deselect rule" : "Select rule"}
-                          className={cn(
-                            "transition-opacity duration-75",
-                            bulkSelected || selectionActive
-                              ? "pointer-events-auto opacity-100"
-                              : "pointer-events-none opacity-0 group-hover/row:pointer-events-auto group-hover/row:opacity-100",
-                          )}
-                          onCheckedChange={(value) => onRuleSelectChange(rule.id, value === true)}
-                        />
-                      ) : null}
-                    </div>
-
-                    <Button
-                      variant="ghost"
-                      type="button"
-                      className="h-auto min-w-0 flex-1 flex-col items-start justify-start p-0 pl-3 text-left whitespace-normal font-normal hover:bg-transparent"
-                      onClick={() => onActiveRuleIdChange?.(rule.id)}
-                      onDoubleClick={() => canManage && (onEditRule ? onEditRule(rule) : openEdit(rule))}
-                    >
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-sm font-semibold text-fg-primary">{rule.name}</span>
-                        {titleBadge ? (
-                          <Badge variant={titleBadge.variant} size="sm" className="font-mono text-[10px]">
-                            {titleBadge.label}
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <p className="mt-0.5 line-clamp-1 text-xs text-fg-muted">
-                        {ruleConditionLine(rule)}
-                        <span className="text-fg-muted/50"> · </span>
-                        <span className="font-mono text-fg-secondary">{ruleScopeProject(rule, projectSlug)}</span>
-                        <span className="text-fg-muted/50"> · </span>
-                        <span className="uppercase">{ruleScopeEnvironment(rule)}</span>
-                      </p>
-                    </Button>
-
-                    <div className="hidden min-w-0 sm:block">
-                      <DestinationChip rule={rule} index={ruleIndex} />
-                    </div>
-
-                    <span className="hidden font-mono text-xs tabular-nums text-fg-muted md:block">{lastLabel}</span>
-
-                    <div className="flex w-8 shrink-0 justify-end">
-                      {canManage ? (
+                  <AlertRuleListRow
+                    name={rule.name}
+                    why={ruleWhyLabel(rule)}
+                    firedCount={ruleFiredCount(rule.id, firedCounts)}
+                    lastTriggered={lastLabel}
+                    channel={channelForRule(rule, channels, ruleIndex)}
+                    selected={selected}
+                    bulkSelected={bulkSelected}
+                    selectionActive={selectionActive}
+                    paused={!rule.enabled}
+                    onSelectChange={canManage ? (next) => setSelected(rule.id, next) : undefined}
+                    onOpen={() => onActiveRuleIdChange?.(rule.id)}
+                    onEdit={canManage ? () => (onEditRule ? onEditRule(rule) : openEdit(rule)) : undefined}
+                    actions={
+                      canManage ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon-xs" aria-label={`Actions for ${rule.name}`}>
@@ -686,14 +657,15 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      ) : null}
-                    </div>
-                  </div>
+                      ) : null
+                    }
+                  />
                 </li>
               );
             })}
           </ul>
         )}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-fg-muted">

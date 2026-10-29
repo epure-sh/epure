@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { AlertRuleListRow } from "@/components/kit/alert-rule-row";
+import { Button } from "@/components/ui/button";
+import { DotsThree, Icon } from "@/components/ui/icon";
 import { CreateAlertRulePanel } from "@/components/kit/create-alert-rule";
 import {
   templateDraft,
@@ -34,6 +37,33 @@ export default function AlertRulePreview() {
       title="Create alert rule"
       description="The three steps, full width. Each one is the live setup."
     >
+      <div className="mb-8 w-full min-w-0 overflow-x-auto rounded-lg border border-border-subtle bg-surface-1">
+        <AlertRuleListRow
+          name="Production crash"
+          why="New issue"
+          firedCount={12}
+          lastTriggered="2h ago"
+          channel={{ provider: "slack", label: "#prod-alerts" }}
+          actions={
+            <Button variant="ghost" size="icon-xs" aria-label="Actions for Production crash">
+              <Icon icon={DotsThree} size={16} />
+            </Button>
+          }
+        />
+        <AlertRuleListRow
+          name="Error spike"
+          why="> 100 events · 5 min"
+          firedCount={18}
+          lastTriggered="14m ago"
+          channel={{ provider: "discord", label: "engineering", extra: 1 }}
+          selected
+          actions={
+            <Button variant="ghost" size="icon-xs" aria-label="Actions for Error spike">
+              <Icon icon={DotsThree} size={16} />
+            </Button>
+          }
+        />
+      </div>
       <div className="mx-auto flex w-full max-w-xl min-w-0 flex-col gap-8">
         {STEPS.map((step) => (
           <div key={step} className="w-full min-w-0 animate-in fade-in duration-300">

@@ -238,8 +238,8 @@ function SentenceStep({
       <RuleSection title="When" hint="(any of these happens)">
         <div className="flex flex-col gap-2">
           {draft.triggers.map((trigger, index) => (
-            <div key={`${trigger.type}-${index}`} className="flex flex-wrap items-center gap-2">
-              <div className="flex min-w-52 flex-1 items-center gap-2">
+            <div key={`${trigger.type}-${index}`} className="flex flex-nowrap items-center gap-2 overflow-x-auto">
+              <div className="flex shrink-0 items-center gap-2">
                 <Icon icon={TRIGGER_ICON[trigger.type]} size={15} className="text-fg-secondary" />
                 <Select
                   value={trigger.type}
@@ -249,7 +249,7 @@ function SentenceStep({
                     onChange({ ...draft, triggers: next });
                   }}
                 >
-                  <SelectTrigger size="md" className="min-w-0 flex-1" aria-label="Trigger">
+                  <SelectTrigger size="md" className="w-fit" aria-label="Trigger">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -258,16 +258,8 @@ function SentenceStep({
                         {TRIGGER_LABEL[type]}
                       </SelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label="Remove trigger"
-                  onClick={() => onChange({ ...draft, triggers: draft.triggers.filter((_, i) => i !== index) })}
-                >
-                  <Icon icon={X} size={14} />
-                </Button>
+                </SelectContent>
+              </Select>
               </div>
               <TriggerExtras
                 trigger={trigger}
@@ -277,6 +269,15 @@ function SentenceStep({
                   onChange({ ...draft, triggers });
                 }}
               />
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="shrink-0"
+                aria-label="Remove trigger"
+                onClick={() => onChange({ ...draft, triggers: draft.triggers.filter((_, i) => i !== index) })}
+              >
+                <Icon icon={X} size={14} />
+              </Button>
             </div>
           ))}
           <Button
@@ -298,7 +299,7 @@ function SentenceStep({
             value={draft.match}
             onValueChange={(value) => onChange({ ...draft, match: value === "any" ? "any" : "all" })}
           >
-            <SelectTrigger size="sm" className="w-24" aria-label="Condition match">
+            <SelectTrigger size="sm" className="w-fit" aria-label="Condition match">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -411,12 +412,12 @@ function TriggerExtras({
   if (trigger.type !== "issue_count" && trigger.type !== "users_affected") return null;
   const windows = trigger.type === "users_affected" ? USER_WINDOWS : COUNT_WINDOWS;
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex shrink-0 flex-nowrap items-center gap-2">
       <Select
         value={trigger.op}
         onValueChange={(op) => onChange({ ...trigger, op: op as CompareOp })}
       >
-        <SelectTrigger size="md" className="w-16 justify-center px-2 text-base" aria-label="Comparison">
+        <SelectTrigger size="md" className="w-fit px-3 text-base" aria-label="Comparison">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -444,7 +445,7 @@ function TriggerExtras({
         value={trigger.window}
         onValueChange={(window) => onChange({ ...trigger, window } as AlertTrigger)}
       >
-        <SelectTrigger size="md" className="w-28" aria-label="Time">
+        <SelectTrigger size="md" className="w-fit" aria-label="Time">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -476,12 +477,12 @@ function ConditionRow({
   const spec = fields.find((item) => item.field === condition.field) ?? CONDITION_FIELDS[0];
   const hideValue = condition.op === "exists" || condition.op === "is_not_null";
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
       <Select
         value={condition.field}
         onValueChange={(field) => onChange(defaultCondition(field))}
       >
-        <SelectTrigger size="md" className="min-w-0 flex-1" aria-label="Field">
+        <SelectTrigger size="md" className="w-fit shrink-0" aria-label="Field">
           <SelectValue placeholder={fieldLabel(condition.field)} />
         </SelectTrigger>
         <SelectContent>
@@ -496,7 +497,7 @@ function ConditionRow({
         value={condition.op}
         onValueChange={(op) => onChange({ ...condition, op: op as ConditionOp })}
       >
-        <SelectTrigger size="md" className="w-40" aria-label="Operator">
+        <SelectTrigger size="md" className="w-fit shrink-0" aria-label="Operator">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -509,7 +510,7 @@ function ConditionRow({
       </Select>
       {hideValue ? null : spec.values ? (
         <Select value={condition.value} onValueChange={(value) => onChange({ ...condition, value })}>
-          <SelectTrigger size="sm" className="w-32" aria-label="Value">
+          <SelectTrigger size="sm" className="w-fit shrink-0" aria-label="Value">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -529,7 +530,7 @@ function ConditionRow({
           onChange={(event) => onChange({ ...condition, value: event.target.value })}
         />
       )}
-      <Button variant="ghost" size="icon-xs" aria-label="Remove condition" onClick={onRemove}>
+      <Button variant="ghost" size="icon-xs" className="shrink-0" aria-label="Remove condition" onClick={onRemove}>
         <Icon icon={X} size={14} />
       </Button>
     </div>
@@ -577,12 +578,12 @@ function DeliveryStep({
             Create output channel
           </Button>
         </div>
-        <div className="flex min-h-14 flex-wrap items-center gap-2 rounded-2xl border border-border-subtle bg-surface-1 px-3 py-2 focus-within:border-border-strong">
-          <Icon icon={MagnifyingGlass} size={18} className="text-fg-muted" />
+        <div className="flex h-14 flex-nowrap items-center gap-2 overflow-x-auto rounded-2xl border border-border-subtle bg-surface-1 px-3 focus-within:border-border-strong">
+          <Icon icon={MagnifyingGlass} size={18} className="shrink-0 text-fg-muted" />
           {selected.map((channel) => (
-            <Badge key={channel.id} size="md" className="h-10 gap-2 px-3 text-base">
-              <Icon icon={channelIcon(channel.provider)} size={18} />
-              {channel.label}
+            <Badge key={channel.id} size="md" className="h-10 shrink-0 gap-2 whitespace-nowrap px-3 text-base">
+              <Icon icon={channelIcon(channel.provider)} size={18} className="shrink-0" />
+              <span className="whitespace-nowrap">{channel.label}</span>
               <Button
                 variant="ghost"
                 size="icon-xs"
@@ -619,7 +620,7 @@ function DeliveryStep({
                 key={channel.id}
                 variant="ghost"
                 size="md"
-                className="h-12 justify-start gap-3 px-3 text-base"
+                className="h-12 w-fit justify-start gap-3 px-3 text-base"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => addChannel(channel.id)}
               >

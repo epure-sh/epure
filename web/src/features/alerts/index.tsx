@@ -30,6 +30,7 @@ import { AlertRulesManager, type AlertRulesManagerHandle } from "./alert-rules-m
 import { CreateAlertRuleDialog } from "./create-alert-rule-dialog";
 import {
   buildLastTriggeredByKind,
+  buildRuleFiredCounts,
   getIssueLink,
   alertMatchesHistoryRuleFocus,
   type HistoryRuleFocus,
@@ -619,6 +620,7 @@ export function AlertsPage() {
                     setHistoryRuleFocus(focus);
                   }}
                   lastTriggered={buildLastTriggeredByKind(safeAlerts)}
+                  firedCounts={buildRuleFiredCounts(safeAlerts)}
                 />
             </div>
           ) : null}
