@@ -61,7 +61,7 @@ jobs:
       # Orbit dist/*.d.ts import @radix-ui/* resolved from packages/orbit/, not web/.
       - name: Install Orbit runtime deps (declaration resolution)
         working-directory: packages/orbit
-        run: npm ci --omit=dev
+        run: npm ci --omit=dev --ignore-scripts
 
       - name: Build web assets (embedded in server binary)
         working-directory: web
