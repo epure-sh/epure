@@ -14,7 +14,10 @@ fn cache_control_for(path: &str) -> HeaderValue {
     }
 }
 
-const CONTENT_SECURITY_POLICY: &str = "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+// Orbit Box/Grid emit responsive + pseudo styles via runtime <style> tags and
+// occasional inline style attrs. `style-src 'self'` alone blocks those, so every
+// `gridTemplateColumns={{ base, lg }}` collapses to a single column in prod.
+const CONTENT_SECURITY_POLICY: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 
 fn asset_response(path: &str, content: rust_embed::EmbeddedFile) -> Response {
     let mime = mime_guess::from_path(path).first_or_octet_stream();
