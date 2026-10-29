@@ -3,7 +3,6 @@ import {
   createAlertChannel,
   createAlertRule,
   fetchAlertChannels,
-  pingAlertChannel,
   type AlertChannelRow,
 } from "@/lib/api";
 import { CreateAlertRulePanel } from "@/components/kit/create-alert-rule";
@@ -101,10 +100,6 @@ export function CreateAlertRuleDialog({
           onChange={setDraft}
           onStep={setStep}
           onCreateChannel={createChannel}
-          onPing={async (id) => {
-            const result = await pingAlertChannel(id);
-            return result.detail;
-          }}
           onSubmit={() => void submit()}
         />
         {error ? <p className="px-4 pb-3 text-xs text-fg-muted">{error}</p> : null}

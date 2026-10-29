@@ -3,11 +3,10 @@
 export type TriggerType =
   | "issue_new"
   | "issue_regression"
-  | "priority_escalated"
-  | "any_event"
-  | "project_count"
   | "issue_count"
-  | "users_affected";
+  | "project_count"
+  | "users_affected"
+  | "any_event";
 
 export type CountWindow = "1m" | "5m" | "15m" | "1h" | "24h";
 export type UserWindow = "1h" | "24h" | "total";
@@ -15,7 +14,6 @@ export type UserWindow = "1h" | "24h" | "total";
 export type AlertTrigger =
   | { type: "issue_new" }
   | { type: "issue_regression" }
-  | { type: "priority_escalated" }
   | { type: "any_event" }
   | { type: "project_count"; threshold: number; window: CountWindow }
   | { type: "issue_count"; threshold: number; window: CountWindow }
@@ -71,20 +69,22 @@ export const COOLDOWNS = [
   { mins: 1440, label: "24 hours" },
 ] as const;
 
-export const TRIGGER_GROUPS: { label: string; types: TriggerType[] }[] = [
-  { label: "Issue lifecycle", types: ["issue_new", "issue_regression", "priority_escalated"] },
-  { label: "Volume", types: ["any_event", "project_count", "issue_count"] },
-  { label: "Impact", types: ["users_affected"] },
+/** Events. Priority, environment, and route stay in conditions. */
+export const BASE_TRIGGERS: TriggerType[] = ["issue_new", "issue_regression"];
+export const ADVANCED_TRIGGERS: TriggerType[] = [
+  "issue_count",
+  "project_count",
+  "users_affected",
+  "any_event",
 ];
 
 export const TRIGGER_LABEL: Record<TriggerType, string> = {
-  issue_new: "A new issue appears",
-  issue_regression: "An issue regresses",
-  priority_escalated: "Priority reaches high or critical",
-  any_event: "Any error occurs",
-  project_count: "Project error count exceeds",
-  issue_count: "This issue repeats more than",
-  users_affected: "Unique users affected exceeds",
+  issue_new: "New issue",
+  issue_regression: "Came back",
+  issue_count: "Repeats",
+  project_count: "Spike",
+  users_affected: "Users",
+  any_event: "Every event",
 };
 
 export interface ConditionField {
@@ -95,41 +95,36 @@ export interface ConditionField {
   values?: string[];
 }
 
+export const BASE_FIELDS = ["environment", "level", "is_unhandled", "priority"] as const;
+
 export const CONDITION_FIELDS: ConditionField[] = [
-  { field: "priority", label: "priority", group: "Severity", ops: ["is", "at_least", "is_not"], values: ["critical", "high", "medium", "low"] },
-  { field: "level", label: "level", group: "Severity", ops: ["is", "at_least", "is_not"], values: ["fatal", "error", "warning", "info"] },
-  { field: "is_unhandled", label: "is unhandled", group: "Severity", ops: ["is"], values: ["true", "false"] },
-  { field: "exception_type", label: "exception type", group: "Error", ops: ["equals", "contains", "starts_with", "not_contains", "regex"] },
-  { field: "title", label: "title", group: "Error", ops: ["contains", "equals", "starts_with", "not_contains", "regex"] },
-  { field: "culprit", label: "culprit", group: "Error", ops: ["contains", "equals", "starts_with"] },
-  { field: "regressed_count", label: "times regressed", group: "Error", ops: ["gt", "is"] },
-  { field: "environment", label: "environment", group: "Where", ops: ["is", "is_not", "is_one_of"], values: ["production", "staging", "development"] },
-  { field: "release", label: "release", group: "Where", ops: ["equals", "starts_with", "contains"] },
-  { field: "platform", label: "platform", group: "Where", ops: ["is", "is_not", "starts_with"] },
-  { field: "transaction_name", label: "route", group: "Request", ops: ["contains", "equals", "starts_with"] },
-  { field: "request.url", label: "request URL", group: "Request", ops: ["contains", "starts_with", "equals"] },
-  { field: "request.method", label: "method", group: "Request", ops: ["is", "is_not"], values: ["GET", "POST", "PUT", "PATCH", "DELETE"] },
-  { field: "user.email", label: "user email", group: "User", ops: ["equals", "ends_with", "is_not_null"] },
-  { field: "user_key", label: "user key", group: "User", ops: ["equals", "is_not_null"] },
-  { field: "contexts.browser.name", label: "browser", group: "Runtime", ops: ["is", "contains"] },
-  { field: "contexts.os.name", label: "operating system", group: "Runtime", ops: ["is", "contains"] },
-  { field: "contexts.runtime.name", label: "runtime", group: "Runtime", ops: ["is", "contains"] },
-  { field: "tags.plan", label: "tag plan", group: "Tags", ops: ["equals", "is_not", "exists"] },
-  { field: "tags.tenant", label: "tag tenant", group: "Tags", ops: ["equals", "is_not", "exists"] },
+  { field: "environment", label: "Environment", group: "Base", ops: ["is", "is_not"], values: ["production", "staging", "development"] },
+  { field: "level", label: "Level", group: "Base", ops: ["is", "at_least"], values: ["fatal", "error", "warning", "info"] },
+  { field: "is_unhandled", label: "Unhandled", group: "Base", ops: ["is"], values: ["true", "false"] },
+  { field: "priority", label: "Priority", group: "Base", ops: ["is", "at_least"], values: ["critical", "high", "medium", "low"] },
+  { field: "transaction_name", label: "Route", group: "Advanced", ops: ["contains", "equals", "starts_with"] },
+  { field: "exception_type", label: "Error", group: "Advanced", ops: ["equals", "contains", "starts_with"] },
+  { field: "title", label: "Title", group: "Advanced", ops: ["contains", "equals"] },
+  { field: "culprit", label: "Culprit", group: "Advanced", ops: ["contains", "equals"] },
+  { field: "release", label: "Release", group: "Advanced", ops: ["equals", "starts_with"] },
+  { field: "platform", label: "Platform", group: "Advanced", ops: ["is", "starts_with"] },
+  { field: "user.email", label: "Email", group: "Advanced", ops: ["equals", "ends_with", "is_not_null"] },
+  { field: "tags.plan", label: "Plan", group: "Advanced", ops: ["equals", "exists"] },
+  { field: "tags.tenant", label: "Tenant", group: "Advanced", ops: ["equals", "exists"] },
 ];
 
 export const OP_LABEL: Record<ConditionOp, string> = {
   is: "is",
-  is_not: "is not",
-  at_least: "is at least",
-  equals: "equals",
+  is_not: "isn't",
+  at_least: "≥",
+  equals: "is",
   contains: "contains",
   starts_with: "starts with",
   ends_with: "ends with",
   regex: "matches",
-  not_contains: "does not contain",
-  gt: "greater than",
-  is_one_of: "is one of",
+  not_contains: "excludes",
+  gt: ">",
+  is_one_of: "one of",
   exists: "exists",
   is_not_null: "is set",
 };
@@ -227,8 +222,8 @@ function draft(partial: Omit<AlertRuleDraft, "payload" | "channelIds"> & { paylo
 export const ALERT_RULE_TEMPLATES: AlertTemplate[] = [
   {
     id: "production-crash",
-    title: "Production crash",
-    detail: "New unhandled error in production",
+    title: "Prod crash",
+    detail: "Unhandled, in production",
     recommended: true,
     draft: draft({
       templateId: "production-crash",
@@ -244,8 +239,8 @@ export const ALERT_RULE_TEMPLATES: AlertTemplate[] = [
   },
   {
     id: "regression-watchdog",
-    title: "Regression watchdog",
-    detail: "A fixed bug comes back in production",
+    title: "Came back",
+    detail: "Resolved issue returns",
     draft: draft({
       templateId: "regression-watchdog",
       name: "Regression watchdog",
@@ -257,8 +252,8 @@ export const ALERT_RULE_TEMPLATES: AlertTemplate[] = [
   },
   {
     id: "error-spike",
-    title: "Error spike",
-    detail: "100 or more errors in 5 minutes",
+    title: "Spike",
+    detail: "100 errors in 5 min",
     draft: draft({
       templateId: "error-spike",
       name: "Error spike",
@@ -271,7 +266,7 @@ export const ALERT_RULE_TEMPLATES: AlertTemplate[] = [
   {
     id: "many-users",
     title: "Many users",
-    detail: "25 or more people hit in an hour",
+    detail: "25 people in 1 hour",
     draft: draft({
       templateId: "many-users",
       name: "Many users",
@@ -283,8 +278,8 @@ export const ALERT_RULE_TEMPLATES: AlertTemplate[] = [
   },
   {
     id: "critical-routes",
-    title: "Critical routes",
-    detail: "Checkout traffic or an enterprise plan",
+    title: "Checkout",
+    detail: "/checkout or enterprise",
     draft: draft({
       templateId: "critical-routes",
       name: "Critical routes",
@@ -339,24 +334,31 @@ export function defaultCondition(field = "environment"): AlertCondition {
 export function describeTrigger(trigger: AlertTrigger): string {
   switch (trigger.type) {
     case "project_count":
-      return `${trigger.threshold}+ project errors in ${trigger.window}`;
+      return `Spike ${trigger.threshold} / ${trigger.window}`;
     case "issue_count":
-      return `${trigger.threshold}+ events on one issue in ${trigger.window}`;
+      return `Repeats ${trigger.threshold} / ${trigger.window}`;
     case "users_affected":
-      return `${trigger.threshold}+ users in ${trigger.window === "total" ? "total" : trigger.window}`;
+      return `Users ${trigger.threshold} / ${trigger.window}`;
     default:
       return TRIGGER_LABEL[trigger.type];
   }
 }
 
+export function needsAdvanced(rule: AlertRuleDraft): boolean {
+  return (
+    rule.triggers.some((item) => ADVANCED_TRIGGERS.includes(item.type)) ||
+    rule.conditions.some((item) => !BASE_FIELDS.includes(item.field as (typeof BASE_FIELDS)[number]))
+  );
+}
+
 export function describeRule(rule: AlertRuleDraft): string {
-  const when = rule.triggers.length > 0 ? rule.triggers.map(describeTrigger).join(" or ") : "something happens";
+  const when = rule.triggers.map(describeTrigger).join(" or ") || "No trigger";
   const conds = rule.conditions
     .filter((item) => item.value || item.op === "exists" || item.op === "is_not_null")
     .map((item) => `${fieldLabel(item.field)} ${OP_LABEL[item.op]} ${item.value}`.trim());
-  const ifs = conds.length > 0 ? `, if ${rule.match === "all" ? "all" : "any"} of: ${conds.join("; ")}` : "";
+  const ifs = conds.length > 0 ? ` · ${conds.join(rule.match === "all" ? " · " : " or ")}` : "";
   const wait = COOLDOWNS.find((item) => item.mins === rule.cooldownMins)?.label ?? `${rule.cooldownMins} min`;
-  return `When ${when}${ifs}. At most once per ${wait} for the same issue.`;
+  return `${when}${ifs} · once / ${wait}`;
 }
 
 export function fieldLabel(field: string): string {

@@ -23,7 +23,7 @@ export default function AlertRulePreview() {
     2: templateDraft("production-crash"),
     3: {
       ...templateDraft("many-users"),
-      channelIds: ["slack-prod", "telegram-oncall"],
+      channelIds: ["slack-prod"],
     },
   });
   const [channels, setChannels] = useState(SAMPLE_CHANNELS);
@@ -32,24 +32,17 @@ export default function AlertRulePreview() {
     <PreviewBlock
       id="alert-rule"
       title="Create alert rule"
-      description="Three steps side by side. Each panel is the live setup, so sections open and the sentence updates in place."
+      description="The three steps, full width. Each one is the live setup."
     >
-      <div className="flex items-start gap-4 overflow-x-auto pb-2">
-        {STEPS.map((step, index) => (
-          <div
-            key={step}
-            className={`w-[28rem] shrink-0 animate-in fade-in slide-in-from-bottom-2 duration-500 ${
-              index === 1 ? "delay-75" : index === 2 ? "delay-150" : ""
-            }`}
-          >
+      <div className="mx-auto flex w-full max-w-xl min-w-0 flex-col gap-8">
+        {STEPS.map((step) => (
+          <div key={step} className="w-full min-w-0 animate-in fade-in duration-300">
             <CreateAlertRulePanel
               step={step}
               draft={drafts[step]}
               channels={channels}
               onChange={(next) => setDrafts((current) => ({ ...current, [step]: next }))}
-              onStep={(next) => {
-                setDrafts((current) => ({ ...current, [next]: current[step], [step]: current[step] }));
-              }}
+              onStep={() => undefined}
               onCreateChannel={async (input) => {
                 const created: AlertChannelChoice = {
                   id: `${input.provider}-${channels.length + 1}`,
@@ -60,7 +53,6 @@ export default function AlertRulePreview() {
                 setChannels((current) => [...current, created]);
                 return created;
               }}
-              onPing={async () => "Channel is saved. A real message goes out when the rule matches."}
               onSubmit={() => undefined}
             />
           </div>

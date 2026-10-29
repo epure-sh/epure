@@ -66,7 +66,10 @@ export function SelectItem({
   return (
     <OrbitSelectItem
       data-slot="select-item"
-      className={cn("text-xs", className)}
+      className={cn(
+        "text-sm focus:bg-surface-2 focus:text-fg-primary data-[highlighted]:bg-surface-2 data-[highlighted]:text-fg-primary",
+        className,
+      )}
       {...props}
     >
       {children}

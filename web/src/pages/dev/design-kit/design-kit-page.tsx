@@ -318,7 +318,7 @@ export function DesignKitPage() {
                       title={mod}
                       subtitle="kit family"
                       className={cn(
-                        mod === "alert-rule" ? "col-span-10" : WIDE_TILES.has(mod) ? "col-span-3" : "col-span-2",
+                        mod === "alert-rule" ? "col-span-4" : WIDE_TILES.has(mod) ? "col-span-3" : "col-span-2",
                       )}
                     >
                       <Preview />

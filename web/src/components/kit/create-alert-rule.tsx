@@ -8,6 +8,7 @@ import {
   Check,
   Clock,
   Icon,
+  MagnifyingGlass,
   Plus,
   X,
 } from "@/components/ui/icon";
@@ -15,27 +16,28 @@ import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/cn";
 import {
+  ADVANCED_TRIGGERS,
   ALERT_RULE_TEMPLATES,
+  BASE_FIELDS,
+  BASE_TRIGGERS,
   COOLDOWNS,
   CONDITION_FIELDS,
   OP_LABEL,
   PAYLOAD_GROUPS,
   SCRATCH_TEMPLATE_ID,
-  TRIGGER_GROUPS,
   TRIGGER_LABEL,
   canAdvance,
   defaultCondition,
   defaultTrigger,
   describeRule,
   fieldLabel,
+  needsAdvanced,
   templateDraft,
   type AlertChannelChoice,
   type AlertCondition,
@@ -54,7 +56,6 @@ export interface CreateAlertRulePanelProps {
   onChange: (next: AlertRuleDraft) => void;
   onStep: (step: 1 | 2 | 3) => void;
   onCreateChannel?: (input: { provider: ChannelProvider; label: string }) => Promise<AlertChannelChoice | null>;
-  onPing?: (channelId: string) => Promise<string>;
   onSubmit?: () => void;
 }
 
@@ -66,16 +67,15 @@ export function CreateAlertRulePanel({
   onChange,
   onStep,
   onCreateChannel,
-  onPing,
   onSubmit,
 }: CreateAlertRulePanelProps) {
   return (
     <section
       data-slot="create-alert-rule"
-      className="flex h-full min-h-[32rem] w-full min-w-[22rem] flex-col rounded-panel border border-border-subtle bg-surface-1"
+      className="flex w-full min-w-0 flex-col rounded-panel border border-border-subtle bg-surface-1"
       aria-label={`New alert, step ${step} of 3`}
     >
-      <header className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
+      <header className="flex items-center justify-between gap-4 border-b border-border-subtle px-5 py-4">
         <div>
           <h2 className="text-sm font-semibold text-fg-primary">New alert</h2>
           <p className="text-xs text-fg-muted">Step {step} of 3</p>
@@ -86,7 +86,7 @@ export function CreateAlertRulePanel({
       </header>
       <div
         key={step}
-        className="flex-1 animate-in fade-in slide-in-from-right-2 px-4 py-4 duration-300"
+        className="animate-in fade-in slide-in-from-right-2 px-5 py-5 duration-300"
       >
         {step === 1 ? <TemplateStep draft={draft} onChange={onChange} /> : null}
         {step === 2 ? <SentenceStep draft={draft} onChange={onChange} /> : null}
@@ -96,11 +96,10 @@ export function CreateAlertRulePanel({
             channels={channels}
             onChange={onChange}
             onCreateChannel={onCreateChannel}
-            onPing={onPing}
           />
         ) : null}
       </div>
-      <footer className="flex items-center justify-between gap-2 border-t border-border-subtle px-4 py-3">
+      <footer className="flex items-center justify-between gap-3 border-t border-border-subtle px-5 py-4">
         {step > 1 ? (
           <Button variant="ghost" size="sm" disabled={busy} onClick={() => onStep((step - 1) as 1 | 2)}>
             <Icon icon={CaretLeft} size={14} />
@@ -138,16 +137,16 @@ function TemplateStep({
   onChange: (next: AlertRuleDraft) => void;
 }) {
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-sm font-medium text-fg-primary">Start with a template</p>
-      <div className="grid grid-cols-2 gap-2">
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-fg-secondary">Pick a starting point</p>
+      <div className="grid grid-cols-2 gap-3">
         {ALERT_RULE_TEMPLATES.map((item) => {
           const selected = draft.templateId === item.id;
           return (
             <Button
               key={item.id}
               variant={selected ? "secondary" : "outline"}
-              className="h-auto items-start justify-start whitespace-normal px-3 py-3 text-left"
+              className="h-auto min-h-16 items-start justify-start whitespace-normal px-4 py-4 text-left"
               aria-pressed={selected}
               onClick={() => onChange(templateDraft(item.id))}
             >
@@ -167,13 +166,13 @@ function TemplateStep({
         })}
         <Button
           variant={draft.templateId === SCRATCH_TEMPLATE_ID ? "secondary" : "outline"}
-          className="h-auto items-start justify-start whitespace-normal px-3 py-3 text-left"
+          className="h-auto min-h-16 items-start justify-start whitespace-normal px-4 py-4 text-left"
           aria-pressed={draft.templateId === SCRATCH_TEMPLATE_ID}
           onClick={() => onChange(templateDraft(SCRATCH_TEMPLATE_ID))}
         >
           <span className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-fg-primary">Start from scratch</span>
-            <span className="text-xs font-normal text-fg-muted">An empty sentence</span>
+            <span className="text-sm font-medium text-fg-primary">Blank</span>
+            <span className="text-xs font-normal text-fg-muted">Empty rule</span>
           </span>
         </Button>
       </div>
@@ -188,14 +187,17 @@ function SentenceStep({
   draft: AlertRuleDraft;
   onChange: (next: AlertRuleDraft) => void;
 }) {
+  const [advanced, setAdvanced] = useState(() => needsAdvanced(draft));
+  const triggerChoices = advanced ? [...BASE_TRIGGERS, ...ADVANCED_TRIGGERS] : BASE_TRIGGERS;
+
   return (
-    <div className="flex flex-col gap-3">
-      <label className="flex flex-col gap-1">
-        <span className="text-xs font-medium text-fg-secondary">Name</span>
+    <div className="flex flex-col gap-5">
+      <label className="flex flex-col gap-2">
+        <span className="text-sm text-fg-secondary">Name</span>
         <Input
-          size="sm"
+          size="md"
           value={draft.name}
-          placeholder="Production crash"
+          placeholder="Prod crash"
           onChange={(event) => onChange({ ...draft, name: event.target.value })}
         />
       </label>
@@ -211,20 +213,17 @@ function SentenceStep({
                   onChange({ ...draft, triggers: next });
                 }}
               >
-                <SelectTrigger size="sm" className="min-w-0 flex-1" aria-label="Trigger">
+                <SelectTrigger size="md" className="min-w-0 flex-1" aria-label="Trigger">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TRIGGER_GROUPS.map((group) => (
-                    <SelectGroup key={group.label}>
-                      <SelectLabel>{group.label}</SelectLabel>
-                      {group.types.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {TRIGGER_LABEL[type]}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))}
+                  {(triggerChoices.includes(trigger.type) ? triggerChoices : [trigger.type, ...triggerChoices]).map(
+                    (type) => (
+                      <SelectItem key={type} value={type}>
+                        {TRIGGER_LABEL[type]}
+                      </SelectItem>
+                    ),
+                  )}
                 </SelectContent>
               </Select>
               <TriggerExtras
@@ -278,6 +277,7 @@ function SentenceStep({
           {draft.conditions.map((condition, index) => (
             <ConditionRow
               key={`${condition.field}-${index}`}
+              advanced={advanced}
               condition={condition}
               onChange={(next) => {
                 const conditions = draft.conditions.slice();
@@ -320,7 +320,16 @@ function SentenceStep({
           </Select>
         </div>
       </RuleSection>
-      <p className="rounded-control bg-surface-2 px-3 py-2 text-xs text-fg-secondary">{describeRule(draft)}</p>
+      <div className="flex flex-col gap-2">
+        <Button variant="ghost" size="sm" className="self-start" aria-expanded={advanced} onClick={() => setAdvanced((value) => !value)}>
+          <Icon icon={CaretDown} size={14} className={cn("transition-transform duration-200", advanced ? "rotate-0" : "-rotate-90")} />
+          Advanced
+        </Button>
+        <p className="text-xs leading-relaxed text-fg-muted">
+          Counts, routes, and tags. Environment, level, unhandled, and priority stay above.
+        </p>
+      </div>
+      <p className="text-sm text-fg-secondary">{describeRule(draft)}</p>
     </div>
   );
 }
@@ -366,15 +375,20 @@ function TriggerExtras({
 }
 
 function ConditionRow({
+  advanced,
   condition,
   onChange,
   onRemove,
 }: {
+  advanced: boolean;
   condition: AlertCondition;
   onChange: (next: AlertCondition) => void;
   onRemove: () => void;
 }) {
-  const spec = CONDITION_FIELDS.find((item) => item.field === condition.field) ?? CONDITION_FIELDS[0];
+  const fields = CONDITION_FIELDS.filter(
+    (item) => advanced || BASE_FIELDS.includes(item.field as (typeof BASE_FIELDS)[number]) || item.field === condition.field,
+  );
+  const spec = fields.find((item) => item.field === condition.field) ?? CONDITION_FIELDS[0];
   const hideValue = condition.op === "exists" || condition.op === "is_not_null";
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -382,19 +396,14 @@ function ConditionRow({
         value={condition.field}
         onValueChange={(field) => onChange(defaultCondition(field))}
       >
-        <SelectTrigger size="sm" className="min-w-36 flex-1" aria-label="Field">
+        <SelectTrigger size="md" className="min-w-0 flex-1" aria-label="Field">
           <SelectValue placeholder={fieldLabel(condition.field)} />
         </SelectTrigger>
         <SelectContent>
-          {groupedFields().map((group) => (
-            <SelectGroup key={group.label}>
-              <SelectLabel>{group.label}</SelectLabel>
-              {group.fields.map((field) => (
-                <SelectItem key={field.field} value={field.field}>
-                  {field.label}
-                </SelectItem>
-              ))}
-            </SelectGroup>
+          {fields.map((field) => (
+            <SelectItem key={field.field} value={field.field}>
+              {field.label}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
@@ -442,131 +451,173 @@ function ConditionRow({
   );
 }
 
-function groupedFields() {
-  const groups = new Map<string, typeof CONDITION_FIELDS>();
-  for (const field of CONDITION_FIELDS) {
-    const list = groups.get(field.group) ?? [];
-    list.push(field);
-    groups.set(field.group, list);
-  }
-  return Array.from(groups, ([label, fields]) => ({ label, fields }));
-}
-
 function DeliveryStep({
   draft,
   channels,
   onChange,
   onCreateChannel,
-  onPing,
 }: {
   draft: AlertRuleDraft;
   channels: AlertChannelChoice[];
   onChange: (next: AlertRuleDraft) => void;
   onCreateChannel?: CreateAlertRulePanelProps["onCreateChannel"];
-  onPing?: CreateAlertRulePanelProps["onPing"];
 }) {
+  const [query, setQuery] = useState("");
+  const [creating, setCreating] = useState(false);
   const [provider, setProvider] = useState<ChannelProvider>("slack");
   const [label, setLabel] = useState("");
-  const [ping, setPing] = useState<string | null>(null);
-  const [connecting, setConnecting] = useState(false);
+  const [messageOpen, setMessageOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const needle = query.trim().toLowerCase();
+  const selected = channels.filter((channel) => draft.channelIds.includes(channel.id));
+  const matches = channels.filter((channel) => {
+    if (draft.channelIds.includes(channel.id) || !channel.enabled) return false;
+    if (!needle) return true;
+    return `${providerName(channel.provider)} ${channel.label}`.toLowerCase().includes(needle);
+  });
 
-  function toggleChannel(id: string) {
-    const selected = draft.channelIds.includes(id);
-    onChange({
-      ...draft,
-      channelIds: selected ? draft.channelIds.filter((item) => item !== id) : [...draft.channelIds, id],
-    });
+  function addChannel(id: string) {
+    if (draft.channelIds.includes(id)) return;
+    onChange({ ...draft, channelIds: [...draft.channelIds, id] });
+    setQuery("");
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <p className="text-xs font-medium text-fg-secondary">Send to</p>
-        <div className="flex flex-wrap gap-2">
-          {channels.map((channel) => {
-            const selected = draft.channelIds.includes(channel.id);
-            return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-fg-secondary">Output</p>
+          <Button variant="ghost" size="sm" onClick={() => setCreating((value) => !value)}>
+            Create output channel
+          </Button>
+        </div>
+        <Input
+          size="md"
+          value={query}
+          placeholder="Search channels"
+          leadingIcon={<Icon icon={MagnifyingGlass} size={15} />}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        {needle ? (
+          <div className="flex flex-col gap-1">
+            {matches.slice(0, 6).map((channel) => (
               <Button
                 key={channel.id}
+                variant="ghost"
                 size="sm"
-                variant={selected ? "secondary" : "outline"}
-                aria-pressed={selected}
-                disabled={!channel.enabled}
-                onClick={() => toggleChannel(channel.id)}
+                className="justify-start"
+                onClick={() => addChannel(channel.id)}
               >
-                {selected ? <Icon icon={Check} size={14} /> : null}
                 {providerName(channel.provider)} · {channel.label}
               </Button>
-            );
-          })}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={provider} onValueChange={(value) => setProvider(value as ChannelProvider)}>
-            <SelectTrigger size="sm" className="w-32" aria-label="Channel provider">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(["slack", "discord", "telegram", "email", "webhook"] as const).map((item) => (
-                <SelectItem key={item} value={item}>
-                  {providerName(item)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input
-            size="sm"
-            className="w-44"
-            placeholder={provider === "slack" ? "#prod-alerts" : "Name"}
-            value={label}
-            onChange={(event) => setLabel(event.target.value)}
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!onCreateChannel || label.trim().length === 0 || connecting}
-            onClick={() => {
-              if (!onCreateChannel) return;
-              setConnecting(true);
-              void onCreateChannel({ provider, label: label.trim() })
-                .then((created) => {
-                  if (created) {
+            ))}
+            {needle && matches.length === 0 ? (
+              <p className="px-1 text-xs text-fg-muted">No channel matches.</p>
+            ) : null}
+          </div>
+        ) : null}
+        {selected.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {selected.map((channel) => (
+              <span key={channel.id} className="inline-flex items-center gap-1">
+              <Badge size="sm" variant="neutral">
+                {providerName(channel.provider)} · {channel.label}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`Remove ${channel.label}`}
+                onClick={() =>
+                  onChange({
+                    ...draft,
+                    channelIds: draft.channelIds.filter((id) => id !== channel.id),
+                  })
+                }
+              >
+                <Icon icon={X} size={12} />
+              </Button>
+            </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-fg-muted">Search, then click a channel to add it.</p>
+        )}
+        {creating ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-control border border-border-subtle p-3">
+            <Select value={provider} onValueChange={(value) => setProvider(value as ChannelProvider)}>
+              <SelectTrigger size="md" className="w-36" aria-label="Provider">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(["slack", "discord", "telegram", "email", "webhook"] as const).map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {providerName(item)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              size="md"
+              className="min-w-40 flex-1"
+              placeholder="Name"
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!onCreateChannel || label.trim().length === 0 || saving}
+              onClick={() => {
+                if (!onCreateChannel) return;
+                setSaving(true);
+                void onCreateChannel({ provider, label: label.trim() })
+                  .then((created) => {
+                    if (!created) return;
                     onChange({ ...draft, channelIds: [...draft.channelIds, created.id] });
                     setLabel("");
-                  }
-                })
-                .finally(() => setConnecting(false));
-            }}
-          >
-            <Icon icon={Plus} size={14} />
-            {connecting ? "Connecting…" : "Add channel"}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!onPing || draft.channelIds.length === 0}
-            onClick={() => {
-              const id = draft.channelIds[0];
-              if (!onPing || !id) return;
-              void onPing(id).then(setPing);
-            }}
-          >
-            Send test ping
-          </Button>
-        </div>
-        {ping ? <p className="text-xs text-fg-muted">{ping}</p> : null}
+                    setCreating(false);
+                  })
+                  .finally(() => setSaving(false));
+              }}
+            >
+              {saving ? "Saving…" : "Add"}
+            </Button>
+          </div>
+        ) : null}
       </div>
-      <div className="flex flex-col gap-2">
-        <p className="text-xs font-medium text-fg-secondary">Include in the message</p>
-        {PAYLOAD_GROUPS.map((group) => (
-          <PayloadGroupBlock
-            key={group.id}
-            label={group.label}
-            items={group.items}
-            payload={draft.payload}
-            onChange={(payload) => onChange({ ...draft, payload })}
+
+      <section className="flex flex-col gap-3 rounded-panel border border-border-subtle p-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="self-start"
+          aria-expanded={messageOpen}
+          onClick={() => setMessageOpen((value) => !value)}
+        >
+          <Icon
+            icon={CaretDown}
+            size={14}
+            className={cn("transition-transform duration-200", messageOpen ? "rotate-0" : "-rotate-90")}
           />
-        ))}
-      </div>
+          Advanced
+        </Button>
+        <p className="text-xs leading-relaxed text-fg-muted">
+          The message already includes the title, stack, counts, and release. Open this to add people, tags, or buttons.
+        </p>
+        {messageOpen ? (
+          <div className="flex flex-col gap-2">
+            {PAYLOAD_GROUPS.map((group) => (
+              <PayloadGroupBlock
+                key={group.id}
+                label={group.label}
+                items={group.items}
+                payload={draft.payload}
+                onChange={(payload) => onChange({ ...draft, payload })}
+              />
+            ))}
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }
