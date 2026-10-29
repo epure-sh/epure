@@ -516,6 +516,7 @@ function DeliveryStep({
   onCreateChannel?: CreateAlertRulePanelProps["onCreateChannel"];
 }) {
   const [query, setQuery] = useState("");
+  const [listOpen, setListOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [provider, setProvider] = useState<ChannelProvider>("slack");
   const [label, setLabel] = useState("");
@@ -549,25 +550,30 @@ function DeliveryStep({
           value={query}
           placeholder="Search channels"
           leadingIcon={<Icon icon={MagnifyingGlass} size={15} />}
+          onFocus={() => setListOpen(true)}
+          onBlur={() => setListOpen(false)}
           onChange={(event) => setQuery(event.target.value)}
         />
-        <div className="flex flex-col gap-1">
-          {matches.map((channel) => (
-            <Button
-              key={channel.id}
-              variant="ghost"
-              size="md"
-              className="h-10 justify-start gap-2"
-              onClick={() => addChannel(channel.id)}
-            >
-              <Icon icon={channelIcon(channel.provider)} size={18} />
-              {providerName(channel.provider)} · {channel.label}
-            </Button>
-          ))}
-          {needle && matches.length === 0 ? (
-            <p className="px-1 text-xs text-fg-muted">No channel matches.</p>
-          ) : null}
-        </div>
+        {listOpen ? (
+          <div className="flex flex-col gap-1">
+            {matches.map((channel) => (
+              <Button
+                key={channel.id}
+                variant="ghost"
+                size="md"
+                className="h-10 justify-start gap-2"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => addChannel(channel.id)}
+              >
+                <Icon icon={channelIcon(channel.provider)} size={18} />
+                {providerName(channel.provider)} · {channel.label}
+              </Button>
+            ))}
+            {matches.length === 0 ? (
+              <p className="px-1 text-xs text-fg-muted">No channel matches.</p>
+            ) : null}
+          </div>
+        ) : null}
         {selected.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {selected.map((channel) => (
