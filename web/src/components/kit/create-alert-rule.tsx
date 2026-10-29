@@ -3,17 +3,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  ArrowCounterClockwise,
   CaretDown,
   CaretLeft,
   Check,
   Clock,
   DiscordLogo,
   EnvelopeSimple,
+  Hash,
   Icon,
   MagnifyingGlass,
   Plus,
   SlackLogo,
   TelegramLogo,
+  TrendUp,
+  Users,
+  WarningOctagon,
   WebhooksLogo,
   X,
 } from "@/components/ui/icon";
@@ -81,14 +86,9 @@ export function CreateAlertRulePanel({
       className="flex w-full min-w-0 flex-col rounded-panel border border-border-subtle bg-surface-1"
       aria-label={`New alert, step ${step} of 3`}
     >
-      <header className="flex items-center justify-between gap-4 border-b border-border-subtle px-5 py-4">
-        <div>
-          <h2 className="text-sm font-semibold text-fg-primary">New alert</h2>
-          <p className="text-xs text-fg-muted">Step {step} of 3</p>
-        </div>
-        <span className="font-mono text-[10px] uppercase tracking-wide text-fg-muted">
-          {step === 1 ? "Template" : step === 2 ? "Rule" : "Delivery"}
-        </span>
+      <header className="border-b border-border-subtle px-5 py-5">
+        <h2 className="text-xl font-semibold tracking-tight text-fg-primary">New alert</h2>
+        <p className="mt-1 text-sm text-fg-muted">Step {step} of 3</p>
       </header>
       <div
         key={step}
@@ -135,6 +135,14 @@ export function CreateAlertRulePanel({
   );
 }
 
+const TEMPLATE_ICON: Record<string, typeof WarningOctagon> = {
+  "production-crash": WarningOctagon,
+  "regression-watchdog": ArrowCounterClockwise,
+  "error-spike": TrendUp,
+  "many-users": Users,
+  "critical-routes": Hash,
+};
+
 function TemplateStep({
   draft,
   onChange,
@@ -145,19 +153,20 @@ function TemplateStep({
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-fg-secondary">Pick a starting point</p>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         {ALERT_RULE_TEMPLATES.map((item) => {
           const selected = draft.templateId === item.id;
           return (
             <Button
               key={item.id}
               variant={selected ? "secondary" : "outline"}
-              className="h-auto min-h-16 items-start justify-start whitespace-normal px-4 py-4 text-left"
+              className="aspect-square h-auto flex-col items-start justify-between whitespace-normal p-4 text-left"
               aria-pressed={selected}
               onClick={() => onChange(templateDraft(item.id))}
             >
+              <Icon icon={TEMPLATE_ICON[item.id] ?? Plus} size={22} className="text-fg-secondary" />
               <span className="flex flex-col gap-1">
-                <span className="flex items-center gap-1.5 text-sm font-medium text-fg-primary">
+                <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-fg-primary">
                   {item.title}
                   {item.recommended ? (
                     <Badge size="compact" variant="info">
@@ -172,10 +181,11 @@ function TemplateStep({
         })}
         <Button
           variant={draft.templateId === SCRATCH_TEMPLATE_ID ? "secondary" : "outline"}
-          className="h-auto min-h-16 items-start justify-start whitespace-normal px-4 py-4 text-left"
+          className="aspect-square h-auto flex-col items-start justify-between whitespace-normal p-4 text-left"
           aria-pressed={draft.templateId === SCRATCH_TEMPLATE_ID}
           onClick={() => onChange(templateDraft(SCRATCH_TEMPLATE_ID))}
         >
+          <Icon icon={Plus} size={22} className="text-fg-secondary" />
           <span className="flex flex-col gap-1">
             <span className="text-sm font-medium text-fg-primary">Blank</span>
             <span className="text-xs font-normal text-fg-muted">Empty rule</span>
@@ -193,8 +203,13 @@ function SentenceStep({
   draft: AlertRuleDraft;
   onChange: (next: AlertRuleDraft) => void;
 }) {
-  const [advanced, setAdvanced] = useState(() => needsAdvanced(draft));
-  const triggerChoices = advanced ? [...BASE_TRIGGERS, ...ADVANCED_TRIGGERS] : BASE_TRIGGERS;
+  const [advanced, setAdvanced] = useState(
+    () => draft.templateId === SCRATCH_TEMPLATE_ID || needsAdvanced(draft),
+  );
+  const triggerChoices =
+    draft.templateId === SCRATCH_TEMPLATE_ID || advanced
+      ? [...BASE_TRIGGERS, ...ADVANCED_TRIGGERS]
+      : BASE_TRIGGERS;
 
   return (
     <div className="flex flex-col gap-5">
