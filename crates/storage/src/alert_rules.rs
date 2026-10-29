@@ -506,10 +506,51 @@ pub struct AlertChannelRow {
     pub project_id: Uuid,
     pub provider: String,
     pub label: String,
+    pub config: sqlx::types::Json<serde_json::Value>,
     pub is_enabled: bool,
     pub last_error: Option<String>,
+    pub last_tested_at: Option<DateTime<Utc>>,
+    pub last_test_status: Option<String>,
     pub created_at: DateTime<Utc>,
 }
+
+/// Public channel shape — secrets and raw webhook URLs stripped.
+#[derive(Debug, serde::Serialize, Clone)]
+pub struct AlertChannelPublic {
+    pub id: Uuid,
+    pub org_id: Uuid,
+    pub project_id: Uuid,
+    pub provider: String,
+    pub label: String,
+    pub config: serde_json::Value,
+    pub is_enabled: bool,
+    pub last_error: Option<String>,
+    pub last_tested_at: Option<DateTime<Utc>>,
+    pub last_test_status: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, serde::Serialize, Clone)]
+pub struct CreatedAlertChannel {
+    #[serde(flatten)]
+    pub channel: AlertChannelPublic,
+    /// Present once for Slack/Discord/webhook creates (linked webhook secret).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signing_secret: Option<String>,
+}
+
+pub struct CreateChannelParams {
+    pub project_id: Uuid,
+    pub provider: String,
+    pub label: String,
+    pub config: serde_json::Value,
+    pub is_enabled: bool,
+}
+
+const CHANNEL_SELECT: &str = r#"
+    id, org_id, project_id, provider, label, config, is_enabled,
+    last_error, last_tested_at, last_test_status, created_at
+"#;
 
 pub fn validate_provider(provider: &str) -> bool {
     matches!(
@@ -518,21 +559,204 @@ pub fn validate_provider(provider: &str) -> bool {
     )
 }
 
+pub fn webhook_format_for_provider(provider: &str) -> Option<&'static str> {
+    match provider {
+        "slack" => Some("slack"),
+        "discord" => Some("discord"),
+        "webhook" => Some("generic"),
+        _ => None,
+    }
+}
+
+/// Mask a destination URL for list/detail responses (host + truncated path).
+pub fn mask_destination_url(url: &str) -> String {
+    let trimmed = url.trim();
+    let without_scheme = trimmed
+        .strip_prefix("https://")
+        .or_else(|| trimmed.strip_prefix("http://"))
+        .unwrap_or(trimmed);
+    let (host, rest) = match without_scheme.split_once('/') {
+        Some((host, path)) => (host, path),
+        None => (without_scheme, ""),
+    };
+    if host.is_empty() {
+        return "••••".to_string();
+    }
+    if rest.is_empty() {
+        return host.to_string();
+    }
+    let short = if rest.len() > 16 {
+        format!("/{}…", &rest[..16])
+    } else {
+        format!("/{rest}")
+    };
+    format!("{host}{short}")
+}
+
+pub fn sanitize_channel_config(provider: &str, config: &serde_json::Value) -> serde_json::Value {
+    let mut out = serde_json::Map::new();
+    if let Some(webhook_id) = config.get("webhook_id").cloned() {
+        out.insert("webhook_id".into(), webhook_id);
+    }
+    if let Some(format) = config.get("format").cloned() {
+        out.insert("format".into(), format);
+    }
+    if let Some(preview) = config.get("destination_preview").cloned() {
+        out.insert("destination_preview".into(), preview);
+    } else if let Some(url) = config.get("url").and_then(|v| v.as_str()) {
+        out.insert(
+            "destination_preview".into(),
+            serde_json::Value::String(mask_destination_url(url)),
+        );
+    }
+    if provider == "email" {
+        if let Some(recipients) = config.get("recipients").cloned() {
+            out.insert("recipients".into(), recipients);
+        }
+    }
+    if provider == "telegram" {
+        if let Some(chat_id) = config.get("chat_id").cloned() {
+            out.insert("chat_id".into(), chat_id);
+        }
+        // Never expose bot_token in API responses.
+    }
+    if let Some(secret_prefix) = config.get("secret_prefix").cloned() {
+        out.insert("secret_prefix".into(), secret_prefix);
+    }
+    serde_json::Value::Object(out)
+}
+
+pub fn channel_to_public(row: &AlertChannelRow) -> AlertChannelPublic {
+    AlertChannelPublic {
+        id: row.id,
+        org_id: row.org_id,
+        project_id: row.project_id,
+        provider: row.provider.clone(),
+        label: row.label.clone(),
+        config: sanitize_channel_config(&row.provider, &row.config.0),
+        is_enabled: row.is_enabled,
+        last_error: row.last_error.clone(),
+        last_tested_at: row.last_tested_at,
+        last_test_status: row.last_test_status.clone(),
+        created_at: row.created_at,
+    }
+}
+
+pub fn channel_webhook_id(config: &serde_json::Value) -> Option<Uuid> {
+    config
+        .get("webhook_id")
+        .and_then(|v| v.as_str())
+        .and_then(|s| Uuid::parse_str(s).ok())
+}
+
+pub fn channel_email_recipients(config: &serde_json::Value) -> Vec<String> {
+    config
+        .get("recipients")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str())
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+pub fn channel_telegram_credentials(config: &serde_json::Value) -> Option<(String, String)> {
+    let bot_token = config
+        .get("bot_token")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())?
+        .to_string();
+    let chat_id = config
+        .get("chat_id")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())?
+        .to_string();
+    Some((bot_token, chat_id))
+}
+
 pub async fn list_channels(
     pool: &PgPool,
     org_id: Uuid,
     project_id: Uuid,
 ) -> Result<Vec<AlertChannelRow>, sqlx::Error> {
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
-    let rows = sqlx::query_as::<_, AlertChannelRow>(
+    let rows = sqlx::query_as::<_, AlertChannelRow>(&format!(
         r#"
-        SELECT id, org_id, project_id, provider, label, is_enabled, last_error, created_at
+        SELECT {CHANNEL_SELECT}
         FROM alert_channels
         WHERE project_id = $1
         ORDER BY created_at ASC
-        "#,
-    )
+        "#
+    ))
     .bind(project_id)
+    .fetch_all(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(rows)
+}
+
+pub async fn list_channels_for_org(
+    pool: &PgPool,
+    org_id: Uuid,
+) -> Result<Vec<AlertChannelRow>, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let rows = sqlx::query_as::<_, AlertChannelRow>(&format!(
+        r#"
+        SELECT {CHANNEL_SELECT}
+        FROM alert_channels
+        ORDER BY created_at DESC
+        "#
+    ))
+    .fetch_all(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(rows)
+}
+
+pub async fn get_channel(
+    pool: &PgPool,
+    org_id: Uuid,
+    channel_id: Uuid,
+) -> Result<Option<AlertChannelRow>, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let row = sqlx::query_as::<_, AlertChannelRow>(&format!(
+        r#"
+        SELECT {CHANNEL_SELECT}
+        FROM alert_channels
+        WHERE id = $1
+        "#
+    ))
+    .bind(channel_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
+/// Ingest-path load for rule dispatch (no dashboard session).
+pub async fn get_channels_by_ids_ingest(
+    pool: &PgPool,
+    org_id: Uuid,
+    channel_ids: &[Uuid],
+) -> Result<Vec<AlertChannelRow>, sqlx::Error> {
+    if channel_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut tx = crate::rls::begin_ingest_transaction(pool, org_id).await?;
+    let rows = sqlx::query_as::<_, AlertChannelRow>(&format!(
+        r#"
+        SELECT {CHANNEL_SELECT}
+        FROM alert_channels
+        WHERE id = ANY($1)
+          AND is_enabled = true
+        "#
+    ))
+    .bind(channel_ids)
     .fetch_all(&mut *tx)
     .await?;
     tx.commit().await?;
@@ -542,23 +766,99 @@ pub async fn list_channels(
 pub async fn create_channel(
     pool: &PgPool,
     org_id: Uuid,
-    project_id: Uuid,
-    provider: &str,
-    label: &str,
+    params: CreateChannelParams,
 ) -> Result<AlertChannelRow, sqlx::Error> {
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
-    let row = sqlx::query_as::<_, AlertChannelRow>(
+    let row = sqlx::query_as::<_, AlertChannelRow>(&format!(
         r#"
-        INSERT INTO alert_channels (org_id, project_id, provider, label)
-        VALUES ($1, $2, $3, $4)
-        RETURNING id, org_id, project_id, provider, label, is_enabled, last_error, created_at
-        "#,
-    )
+        INSERT INTO alert_channels (org_id, project_id, provider, label, config, is_enabled)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING {CHANNEL_SELECT}
+        "#
+    ))
     .bind(org_id)
-    .bind(project_id)
-    .bind(provider)
-    .bind(label)
+    .bind(params.project_id)
+    .bind(&params.provider)
+    .bind(&params.label)
+    .bind(sqlx::types::Json(&params.config))
+    .bind(params.is_enabled)
     .fetch_one(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
+pub async fn set_channel_test_result(
+    pool: &PgPool,
+    org_id: Uuid,
+    channel_id: Uuid,
+    status: &str,
+    error: Option<&str>,
+    enable_on_ok: bool,
+) -> Result<Option<AlertChannelRow>, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let row = sqlx::query_as::<_, AlertChannelRow>(&format!(
+        r#"
+        UPDATE alert_channels
+        SET last_tested_at = now(),
+            last_test_status = $2,
+            last_error = $3,
+            is_enabled = CASE
+                WHEN $4 AND $2 = 'ok' THEN true
+                ELSE is_enabled
+            END
+        WHERE id = $1
+        RETURNING {CHANNEL_SELECT}
+        "#
+    ))
+    .bind(channel_id)
+    .bind(status)
+    .bind(error)
+    .bind(enable_on_ok)
+    .fetch_optional(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
+pub async fn set_channel_enabled(
+    pool: &PgPool,
+    org_id: Uuid,
+    channel_id: Uuid,
+    enabled: bool,
+) -> Result<Option<AlertChannelRow>, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let row = sqlx::query_as::<_, AlertChannelRow>(&format!(
+        r#"
+        UPDATE alert_channels
+        SET is_enabled = $2
+        WHERE id = $1
+        RETURNING {CHANNEL_SELECT}
+        "#
+    ))
+    .bind(channel_id)
+    .bind(enabled)
+    .fetch_optional(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
+pub async fn delete_channel(
+    pool: &PgPool,
+    org_id: Uuid,
+    channel_id: Uuid,
+) -> Result<Option<AlertChannelRow>, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let row = sqlx::query_as::<_, AlertChannelRow>(&format!(
+        r#"
+        DELETE FROM alert_channels
+        WHERE id = $1
+        RETURNING {CHANNEL_SELECT}
+        "#
+    ))
+    .bind(channel_id)
+    .fetch_optional(&mut *tx)
     .await?;
     tx.commit().await?;
     Ok(row)
@@ -569,14 +869,44 @@ pub async fn channel_ready(
     org_id: Uuid,
     channel_id: Uuid,
 ) -> Result<Option<bool>, sqlx::Error> {
-    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
-    let enabled =
-        sqlx::query_scalar::<_, bool>("SELECT is_enabled FROM alert_channels WHERE id = $1")
-            .bind(channel_id)
-            .fetch_optional(&mut *tx)
-            .await?;
+    let row = get_channel(pool, org_id, channel_id).await?;
+    Ok(row.map(|r| r.is_enabled))
+}
+
+/// True when a custom rule fired within the last `cooldown_mins` for the same rule+issue.
+pub async fn rule_in_cooldown(
+    pool: &PgPool,
+    org_id: Uuid,
+    project_id: Uuid,
+    rule_id: Uuid,
+    issue_id: Option<Uuid>,
+    cooldown_mins: i32,
+) -> Result<bool, sqlx::Error> {
+    if cooldown_mins <= 0 {
+        return Ok(false);
+    }
+    let mut tx = crate::rls::begin_ingest_transaction(pool, org_id).await?;
+    let recent: bool = sqlx::query_scalar(
+        r#"
+        SELECT EXISTS(
+            SELECT 1
+            FROM alerts
+            WHERE project_id = $1
+              AND kind = 'custom'
+              AND issue_id IS NOT DISTINCT FROM $2
+              AND payload_json->>'rule_id' = $3
+              AND created_at > now() - ($4::text || ' minutes')::interval
+        )
+        "#,
+    )
+    .bind(project_id)
+    .bind(issue_id)
+    .bind(rule_id.to_string())
+    .bind(cooldown_mins.to_string())
+    .fetch_one(&mut *tx)
+    .await?;
     tx.commit().await?;
-    Ok(enabled)
+    Ok(recent)
 }
 
 #[cfg(test)]

@@ -97,23 +97,23 @@ export function IssueAiCopilotCard({ issue, event }: IssueAiCopilotCardProps) {
 
   return (
     <div className="epure-ai-card rounded-lg border border-border bg-surface p-3.5 shadow-2xs select-none">
-      {/* Header zone: Title, Confidence Tag, and Single Unified Copy for AI Action */}
       <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2.5">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-ink-muted shrink-0" />
-          <h4 className="text-xs font-semibold tracking-tight text-ink flex items-center gap-1.5">
-            <span>AI Root Cause Diagnostic</span>
-            <span className="rounded bg-bg-subtle px-1.5 py-0.5 font-mono text-[10px] font-medium text-ink-muted border border-border/60">
-              {diagnosis.confidence} confidence
-            </span>
-          </h4>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 shrink-0 text-ink-muted" />
+            <h4 className="text-xs font-semibold tracking-tight text-ink">
+              Starting point for your AI agent
+            </h4>
+          </div>
+          <p className="pl-6 text-[10px] text-ink-muted">
+            Local title/stack heuristics — not a server LLM. Copy the prompt into Cursor or Claude.
+          </p>
         </div>
 
-        {/* One single, clean Copy for AI button using the canonical prompt builder */}
         <button
           type="button"
           onClick={handleCopy}
-          className="btn-tactile inline-flex items-center gap-1.5 rounded-md border border-border bg-bg px-2.5 py-1 text-2xs font-medium text-ink hover:border-border-strong hover:bg-state-hover focus-ring shadow-2xs"
+          className="btn-tactile inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-bg px-2.5 py-1 text-2xs font-medium text-ink shadow-2xs hover:border-border-strong hover:bg-state-hover focus-ring"
         >
           {copied ? (
             <>
@@ -129,33 +129,28 @@ export function IssueAiCopilotCard({ issue, event }: IssueAiCopilotCardProps) {
         </button>
       </div>
 
-      {/* Efficient, high-density diagnostic details */}
       <div className="mt-2.5 space-y-1.5 text-xs">
         <div className="flex items-center gap-1.5 font-mono text-2xs text-ink-muted">
-          <span className="text-ink-subtle font-sans">Culprit:</span>
-          <span className="rounded bg-bg-subtle px-1.5 py-0.5 text-ink font-semibold border border-border/70 truncate max-w-md">
+          <span className="font-sans text-ink-subtle">Likely culprit:</span>
+          <span className="max-w-md truncate rounded border border-border/70 bg-bg-subtle px-1.5 py-0.5 font-semibold text-ink">
             {diagnosis.culprit}
           </span>
         </div>
 
         <div>
-          <span className="font-medium text-ink flex items-center gap-1 text-2xs">
-            <Terminal className="h-3 w-3 text-ink-muted shrink-0" />
-            <span>Probable Cause:</span>
+          <span className="flex items-center gap-1 text-2xs font-medium text-ink">
+            <Terminal className="h-3 w-3 shrink-0 text-ink-muted" />
+            <span>Heuristic cause:</span>
           </span>
-          <p className="mt-0.5 text-ink-muted text-2xs leading-relaxed pl-4">
-            {diagnosis.cause}
-          </p>
+          <p className="mt-0.5 pl-4 text-2xs leading-relaxed text-ink-muted">{diagnosis.cause}</p>
         </div>
 
         <div>
-          <span className="font-medium text-ink flex items-center gap-1 text-2xs">
-            <Wrench className="h-3 w-3 text-ink-muted shrink-0" />
-            <span>Recommended Fix:</span>
+          <span className="flex items-center gap-1 text-2xs font-medium text-ink">
+            <Wrench className="h-3 w-3 shrink-0 text-ink-muted" />
+            <span>Try next:</span>
           </span>
-          <p className="mt-0.5 text-ink-muted text-2xs leading-relaxed pl-4">
-            {diagnosis.fix}
-          </p>
+          <p className="mt-0.5 pl-4 text-2xs leading-relaxed text-ink-muted">{diagnosis.fix}</p>
         </div>
       </div>
     </div>

@@ -1,5 +1,11 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react";
-import { AlertRuleListRow, ALERT_RULE_ROW_GRID, ALERT_RULE_ROW_MIN_WIDTH, type AlertRuleChannelProvider } from "@/components/kit/alert-rule-row";
+import {
+  AlertRuleListRow,
+  ALERT_RULE_COL_END,
+  ALERT_RULE_ROW_GRID,
+  ALERT_RULE_ROW_MIN_WIDTH,
+  type AlertRuleChannelProvider,
+} from "@/components/kit/alert-rule-row";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -45,26 +51,25 @@ import {
 import { formatRelativeTime } from "@/lib/format-time";
 import {
   ArrowRight,
-  ClockCounterClockwise,
   Copy,
   DotsThree,
   Icon,
   Pause,
   PencilSimple,
+  Play,
   Trash,
 } from "@/components/ui/icon";
 import { DialogDescription } from "@/components/ui/dialog";
 import {
   matchesDestinationFilter,
   ruleDestinationPreview,
-  ruleFiredCount,
+  ruleDurationLabel,
   ruleLastTriggeredDemo,
-  ruleWhyLabel,
   type RuleDestinationKind,
 } from "./alert-rules-display";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/cn";
-import { ruleKindToAlertKindFilter, type HistoryRuleFocus } from "./alert-utils";
+import { AlertsRulesBulkBar } from "./alerts-rules-bulk-bar";
 import type { RulesStatusFilter } from "./alerts-toolbar";
 
 function buildFiltersJson(
@@ -180,7 +185,6 @@ export interface AlertRulesManagerProps {
   destinationFilter?: RuleDestinationKind;
   activeRuleId?: string | null;
   onActiveRuleIdChange?: (ruleId: string | null) => void;
-  onViewHistory?: (focus: HistoryRuleFocus) => void;
   onEditRule?: (rule: AlertRuleRow) => void;
   /** Latest trigger time per rule id or built-in kind, when the caller has alert history. */
   lastTriggered?: Record<string, string>;
@@ -207,10 +211,9 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
       destinationFilter = "all",
       activeRuleId = null,
       onActiveRuleIdChange,
-      onViewHistory,
       onEditRule,
       lastTriggered = {},
-      firedCounts = {},
+      firedCounts: _firedCounts = {},
       selectedRuleIds,
       onRuleSelectChange,
       selectionActive = false,
@@ -531,6 +534,8 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
   );
 
   const selection = selectedRuleIds ?? ownedSelection;
+  const bulkActive = selectionActive || selection.size > 0;
+  const selectedIds = [...selection];
   const visibleIds = visibleCustom.map((row) => row.id);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selection.has(id));
   const someVisibleSelected = visibleIds.some((id) => selection.has(id)) && !allVisibleSelected;
@@ -550,13 +555,38 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
     });
   }
 
+  function clearSelection() {
+    if (selectedRuleIds && onRuleSelectChange) {
+      for (const id of selectedIds) onRuleSelectChange(id, false);
+      return;
+    }
+    setOwnedSelection(new Set());
+  }
+
   return (
     <div className="space-y-3">
+      <AlertsRulesBulkBar
+        selectedCount={selection.size}
+        totalCount={visibleCustom.length}
+        allSelected={allVisibleSelected}
+        someSelected={someVisibleSelected || allVisibleSelected}
+        busy={busy}
+        canManage={canManage}
+        onToggleSelectAll={toggleVisibleSelection}
+        onClear={clearSelection}
+        onEnable={() => void bulkSetEnabled(selectedIds, true)}
+        onPause={() => void bulkSetEnabled(selectedIds, false)}
+        onDelete={() =>
+          void bulkDelete(selectedIds).then(() => {
+            clearSelection();
+          })
+        }
+      />
       <div className="overflow-x-auto rounded-lg border border-border-subtle bg-surface-1">
         <div className={ALERT_RULE_ROW_MIN_WIDTH}>
         <div
           className={cn(
-            "group grid items-center border-b border-border-subtle bg-surface-2/60 px-4 py-2 font-mono text-[10px] uppercase tracking-wide text-fg-muted",
+            "group/header grid items-center border-b border-border-subtle bg-surface-2/60 px-4 py-2 font-mono text-[10px] uppercase tracking-wide text-fg-muted",
             ALERT_RULE_ROW_GRID,
           )}
         >
@@ -565,16 +595,21 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
               <Checkbox
                 checked={someVisibleSelected ? "indeterminate" : allVisibleSelected}
                 aria-label="Select all rules in view"
-                className="pointer-events-auto opacity-100"
+                className={cn(
+                  "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+                  bulkActive
+                    ? "pointer-events-auto opacity-100"
+                    : "pointer-events-none opacity-0 group-hover/header:pointer-events-auto group-hover/header:opacity-100",
+                )}
                 onCheckedChange={toggleVisibleSelection}
               />
             ) : null}
           </div>
+          <span className="sr-only">Enabled</span>
           <span>Rule</span>
-          <span>Why</span>
-          <span className="text-right">Fired</span>
-          <span className="text-right">Last</span>
-          <span>Channel</span>
+          <span className={ALERT_RULE_COL_END}>Duration</span>
+          <span className={ALERT_RULE_COL_END}>Last fired</span>
+          <span className={ALERT_RULE_COL_END}>Channel</span>
           <span className="sr-only">Actions</span>
         </div>
         {loading ? (
@@ -603,17 +638,28 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
                 <li key={rule.id}>
                   <AlertRuleListRow
                     name={rule.name}
-                    why={ruleWhyLabel(rule)}
-                    firedCount={ruleFiredCount(rule.id, firedCounts)}
-                    lastTriggered={lastLabel}
+                    description={
+                      typeof rule.filters_json?.description === "string"
+                        ? rule.filters_json.description
+                        : undefined
+                    }
+                    duration={ruleDurationLabel(rule)}
+                    lastFired={lastLabel}
                     channel={channelForRule(rule, channels, ruleIndex)}
                     selected={selected}
                     bulkSelected={bulkSelected}
-                    selectionActive={selectionActive}
+                    selectionActive={bulkActive}
                     paused={!rule.enabled}
                     onSelectChange={canManage ? (next) => setSelected(rule.id, next) : undefined}
+                    onEnabledChange={
+                      canManage
+                        ? (enabled) => {
+                            if (enabled === rule.enabled) return;
+                            void toggle(rule);
+                          }
+                        : undefined
+                    }
                     onOpen={() => onActiveRuleIdChange?.(rule.id)}
-                    onEdit={canManage ? () => (onEditRule ? onEditRule(rule) : openEdit(rule)) : undefined}
                     actions={
                       canManage ? (
                         <DropdownMenu>
@@ -632,20 +678,8 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
                               Duplicate
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => void toggle(rule)}>
-                              <Icon icon={Pause} size={14} className="mr-2" />
+                              <Icon icon={rule.enabled ? Pause : Play} size={14} className="mr-2" />
                               {rule.enabled ? "Pause rule" : "Resume rule"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={() => {
-                                onViewHistory?.({
-                                  kind: ruleKindToAlertKindFilter(rule.kind),
-                                  ruleName: rule.name,
-                                  ruleId: rule.id,
-                                });
-                              }}
-                            >
-                              <Icon icon={ClockCounterClockwise} size={14} className="mr-2" />
-                              View history
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -685,7 +719,7 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
           else setWizardOpen(true);
         }}
       >
-        <DialogContent className="flex max-h-[min(90vh,740px)] w-full max-w-[560px] flex-col gap-0 overflow-hidden p-0 shadow-none">
+        <DialogContent className="flex max-h-[min(90vh,740px)] w-full max-w-[560px] flex-col gap-0 overflow-hidden p-0">
           <DialogHeader className="mb-0 shrink-0 space-y-2 border-b border-border-subtle px-5 pb-3 pt-4">
             {editing ? (
               <nav className="flex items-center gap-1.5 text-xs" aria-label="Edit rule steps">
@@ -801,58 +835,43 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
             ) : null}
           </div>
 
-          <DialogFooter className="mb-0 shrink-0 flex-row items-center justify-between gap-2 border-t border-border-subtle bg-surface-1 px-5 py-3 pt-3">
-            <div className="flex min-w-0 flex-1 items-center gap-1.5 text-xs text-fg-muted">
-              {!editing && template ? (
-                <>
-                  <span className="size-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
-                  <span className="truncate font-medium text-fg-secondary">
-                    {step === 1 ? template.title : name.trim() || template.title}
-                  </span>
-                </>
-              ) : null}
-            </div>
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-              {(editing && step === 3) || (!editing && step > 1) ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8"
-                  onClick={() => setStep((value) => (value === 3 ? 2 : 1))}
-                >
-                  Back
-                </Button>
-              ) : null}
-              <Button variant="secondary" size="sm" className="h-8" onClick={closeWizard}>
-                Cancel
+          <DialogFooter className="mb-0 shrink-0 flex-row items-center justify-between gap-3 border-t border-border-subtle/80 bg-surface-1 px-6 py-3.5 pt-3.5 sm:justify-between">
+            {(editing && step === 3) || (!editing && step > 1) ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setStep((value) => (value === 3 ? 2 : 1))}
+              >
+                Back
               </Button>
-              {editing ? (
-                step < 3 ? (
-                  <Button variant="primary" size="sm" className="h-8 gap-1" onClick={() => setStep(3)}>
-                    Continue to routing
-                    <Icon icon={ArrowRight} size={14} aria-hidden />
-                  </Button>
-                ) : (
-                  <Button variant="primary" size="sm" className="h-8" disabled={busy} onClick={() => void save()}>
-                    {busy ? "Saving…" : "Save rule"}
-                  </Button>
-                )
-              ) : step < 3 ? (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className="h-8 gap-1"
-                  onClick={() => (step === 1 ? advanceFromTemplateStep() : setStep(3))}
-                >
-                  {step === 2 ? "Continue to dispatch" : "Continue"}
+            ) : (
+              <span />
+            )}
+            {editing ? (
+              step < 3 ? (
+                <Button variant="primary" size="sm" onClick={() => setStep(3)}>
+                  Next
                   <Icon icon={ArrowRight} size={14} aria-hidden />
                 </Button>
               ) : (
-                <Button variant="primary" size="sm" className="h-8" disabled={busy} onClick={() => void save()}>
-                  {busy ? "Creating…" : "Create & arm rule"}
+                <Button variant="primary" size="sm" disabled={busy} onClick={() => void save()}>
+                  {busy ? "Saving…" : "Save"}
                 </Button>
-              )}
-            </div>
+              )
+            ) : step < 3 ? (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => (step === 1 ? advanceFromTemplateStep() : setStep(3))}
+              >
+                Next
+                <Icon icon={ArrowRight} size={14} aria-hidden />
+              </Button>
+            ) : (
+              <Button variant="primary" size="sm" disabled={busy} onClick={() => void save()}>
+                {busy ? "Creating…" : "Create"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,7 +1,5 @@
 import { type FormEvent, type ReactNode, useState } from "react";
-import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import {
   Dialog,
   DialogContent,
@@ -13,17 +11,24 @@ import {
 import { Field } from "../../ui/field";
 import { Input } from "../../ui/input";
 import { cn } from "../../lib/cn";
+import { SectionCard } from "@/components/kit/section-card";
 
-/** Optional actions row — nav labels the tab; no page title. */
-export function SettingsTabHeader({ actions }: { actions?: ReactNode }) {
-  if (!actions) {
-    return null;
-  }
+/** Full-width stack for project settings — cards and rows fill the content pane. */
+export function SettingsStack({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <header className="flex flex-wrap items-center justify-end gap-2">
-      {actions}
-    </header>
+    <div
+      className={cn(
+        "w-full space-y-3 [&_[data-slot=section-card]]:w-full",
+        className,
+      )}
+    >
+      {children}
+    </div>
   );
+}
+
+export function SettingsSkeleton() {
+  return <div className="h-24 animate-pulse rounded-md border border-border-subtle bg-surface-1" />;
 }
 
 export function InfoCallout({
@@ -38,7 +43,7 @@ export function InfoCallout({
   return (
     <div
       className={cn(
-        "border border-border-subtle border-l-[3px] bg-surface-1 p-3 text-sm text-fg-muted",
+        "border border-border-subtle border-l-[3px] bg-surface-1 px-3 py-2 text-xs text-fg-muted",
         variant === "warning" ? "border-l-semantic-warning" : "border-l-primary",
         className,
       )}
@@ -51,8 +56,7 @@ export function InfoCallout({
 export function MemberAccessNotice({ resource = "these settings" }: { resource?: string }) {
   return (
     <InfoCallout>
-      You have member access. Managing {resource} requires an admin or owner role. Ask a workspace
-      admin if you need changes.
+      Member access only. Managing {resource} needs an admin or owner.
     </InfoCallout>
   );
 }
@@ -63,57 +67,13 @@ export function DangerZone({
   children,
 }: {
   title: string;
-  description: string;
+  description?: string;
   children: ReactNode;
 }) {
   return (
-    <Card className="border-semantic-danger/30">
-      <CardHeader>
-        <CardTitle className="text-semantic-danger">{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
-  );
-}
-
-export function ReadOnlyDetail({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string;
-  value: ReactNode;
-  mono?: boolean;
-}) {
-  return (
-    <div>
-      <p className="text-xs text-fg-muted">{label}</p>
-      <p className={cn("mt-1 text-sm text-fg-primary", mono && "font-mono text-xs text-fg-muted")}>
-        {value}
-      </p>
-    </div>
-  );
-}
-
-export function EnvironmentReference() {
-  const tags = ["production", "staging", "local"] as const;
-
-  return (
-    <div className="space-y-2">
-      <p className="text-sm text-fg-muted">
-        Environments are set in your SDK init, not in Epure. Tag events with{" "}
-        <span className="font-mono text-xs text-fg-primary">environment</span> so you can filter issues by
-        deploy target.
-      </p>
-      <div className="flex flex-wrap gap-1.5">
-        {tags.map((tag) => (
-          <Badge key={tag} variant="env" className="font-mono capitalize">
-            {tag}
-          </Badge>
-        ))}
-      </div>
-    </div>
+    <SectionCard title={title} description={description} danger contentClassName="space-y-2">
+      {children}
+    </SectionCard>
   );
 }
 
@@ -148,8 +108,7 @@ export function DeleteProjectDialog({
         <DialogHeader>
           <DialogTitle>Delete project</DialogTitle>
           <DialogDescription>
-            This permanently deletes the project, its issues, events, and DSN keys. Type the project
-            name to confirm.
+            Permanently deletes issues, events, and DSN keys. Type the project name to confirm.
           </DialogDescription>
         </DialogHeader>
         <form className="space-y-3" onSubmit={(event) => void handleSubmit(event)}>
@@ -160,18 +119,20 @@ export function DeleteProjectDialog({
               onChange={(event) => setConfirmName(event.target.value)}
               placeholder={projectName}
               autoComplete="off"
+              className="h-8 text-xs"
             />
           </Field>
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button
               type="submit"
               variant="danger"
+              size="sm"
               disabled={busy || confirmName.trim() !== projectName}
             >
-              Delete permanently
+              Delete
             </Button>
           </DialogFooter>
         </form>
@@ -188,3 +149,33 @@ export function isValidWebhookUrl(value: string): boolean {
     return false;
   }
 }
+
+/** Kept for legacy unwired settings panels. */
+export function ReadOnlyDetail({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: ReactNode;
+  mono?: boolean;
+}) {
+  return (
+    <div>
+      <p className="text-2xs text-fg-muted">{label}</p>
+      <p className={cn("mt-0.5 text-xs text-fg-primary", mono && "font-mono text-fg-muted")}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+/** Kept for legacy unwired settings panels. */
+export function EnvironmentReference() {
+  return (
+    <p className="text-xs text-fg-muted">
+      Tag events with <span className="font-mono text-fg-primary">environment</span> in the SDK.
+    </p>
+  );
+}
+

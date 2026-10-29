@@ -23,6 +23,7 @@ import stagingFlag from "../../../fixtures/seed/events/staging-feature-flag.json
 import goNilPointer from "../../../fixtures/seed/events/go-nil-pointer.json";
 import reactHydration from "../../../fixtures/seed/events/react-hydration-mismatch.json";
 import authExpired from "../../../fixtures/seed/events/auth-token-expired.json";
+import { DEFAULT_PAYLOAD } from "../../src/components/kit/create-alert-rule-model";
 
 export const ORG_ID = "11111111-1111-1111-1111-111111111111";
 export const USER_ID = "33333333-3333-3333-3333-333333333333";
@@ -78,6 +79,15 @@ function stackFromPayload(payload: StorePayload): unknown {
     return [];
   }
   return [...frames].reverse();
+}
+
+/** Oldest-first frames for alert print blocks (selectFrames takes the tail). */
+function alertStackFrames(payload: StorePayload): unknown[] {
+  const exception = payload.exception as
+    | { values?: Array<{ stacktrace?: { frames?: unknown[] } }> }
+    | undefined;
+  const frames = exception?.values?.[0]?.stacktrace?.frames;
+  return Array.isArray(frames) ? [...frames] : [];
 }
 
 function eventFromPayload(
@@ -454,6 +464,9 @@ export function buildStats(projectId: string, environment?: string): HeadlineSta
     return ageMs <= 7 * 24 * 60 * 60 * 1000;
   });
 
+  const open = scopedIssues.filter(
+    (issue) => (issue.status === "unresolved" || issue.status === "regression") && !issue.snoozed,
+  );
   return {
     project_id: projectId,
     environment: environment ?? null,
@@ -461,6 +474,13 @@ export function buildStats(projectId: string, environment?: string): HeadlineSta
     events_7d: events.length,
     regressions: scopedIssues.filter((issue) => issue.status === "regression" && !issue.snoozed).length,
     snoozed: scopedIssues.filter((issue) => issue.snoozed).length,
+    high_priority: open.filter((issue) => {
+      const level = (issue.level ?? "").toLowerCase();
+      return level === "fatal" || level === "error";
+    }).length,
+    affected_users: open.reduce((sum, issue) => sum + (issue.unique_user_count ?? 0), 0),
+    valve_seen: events.length * 50,
+    valve_stored: events.length,
   };
 }
 
@@ -527,6 +547,31 @@ export const alerts: AlertRow[] = [
       event_count: 462_000,
       unique_user_count: 111_000,
       environment: "production",
+      release: "web-checkout@2.15.0-b4",
+      culprit: "src/components/Cart.tsx:44",
+      payload_options: { ...DEFAULT_PAYLOAD },
+      context: {
+        stack_frames: alertStackFrames(browserCheckout as StorePayload),
+        breadcrumbs: browserCheckout.breadcrumbs,
+        culprit_file: "src/components/Cart.tsx:44",
+        route: browserCheckout.transaction ?? "/checkout",
+        request_method: "GET",
+        request_url: "/checkout",
+        user_email: browserCheckout.user?.email ?? null,
+        user_id: browserCheckout.user?.id ?? null,
+        browser: browserCheckout.contexts?.browser
+          ? `${browserCheckout.contexts.browser.name} ${browserCheckout.contexts.browser.version}`
+          : null,
+        os: browserCheckout.contexts?.os
+          ? `${browserCheckout.contexts.os.name} ${browserCheckout.contexts.os.version}`
+          : null,
+        runtime: browserCheckout.contexts?.runtime?.name ?? null,
+        tags: {
+          tenant: "acme-corp",
+          region: "us-east-1",
+          plan: "enterprise",
+        },
+      },
       current_window_start_at: isoMinutesAgoPrecise(27, 847),
       current_window_end_at: isoMinutesAgoPrecise(12, 847),
       previous_window_start_at: isoMinutesAgoPrecise(42, 847),
@@ -566,6 +611,15 @@ export const alerts: AlertRow[] = [
       title: titleFromPayload(browserPayment),
       environment: "production",
       threshold: 250,
+      triggers: [
+        { type: "issue_count", op: "gt", threshold: 250, window: "15m" },
+      ],
+      condition_match: "all",
+      conditions: [
+        { field: "environment", op: "is", value: "production" },
+        { field: "level", op: "at_least", value: "error" },
+        { field: "is_unhandled", op: "is", value: "true" },
+      ],
       ratio: 4.2,
       current_window: 194_000,
       previous_window: 46_000,
@@ -574,8 +628,36 @@ export const alerts: AlertRow[] = [
       unique_user_count: 42_000,
       traffic_share: "21.6% checkout traffic",
       release: "web-checkout@2.15.0-b4",
-      culprit: "PaymentGatewayClient.ts:92",
+      culprit: "src/services/payments.ts:61",
       fingerprint: "f7a9002c",
+      issue_ids: [
+        "a1000001-0000-4000-8000-000000000002",
+        "a1000001-0000-4000-8000-000000000001",
+      ],
+      payload_options: { ...DEFAULT_PAYLOAD },
+      context: {
+        stack_frames: alertStackFrames(browserPayment as StorePayload),
+        breadcrumbs: browserPayment.breadcrumbs,
+        culprit: "src/services/payments.ts in chargeCard",
+        culprit_file: "src/services/payments.ts:61",
+        route: browserPayment.transaction ?? "/checkout/payment",
+        request_method: "POST",
+        request_url: "/api/payments/charge",
+        user_email: browserPayment.user?.email ?? null,
+        user_id: browserPayment.user?.id ?? null,
+        browser: browserPayment.contexts?.browser
+          ? `${browserPayment.contexts.browser.name} ${browserPayment.contexts.browser.version}`
+          : null,
+        os: browserPayment.contexts?.os
+          ? `${browserPayment.contexts.os.name} ${browserPayment.contexts.os.version}`
+          : null,
+        runtime: browserPayment.contexts?.runtime?.name ?? null,
+        tags: {
+          tenant: "acme-corp",
+          region: "us-east-1",
+          plan: "enterprise",
+        },
+      },
       current_window_start_at: isoMinutesAgoPrecise(23, 250),
       current_window_end_at: isoMinutesAgoPrecise(8, 250),
       previous_window_start_at: isoMinutesAgoPrecise(38, 250),
@@ -688,6 +770,26 @@ export const alerts: AlertRow[] = [
         "a1000001-0000-4000-8000-000000000001",
         "a1000001-0000-4000-8000-000000000002",
       ],
+      // Slim print set — only crash site + stack (proves unchecked blocks stay hidden).
+      payload_options: {
+        ...Object.fromEntries(Object.keys(DEFAULT_PAYLOAD).map((key) => [key, false])),
+        culprit: true,
+        "culprit:file": true,
+        stack_frames: true,
+        "stack:in_app": true,
+        "stack:frames:3": true,
+        "stack:line": true,
+        actions: true,
+        "action:view": true,
+        "action:fix": true,
+        "action:resolve": true,
+        "action:mute": true,
+      },
+      context: {
+        stack_frames: alertStackFrames(browserCheckout as StorePayload),
+        culprit_file: "src/components/Cart.tsx:44",
+        route: browserCheckout.transaction ?? "/checkout",
+      },
     },
     read_at: null,
     ignored: false,
@@ -1142,8 +1244,15 @@ export const alertChannels: AlertChannelRow[] = [
     project_id: PROJECT_WEB,
     provider: "slack",
     label: "#prod-alerts",
+    config: {
+      destination_preview: "hooks.slack.com/services…",
+      webhook_id: "wh-slack-prod",
+      format: "slack",
+    },
     is_enabled: true,
     last_error: null,
+    last_tested_at: isoDaysAgo(1),
+    last_test_status: "ok",
     created_at: isoDaysAgo(20),
   },
   {
@@ -1152,8 +1261,15 @@ export const alertChannels: AlertChannelRow[] = [
     project_id: PROJECT_WEB,
     provider: "discord",
     label: "engineering",
+    config: {
+      destination_preview: "discord.com/api/webhooks…",
+      webhook_id: "wh-discord-eng",
+      format: "discord",
+    },
     is_enabled: true,
     last_error: null,
+    last_tested_at: isoDaysAgo(2),
+    last_test_status: "ok",
     created_at: isoDaysAgo(18),
   },
   {
@@ -1162,8 +1278,14 @@ export const alertChannels: AlertChannelRow[] = [
     project_id: PROJECT_WEB,
     provider: "telegram",
     label: "On-call",
+    config: {
+      chat_id: "-1001234567890",
+      destination_preview: "chat …7890",
+    },
     is_enabled: true,
     last_error: null,
+    last_tested_at: isoDaysAgo(1),
+    last_test_status: "ok",
     created_at: isoDaysAgo(14),
   },
   {
@@ -1172,8 +1294,11 @@ export const alertChannels: AlertChannelRow[] = [
     project_id: PROJECT_WEB,
     provider: "email",
     label: "ops@acme.dev",
+    config: { recipients: ["ops@acme.dev", "alex@acme.dev"] },
     is_enabled: true,
     last_error: null,
+    last_tested_at: isoDaysAgo(3),
+    last_test_status: "ok",
     created_at: isoDaysAgo(10),
   },
   {
@@ -1182,8 +1307,16 @@ export const alertChannels: AlertChannelRow[] = [
     project_id: PROJECT_WEB,
     provider: "webhook",
     label: "signed hook",
+    config: {
+      destination_preview: "hooks.example.com/epure…",
+      webhook_id: "wh-signed",
+      format: "generic",
+      secret_prefix: "whsec_abcd1234",
+    },
     is_enabled: true,
     last_error: null,
+    last_tested_at: isoHoursAgo(5),
+    last_test_status: "ok",
     created_at: isoDaysAgo(6),
   },
   {

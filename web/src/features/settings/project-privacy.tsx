@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   eraseDataSubject,
   exportDataSubject,
@@ -8,12 +8,18 @@ import {
 } from "../../lib/api";
 import { useAppContext } from "../../shell/app-context";
 import { Button } from "../../ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Field } from "../../ui/field";
 import { Input } from "../../ui/input";
 import { Switch } from "../../ui/switch";
 import { useToast } from "../../ui/toast-provider";
-import { DangerZone, InfoCallout, MemberAccessNotice } from "./shared";
+import { SectionCard } from "@/components/kit/section-card";
+import {
+  DangerZone,
+  InfoCallout,
+  MemberAccessNotice,
+  SettingsSkeleton,
+  SettingsStack,
+} from "./shared";
 
 export function ProjectPrivacySettings() {
   const { projectId: paramId } = useParams<{ projectId: string }>();
@@ -35,37 +41,39 @@ export function ProjectPrivacySettings() {
 
   if (projectsLoading || userLoading) {
     return (
-      <div className="space-y-4">
-        <div className="h-32 rounded-lg border border-border-subtle bg-surface-1 animate-pulse" />
-      </div>
+      <SettingsStack>
+        <SettingsSkeleton />
+      </SettingsStack>
     );
   }
 
   if (!project) {
     return (
-      <div className="space-y-4">
-        <InfoCallout variant="warning">Project not found. It may have been deleted.</InfoCallout>
-      </div>
+      <SettingsStack>
+        <InfoCallout variant="warning">Project not found.</InfoCallout>
+      </SettingsStack>
     );
   }
 
   if (!canManage) {
-    return <MemberAccessNotice resource="privacy settings" />;
+    return (
+      <SettingsStack>
+        <MemberAccessNotice resource="privacy settings" />
+      </SettingsStack>
+    );
   }
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!project) {
-      return;
-    }
+    if (!project) return;
     setSaving(true);
     try {
       await updateProject(project.id, { store_end_user_identifiers: draft });
       await refreshProjects();
       setStoreIdentifiers(null);
-      toast(draft ? "End-user identifiers will be stored" : "End-user identifiers will be dropped");
+      toast(draft ? "Identifiers on" : "Identifiers off");
     } catch {
-      toast("Failed to save privacy settings");
+      toast("Failed to save");
     } finally {
       setSaving(false);
     }
@@ -74,9 +82,7 @@ export function ProjectPrivacySettings() {
   function subjectBody(): { user_id?: string; email?: string } | null {
     const user_id = subjectId.trim();
     const email = subjectEmail.trim();
-    if (!user_id && !email) {
-      return null;
-    }
+    if (!user_id && !email) return null;
     return {
       user_id: user_id || undefined,
       email: email || undefined,
@@ -84,9 +90,7 @@ export function ProjectPrivacySettings() {
   }
 
   async function handleExport() {
-    if (!project) {
-      return;
-    }
+    if (!project) return;
     const body = subjectBody();
     if (!body) {
       toast("Enter a user id or email");
@@ -102,166 +106,132 @@ export function ProjectPrivacySettings() {
       anchor.download = `epure-subject-${project.slug ?? project.id}.json`;
       anchor.click();
       URL.revokeObjectURL(url);
-      toast(
-        result.truncated
-          ? `Exported ${result.events.length.toLocaleString()} of ${result.total.toLocaleString()} events`
-          : `Exported ${result.total.toLocaleString()} events`,
-      );
+      toast(`Exported ${result.total.toLocaleString()} events`);
     } catch {
-      toast("Could not export this person's events");
+      toast("Export failed");
     } finally {
       setBusy(false);
     }
   }
 
   async function handleErase() {
-    if (!project) {
-      return;
-    }
+    if (!project) return;
     const body = subjectBody();
     if (!body) {
       toast("Enter a user id or email");
       return;
     }
     const label = body.email ?? body.user_id;
-    if (!window.confirm(`Delete stored events for ${label}? This cannot be undone.`)) {
-      return;
-    }
+    if (!window.confirm(`Delete events for ${label}?`)) return;
     setBusy(true);
     try {
       const result = await eraseDataSubject(project.id, body);
       toast(`Deleted ${result.events_deleted.toLocaleString()} events`);
     } catch {
-      toast("Could not erase this person's events");
+      toast("Erase failed");
     } finally {
       setBusy(false);
     }
   }
 
   async function handleStrip() {
-    if (!project) {
-      return;
-    }
-    if (
-      !window.confirm(
-        "Remove stored emails, usernames, and precise location from events already in this project?",
-      )
-    ) {
+    if (!project) return;
+    if (!window.confirm("Strip stored emails, usernames, and location from existing events?")) {
       return;
     }
     setBusy(true);
     try {
       const result = await stripStoredIdentifiers(project.id);
-      toast(`Updated ${result.events_updated.toLocaleString()} stored events`);
+      toast(`Updated ${result.events_updated.toLocaleString()} events`);
     } catch {
-      toast("Could not remove stored identifiers");
+      toast("Strip failed");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="space-y-4">
-      <form className="space-y-4" onSubmit={(event) => void handleSave(event)}>
-        <Card>
-          <CardHeader>
-            <CardTitle>End-user identifiers</CardTitle>
-            <CardDescription>
-              Off by default. Opaque user ids stay so you can count affected people. Email addresses,
-              usernames, IP addresses, and city-level location are dropped.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <label htmlFor="store-identifiers" className="text-sm font-medium text-fg-primary">
-                  Store emails and usernames
-                </label>
-                <p className="mt-1 text-xs text-fg-muted">
-                  Turn this on only when you have a reason to keep contact details inside error
-                  reports. IP addresses stay off either way. SDK option{" "}
-                  <span className="font-mono">sendDefaultPii</span> should stay false.
-                </p>
-              </div>
-              <Switch
-                id="store-identifiers"
-                checked={draft}
-                onCheckedChange={(checked) => setStoreIdentifiers(checked)}
-                aria-label="Store emails and usernames"
-              />
+    <SettingsStack>
+      <form onSubmit={(event) => void handleSave(event)}>
+        <SectionCard
+          title="Identifiers"
+          description="Emails and usernames. Off by default."
+          footer={
+            <div className="flex w-full justify-end">
+              <Button type="submit" variant="secondary" size="sm" disabled={saving || draft === stored}>
+                Save
+              </Button>
             </div>
-            <InfoCallout>
-              New events follow this setting. Events already stored keep what they had until you
-              erase a person or remove stored identifiers below.{" "}
-              <Link to="/privacy" className="text-fg-primary underline underline-offset-2">
-                Privacy notice
-              </Link>
-            </InfoCallout>
-            <Button type="submit" variant="secondary" disabled={saving || draft === stored}>
-              Save privacy setting
-            </Button>
-          </CardContent>
-        </Card>
+          }
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-fg-primary">Store emails & usernames</p>
+              <p className="mt-0.5 text-2xs text-fg-muted">
+                Opaque user ids stay. IPs never stored.
+              </p>
+            </div>
+            <Switch
+              id="store-identifiers"
+              checked={draft}
+              onCheckedChange={(checked) => setStoreIdentifiers(checked)}
+              aria-label="Store emails and usernames"
+            />
+          </div>
+        </SectionCard>
       </form>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Access and erasure</CardTitle>
-          <CardDescription>
-            Find events for one person and export or delete them. Matches the id, the email, and the
-            pseudonym Epure uses when an id looks like an email.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="User id" htmlFor="subject-id" hint="SDK user.id, or an email used as the id.">
+      <SectionCard title="Subject tools" description="Export or erase one person.">
+        <div className="space-y-3">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Field label="User id" htmlFor="subject-id" className="gap-1.5">
               <Input
                 id="subject-id"
                 value={subjectId}
                 onChange={(event) => setSubjectId(event.target.value)}
                 autoComplete="off"
+                className="h-8 text-xs"
+                placeholder="user.id"
               />
             </Field>
-            <Field label="Email" htmlFor="subject-email" hint="Address previously stored on an event.">
+            <Field label="Email" htmlFor="subject-email" className="gap-1.5">
               <Input
                 id="subject-email"
                 type="email"
                 value={subjectEmail}
                 onChange={(event) => setSubjectEmail(event.target.value)}
                 autoComplete="off"
+                className="h-8 text-xs"
+                placeholder="name@company.com"
               />
             </Field>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" disabled={busy} onClick={() => void handleExport()}>
-              Export JSON
+            <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => void handleExport()}>
+              Export
             </Button>
-            <Button type="button" variant="danger" disabled={busy} onClick={() => void handleErase()}>
-              Delete events
+            <Button type="button" variant="danger" size="sm" disabled={busy} onClick={() => void handleErase()}>
+              Erase
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </SectionCard>
 
-      <DangerZone
-        title="Remove stored identifiers"
-        description="Clear contact details already saved on this project's events."
-      >
-        <p className="text-sm text-fg-muted">
-          This blanks email, username, name, IP, and city fields, and clears feedback names. Text
-          inside exception messages is left in place until retention deletes the event. Use erasure
-          above when a person asks for their events to be deleted.
-        </p>
-        <Button
-          type="button"
-          variant="danger"
-          className="mt-3"
-          disabled={busy}
-          onClick={() => void handleStrip()}
-        >
-          Remove stored identifiers
-        </Button>
+      <DangerZone title="Strip identifiers" description="Clear contact fields on stored events.">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-fg-muted">Blanks email, username, IP, and city on existing events.</p>
+          <Button
+            type="button"
+            variant="danger"
+            size="sm"
+            className="shrink-0"
+            disabled={busy}
+            onClick={() => void handleStrip()}
+          >
+            Strip
+          </Button>
+        </div>
       </DangerZone>
-    </div>
+    </SettingsStack>
   );
 }

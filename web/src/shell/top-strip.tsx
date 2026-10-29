@@ -25,7 +25,7 @@ import {
   getNavigationContext,
   isProjectRoute,
   projectIdFromPath,
-  projectPath,
+  projectPathKeepingTab,
   userSettingsPath,
   workspacePath,
   workspaceSettingsPath,
@@ -43,7 +43,6 @@ function getPageName(pathname: string): string {
   if (pathname.startsWith("/user/settings") || pathname.startsWith("/user")) return "User Settings";
   if (pathname.includes("/channels")) return "Output Channels";
   if (pathname.includes("/issues")) return "Issues Feed";
-  if (pathname.includes("/monitoring")) return "Monitoring";
   if (pathname.includes("/monitors")) return "Cron Monitors";
   if (pathname.includes("/releases")) return "Releases";
   if (pathname.includes("/alerts")) return "Alerts";
@@ -53,7 +52,14 @@ function getPageName(pathname: string): string {
   if (pathname.includes("/usage")) return "Usage";
   if (pathname.includes("/billing")) return "Billing";
   if (pathname === "/") return "Projects";
-  return "Overview";
+  if (
+    pathname.includes("/dashboard") ||
+    pathname.includes("/monitoring") ||
+    /^\/p\/[^/]+\/?$/.test(pathname)
+  ) {
+    return "Dashboard";
+  }
+  return "Dashboard";
 }
 
 export interface TopStripProps {
@@ -86,6 +92,8 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
       pathname.includes("/releases") ||
       pathname.includes("/monitors") ||
       pathname.includes("/monitoring") ||
+      pathname.includes("/dashboard") ||
+      /^\/p\/[^/]+\/?$/.test(pathname) ||
       pathname.includes("/setup") ||
       pathname.includes("/settings"));
 
@@ -120,7 +128,7 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
                   key={p.id}
                   onSelect={() => {
                     setProjectId(p.id);
-                    navigate(projectPath(p.id, "issues"));
+                    navigate(projectPathKeepingTab(p.id, pathname));
                   }}
                   className={cn(
                     "flex cursor-pointer items-center justify-between py-2 text-xs",

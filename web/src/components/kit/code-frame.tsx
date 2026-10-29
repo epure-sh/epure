@@ -11,6 +11,8 @@ export interface CodeFrameProps {
   language?: string;
   filename?: string;
   highlightLine?: number;
+  /** Cap the code body height (e.g. "9.5rem") — one scroll region inside the frame. */
+  maxBodyHeight?: string;
   className?: string;
 }
 
@@ -19,6 +21,7 @@ export function CodeFrame({
   language = "typescript",
   filename,
   highlightLine,
+  maxBodyHeight,
   className,
 }: CodeFrameProps) {
   const [highlightedHtml, setHighlightedHtml] = React.useState<string | null>(null);
@@ -131,12 +134,22 @@ export function CodeFrame({
         </Button>
       </Box>
 
-      <Box overflowX="auto" padding="m">
+      <Box
+        overflowX="auto"
+        overflowY={maxBodyHeight ? "auto" : undefined}
+        padding="m"
+        // eslint-disable-next-line no-restricted-syntax -- optional body height cap for compact embeds
+        style={maxBodyHeight ? { maxHeight: maxBodyHeight } : undefined}
+      >
         {highlightedHtml ? (
           <Box
             // Shiki HTML glue — keep pre/code styling from highlighter.
             // eslint-disable-next-line no-restricted-syntax -- third-party shiki class hooks
-            className="[&>pre]:!bg-transparent [&>pre]:!p-0 [&>pre]:!m-0 [&_code]:font-mono text-xs"
+            className={
+              maxBodyHeight
+                ? "[&>pre]:!bg-transparent [&>pre]:!p-0 [&>pre]:!m-0 [&>pre]:!overflow-visible [&_code]:font-mono [&_code]:whitespace-pre-wrap [&_code]:break-all text-xs"
+                : "[&>pre]:!bg-transparent [&>pre]:!p-0 [&>pre]:!m-0 [&_code]:font-mono text-xs"
+            }
             dangerouslySetInnerHTML={{ __html: highlightedHtml }}
           />
         ) : (
@@ -168,7 +181,12 @@ export function CodeFrame({
                     </Text>
                   </Box>
                   <Box flex={1}>
-                    <Text as="span" variant="caption" monospace wrap="nowrap">
+                    <Text
+                      as="span"
+                      variant="caption"
+                      monospace
+                      wrap={maxBodyHeight ? "wrap" : "nowrap"}
+                    >
                       {line || " "}
                     </Text>
                   </Box>

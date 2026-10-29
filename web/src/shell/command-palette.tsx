@@ -28,6 +28,7 @@ import {
   isProjectRoute,
   projectIdFromPath,
   projectPath,
+  projectPathKeepingTab,
   projectSegmentFromPath,
   projectSettingsPath,
   usagePath,
@@ -162,7 +163,7 @@ export function CommandPalette() {
                   onSelect={() =>
                     run(() => {
                       setProjectId(p.id);
-                      navigate(projectPath(p.id, "issues"));
+                      navigate(projectPathKeepingTab(p.id, pathname));
                     })
                   }
                 >
@@ -180,6 +181,14 @@ export function CommandPalette() {
             <CommandGroup heading="Project">
               <CommandItem
                 onSelect={() =>
+                  run(() => navigate(projectPath(activeProjectId, "dashboard")))
+                }
+              >
+                <Activity className="h-4 w-4 text-ink-muted" />
+                Dashboard
+              </CommandItem>
+              <CommandItem
+                onSelect={() =>
                   run(() =>
                     navigate(
                       buildProjectPathWithFeedQuery(activeProjectId, "issues", {
@@ -191,14 +200,6 @@ export function CommandPalette() {
               >
                 <CircleDot className="h-4 w-4 text-ink-muted" />
                 Issues
-              </CommandItem>
-              <CommandItem
-                onSelect={() =>
-                  run(() => navigate(projectPath(activeProjectId, "monitoring")))
-                }
-              >
-                <Activity className="h-4 w-4 text-ink-muted" />
-                Monitoring
               </CommandItem>
               <CommandItem
                 onSelect={() =>
@@ -216,19 +217,19 @@ export function CommandPalette() {
               </CommandItem>
               <CommandItem
                 onSelect={() =>
-                  run(() => navigate(projectPath(activeProjectId, "releases")))
-                }
-              >
-                <Package className="h-4 w-4 text-ink-muted" />
-                Releases
-              </CommandItem>
-              <CommandItem
-                onSelect={() =>
                   run(() => navigate(projectPath(activeProjectId, "monitors")))
                 }
               >
                 <Clock className="h-4 w-4 text-ink-muted" />
                 Cron Monitors
+              </CommandItem>
+              <CommandItem
+                onSelect={() =>
+                  run(() => navigate(projectPath(activeProjectId, "releases")))
+                }
+              >
+                <Package className="h-4 w-4 text-ink-muted" />
+                Releases
               </CommandItem>
               <CommandItem
                 onSelect={() =>

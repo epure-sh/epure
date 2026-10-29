@@ -86,7 +86,12 @@ export interface IssuesFeedFilterRowProps {
   className?: string;
 }
 
-type IssuesFeedFilterCoreProps = Omit<IssuesFeedFilterRowProps, "issueSort" | "onIssueSortChange" | "trailing">;
+type IssuesFeedFilterCoreProps = Omit<IssuesFeedFilterRowProps, "issueSort" | "onIssueSortChange" | "trailing"> & {
+  /** Override the unresolved chip label (Alerts inbox uses “Needs action”). */
+  unresolvedLabel?: string;
+  /** Extra chips after the shared status set (Alerts high-severity, etc.). */
+  extraChips?: ReactNode;
+};
 
 /** Status / env filter chips — left column in Issues feed and Alerts history. */
 export function IssuesFeedFilterChips({
@@ -96,6 +101,8 @@ export function IssuesFeedFilterChips({
   onTimeWindowChange,
   stats,
   className,
+  unresolvedLabel = "Unresolved",
+  extraChips,
 }: IssuesFeedFilterCoreProps) {
   const { environment, setEnvironment } = useAppContext();
 
@@ -168,7 +175,7 @@ export function IssuesFeedFilterChips({
           data-tour="issues-feed-unresolved"
           onClick={handleToggleUnresolved}
         >
-          <span>Unresolved</span>
+          <span>{unresolvedLabel}</span>
           {typeof unresolvedCount === "number" ? (
             <Badge variant="neutral" size="sm" className="h-4 px-1 text-[10px] tabular-nums">
               {unresolvedCount}
@@ -220,6 +227,8 @@ export function IssuesFeedFilterChips({
         >
           <Clock className="size-3.5" aria-hidden />
         </FeedFilterIconButton>
+
+        {extraChips}
 
         <TimeWindowSelect value={timeWindow} options={TIME_WINDOW_OPTIONS} onValueChange={onTimeWindowChange} />
     </div>

@@ -34,6 +34,8 @@ export interface IssuesFeedQueryPanelProps {
   searchAriaLabel?: string;
   /** Render only filter + search (Alerts toolbar supplies the right rail). */
   embedded?: boolean;
+  unresolvedLabel?: string;
+  extraFilterChips?: ReactNode;
 }
 
 /** Compact filter chips + search — shared by Issues feed and Alerts. */
@@ -53,6 +55,8 @@ export function IssuesFeedQueryPanel({
   searchPlaceholder,
   searchAriaLabel,
   embedded = false,
+  unresolvedLabel,
+  extraFilterChips,
 }: IssuesFeedQueryPanelProps) {
   const latestQueryRef = useRef(query);
   latestQueryRef.current = query;
@@ -99,6 +103,8 @@ export function IssuesFeedQueryPanel({
         timeWindow={timeWindow}
         onTimeWindowChange={onTimeWindowChange}
         stats={stats}
+        unresolvedLabel={unresolvedLabel}
+        extraChips={extraFilterChips}
       />
 
       <IssuesFeedQueryBar

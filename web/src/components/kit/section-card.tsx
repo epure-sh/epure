@@ -12,6 +12,8 @@ export interface SectionCardProps {
   danger?: boolean;
   className?: string;
   contentClassName?: string;
+  /** Drop default content padding (charts that should flush to the card edges). */
+  flush?: boolean;
 }
 
 export function SectionCard({
@@ -23,6 +25,7 @@ export function SectionCard({
   danger = false,
   className,
   contentClassName,
+  flush = false,
 }: SectionCardProps) {
   const hasHeader = Boolean(title || description || headerActions);
 
@@ -34,7 +37,7 @@ export function SectionCard({
       borderWidth={1}
       borderStyle="solid"
       borderColor={danger ? "border-warning" : "border-primary"}
-      backgroundColor={danger ? "background-danger" : "background-card"}
+      backgroundColor={danger ? "background-danger" : "background-primary"}
       boxShadow="s"
       overflow="hidden"
       flexDirection="column"
@@ -50,7 +53,7 @@ export function SectionCard({
           borderColor="border-primary"
           paddingHorizontal="l"
           paddingVertical="m"
-          backgroundColor="background-card"
+          backgroundColor="background-primary"
         >
           <Box flexDirection="column" rowGap="xs" minWidth={0}>
             {title ? (
@@ -73,7 +76,7 @@ export function SectionCard({
       ) : null}
 
       <Box
-        padding="l"
+        padding={flush ? undefined : "l"}
         color="text-secondary"
         // eslint-disable-next-line no-restricted-syntax -- kit API contentClassName
         className={contentClassName}

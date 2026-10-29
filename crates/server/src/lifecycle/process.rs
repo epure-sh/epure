@@ -6,7 +6,7 @@ use uuid::Uuid;
 use super::{
     milestones, regression, snooze,
     velocity::{VelocityTracker, SPIKE_RATIO},
-    webhooks::{dispatch_event, WebhookContext},
+    webhooks::{dispatch_event, dispatch_event_to_webhooks, WebhookContext},
 };
 
 pub async fn after_issue_event(
@@ -303,6 +303,20 @@ async fn emit_custom_matches(
             }
         }
 
+        if alert_rules::rule_in_cooldown(
+            pool,
+            issue.org_id,
+            issue.project_id,
+            rule.id,
+            Some(issue.id),
+            rule.cooldown_mins,
+        )
+        .await
+        .unwrap_or(false)
+        {
+            continue;
+        }
+
         let inserted = alerts::insert_alert_unless_suppressed(
             pool,
             alerts::InsertAlertParams {
@@ -325,20 +339,70 @@ async fn emit_custom_matches(
         .await?;
 
         if inserted.is_some() {
-            dispatch_event(
-                pool,
-                issue.org_id,
-                "custom_rule",
-                &WebhookContext {
-                    project_id: issue.project_id,
-                    issue_id: issue.id,
-                    title: Some(rule.name.clone()),
-                    status: issue.status.clone(),
-                    release: release.clone(),
-                    event_count: issue.event_count,
-                },
-            )
-            .await;
+            let ctx = WebhookContext {
+                project_id: issue.project_id,
+                issue_id: issue.id,
+                title: Some(rule.name.clone()),
+                status: issue.status.clone(),
+                release: release.clone(),
+                event_count: issue.event_count,
+            };
+            if rule.channel_ids.is_empty() {
+                dispatch_event(pool, issue.org_id, "custom_rule", &ctx).await;
+            } else {
+                let channels =
+                    alert_rules::get_channels_by_ids_ingest(pool, issue.org_id, &rule.channel_ids)
+                        .await
+                        .unwrap_or_default();
+                let webhook_ids: Vec<Uuid> = channels
+                    .iter()
+                    .filter_map(|ch| alert_rules::channel_webhook_id(&ch.config.0))
+                    .collect();
+                dispatch_event_to_webhooks(pool, issue.org_id, "custom_rule", &ctx, &webhook_ids)
+                    .await;
+
+                let mut email_recipients: Vec<String> = Vec::new();
+                for channel in channels.iter().filter(|ch| ch.provider == "email") {
+                    for email in alert_rules::channel_email_recipients(&channel.config.0) {
+                        if !email_recipients
+                            .iter()
+                            .any(|existing| existing.eq_ignore_ascii_case(&email))
+                        {
+                            email_recipients.push(email);
+                        }
+                    }
+                }
+                if !email_recipients.is_empty() {
+                    let title = issue.title.clone().unwrap_or_else(|| rule.name.clone());
+                    let subject = format!("[Epure Alert] {}", rule.name);
+                    let html = format!(
+                        "<p><strong>{}</strong></p><p>Rule <em>{}</em> matched on this issue.</p>",
+                        title.replace('<', "&lt;"),
+                        rule.name.replace('<', "&lt;")
+                    );
+                    let text = format!("Epure alert: {} — rule {}", title, rule.name);
+                    let _ = super::resend::send_resend_email(email_recipients, subject, html, text)
+                        .await;
+                }
+
+                let title = issue.title.clone().unwrap_or_else(|| rule.name.clone());
+                let telegram_text = format!(
+                    "Epure alert: {title}\nRule: {}\nEvents: {}",
+                    rule.name, issue.event_count
+                );
+                for channel in channels.iter().filter(|ch| ch.provider == "telegram") {
+                    if let Some((bot_token, chat_id)) =
+                        alert_rules::channel_telegram_credentials(&channel.config.0)
+                    {
+                        let _ = super::telegram::send_telegram_message(
+                            &bot_token,
+                            &chat_id,
+                            &telegram_text,
+                        )
+                        .await;
+                    }
+                }
+            }
         }
     }
     Ok(())

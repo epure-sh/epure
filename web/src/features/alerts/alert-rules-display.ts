@@ -75,6 +75,26 @@ export function ruleFiredCount(ruleId: string, counts: Record<string, number>): 
   return DEMO_FIRED_COUNT[ruleId] ?? real ?? 0;
 }
 
+/** Cooldown window label for the Duration column. */
+export function ruleDurationLabel(rule: AlertRuleRow): string {
+  const mins =
+    (typeof rule.cooldown_mins === "number" && rule.cooldown_mins > 0
+      ? rule.cooldown_mins
+      : null) ??
+    (typeof rule.filters_json?.cooldown_minutes === "number" && rule.filters_json.cooldown_minutes > 0
+      ? rule.filters_json.cooldown_minutes
+      : null);
+  if (mins == null) return "—";
+  if (mins < 60) return `${mins} min`;
+  if (mins === 60) return "1 hour";
+  if (mins % 1440 === 0) {
+    const days = mins / 1440;
+    return days === 1 ? "24 hours" : `${days} days`;
+  }
+  if (mins % 60 === 0) return `${mins / 60} hours`;
+  return `${mins} min`;
+}
+
 /** Short reason shown as a badge on the rules row. */
 export function ruleWhyLabel(rule: AlertRuleRow): string {
   if (!rule.enabled) return "Paused";

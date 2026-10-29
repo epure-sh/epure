@@ -30,7 +30,12 @@ pub struct CheckInItem {
     pub status: String,
     pub duration: Option<f64>,
     pub schedule: Option<String>,
+    pub schedule_type: Option<String>,
+    pub timezone: Option<String>,
     pub environment: Option<String>,
+    pub checkin_margin_mins: Option<i32>,
+    pub max_runtime_mins: Option<i32>,
+    pub failure_issue_threshold: Option<i32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -123,30 +128,59 @@ pub fn parse_check_in_payload(payload: &[u8]) -> Option<CheckInItem> {
         .and_then(Value::as_f64)
         .filter(|d| d.is_finite() && *d >= 0.0);
 
-    let schedule = val
-        .get("monitor_config")
-        .and_then(|c| {
-            if let Some(s) = c.get("schedule") {
-                if let Some(sched_str) = s.as_str() {
-                    return Some(sched_str.to_string());
-                }
-                if let Some(val_str) = s.get("value").and_then(Value::as_str) {
-                    return Some(val_str.to_string());
-                }
-                if let (Some(val_num), Some(unit)) = (
-                    s.get("value").and_then(Value::as_i64),
-                    s.get("unit").and_then(Value::as_str),
-                ) {
-                    return Some(format!("every {val_num} {unit}"));
-                }
+    let monitor_config = val.get("monitor_config");
+
+    let (schedule, schedule_type) = monitor_config
+        .and_then(|c| c.get("schedule"))
+        .map(|s| {
+            if let Some(sched_str) = s.as_str() {
+                return (Some(sched_str.to_string()), Some("crontab".to_string()));
             }
-            None
+            let stype = s.get("type").and_then(Value::as_str).map(|t| t.to_string());
+            if let Some(val_str) = s.get("value").and_then(Value::as_str) {
+                return (
+                    Some(val_str.to_string()),
+                    stype.or_else(|| Some("crontab".to_string())),
+                );
+            }
+            if let (Some(val_num), Some(unit)) = (
+                s.get("value").and_then(Value::as_i64),
+                s.get("unit").and_then(Value::as_str),
+            ) {
+                return (
+                    Some(format!("every {val_num} {unit}")),
+                    stype.or_else(|| Some("interval".to_string())),
+                );
+            }
+            (None, stype)
         })
-        .or_else(|| {
-            val.get("schedule")
+        .unwrap_or_else(|| {
+            let top = val
+                .get("schedule")
                 .and_then(Value::as_str)
-                .map(|s| s.to_string())
+                .map(|s| s.to_string());
+            (top, None)
         });
+
+    let timezone = monitor_config
+        .and_then(|c| c.get("timezone"))
+        .and_then(Value::as_str)
+        .map(|s| s.to_string());
+
+    let checkin_margin_mins = monitor_config
+        .and_then(|c| c.get("checkin_margin"))
+        .and_then(Value::as_i64)
+        .map(|v| v as i32);
+
+    let max_runtime_mins = monitor_config
+        .and_then(|c| c.get("max_runtime"))
+        .and_then(Value::as_i64)
+        .map(|v| v as i32);
+
+    let failure_issue_threshold = monitor_config
+        .and_then(|c| c.get("failure_issue_threshold"))
+        .and_then(Value::as_i64)
+        .map(|v| v as i32);
 
     let environment = val
         .get("environment")
@@ -159,7 +193,12 @@ pub fn parse_check_in_payload(payload: &[u8]) -> Option<CheckInItem> {
         status,
         duration,
         schedule,
+        schedule_type,
+        timezone,
         environment,
+        checkin_margin_mins,
+        max_runtime_mins,
+        failure_issue_threshold,
     })
 }
 

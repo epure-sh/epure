@@ -341,6 +341,8 @@ export const DESIGN_KIT_KIT_MODULES = [
   "banner",
   "product-tour",
   "alert-rule",
+  "output-channel",
+  "monitor",
 ] as const;
 
 export type DesignKitKitModule = (typeof DESIGN_KIT_KIT_MODULES)[number];
@@ -496,6 +498,18 @@ export const DESIGN_KIT_KIT_META: Record<DesignKitKitModule, DesignKitKitMeta> =
     importPath: "@/components/kit/create-alert-rule",
     family: "Product",
     absorbs: ["create-alert-rule"],
+  },
+  "output-channel": {
+    description: "Connect destinations: provider, credentials, and verify test.",
+    importPath: "@/components/kit/create-output-channel",
+    family: "Product",
+    absorbs: ["create-output-channel"],
+  },
+  monitor: {
+    description: "Cron monitor list row, duration strip, and 2-step create wizard.",
+    importPath: "@/components/kit/monitor-row",
+    family: "Product",
+    absorbs: ["monitor-row", "monitor-duration-strip", "create-monitor"],
   },
 };
 

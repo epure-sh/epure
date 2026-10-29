@@ -27,6 +27,7 @@ pub fn router(state: Arc<AppState>) -> Router {
             patch(update_project).delete(delete_project),
         )
         .route("/projects/{id}/activity", get(project_activity))
+        .route("/projects/{id}/velocity", get(project_velocity))
         .route(
             "/projects/{id}/noise-policy",
             get(get_noise_policy).put(put_noise_policy),
@@ -211,22 +212,81 @@ struct ProjectActivityResponse {
     buckets: Vec<events::TimelineBucket>,
 }
 
+#[derive(Deserialize)]
+struct ActivityQuery {
+    days: Option<i64>,
+}
+
+#[derive(Serialize)]
+struct ProjectVelocityResponse {
+    project_id: Uuid,
+    window: String,
+    buckets: Vec<events::VelocityBucket>,
+}
+
+#[derive(Deserialize)]
+struct VelocityQuery {
+    window: Option<String>,
+    environment: Option<String>,
+}
+
 async fn project_activity(
     State(state): State<Arc<AppState>>,
     Extension(dashboard): Extension<DashboardSession>,
     Path(id): Path<Uuid>,
+    axum::extract::Query(query): axum::extract::Query<ActivityQuery>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let project = projects::get_project(&state.pools.app, dashboard.org_id, id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;
 
-    let buckets = events::project_activity_timeline(&state.pools.app, dashboard.org_id, project.id)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let days = query.days.unwrap_or(30).clamp(1, 365);
+    let buckets = events::project_activity_timeline_days(
+        &state.pools.app,
+        dashboard.org_id,
+        project.id,
+        days,
+    )
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(ProjectActivityResponse {
         project_id: project.id,
+        buckets,
+    }))
+}
+
+async fn project_velocity(
+    State(state): State<Arc<AppState>>,
+    Extension(dashboard): Extension<DashboardSession>,
+    Path(id): Path<Uuid>,
+    axum::extract::Query(query): axum::extract::Query<VelocityQuery>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let project = projects::get_project(&state.pools.app, dashboard.org_id, id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    let window = query.window.as_deref().unwrap_or("24h");
+    let environment = query
+        .environment
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty() && *value != "all");
+    let buckets = events::project_velocity_timeline(
+        &state.pools.app,
+        dashboard.org_id,
+        project.id,
+        Some(window),
+        environment,
+    )
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(ProjectVelocityResponse {
+        project_id: project.id,
+        window: window.to_string(),
         buckets,
     }))
 }

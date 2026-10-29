@@ -172,7 +172,13 @@ async fn post_envelope(
                     status: ci.status.clone(),
                     duration_ms,
                     schedule: ci.schedule.clone(),
+                    schedule_type: ci.schedule_type.clone(),
+                    timezone: ci.timezone.clone(),
                     environment: ci.environment.clone(),
+                    checkin_margin_mins: ci.checkin_margin_mins,
+                    max_runtime_mins: ci.max_runtime_mins,
+                    failure_issue_threshold: ci.failure_issue_threshold,
+                    ..Default::default()
                 },
             )
             .await

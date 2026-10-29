@@ -22,8 +22,8 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { SidebarNavLink, sidebarNavItemClass, sidebarNavIconClass } from "./sidebar-nav-link";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { SidebarNavLink } from "./sidebar-nav-link";
 import { cn } from "../lib/cn";
 import {
   billingPath,
@@ -31,11 +31,12 @@ import {
   isProjectRoute,
   projectIdFromPath,
   projectPath,
-  projectSettingsPath,
   userSettingsPath,
   workspacePath,
   workspaceSettingsPath,
 } from "../lib/paths";
+import { ProjectSettingsSidebarItem } from "../ui/settings-nav";
+import { WorkspaceSettingsSidebarItem } from "../ui/workspace-settings-nav";
 import {
   EPURE_CHANGELOG_URL,
   EPURE_DOCS_QUICKSTART_URL,
@@ -96,9 +97,16 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
     null;
 
   const navCounts = useProjectNavCounts(activeProject?.id ?? null, environment);
-  // 1. Project Context Navigation Items
-  const projectNavItems = activeProject
+  // 1. Project-specific ops (above the separator when in a project)
+  const projectOpsNavItems = activeProject
     ? [
+        {
+          to: projectPath(activeProject.id, "dashboard"),
+          label: "Dashboard",
+          icon: Activity,
+          end: true,
+          dataTour: "nav-monitoring",
+        },
         {
           to: buildProjectPathWithFeedQuery(activeProject.id, "issues", { currentSearch: search }),
           label: "Issues",
@@ -115,13 +123,6 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
               }
             />
           ),
-        },
-        {
-          to: projectPath(activeProject.id, "monitoring"),
-          label: "Monitoring",
-          icon: Activity,
-          end: true,
-          dataTour: "nav-monitoring",
         },
         {
           to: buildProjectPathWithFeedQuery(activeProject.id, "alerts", { currentSearch: search }),
@@ -142,13 +143,6 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
           ),
         },
         {
-          to: projectPath(activeProject.id, "releases"),
-          label: "Releases",
-          icon: Package,
-          end: true,
-          dataTour: "nav-releases",
-        },
-        {
           to: projectPath(activeProject.id, "monitors"),
           label: "Cron Monitors",
           icon: Clock,
@@ -156,16 +150,16 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
           dataTour: "nav-cron-monitors",
         },
         {
-          to: projectSettingsPath(activeProject.id),
-          label: "Project Settings",
-          icon: Settings,
-          end: false,
-          dataTour: "nav-project-settings",
+          to: projectPath(activeProject.id, "releases"),
+          label: "Releases",
+          icon: Package,
+          end: true,
+          dataTour: "nav-releases",
         },
       ]
     : [];
 
-  // 2. Workspace context navigation
+  // 2. Workspace context navigation (also shown under General after the project separator)
   const orgNavItems = [
     { to: "/", label: "Projects", icon: Layers, end: true, badge: undefined, dataTour: "nav-projects" },
     {
@@ -185,7 +179,6 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
       dataTour: "nav-billing",
     },
     { to: "/org/channels", label: "Output Channels", icon: Radio, end: true, badge: undefined },
-    { to: workspaceSettingsPath(), label: "Workspace Settings", icon: Settings, end: false, badge: undefined },
   ];
 
   // 3. User-scoped routes (e.g. personal settings)
@@ -208,7 +201,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
   const sidebarContent = (
     <>
       {/* 1. Brand row — same height as TopStrip (epure-shell-top-chrome) */}
-      <div className="epure-shell-top-chrome flex shrink-0 items-center justify-between border-b border-border-subtle bg-surface-1 px-3">
+      <div className="epure-shell-top-chrome flex shrink-0 items-center justify-between border-b border-border-subtle bg-bg-subtle px-3">
         <Link
           to={workspacePath()}
           onClick={onMobileClose}
@@ -291,59 +284,67 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
       {/* 3. Navigation Links List — Adapts Dynamically to Context */}
       <div className="flex-1 overflow-y-auto px-2 py-2.5 space-y-4">
         {navContext === "project" && activeProject ? (
-          /* PROJECT CONTEXT NAVIGATION */
-          <div>
-            <div
-              className="px-2 pb-1 flex items-baseline justify-between gap-1.5"
-              title={activeProject.name}
-            >
-              <span className="text-[10px] font-semibold tracking-wider text-fg-muted uppercase">
-                Project
-              </span>
-              <span className="text-2xs font-medium text-fg-primary truncate max-w-[130px]">
-                {activeProject.name}
-              </span>
-            </div>
-            <nav className="space-y-0.5" aria-label="Project">
-              {projectNavItems.map((item) => (
-                <SidebarNavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  label={item.label}
-                  icon={item.icon}
-                  onClick={onMobileClose}
-                  dataTour={"dataTour" in item ? item.dataTour : undefined}
-                  badge={"badge" in item ? item.badge : undefined}
-                  isAlsoActive={(path, navActive) =>
-                    navActive ||
-                    path === item.to ||
-                    (item.to.endsWith("/issues") && path.startsWith(item.to))
-                  }
-                />
-              ))}
-            </nav>
-
-            {/* Quick scope return links */}
-            <div className="mt-4 pt-3 border-t border-border-subtle/50 space-y-0.5">
-              <NavLink
-                to={workspacePath()}
-                end
-                onClick={onMobileClose}
-                data-tour="nav-all-projects"
-                className={({ isActive }) => sidebarNavItemClass(isActive)}
+          /* PROJECT CONTEXT: ops first, then general workspace tabs */
+          <div className="space-y-3">
+            <div>
+              <div
+                className="px-2 pb-1 flex items-baseline justify-between gap-1.5"
+                title={activeProject.name}
               >
-                {({ isActive }) => (
-                  <>
-                    <Layers
-                      size={14}
-                      className={sidebarNavIconClass(isActive)}
-                      strokeWidth={isActive ? 2.1 : 1.8}
-                    />
-                    <span className="truncate">All Projects</span>
-                  </>
-                )}
-              </NavLink>
+                <span className="text-[10px] font-semibold tracking-wider text-fg-muted uppercase">
+                  {activeProject.name}
+                </span>
+              </div>
+              <nav className="space-y-0.5" aria-label="Project">
+                {projectOpsNavItems.map((item) => (
+                  <SidebarNavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    label={item.label}
+                    icon={item.icon}
+                    onClick={onMobileClose}
+                    dataTour={"dataTour" in item ? item.dataTour : undefined}
+                    badge={"badge" in item ? item.badge : undefined}
+                    isAlsoActive={(path, navActive) =>
+                      navActive ||
+                      path === item.to ||
+                      (item.to.endsWith("/issues") && path.startsWith(item.to))
+                    }
+                  />
+                ))}
+                <ProjectSettingsSidebarItem
+                  projectId={activeProject.id}
+                  onNavigate={onMobileClose}
+                />
+              </nav>
+            </div>
+
+            <div className="border-t border-border-subtle pt-3">
+              <p className="px-2.5 pb-1.5 text-[10px] font-semibold tracking-wider text-fg-muted uppercase">
+                General
+              </p>
+              <nav className="space-y-0.5" aria-label="General">
+                {orgNavItems.map((item) => (
+                  <SidebarNavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    label={item.label}
+                    icon={item.icon}
+                    onClick={onMobileClose}
+                    dataTour={"dataTour" in item ? item.dataTour : undefined}
+                    badge={
+                      item.badge ? (
+                        <Badge variant="neutral" size="compact" className="font-mono">
+                          {item.badge}
+                        </Badge>
+                      ) : undefined
+                    }
+                  />
+                ))}
+                <WorkspaceSettingsSidebarItem onNavigate={onMobileClose} />
+              </nav>
             </div>
           </div>
         ) : navContext === "organization" ? (
@@ -371,6 +372,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
                   }
                 />
               ))}
+              <WorkspaceSettingsSidebarItem onNavigate={onMobileClose} />
             </nav>
           </div>
         ) : (
@@ -497,7 +499,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
     <>
       {/* Desktop Persistent Sidebar */}
       <aside
-        className="epure-sidebar hidden md:flex h-full min-h-0 w-60 shrink-0 flex-col border-r border-border-subtle bg-surface-1 select-none shadow-xs"
+        className="epure-sidebar hidden md:flex h-full min-h-0 w-60 shrink-0 flex-col border-r border-border-subtle bg-bg-subtle select-none"
         aria-label="Application Sidebar"
       >
         {sidebarContent}
@@ -514,7 +516,7 @@ export function AppSidebar({ mobileOpen = false, onMobileClose }: AppSidebarProp
       />
       <aside
         className={cn(
-          "epure-sidebar fixed inset-y-0 left-0 z-[91] flex h-full w-64 flex-col border-r border-border-subtle bg-surface-1 shadow-2xl transition-transform duration-200 md:hidden select-none",
+          "epure-sidebar fixed inset-y-0 left-0 z-[91] flex h-full w-64 flex-col border-r border-border-subtle bg-bg-subtle shadow-2xl transition-transform duration-200 md:hidden select-none",
           mobileOpen ? "translate-x-0 pointer-events-auto" : "-translate-x-full pointer-events-none",
         )}
         aria-label="Mobile Navigation Sidebar"

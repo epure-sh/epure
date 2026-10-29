@@ -108,6 +108,7 @@ const orbitZoneFiles = [
   "src/components/kit/usage-meter-card.tsx",
   "src/components/kit/nav-count-pastille.tsx",
   "src/components/kit/polar-card.tsx",
+  "src/components/kit/alert-execution-pipeline.tsx",
   // Migrated product Orbit surfaces
   "src/features/org/project-list.tsx",
   "src/features/org/home.tsx",

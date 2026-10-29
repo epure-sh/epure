@@ -289,6 +289,7 @@ mod tests {
         assert!(IssueStatus::parse("regressed").is_none());
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn signals<'a>(
         level: Option<&'a str>,
         unhandled: bool,

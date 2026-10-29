@@ -19,7 +19,7 @@ function formatCount(count: number): string {
   return count >= 1000 ? `${(count / 1000).toFixed(1)}k` : String(count);
 }
 
-/** History | Rules — Radix `ToggleGroup`, toolbar density (design system). */
+/** Inbox | Rules — Radix `ToggleGroup`, toolbar density (design system). */
 export function AlertsSectionToggle({
   value,
   onChange,
@@ -47,11 +47,11 @@ export function AlertsSectionToggle({
         value="history"
         size="toolbar"
         aria-label={
-          counts?.history != null ? `History, ${counts.history} unread` : "History"
+          counts?.history != null ? `Inbox, ${counts.history} needing action` : "Inbox"
         }
         className="min-w-[5.25rem]"
       >
-        <span>History</span>
+        <span>Inbox</span>
         {counts?.history != null ? (
           <Badge
             variant={segment === "history" && counts.history > 0 ? "accent" : "neutral"}

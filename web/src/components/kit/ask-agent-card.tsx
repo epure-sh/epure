@@ -10,6 +10,8 @@ export interface AskAgentCardProps {
   docsUrl?: string;
   title?: string;
   description?: string;
+  /** Single-row banner — lower height for wizards / side panels. */
+  compact?: boolean;
   className?: string;
 }
 
@@ -17,8 +19,9 @@ export function AskAgentCard({
   promptText,
   onAskAgent,
   docsUrl = "https://docs.epure.ai",
-  title = "Debug with AI Assistant",
-  description = "Get root-cause analysis, reproduction snippet, and automated fix recommendations.",
+  title = "Copy a prompt for your AI agent",
+  description = "Pastes issue context into the clipboard for Cursor, Claude, or similar — Epure does not run an LLM here.",
+  compact = false,
   className,
 }: AskAgentCardProps) {
   const [copied, setCopied] = React.useState(false);
@@ -38,6 +41,34 @@ export function AskAgentCard({
       }
     }
   };
+
+  if (compact) {
+    return (
+      <div
+        data-slot="ask-agent-card"
+        className={cn(
+          "flex items-center gap-2.5 rounded-md border border-border-subtle bg-bg-subtle/80 px-2.5 py-1.5",
+          className,
+        )}
+      >
+        <Sparkle className="size-3.5 shrink-0 text-primary" weight="fill" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-medium text-fg-primary">{title}</p>
+          {description ? (
+            <p className="truncate text-2xs text-fg-muted">{description}</p>
+          ) : null}
+        </div>
+        <Button variant="primary" size="xs" className="shrink-0" onClick={handleCopyOrAsk}>
+          {copied ? (
+            <Check className="size-3" weight="bold" />
+          ) : (
+            <Sparkle className="size-3" weight="fill" />
+          )}
+          {copied ? "Copied" : "Ask Agent"}
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div

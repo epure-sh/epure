@@ -1,8 +1,6 @@
-import { ChevronLeft, Maximize2, Minimize2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { cn } from "../lib/cn";
-import { Button } from "./button";
 
 export interface IssueDetailOverlayProps {
   open: boolean;
@@ -21,7 +19,6 @@ export function IssueDetailOverlay({
   width,
   isFullscreen,
   isResizing,
-  onToggleFullscreen,
   onResizeStart,
   children,
 }: IssueDetailOverlayProps) {
@@ -30,9 +27,20 @@ export function IssueDetailOverlay({
   useEffect(() => {
     if (!open) return;
     const handleOutsideClick = (event: MouseEvent) => {
-      if (asideRef.current && !asideRef.current.contains(event.target as Node)) {
-        onClose();
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (asideRef.current?.contains(target)) return;
+      // Portaled menus (Select / Dropdown) render under document.body — don't
+      // treat those clicks as "outside the issue" or the panel closes mid-open.
+      if (
+        target instanceof Element &&
+        target.closest(
+          '[data-slot="select-content"], [data-slot="select-backdrop"], [data-slot="select-trigger"], [data-radix-popper-content-wrapper], [role="listbox"], [data-radix-menu-content], [data-slot="dropdown-menu-content"]',
+        )
+      ) {
+        return;
       }
+      onClose();
     };
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -60,7 +68,6 @@ export function IssueDetailOverlay({
 
   return createPortal(
     <>
-      {/* Click-outside backdrop: covers the area outside the drawer on ALL screens, closing it on click */}
       <button
         type="button"
         className="epure-issue-detail-backdrop fixed inset-0 z-[60] bg-black/25 dark:bg-black/55 backdrop-blur-[1px] transition-opacity duration-150 cursor-pointer select-none"
@@ -71,7 +78,7 @@ export function IssueDetailOverlay({
         ref={asideRef}
         style={{ width: isFullscreen ? "100vw" : `min(100vw, ${width}px)`, maxWidth: "100vw" }}
         className={cn(
-          "epure-issue-detail-overlay fixed inset-y-0 right-0 z-[70] flex h-dvh min-h-0 flex-col overflow-hidden border-l border-border bg-surface max-w-full",
+          "epure-issue-detail-overlay fixed inset-y-0 right-0 z-[70] flex h-dvh min-h-0 flex-col overflow-hidden border-l border-border bg-canvas max-w-full",
           "shadow-[-8px_0_32px_rgba(0,0,0,0.14)] dark:shadow-[-8px_0_36px_rgba(0,0,0,0.45)]",
           isResizing && "select-none",
         )}
@@ -87,26 +94,6 @@ export function IssueDetailOverlay({
             onPointerDown={onResizeStart}
           />
         ) : null}
-
-        <div className="epure-issue-detail-toolbar flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-1.5 bg-bg-subtle/40">
-          <Button variant="ghost" size="toolbar" className="text-ink-muted hover:text-ink btn-tactile" onClick={onClose}>
-            <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
-            <span>Close (Esc)</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="toolbar"
-            className="text-ink-muted hover:text-ink btn-tactile"
-            onClick={onToggleFullscreen}
-            aria-label={isFullscreen ? "Exit full screen" : "Full screen"}
-          >
-            {isFullscreen ? (
-              <Minimize2 className="h-3.5 w-3.5" aria-hidden />
-            ) : (
-              <Maximize2 className="h-3.5 w-3.5" aria-hidden />
-            )}
-          </Button>
-        </div>
 
         {children}
       </aside>

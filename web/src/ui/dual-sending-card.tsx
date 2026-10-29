@@ -145,7 +145,7 @@ sentry_sdk.init(
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Envelope URL Block */}
-        <div className="rounded-md border border-border bg-bg-subtle p-2.5">
+        <div className="rounded-md border border-border bg-surface-1 p-2.5 shadow-xs">
           <div className="flex items-center justify-between gap-2 mb-1.5">
             <span className="text-2xs font-mono uppercase tracking-wider text-ink-subtle">
               Direct Ingest Envelope Endpoint
@@ -168,22 +168,22 @@ sentry_sdk.init(
           </div>
 
           <TabsContent value="nextjs" className="mt-2.5">
-            <pre className="epure-code-well overflow-x-auto rounded-md border border-border bg-bg-subtle p-3 font-mono text-xs text-ink leading-relaxed">
+            <pre className="epure-code-well overflow-x-auto rounded-md border border-border bg-surface-1 p-3 font-mono text-xs text-ink leading-relaxed shadow-xs">
               {nextJsSnippet}
             </pre>
           </TabsContent>
           <TabsContent value="node" className="mt-2.5">
-            <pre className="epure-code-well overflow-x-auto rounded-md border border-border bg-bg-subtle p-3 font-mono text-xs text-ink leading-relaxed">
+            <pre className="epure-code-well overflow-x-auto rounded-md border border-border bg-surface-1 p-3 font-mono text-xs text-ink leading-relaxed shadow-xs">
               {nodeSnippet}
             </pre>
           </TabsContent>
           <TabsContent value="browser" className="mt-2.5">
-            <pre className="epure-code-well overflow-x-auto rounded-md border border-border bg-bg-subtle p-3 font-mono text-xs text-ink leading-relaxed">
+            <pre className="epure-code-well overflow-x-auto rounded-md border border-border bg-surface-1 p-3 font-mono text-xs text-ink leading-relaxed shadow-xs">
               {browserSnippet}
             </pre>
           </TabsContent>
           <TabsContent value="python" className="mt-2.5">
-            <pre className="epure-code-well overflow-x-auto rounded-md border border-border bg-bg-subtle p-3 font-mono text-xs text-ink leading-relaxed">
+            <pre className="epure-code-well overflow-x-auto rounded-md border border-border bg-surface-1 p-3 font-mono text-xs text-ink leading-relaxed shadow-xs">
               {pythonSnippet}
             </pre>
           </TabsContent>

@@ -201,6 +201,37 @@ pub async fn dispatch_event(pool: &PgPool, org_id: Uuid, event: &str, context: &
     }
 }
 
+/// Dispatch only to the given webhook IDs (used when a rule pins output channels).
+pub async fn dispatch_event_to_webhooks(
+    pool: &PgPool,
+    org_id: Uuid,
+    event: &str,
+    context: &WebhookContext,
+    webhook_ids: &[Uuid],
+) {
+    if webhook_ids.is_empty() {
+        return;
+    }
+    for webhook_id in webhook_ids {
+        let hook = match webhooks::get_for_dispatch_org(pool, org_id, *webhook_id).await {
+            Ok(Some(row)) => row,
+            Ok(None) => continue,
+            Err(err) => {
+                warn!("failed to load webhook {webhook_id}: {err}");
+                continue;
+            }
+        };
+        if hook.project_id != context.project_id {
+            continue;
+        }
+        if !hook.events.iter().any(|value| value == event) && event != "test" {
+            // Channel-linked hooks subscribe to custom_rule; still allow if subscribed.
+            continue;
+        }
+        dispatch_hook(hook, event, context);
+    }
+}
+
 pub async fn dispatch_test(pool: &PgPool, org_id: Uuid, webhook_id: Uuid) -> Result<(), String> {
     let hook = webhooks::get_for_dispatch_org(pool, org_id, webhook_id)
         .await

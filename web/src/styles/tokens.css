@@ -57,6 +57,10 @@
 [data-style="orbit"][data-theme="dark"],
 [data-style="calm-ledger"][data-theme="dark"] {
   --surface-overlay: color-mix(in oklch, var(--surface) 88%, transparent);
+  --shadow-float:
+    0 16px 40px rgba(0, 0, 0, 0.55),
+    0 6px 16px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 @theme {
@@ -210,7 +214,11 @@
   --shadow-lg: 0 0px 20px rgba(0, 0, 0, 0.04), 0 0px 5px rgba(0, 0, 0, 0.06);
   --shadow-xl: 0 0px 30px rgba(0, 0, 0, 0.04), 0 0px 10px rgba(0, 0, 0, 0.06);
   --shadow-tactile: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-float: 0 0px 15px rgba(0, 0, 0, 0.04), 0 0px 2px rgba(0, 0, 0, 0.06);
+  /* Overlay cards (dialog / popover / menu) — lift above canvas. */
+  --shadow-float:
+    0 12px 32px rgba(0, 0, 0, 0.12),
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
   --shadow-specular: 0 0px 20px rgba(0, 0, 0, 0.04), 0 0px 5px rgba(0, 0, 0, 0.06);
   --shadow-2xs: 0 1px 0 0 rgba(0, 0, 0, 0.06);
 

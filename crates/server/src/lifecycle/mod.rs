@@ -3,6 +3,7 @@ pub mod process;
 pub mod regression;
 pub mod resend;
 pub mod snooze;
+pub mod telegram;
 pub mod velocity;
 pub mod webhook_sign;
 pub mod webhooks;

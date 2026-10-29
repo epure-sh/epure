@@ -612,6 +612,7 @@ pub fn list_trend_span(window: Option<&str>) -> (i64, i64) {
         Some("24h") => (24, 1),
         Some("7d") => (7 * 24, 24),
         Some("14d") => (14 * 24, 24),
+        Some("30d") => (30 * 24, 24),
         Some("90d") => (90 * 24, 24),
         _ => (LIST_TREND_WINDOW_HOURS, LIST_TREND_BUCKET_HOURS),
     }
@@ -676,13 +677,26 @@ pub async fn list_issue_trends(
         .collect())
 }
 
-/// Daily event histogram for a project over [`LIST_TREND_WINDOW_HOURS`].
+/// Daily event histogram for a project. `days` is clamped to 1..=365 (default 30).
 pub async fn project_activity_timeline(
     pool: &PgPool,
     org_id: Uuid,
     project_id: Uuid,
 ) -> Result<Vec<TimelineBucket>, sqlx::Error> {
-    let bucket_seconds = LIST_TREND_BUCKET_HOURS * 3600;
+    project_activity_timeline_days(pool, org_id, project_id, 30).await
+}
+
+pub async fn project_activity_timeline_days(
+    pool: &PgPool,
+    org_id: Uuid,
+    project_id: Uuid,
+    days: i64,
+) -> Result<Vec<TimelineBucket>, sqlx::Error> {
+    let days = days.clamp(1, 365);
+    let window_hours = days * 24;
+    let bucket_hours = LIST_TREND_BUCKET_HOURS;
+    let bucket_count = (window_hours / bucket_hours) as usize;
+    let bucket_seconds = bucket_hours * 3600;
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
 
     let rows = sqlx::query_as::<_, TimelineBucketRow>(
@@ -699,7 +713,7 @@ pub async fn project_activity_timeline(
     )
     .bind(project_id)
     .bind(bucket_seconds as f64)
-    .bind(LIST_TREND_WINDOW_HOURS as i32)
+    .bind(window_hours as i32)
     .fetch_all(&mut *tx)
     .await?;
 
@@ -715,10 +729,91 @@ pub async fn project_activity_timeline(
         .collect();
 
     Ok(fill_fixed_hour_buckets(
-        LIST_TREND_BUCKET_HOURS,
-        LIST_TREND_BUCKET_COUNT,
+        bucket_hours,
+        bucket_count,
         as_trend_rows,
     ))
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct VelocityBucket {
+    pub start: DateTime<Utc>,
+    pub handled: i32,
+    pub unhandled: i32,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct VelocityBucketRow {
+    bucket_start: DateTime<Utc>,
+    handled: i64,
+    unhandled: i64,
+}
+
+/// Stacked velocity histogram: fatal-level events as unhandled, everything else handled.
+pub async fn project_velocity_timeline(
+    pool: &PgPool,
+    org_id: Uuid,
+    project_id: Uuid,
+    window: Option<&str>,
+    environment: Option<&str>,
+) -> Result<Vec<VelocityBucket>, sqlx::Error> {
+    let (window_hours, bucket_hours) = list_trend_span(window);
+    let bucket_count = (window_hours / bucket_hours) as usize;
+    let bucket_seconds = bucket_hours * 3600;
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+
+    let rows = sqlx::query_as::<_, VelocityBucketRow>(
+        r#"
+        SELECT
+            to_timestamp((floor(extract(epoch FROM e.occurred_at) / $2) * $2))::timestamptz AS bucket_start,
+            COUNT(*) FILTER (
+                WHERE lower(coalesce(i.level, '')) <> 'fatal'
+            )::bigint AS handled,
+            COUNT(*) FILTER (
+                WHERE lower(coalesce(i.level, '')) = 'fatal'
+            )::bigint AS unhandled
+        FROM events e
+        JOIN issues i ON i.id = e.issue_id
+        WHERE e.project_id = $1
+          AND e.occurred_at >= now() - make_interval(hours => $3)
+          AND ($4::text IS NULL OR e.environment = $4)
+        GROUP BY 1
+        ORDER BY 1
+        "#,
+    )
+    .bind(project_id)
+    .bind(bucket_seconds as f64)
+    .bind(window_hours as i32)
+    .bind(environment)
+    .fetch_all(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    let step = Duration::hours(bucket_hours);
+    let now = Utc::now();
+    let current_bucket = truncate_to_fixed_hour_bucket(now, bucket_hours);
+    let by_start: HashMap<DateTime<Utc>, (i32, i32)> = rows
+        .into_iter()
+        .map(|row| {
+            (
+                truncate_to_fixed_hour_bucket(row.bucket_start, bucket_hours),
+                (row.handled as i32, row.unhandled as i32),
+            )
+        })
+        .collect();
+
+    Ok((0..bucket_count)
+        .map(|offset| {
+            let start = current_bucket - step * (bucket_count - 1 - offset) as i32;
+            let (handled, unhandled) = by_start.get(&start).copied().unwrap_or((0, 0));
+            VelocityBucket {
+                start,
+                handled,
+                unhandled,
+            }
+        })
+        .collect())
 }
 
 /// Stored events for the org in the current UTC calendar month (ingest pool).

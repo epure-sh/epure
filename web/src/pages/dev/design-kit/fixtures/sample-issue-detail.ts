@@ -1,4 +1,4 @@
-import type { IssueTimeline } from "@/lib/api";
+import type { EventDetail, IssueTimeline } from "@/lib/api";
 import { DESIGN_KIT_SAMPLE_EVENT, DESIGN_KIT_SAMPLE_ISSUE } from "./sample-issue";
 
 export const DESIGN_KIT_SAMPLE_TIMELINE: IssueTimeline = {
@@ -16,7 +16,32 @@ export const DESIGN_KIT_SAMPLE_TIMELINE: IssueTimeline = {
 
 export const DESIGN_KIT_SAMPLE_TAGS = ["env:production", "release:web@2.15.0"];
 
-export const DESIGN_KIT_SAMPLE_EVENTS = [DESIGN_KIT_SAMPLE_EVENT];
+const secondEvent: EventDetail = {
+  ...DESIGN_KIT_SAMPLE_EVENT,
+  id: "evt-preview-2",
+  occurred_at: new Date(Date.now() - 3600_000).toISOString(),
+  browser_name: "Firefox",
+  environment: "staging",
+  release: "web@2.14.0",
+  user_email: "ops@epure.local",
+};
+
+const thirdEvent: EventDetail = {
+  ...DESIGN_KIT_SAMPLE_EVENT,
+  id: "evt-preview-3",
+  occurred_at: new Date(Date.now() - 7200_000).toISOString(),
+  browser_name: "Chrome",
+  environment: "production",
+  release: "web@2.15.0",
+  user_id: "user-9",
+  user_email: null,
+};
+
+export const DESIGN_KIT_SAMPLE_EVENTS = [
+  DESIGN_KIT_SAMPLE_EVENT,
+  secondEvent,
+  thirdEvent,
+];
 
 export function noopSelectEvent() {
   return undefined;

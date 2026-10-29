@@ -106,7 +106,7 @@ export function SourceCodeBlock({
             ? "text-xs leading-[1.35rem]"
             : "text-sm leading-5",
         showHeader
-          ? "rounded-md border border-border bg-bg-subtle"
+          ? "rounded-md border border-border bg-surface-1 shadow-xs"
           : "border-0 bg-transparent",
         className,
       )}

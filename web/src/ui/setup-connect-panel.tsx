@@ -151,7 +151,7 @@ Sentry.init({
                 onCopied={onCopied}
               />
             </Box>
-            <pre className="epure-code-well min-h-0 flex-1 overflow-auto rounded-md border border-border bg-bg-subtle p-2.5 font-mono text-xs text-ink">
+            <pre className="epure-code-well min-h-0 flex-1 overflow-auto rounded-md border border-border bg-surface-1 p-2.5 font-mono text-xs text-ink shadow-xs">
               {platform.installCommand}
             </pre>
           </TabsContent>
@@ -184,7 +184,7 @@ Sentry.init({
                 onCopied={onCopied}
               />
             </Box>
-            <pre className="epure-code-well min-h-0 flex-1 overflow-auto rounded-md border border-border bg-bg-subtle p-2.5 font-mono text-xs text-ink leading-relaxed">
+            <pre className="epure-code-well min-h-0 flex-1 overflow-auto rounded-md border border-border bg-surface-1 p-2.5 font-mono text-xs text-ink shadow-xs leading-relaxed">
               {dualSendingSnippet}
             </pre>
           </TabsContent>
@@ -204,7 +204,7 @@ Sentry.init({
                 onCopied={onCopied}
               />
             </Box>
-            <pre className="epure-code-well min-h-0 flex-1 overflow-auto rounded-md border border-border bg-bg-subtle p-2.5 font-mono text-xs text-ink">
+            <pre className="epure-code-well min-h-0 flex-1 overflow-auto rounded-md border border-border bg-surface-1 p-2.5 font-mono text-xs text-ink shadow-xs">
               {file.code}
             </pre>
           </TabsContent>

@@ -33,7 +33,7 @@ function SnippetFile({ filename, code }: { filename: string; code: string }) {
         <p className="font-mono text-xs text-ink-muted">{filename}</p>
         <CopyButton value={code} label="Copy" className="h-7 px-2" />
       </div>
-      <pre className="epure-code-well overflow-x-auto rounded-md border border-border bg-bg-subtle p-3 font-mono text-xs text-ink">
+      <pre className="epure-code-well overflow-x-auto rounded-md border border-border bg-surface-1 p-3 font-mono text-xs text-ink shadow-xs">
         {code}
       </pre>
     </div>

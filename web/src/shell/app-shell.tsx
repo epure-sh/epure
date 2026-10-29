@@ -12,7 +12,7 @@ import { UsagePage } from "../features/org/usage";
 import { SetupPage } from "../features/setup";
 import { ReleasesPage } from "../features/releases";
 import { MonitorsPage } from "../features/monitors";
-import { MonitoringPage } from "../features/monitoring";
+import { DashboardPage } from "../features/monitoring";
 import { SettingsPage } from "../features/settings";
 import { UserSettingsPage } from "../features/user/user-settings-page";
 import { projectPath } from "../lib/paths";
@@ -54,7 +54,7 @@ function ProjectBoundedRoute({
   return (
     <BoundedRoute
       title={title}
-      backHref={projectId ? projectPath(projectId, "issues") : "/"}
+      backHref={projectId ? projectPath(projectId, "dashboard") : "/"}
     >
       {children}
     </BoundedRoute>
@@ -64,7 +64,7 @@ function ProjectBoundedRoute({
 function LegacyProjectRedirect({
   segment,
 }: {
-  segment: "issues" | "monitoring" | "releases" | "alerts" | "setup" | "settings" | "monitors";
+  segment: "dashboard" | "issues" | "monitoring" | "releases" | "alerts" | "setup" | "settings" | "monitors";
 }) {
   const { projectId, projects, projectsLoading } = useAppContext();
 
@@ -207,7 +207,22 @@ export function AppShell() {
 
                 {/* Project scope */}
                 <Route path="/p/:projectId" element={<ProjectScope />}>
-                  <Route index element={<Navigate to="issues" replace />} />
+                  <Route
+                    index
+                    element={
+                      <ProjectBoundedRoute title="Dashboard crashed">
+                        <DashboardPage />
+                      </ProjectBoundedRoute>
+                    }
+                  />
+                  <Route
+                    path="dashboard"
+                    element={
+                      <ProjectBoundedRoute title="Dashboard crashed">
+                        <DashboardPage />
+                      </ProjectBoundedRoute>
+                    }
+                  />
                   <Route
                     path="issues"
                     element={
@@ -224,14 +239,7 @@ export function AppShell() {
                       </ProjectBoundedRoute>
                     }
                   />
-                  <Route
-                    path="monitoring"
-                    element={
-                      <ProjectBoundedRoute title="Monitoring crashed">
-                        <MonitoringPage />
-                      </ProjectBoundedRoute>
-                    }
-                  />
+                  <Route path="monitoring" element={<Navigate to=".." replace />} />
                   <Route
                     path="setup"
                     element={
@@ -286,8 +294,16 @@ export function AppShell() {
                 <Route
                   path="/monitoring"
                   element={
-                    <BoundedRoute title="Monitoring crashed">
-                      <LegacyProjectRedirect segment="monitoring" />
+                    <BoundedRoute title="Dashboard crashed">
+                      <LegacyProjectRedirect segment="dashboard" />
+                    </BoundedRoute>
+                  }
+                />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <BoundedRoute title="Dashboard crashed">
+                      <LegacyProjectRedirect segment="dashboard" />
                     </BoundedRoute>
                   }
                 />

@@ -74,7 +74,8 @@ export function BillingPage() {
   const loadBilling = useCallback(async () => {
     setBillingLoading(true);
     let status: BillingStatus | null = null;
-    if (checkoutId) {
+    // Checkout sync / Polar status only exist on cloud; OSS soft-nulls.
+    if (cloud && checkoutId) {
       status = await syncCheckout(checkoutId).catch(() => null);
       setSearchParams(
         (current) => {
@@ -86,11 +87,11 @@ export function BillingPage() {
       );
     }
     if (!status) {
-      status = await fetchBillingStatus();
+      status = cloud ? await fetchBillingStatus() : null;
     }
     setBillingStatus(status);
     setBillingLoading(false);
-  }, [checkoutId, setSearchParams]);
+  }, [checkoutId, cloud, setSearchParams]);
 
   useEffect(() => {
     void loadBilling();
@@ -119,6 +120,10 @@ export function BillingPage() {
   const maxProjects = billingStatus?.max_projects ?? 0;
 
   const handleOpenPortal = async () => {
+    if (!cloud) {
+      toast.error("Billing portal is only available on Epure Cloud.");
+      return;
+    }
     setLoadingPortal(true);
     try {
       const res = await createBillingPortalSession(window.location.href);
@@ -135,6 +140,10 @@ export function BillingPage() {
   };
 
   const handleSelectPlan = async (target: PlanDefinition) => {
+    if (!cloud) {
+      toast.error("Checkout is only available on Epure Cloud.");
+      return;
+    }
     if (!isOwner) {
       toast.error("Only workspace owners can modify subscriptions");
       return;

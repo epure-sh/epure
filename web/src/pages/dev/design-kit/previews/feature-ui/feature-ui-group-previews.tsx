@@ -24,7 +24,11 @@ import { IssueContextSnapshot } from "@/ui/issue-context-snapshot";
 import { IssueDetailOverlay } from "@/ui/issue-detail-overlay";
 import { IssueDetailTabs } from "@/ui/issue-detail-tabs";
 import { IssueFeedRow } from "@/ui/issue-feed-row";
-import { IssueImpactMetrics } from "@/ui/issue-impact-strip";
+import {
+  IssueImpactLine,
+  IssueImpactMetrics,
+  IssueOccurrenceTrend,
+} from "@/ui/issue-impact-strip";
 import { IssueOccurrenceTimeline } from "@/ui/issue-occurrence-timeline";
 import { IssueOccurrencesTable } from "@/ui/issue-occurrences-table";
 import { IssueOverviewPanel } from "@/ui/issue-overview-panel";
@@ -297,23 +301,30 @@ function IssueDetailPreviews() {
           issue={DESIGN_KIT_SAMPLE_ISSUE}
           event={DESIGN_KIT_SAMPLE_EVENT}
           events={DESIGN_KIT_SAMPLE_EVENTS}
-          timeline={DESIGN_KIT_SAMPLE_TIMELINE}
-          timelineWindow={timelineWindow}
-          onTimelineWindowChange={setTimelineWindow}
-          selectedEventId={selectedEventId}
-          onSelectEvent={onSelectEvent}
         />
       </ModulePreview>
       <ModulePreview id="issue-detail-tabs" title="issue-detail-tabs">
         <IssueDetailTabs
+          issue={DESIGN_KIT_SAMPLE_ISSUE}
           issueTitle={DESIGN_KIT_SAMPLE_ISSUE.title ?? "Issue"}
-          overview={<p className="p-3 text-xs text-fg-muted">Overview slot</p>}
+          timeline={DESIGN_KIT_SAMPLE_TIMELINE}
+          timelineWindow={timelineWindow}
+          onTimelineWindowChange={setTimelineWindow}
+          overview={<p className="p-3 text-xs text-fg-muted">Context slot</p>}
           stack={<p className="p-3 text-xs text-fg-muted">Stack slot</p>}
           breadcrumbs={<p className="p-3 text-xs text-fg-muted">Breadcrumbs slot</p>}
         />
       </ModulePreview>
       <ModulePreview id="issue-impact-strip" title="issue-impact-strip">
-        <IssueImpactMetrics issue={DESIGN_KIT_SAMPLE_ISSUE} />
+        <div className="space-y-3">
+          <IssueImpactLine issue={DESIGN_KIT_SAMPLE_ISSUE} />
+          <IssueOccurrenceTrend
+            timeline={DESIGN_KIT_SAMPLE_TIMELINE}
+            timelineWindow={timelineWindow}
+            onTimelineWindowChange={setTimelineWindow}
+          />
+          <IssueImpactMetrics issue={DESIGN_KIT_SAMPLE_ISSUE} />
+        </div>
       </ModulePreview>
       <ModulePreview id="issue-context-snapshot" title="issue-context-snapshot">
         <IssueContextSnapshot
@@ -377,6 +388,7 @@ function IssueDetailPreviews() {
           events={DESIGN_KIT_SAMPLE_EVENTS}
           selectedEventId={selectedEventId}
           onSelectEvent={onSelectEvent}
+          showNav
         />
       </ModulePreview>
       <ModulePreview id="issue-recent-occurrences" title="issue-recent-occurrences">

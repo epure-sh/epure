@@ -103,32 +103,80 @@ function filterIssues(
 }
 
 let store: MockStore = createStore();
+function mockCheckIns(
+  monitorId: string,
+  projectId: string,
+  statuses: Array<{ status: string; duration_ms: number; hoursAgo: number }>,
+) {
+  return statuses.map((row, index) => ({
+    id: `${monitorId}_ci_${index}`,
+    monitor_id: monitorId,
+    project_id: projectId,
+    org_id: "org",
+    check_in_id: `chk_${index}`,
+    status: row.status,
+    duration_ms: row.duration_ms,
+    environment: "production",
+    release: "api@2.4.1",
+    issue_id: row.status === "error" ? "issue-stripe-rate" : null,
+    trace_id: null,
+    created_at: new Date(Date.now() - row.hoursAgo * 3600_000).toISOString(),
+  }));
+}
+
 const INITIAL_MOCK_MONITORS: MonitorItem[] = [
   {
     id: "mon_nightly",
     org_id: "org",
     project_id: projects[0]?.id ?? "acme-web",
     slug: "nightly-backup",
+    name: "Nightly Stripe Payouts",
     schedule: "0 2 * * *",
+    schedule_type: "crontab",
+    timezone: "Europe/Paris",
     status: "ok" as const,
     last_check_in_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
     last_duration_ms: 1240,
+    next_check_in_at: new Date(Date.now() + 23 * 3600_000).toISOString(),
     environment: "production",
+    checkin_margin_mins: 5,
+    max_runtime_mins: 30,
+    failure_issue_threshold: 1,
+    paused: false,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
+    recent_check_ins: mockCheckIns("mon_nightly", projects[0]?.id ?? "acme-web", [
+      { status: "ok", duration_ms: 1100, hoursAgo: 72 },
+      { status: "ok", duration_ms: 1400, hoursAgo: 48 },
+      { status: "error", duration_ms: 4100, hoursAgo: 24 },
+      { status: "ok", duration_ms: 1240, hoursAgo: 1 },
+    ]),
   },
   {
     id: "mon_billing",
     org_id: "org",
     project_id: projects[0]?.id ?? "acme-web",
     slug: "billing-sync",
-    schedule: "*/15 * * * *",
+    name: "Billing Sync",
+    schedule: "every 15 minute",
+    schedule_type: "interval",
+    timezone: "UTC",
     status: "missed" as const,
     last_check_in_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
     last_duration_ms: 820,
+    next_check_in_at: new Date(Date.now() - 10 * 60_000).toISOString(),
     environment: "production",
+    checkin_margin_mins: 5,
+    max_runtime_mins: 15,
+    failure_issue_threshold: 2,
+    paused: false,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
+    recent_check_ins: mockCheckIns("mon_billing", projects[0]?.id ?? "acme-web", [
+      { status: "ok", duration_ms: 700, hoursAgo: 4 },
+      { status: "ok", duration_ms: 820, hoursAgo: 3.5 },
+      { status: "missed", duration_ms: 0, hoursAgo: 3 },
+    ]),
   },
 ];
 
@@ -332,6 +380,21 @@ function computeStats(projectId: string, environment?: string, window?: string |
     return ageMs <= windowMs;
   });
 
+  const open = scopedIssues.filter(
+    (issue) =>
+      (issue.status === "unresolved" || issue.status === "regression") &&
+      !issue.merge_parent_id &&
+      !issue.snoozed,
+  );
+  const highPriority = open.filter((issue) => {
+    const level = (issue.level ?? "").toLowerCase();
+    return level === "fatal" || level === "error";
+  }).length;
+  const affectedUsers = new Set(
+    events
+      .map((event) => event.user_id || event.user_email)
+      .filter((value): value is string => Boolean(value)),
+  ).size;
   return {
     project_id: projectId,
     environment: environment ?? null,
@@ -343,6 +406,10 @@ function computeStats(projectId: string, environment?: string, window?: string |
       (issue) => issue.status === "regression" && !issue.snoozed,
     ).length,
     snoozed: scopedIssues.filter((issue) => issue.snoozed).length,
+    high_priority: highPriority,
+    affected_users: affectedUsers,
+    valve_seen: Math.max(events.length * 40, events.length),
+    valve_stored: events.length,
   };
 }
 
@@ -431,6 +498,104 @@ function handleGet(path: string, url: URL): Response {
     return jsonResponse({
       projects: mockProjects.map((project) => ({ ...project, role: me.role })),
     });
+  }
+
+  const projectVelocity = path.match(/^\/api\/v1\/projects\/([^/]+)\/velocity$/);
+  if (projectVelocity) {
+    const projectId = projectVelocity[1];
+    if (!mockProjects.some((project) => project.id === projectId)) {
+      return jsonResponse({ error: "not_found" }, 404);
+    }
+    const window = url.searchParams.get("window") ?? "24h";
+    const environment = url.searchParams.get("environment");
+    const hourly = window === "24h";
+    const bucketCount = hourly ? 24 : window === "7d" ? 7 : 30;
+    const bucketMs = hourly ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const windowStart = now - (bucketCount - 1) * bucketMs;
+    const projectIssues = store.issues.filter((issue) => {
+      if (issue.project_id !== projectId) return false;
+      if (environment && environment !== "all" && issue.environment !== environment) return false;
+      return true;
+    });
+    const issueByProject = new Map(projectIssues.map((issue) => [issue.id, issue]));
+    const projectEvents = store.events.filter((event) => {
+      const issue = issueById(event.issue_id);
+      if (!issue || issue.project_id !== projectId) return false;
+      if (environment && environment !== "all") {
+        const eventEnv = event.environment ?? issue.environment;
+        if (eventEnv !== environment) return false;
+      }
+      return true;
+    });
+
+    const bucketStarts = Array.from({ length: bucketCount }, (_, index) => {
+      const start = new Date(now - (bucketCount - 1 - index) * bucketMs);
+      if (!hourly) start.setUTCHours(0, 0, 0, 0);
+      else start.setUTCMinutes(0, 0, 0);
+      return start;
+    });
+
+    const buckets = bucketStarts.map((start) => {
+      const end = start.getTime() + bucketMs;
+      let handled = 0;
+      let unhandled = 0;
+      for (const event of projectEvents) {
+        const at = new Date(event.occurred_at).getTime();
+        if (at < start.getTime() || at >= end) continue;
+        // Prefer the stored event time; only count events in-window.
+        const issue = issueByProject.get(event.issue_id) ?? issueById(event.issue_id);
+        const level = (issue?.level ?? "").toLowerCase();
+        if (level === "fatal") unhandled += 1;
+        else handled += 1;
+      }
+      return { start: start.toISOString(), handled, unhandled };
+    });
+
+    // If the store only has sparse event rows but issues carry event_count,
+    // distribute remaining volume across the window (same approach as activity).
+    const realTotal = buckets.reduce((sum, bucket) => sum + bucket.handled + bucket.unhandled, 0);
+    const eventTarget = projectIssues.reduce((sum, issue) => sum + (issue.event_count ?? 0), 0);
+    if (eventTarget > realTotal && eventTarget > 0) {
+      const first = Math.min(
+        ...projectIssues.map((issue) =>
+          new Date(issue.first_seen_at ?? new Date(windowStart).toISOString()).getTime(),
+        ),
+      );
+      const last = Math.max(
+        ...projectIssues.map((issue) =>
+          new Date(issue.last_seen_at ?? bucketStarts[bucketCount - 1].toISOString()).getTime(),
+        ),
+      );
+      const span = Math.max(last - first, bucketMs);
+      const seed = projectId.split("").reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+      const weights = bucketStarts.map((start, index) => {
+        const mid = start.getTime() + bucketMs / 2;
+        if (mid < first || mid > last + bucketMs) return 0;
+        const recency = (mid - first) / span;
+        const wave = 0.55 + 0.45 * Math.sin(index * 0.7 + seed * 0.13);
+        return Math.max(0.05, recency * wave);
+      });
+      const weightSum = weights.reduce((sum, weight) => sum + weight, 0) || 1;
+      let remaining = eventTarget - realTotal;
+      buckets.forEach((bucket, index) => {
+        const share = Math.floor((remaining * weights[index]) / weightSum);
+        bucket.handled += share;
+      });
+      // Drip any leftover into the newest non-empty-weight bucket.
+      const leftover =
+        eventTarget - buckets.reduce((sum, bucket) => sum + bucket.handled + bucket.unhandled, 0);
+      if (leftover > 0) {
+        for (let index = bucketCount - 1; index >= 0; index -= 1) {
+          if (weights[index] > 0) {
+            buckets[index].handled += leftover;
+            break;
+          }
+        }
+      }
+    }
+
+    return jsonResponse({ project_id: projectId, window, buckets });
   }
 
   const projectActivity = path.match(/^\/api\/v1\/projects\/([^/]+)\/activity$/);
@@ -535,10 +700,11 @@ function handleGet(path: string, url: URL): Response {
   }
 
   if (path === "/api/v1/alert-channels") {
-    const projectId = url.searchParams.get("project_id") ?? "";
-    return jsonResponse({
-      channels: store.alertChannels.filter((row) => row.project_id === projectId),
-    });
+    const projectId = url.searchParams.get("project_id");
+    const channels = projectId
+      ? store.alertChannels.filter((row) => row.project_id === projectId)
+      : store.alertChannels;
+    return jsonResponse({ channels });
   }
 
   if (path === "/api/v1/webhooks") {
@@ -701,25 +867,34 @@ function handleGet(path: string, url: URL): Response {
     });
   }
 
+  const monitorCheckInsMatch = path.match(/^\/api\/v1\/monitors\/([^/]+)\/check-ins$/);
+  if (monitorCheckInsMatch) {
+    return jsonResponse({ error: "method not allowed" }, 405);
+  }
+
   const monitorMatch = path.match(/^\/api\/v1\/monitors\/([^/]+)$/);
   if (monitorMatch) {
     const monitor = mockMonitors.find((row) => row.id === monitorMatch[1]);
     if (!monitor) return jsonResponse({ error: "not found" }, 404);
+    const check_ins = [...(monitor.recent_check_ins ?? [])].reverse();
     return jsonResponse({
       monitor,
-      check_ins: [
-        {
-          id: "ci_1",
-          monitor_id: monitor.id,
-          project_id: monitor.project_id,
-          org_id: monitor.org_id,
-          check_in_id: "chk_1",
-          status: monitor.status,
-          duration_ms: monitor.last_duration_ms,
-          environment: monitor.environment,
-          created_at: monitor.last_check_in_at ?? new Date().toISOString(),
-        },
-      ],
+      check_ins:
+        check_ins.length > 0
+          ? check_ins
+          : [
+              {
+                id: "ci_1",
+                monitor_id: monitor.id,
+                project_id: monitor.project_id,
+                org_id: monitor.org_id,
+                check_in_id: "chk_1",
+                status: monitor.status,
+                duration_ms: monitor.last_duration_ms,
+                environment: monitor.environment,
+                created_at: monitor.last_check_in_at ?? new Date().toISOString(),
+              },
+            ],
     });
   }
 
@@ -786,6 +961,21 @@ async function handlePatch(path: string, init: RequestInit): Promise<Response> {
       rule.filters_json = body.filters_json;
     }
     return jsonResponse(rule);
+  }
+
+  const channelPatch = path.match(/^\/api\/v1\/alert-channels\/([^/]+)$/);
+  if (channelPatch) {
+    const channel = store.alertChannels.find((row) => row.id === channelPatch[1]);
+    if (!channel) {
+      return jsonResponse({ error: "not found" }, 404);
+    }
+    if (typeof body.is_enabled === "boolean") {
+      channel.is_enabled = body.is_enabled;
+    }
+    if (typeof body.label === "string" && body.label.trim()) {
+      channel.label = body.label.trim();
+    }
+    return jsonResponse(channel);
   }
 
   if (path === "/api/v1/setup") {
@@ -887,6 +1077,33 @@ async function handlePatch(path: string, init: RequestInit): Promise<Response> {
       syncAlertsFromIssueStatus(issue.id, body.status);
     }
     return jsonResponse(issue);
+  }
+
+  const monitorPatch = path.match(/^\/api\/v1\/monitors\/([^/]+)$/);
+  if (monitorPatch) {
+    const monitor = mockMonitors.find((row) => row.id === monitorPatch[1]);
+    if (!monitor) return jsonResponse({ error: "not found" }, 404);
+    if (body.name !== undefined) monitor.name = String(body.name);
+    if (body.schedule !== undefined) monitor.schedule = body.schedule ? String(body.schedule) : null;
+    if (body.schedule_type !== undefined) {
+      monitor.schedule_type = body.schedule_type ? String(body.schedule_type) : null;
+    }
+    if (body.timezone !== undefined) monitor.timezone = String(body.timezone);
+    if (body.environment !== undefined) {
+      monitor.environment = body.environment ? String(body.environment) : null;
+    }
+    if (body.checkin_margin_mins !== undefined) {
+      monitor.checkin_margin_mins = Number(body.checkin_margin_mins);
+    }
+    if (body.max_runtime_mins !== undefined) {
+      monitor.max_runtime_mins = Number(body.max_runtime_mins);
+    }
+    if (body.failure_issue_threshold !== undefined) {
+      monitor.failure_issue_threshold = Number(body.failure_issue_threshold);
+    }
+    if (typeof body.paused === "boolean") monitor.paused = body.paused;
+    monitor.updated_at = new Date().toISOString();
+    return jsonResponse(monitor);
   }
 
   return jsonResponse({ error: "not found" }, 404);
@@ -1037,18 +1254,53 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
   }
 
   if (path === "/api/v1/alert-channels") {
+    const config = (body.config ?? {}) as {
+      url?: string;
+      recipients?: string[];
+      bot_token?: string;
+      chat_id?: string;
+    };
     const created: AlertChannelRow = {
       id: crypto.randomUUID(),
       org_id: "11111111-1111-1111-1111-111111111111",
       project_id: body.project_id,
       provider: body.provider,
       label: body.label,
-      is_enabled: true,
+      config: {
+        destination_preview: config.chat_id
+          ? `chat …${config.chat_id.slice(-4)}`
+          : config.url
+            ? config.url.replace(/^https?:\/\//, "").slice(0, 40)
+            : undefined,
+        recipients: config.recipients,
+        chat_id: config.chat_id,
+        webhook_id: config.url ? crypto.randomUUID() : undefined,
+      },
+      is_enabled: body.require_verify === false,
       last_error: null,
+      last_tested_at: null,
+      last_test_status: null,
       created_at: new Date().toISOString(),
     };
     store.alertChannels.push(created);
-    return jsonResponse(created, 201);
+    return jsonResponse(
+      {
+        ...created,
+        signing_secret: config.url ? `whsec_mock_${created.id.slice(0, 8)}` : null,
+      },
+      201,
+    );
+  }
+
+  const channelTest = path.match(/^\/api\/v1\/alert-channels\/([^/]+)\/test$/);
+  if (channelTest) {
+    const channel = store.alertChannels.find((row) => row.id === channelTest[1]);
+    if (!channel) return jsonResponse({ error: "not found" }, 404);
+    channel.is_enabled = true;
+    channel.last_test_status = "ok";
+    channel.last_tested_at = new Date().toISOString();
+    channel.last_error = null;
+    return jsonResponse({ sent: true, status: "ok", channel });
   }
 
   const channelPing = path.match(/^\/api\/v1\/alert-channels\/([^/]+)\/ping$/);
@@ -1057,7 +1309,7 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
     if (!channel) return jsonResponse({ error: "not found" }, 404);
     return jsonResponse({
       status: "ready",
-      detail: "Channel is saved. A message is sent when this rule matches.",
+      detail: "Channel is enabled. Use POST /alert-channels/{id}/test to send a test delivery.",
     });
   }
 
@@ -1208,15 +1460,51 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
       org_id: "org",
       project_id: String(body.project_id ?? projects[0]?.id ?? ""),
       slug: String(body.slug ?? "monitor"),
+      name: body.name ? String(body.name) : String(body.slug ?? "monitor"),
       schedule: body.schedule ? String(body.schedule) : null,
+      schedule_type: body.schedule_type ? String(body.schedule_type) : null,
+      timezone: body.timezone ? String(body.timezone) : "UTC",
       status: "ok",
       last_check_in_at: null,
       last_duration_ms: null,
+      next_check_in_at: null,
       environment: body.environment ? String(body.environment) : null,
+      checkin_margin_mins: Number(body.checkin_margin_mins ?? 5),
+      max_runtime_mins: Number(body.max_runtime_mins ?? 30),
+      failure_issue_threshold: Number(body.failure_issue_threshold ?? 1),
+      paused: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      recent_check_ins: [],
     };
     mockMonitors = [monitor, ...mockMonitors];
+    return jsonResponse(monitor, 201);
+  }
+
+  const monitorCheckInPost = path.match(/^\/api\/v1\/monitors\/([^/]+)\/check-ins$/);
+  if (monitorCheckInPost) {
+    const monitor = mockMonitors.find((row) => row.id === monitorCheckInPost[1]);
+    if (!monitor) return jsonResponse({ error: "not found" }, 404);
+    const now = new Date().toISOString();
+    const checkIn = {
+      id: crypto.randomUUID(),
+      monitor_id: monitor.id,
+      project_id: monitor.project_id,
+      org_id: monitor.org_id,
+      check_in_id: `test_${crypto.randomUUID()}`,
+      status: String(body.status ?? "ok"),
+      duration_ms: Number(body.duration_ms ?? 14),
+      environment: monitor.environment,
+      release: null,
+      issue_id: null,
+      trace_id: null,
+      created_at: now,
+    };
+    monitor.status = "ok";
+    monitor.last_check_in_at = now;
+    monitor.last_duration_ms = checkIn.duration_ms;
+    monitor.updated_at = now;
+    monitor.recent_check_ins = [...(monitor.recent_check_ins ?? []), checkIn];
     return jsonResponse(monitor, 201);
   }
 
@@ -1241,6 +1529,14 @@ async function handleDelete(path: string, init: RequestInit): Promise<Response> 
   const webhookMatch = path.match(/^\/api\/v1\/webhooks\/([^/]+)$/);
   if (webhookMatch) {
     store.webhooks = store.webhooks.filter((row) => row.id !== webhookMatch[1]);
+    return jsonResponse({ deleted: true });
+  }
+
+  const alertChannelMatch = path.match(/^\/api\/v1\/alert-channels\/([^/]+)$/);
+  if (alertChannelMatch) {
+    const idx = store.alertChannels.findIndex((row) => row.id === alertChannelMatch[1]);
+    if (idx < 0) return jsonResponse({ error: "not found" }, 404);
+    store.alertChannels.splice(idx, 1);
     return jsonResponse({ deleted: true });
   }
 

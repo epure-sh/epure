@@ -373,6 +373,7 @@ export function IssuesPage() {
         onTabChange={setDetailTab}
         onClose={handleCloseDetail}
         showBackLink={!isOverlayLayout}
+        issue={selectedIssue}
         issueTitle={selectedIssue.title ?? "Untitled issue"}
         statusBadges={<IssueStateBadge issue={selectedIssue} />}
         onPrevious={() => handleMoveSelection("up")}
@@ -382,6 +383,10 @@ export function IssuesPage() {
           const index = issues.findIndex((issue) => issue.id === selectedIssue.id);
           return index >= 0 && index < issues.length - 1;
         })()}
+        timeline={timeline}
+        timelineLoading={timelineLoading}
+        timelineWindow={timelineWindow}
+        onTimelineWindowChange={setTimelineWindow}
         actions={
           <>
             <ActionButton
@@ -392,7 +397,7 @@ export function IssuesPage() {
               tooltip="Copy a diagnostic brief for your coding agent (C)"
               onClick={handleExport}
             >
-              <Sparkles className="size-3.5" />
+              <Sparkles className="size-4" />
               <span>Copy for agent</span>
             </ActionButton>
             <IssueStateActions
@@ -412,12 +417,6 @@ export function IssuesPage() {
             issue={selectedIssue}
             event={selectedEvent}
             events={events}
-            timeline={timeline}
-            timelineLoading={timelineLoading}
-            timelineWindow={timelineWindow}
-            onTimelineWindowChange={setTimelineWindow}
-            selectedEventId={selectedEventId}
-            onSelectEvent={handleSelectEvent}
           />
         }
         stack={
@@ -426,6 +425,8 @@ export function IssuesPage() {
             selectedEventId={selectedEventId}
             selectedEvent={selectedEvent}
             onSelectEvent={handleSelectEvent}
+            showOccurrencePicker={false}
+            hideExceptionTitle
             onViewGrouping={openMoreGrouping}
           />
         }
@@ -435,6 +436,7 @@ export function IssuesPage() {
             selectedEventId={selectedEventId}
             selectedEvent={selectedEvent}
             onSelectEvent={handleSelectEvent}
+            showOccurrencePicker={false}
           />
         }
         more={
@@ -618,7 +620,7 @@ export function IssuesPage() {
           </IssueDetailOverlay>
         ) : selectedIssue ? (
           <aside
-            className="epure-issues-layout__detail flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface"
+            className="epure-issues-layout__detail flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-canvas"
             aria-label="Issue detail"
           >
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

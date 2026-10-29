@@ -3,9 +3,7 @@ import { useParams } from "react-router-dom";
 import { deleteProject, updateProject } from "../../lib/api";
 import { workspacePath } from "../../lib/paths";
 import { useAppContext } from "../../shell/app-context";
-import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Field } from "../../ui/field";
 import { Input } from "../../ui/input";
 import {
@@ -16,28 +14,17 @@ import {
   SelectValue,
 } from "../../ui/select";
 import { useToast } from "../../ui/toast-provider";
+import { SectionCard } from "@/components/kit/section-card";
 import {
   DangerZone,
   DeleteProjectDialog,
-  EnvironmentReference,
   InfoCallout,
   MemberAccessNotice,
-  ReadOnlyDetail,
+  SettingsSkeleton,
+  SettingsStack,
 } from "./shared";
-import { AskAgentCard } from "@/components/kit/ask-agent-card";
 
 const retentionOptions = [14, 30, 90] as const;
-
-function validateForm(name: string, ingestCap: number): { name?: string; ingestCap?: string } {
-  const errors: { name?: string; ingestCap?: string } = {};
-  if (!name.trim()) {
-    errors.name = "Project name is required.";
-  }
-  if (!Number.isFinite(ingestCap) || ingestCap < 1) {
-    errors.ingestCap = "Ingest cap must be at least 1 event per hour.";
-  }
-  return errors;
-}
 
 export function ProjectGeneralSettings() {
   const { projectId: paramId } = useParams<{ projectId: string }>();
@@ -47,9 +34,8 @@ export function ProjectGeneralSettings() {
 
   const [name, setName] = useState("");
   const [retentionDays, setRetentionDays] = useState<number>(30);
-  const [ingestCap, setIngestCap] = useState<number>(5000);
   const [busy, setBusy] = useState(false);
-  const [errors, setErrors] = useState<{ name?: string; ingestCap?: string }>({});
+  const [nameError, setNameError] = useState<string | undefined>();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const { toast } = useToast();
 
@@ -57,57 +43,45 @@ export function ProjectGeneralSettings() {
   const canDelete = user?.role === "owner";
 
   const dirty = useMemo(() => {
-    if (!project) {
-      return false;
-    }
-    return (
-      name.trim() !== project.name ||
-      retentionDays !== project.retention_days ||
-      ingestCap !== project.ingest_cap_per_hour
-    );
-  }, [ingestCap, name, project, retentionDays]);
+    if (!project) return false;
+    return name.trim() !== project.name || retentionDays !== project.retention_days;
+  }, [name, project, retentionDays]);
 
   useEffect(() => {
     if (project) {
       setName(project.name);
       setRetentionDays(project.retention_days);
-      setIngestCap(project.ingest_cap_per_hour);
-      setErrors({});
+      setNameError(undefined);
     }
   }, [project]);
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!project || !canManage) {
-      return;
-    }
+    if (!project || !canManage) return;
 
-    const nextErrors = validateForm(name, ingestCap);
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) {
+    if (!name.trim()) {
+      setNameError("Required");
       return;
     }
+    setNameError(undefined);
 
     setBusy(true);
     try {
       await updateProject(project.id, {
         name: name.trim(),
         retention_days: retentionDays,
-        ingest_cap_per_hour: ingestCap,
       });
       await refreshProjects();
-      toast("Project settings saved");
+      toast("Saved");
     } catch {
-      toast("Failed to save project");
+      toast("Failed to save");
     } finally {
       setBusy(false);
     }
   }
 
   async function handleDelete() {
-    if (!project || !canDelete) {
-      return;
-    }
+    if (!project || !canDelete) return;
     setBusy(true);
     try {
       await deleteProject(project.id);
@@ -122,86 +96,62 @@ export function ProjectGeneralSettings() {
 
   if (projectsLoading || userLoading) {
     return (
-      <div className="space-y-4">
-        <div className="h-32 rounded-lg border border-border-subtle bg-surface-1 animate-pulse" />
-      </div>
+      <SettingsStack>
+        <SettingsSkeleton />
+      </SettingsStack>
     );
   }
 
   if (!project) {
     return (
-      <div className="space-y-4">
-        <InfoCallout variant="warning">Project not found. It may have been deleted.</InfoCallout>
-      </div>
+      <SettingsStack>
+        <InfoCallout variant="warning">Project not found.</InfoCallout>
+      </SettingsStack>
     );
   }
 
   if (!canManage) {
-    return <MemberAccessNotice resource="project settings" />;
+    return (
+      <SettingsStack>
+        <MemberAccessNotice resource="project settings" />
+      </SettingsStack>
+    );
   }
 
   return (
-    <div className="space-y-4">
-      <form className="space-y-4" onSubmit={(event) => void handleSave(event)}>
-        <Card>
-          <CardHeader>
-            <CardTitle>Identity</CardTitle>
-            <CardDescription>How this project appears in Epure.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Field
-              label="Display name"
-              htmlFor="project-name"
-              hint="Shown in the project switcher and settings."
-              error={errors.name}
-            >
+    <SettingsStack>
+      <form onSubmit={(event) => void handleSave(event)}>
+        <SectionCard
+          title="Project"
+          description="Name and event retention."
+          footer={
+            <div className="flex w-full items-center justify-between gap-2">
+              <span className="text-2xs text-fg-muted">
+                {dirty ? "Unsaved changes" : "Up to date"}
+              </span>
+              <Button type="submit" variant="secondary" size="sm" disabled={busy || !dirty}>
+                Save
+              </Button>
+            </div>
+          }
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Name" htmlFor="project-name" error={nameError} className="gap-1.5">
               <Input
                 id="project-name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 maxLength={128}
+                className="h-8 text-xs"
               />
             </Field>
-
-            <ReadOnlyDetail
-              label="Slug"
-              value={project.slug ?? "—"}
-              mono
-            />
-            <p className="text-xs text-fg-muted">
-              Slugs are generated at creation and used in URLs. They cannot be changed.
-            </p>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <ReadOnlyDetail label="Project ID" value={project.id} mono />
-              <ReadOnlyDetail
-                label="Created"
-                value={new Date(project.created_at).toLocaleDateString(undefined, {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                })}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Data retention</CardTitle>
-            <CardDescription>How long raw events are kept before TTL cleanup.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Field
-              label="Retention period"
-              hint="Older event partitions are dropped automatically. Issues remain until you resolve or delete them."
-            >
+            <Field label="Retention" className="gap-1.5">
               <Select
                 value={String(retentionDays)}
                 onValueChange={(value) => setRetentionDays(Number(value))}
               >
-                <SelectTrigger aria-label="Retention days" className="w-full">
-                  <SelectValue placeholder="Retention days">{retentionDays} days</SelectValue>
+                <SelectTrigger aria-label="Retention days" className="h-8 w-full text-xs">
+                  <SelectValue>{retentionDays} days</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {retentionOptions.map((days) => (
@@ -212,86 +162,27 @@ export function ProjectGeneralSettings() {
                 </SelectContent>
               </Select>
             </Field>
-            <InfoCallout>
-              Retention applies to stored events and breadcrumbs. Grouped issues and alert history
-              follow separate lifecycle rules.
-            </InfoCallout>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Ingest limits</CardTitle>
-            <CardDescription>Protect this project from runaway error volume.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Field
-              label="Hourly ingest cap"
-              htmlFor="ingest-cap"
-              hint="When exceeded, the spike valve drops new events until the next hour."
-              error={errors.ingestCap}
-            >
-              <Input
-                id="ingest-cap"
-                type="number"
-                min={1}
-                step={1}
-                value={ingestCap}
-                onChange={(event) => setIngestCap(Number(event.target.value))}
-              />
-            </Field>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-fg-muted">
-              <span>Current cap:</span>
-              <Badge variant="env" className="font-mono">
-                {project.ingest_cap_per_hour.toLocaleString()} events / hour
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Environments</CardTitle>
-            <CardDescription>Filter issues by deploy target in the SDK.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <EnvironmentReference />
-          </CardContent>
-        </Card>
-
-        <div className="flex flex-wrap gap-2">
-          <Button type="submit" variant="secondary" disabled={busy || !dirty}>
-            Save changes
-          </Button>
-          {dirty ? (
-            <p className="self-center text-xs text-fg-muted">You have unsaved changes.</p>
-          ) : null}
-        </div>
+          </div>
+        </SectionCard>
       </form>
 
-      <AskAgentCard
-        title="Automate Project Configuration"
-        description="Want to update ingest caps, retention periods, or project metadata via CLI? Ask your AI coding assistant to manage project settings."
-        promptText={`Configure project settings for ${project?.name ?? "this project"} via epure-cli`}
-      />
-
       {canDelete ? (
-        <DangerZone
-          title="Delete project"
-          description="Permanently remove this project and all of its data."
-        >
-          <p className="text-sm text-fg-muted">
-            Deleting removes issues, events, DSN keys, webhooks, and releases for{" "}
-            <span className="font-medium text-fg-primary">{project.name}</span>. This cannot be undone.
-          </p>
-          <Button
-            variant="danger"
-            className="mt-3"
-            disabled={busy}
-            onClick={() => setDeleteOpen(true)}
-          >
-            Delete project
-          </Button>
+        <DangerZone title="Delete project" description="Removes all data for this project.">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-fg-muted">
+              Irreversible. Issues, events, and keys for{" "}
+              <span className="font-medium text-fg-primary">{project.name}</span> go away.
+            </p>
+            <Button
+              variant="danger"
+              size="sm"
+              className="shrink-0"
+              disabled={busy}
+              onClick={() => setDeleteOpen(true)}
+            >
+              Delete
+            </Button>
+          </div>
           <DeleteProjectDialog
             projectName={project.name}
             open={deleteOpen}
@@ -301,6 +192,6 @@ export function ProjectGeneralSettings() {
           />
         </DangerZone>
       ) : null}
-    </div>
+    </SettingsStack>
   );
 }

@@ -73,7 +73,7 @@ pub fn event_occurred_at(event: &Value) -> Option<String> {
                 Some(trimmed.to_string())
             }
         }
-        Value::Number(number) => number.as_f64().map(|seconds| chrono_lite_rfc3339(seconds)),
+        Value::Number(number) => number.as_f64().map(chrono_lite_rfc3339),
         _ => None,
     }
 }

@@ -1,0 +1,8 @@
+/* Hatch only: dotted wash for the pipeline canvas (not expressible as Box tokens). */
+[data-slot="alert-execution-pipeline"] {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--border-subtle) 80%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 12px 12px;
+}

@@ -15,7 +15,7 @@ export function IssueContextSnapshot({ issue, event, tags, className }: IssueCon
   return (
     <section
       className={cn(
-        "epure-issue-context overflow-hidden rounded-md border border-border bg-bg-subtle",
+        "epure-issue-context overflow-hidden rounded-md border border-border bg-surface-1 shadow-xs",
         className,
       )}
       aria-label="Issue context"

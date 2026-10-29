@@ -58,11 +58,52 @@ export function isWorkspaceSettingsRoute(pathname: string): boolean {
 /** @deprecated use isWorkspaceSettingsRoute */
 export const isOrgSettingsRoute = isWorkspaceSettingsRoute;
 
+export type ProjectPathSegment =
+  | "dashboard"
+  | "monitoring"
+  | "issues"
+  | "alerts"
+  | "monitors"
+  | "releases"
+  | "setup"
+  | "settings";
+
+/**
+ * Project-scoped path. The dashboard is the project home (`/p/:id`).
+ * `monitoring` remains a legacy alias for the same home.
+ */
 export function projectPath(
   projectId: string,
-  segment: "issues" | "monitoring" | "releases" | "alerts" | "monitors" | "setup" = "issues",
+  segment: Exclude<ProjectPathSegment, "settings"> = "dashboard",
 ): string {
+  if (segment === "dashboard" || segment === "monitoring") {
+    return `/p/${projectId}`;
+  }
   return `/p/${projectId}/${segment}`;
+}
+
+/** Keep the same product tab when switching projects (settings → settings, etc.). */
+export function projectPathKeepingTab(projectId: string, pathname: string): string {
+  const segment = projectSegmentFromPath(pathname);
+  if (segment === "settings") {
+    return projectSettingsPath(projectId);
+  }
+  if (
+    segment === "dashboard" ||
+    segment === "monitoring" ||
+    segment === "issues" ||
+    segment === "alerts" ||
+    segment === "monitors" ||
+    segment === "releases" ||
+    segment === "setup"
+  ) {
+    return projectPath(projectId, segment === "monitoring" ? "dashboard" : segment);
+  }
+  // Bare `/p/:id` is the dashboard home.
+  if (isProjectRoute(pathname) && !segment) {
+    return projectPath(projectId, "dashboard");
+  }
+  return projectPath(projectId, "dashboard");
 }
 
 export function projectIssuePath(projectId: string, issueId: string): string {
@@ -76,14 +117,21 @@ export function issuesFilterPath(projectId: string, filterQuery: string): string
   return `${projectPath(projectId, "issues")}?${params.toString()}`;
 }
 
+export type ProjectSettingsTab = "general" | "privacy" | "dsn" | "filters";
+
 export function projectSettingsPath(
   projectId: string,
-  tab?: "general" | "filters" | "dsn" | "webhooks" | "alerts" | "privacy",
+  tab?: ProjectSettingsTab,
 ): string {
   if (!tab || tab === "general") {
     return `/p/${projectId}/settings`;
   }
   return `/p/${projectId}/settings/${tab}`;
+}
+
+/** Deep-link into Alerts → Rules (configure section). */
+export function projectAlertRulesPath(projectId: string): string {
+  return `${projectPath(projectId, "alerts")}?section=configure`;
 }
 
 export function projectIdFromPath(pathname: string): string | null {

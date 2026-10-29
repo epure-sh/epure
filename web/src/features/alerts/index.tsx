@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   fetchAlertRules,
   fetchAlerts,
@@ -36,6 +36,7 @@ import {
   type HistoryRuleFocus,
   filterAlerts,
   filterAlertsByIssuesQuery,
+  getAlertSeverityForAlert,
   groupAlertsByDay,
   isAlertUnread,
   issueSortToAlertSort,
@@ -55,6 +56,7 @@ import { cn } from "../../lib/cn";
 export function AlertsPage() {
   const navigate = useNavigate();
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { environment, projectId, projects, projectsLoading, user } = useAppContext();
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,7 +70,14 @@ export function AlertsPage() {
   const lastBulkAnchorId = useRef<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [section, setSection] = useState<AlertsSection>("history");
+  const [section, setSection] = useState<AlertsSection>(() =>
+    searchParams.get("section") === "configure" ? "configure" : "history",
+  );
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("section") === "configure" ? "configure" : "history";
+    setSection((prev) => (prev === fromUrl ? prev : fromUrl));
+  }, [searchParams]);
   const [ruleCount, setRuleCount] = useState(0);
   const [historyRuleFocus, setHistoryRuleFocus] = useState<HistoryRuleFocus | null>(null);
   const historyRuleName = historyRuleFocus?.ruleName ?? null;
@@ -80,6 +89,8 @@ export function AlertsPage() {
   const [createRuleOpen, setCreateRuleOpen] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [rulesVersion, setRulesVersion] = useState(0);
+  const [highSeverityOnly, setHighSeverityOnly] = useState(false);
+  const [acknowledgeAllBusy, setAcknowledgeAllBusy] = useState(false);
   const alertListRef = useRef<HTMLDivElement>(null);
 
   const safeProjects = Array.isArray(projects) ? projects : [];
@@ -251,13 +262,21 @@ export function AlertsPage() {
     };
   }, [activeProjectId, environment, headlineStats, historyUnreadCount, timeScopedAlerts]);
 
+  const highSeverityCount = useMemo(
+    () => timeScopedAlerts.filter((row) => getAlertSeverityForAlert(row) === "danger").length,
+    [timeScopedAlerts],
+  );
+
   const filteredAlerts = useMemo(() => {
     let rows = filterAlertsByIssuesQuery(timeScopedAlerts, query);
     if (historyRuleFocus) {
       rows = rows.filter((row) => alertMatchesHistoryRuleFocus(row, historyRuleFocus));
     }
+    if (highSeverityOnly) {
+      rows = rows.filter((row) => getAlertSeverityForAlert(row) === "danger");
+    }
     return sortAlerts(rows, issueSortToAlertSort(issueSort));
-  }, [timeScopedAlerts, query, issueSort, historyRuleFocus]);
+  }, [timeScopedAlerts, query, issueSort, historyRuleFocus, highSeverityOnly]);
 
   const focusedAlert = useMemo(
     () => filteredAlerts.find((row) => row.id === focusedId) ?? null,
@@ -283,8 +302,17 @@ export function AlertsPage() {
     }
     if (focusedId && !filteredAlerts.some((alert) => alert.id === focusedId)) {
       setFocusedId(null);
+      return;
     }
-  }, [filteredAlerts, focusedId]);
+    // Desktop inbox: keep the inspector populated once the feed has rows.
+    if (!focusedId && typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
+      const first = filteredAlerts[0];
+      if (first) {
+        setFocusedId(first.id);
+        markAlertRead(first.id, first.fired_at ?? new Date().toISOString(), first.issue_id);
+      }
+    }
+  }, [filteredAlerts, focusedId, markAlertRead]);
 
   useEffect(() => {
     if (!focusedId || !alertListRef.current) {
@@ -441,6 +469,22 @@ export function AlertsPage() {
     [applyAlertPatch, selectedAlertIds],
   );
 
+  const handleAcknowledgeAll = useCallback(async () => {
+    const unread = timeScopedAlerts.filter((row) => isAlertUnread(row));
+    if (unread.length === 0) {
+      return;
+    }
+    setAcknowledgeAllBusy(true);
+    try {
+      await Promise.all(unread.map((row) => applyAlertPatch(row.id, { read: true })));
+      toast(`Acknowledged ${unread.length} alert${unread.length === 1 ? "" : "s"}`);
+    } catch {
+      toast.error("Failed to acknowledge alerts");
+    } finally {
+      setAcknowledgeAllBusy(false);
+    }
+  }, [applyAlertPatch, timeScopedAlerts]);
+
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -527,12 +571,6 @@ export function AlertsPage() {
     setCreateRuleOpen(true);
   }, []);
 
-  const openEditRule = useCallback(() => {
-    if (!activeRuleId) return;
-    setEditingRuleId(activeRuleId);
-    setCreateRuleOpen(true);
-  }, [activeRuleId]);
-
   const openEditRuleById = useCallback((ruleId: string) => {
     setEditingRuleId(ruleId);
     setCreateRuleOpen(true);
@@ -558,6 +596,18 @@ export function AlertsPage() {
             section={section}
             onSectionChange={(next) => {
               setSection(next);
+              setSearchParams(
+                (prev) => {
+                  const params = new URLSearchParams(prev);
+                  if (next === "configure") {
+                    params.set("section", "configure");
+                  } else {
+                    params.delete("section");
+                  }
+                  return params;
+                },
+                { replace: true },
+              );
               if (next === "configure") {
                 setHistoryRuleFocus(null);
               } else {
@@ -570,8 +620,6 @@ export function AlertsPage() {
             }}
             canManageRules={canManageWebhooks}
             onCreateRule={canManageWebhooks ? openCreateRule : undefined}
-            onEditRule={canManageWebhooks ? openEditRule : undefined}
-            editRuleDisabled={!activeRuleId}
             query={query}
             onQueryChange={setQuery}
             rulesSearch={rulesSearch}
@@ -589,6 +637,11 @@ export function AlertsPage() {
             headlineStats={alertFilterStats}
             historyRuleName={historyRuleName}
             onHistoryRuleNameClear={() => setHistoryRuleFocus(null)}
+            highSeverityOnly={highSeverityOnly}
+            onHighSeverityOnlyChange={setHighSeverityOnly}
+            highSeverityCount={highSeverityCount}
+            onAcknowledgeAll={() => void handleAcknowledgeAll()}
+            acknowledgeAllBusy={acknowledgeAllBusy}
           />
 
           <CreateAlertRuleDialog
@@ -615,10 +668,6 @@ export function AlertsPage() {
                   activeRuleId={activeRuleId}
                   onActiveRuleIdChange={setActiveRuleId}
                   onEditRule={(rule) => openEditRuleById(rule.id)}
-                  onViewHistory={(focus) => {
-                    setSection("history");
-                    setHistoryRuleFocus(focus);
-                  }}
                   lastTriggered={buildLastTriggeredByKind(safeAlerts)}
                   firedCounts={buildRuleFiredCounts(safeAlerts)}
                 />
@@ -680,13 +729,13 @@ export function AlertsPage() {
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
           <div
             className={cn(
-              "epure-issues-layout__list flex min-h-0 min-w-0 flex-col overflow-hidden bg-canvas epure-page-gutter-x pt-3 md:pt-4 lg:basis-0 lg:flex-1 lg:border-r lg:border-border-subtle",
+              "epure-issues-layout__list flex min-h-0 min-w-0 flex-col overflow-hidden bg-bg-subtle epure-page-gutter-x !pr-0 pt-3 md:pt-4 lg:w-[min(100%,30rem)] lg:max-w-[42%] lg:shrink-0 lg:grow-0 lg:basis-auto lg:border-r lg:border-border-subtle",
               focusedId && "max-lg:hidden",
             )}
           >
             <div className="mb-3 flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
             {loading ? (
-              <ul className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pb-2">
+              <ul className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto pb-6 pr-1.5 [scrollbar-gutter:stable] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-0.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
                 {Array.from({ length: 6 }).map((_, index) => (
                   <AlertCardSkeleton key={index} />
                 ))}
@@ -713,7 +762,21 @@ export function AlertsPage() {
                 description="Alerts fire when event velocity spikes, a resolved exception comes back, or volume thresholds are crossed."
               >
                 <div className="flex flex-wrap items-center justify-center gap-2">
-                  <Button variant="primary" size="sm" onClick={() => setSection("configure")}>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => {
+                      setSection("configure");
+                      setSearchParams(
+                        (prev) => {
+                          const params = new URLSearchParams(prev);
+                          params.set("section", "configure");
+                          return params;
+                        },
+                        { replace: true },
+                      );
+                    }}
+                  >
                     Create alert
                   </Button>
                   <Button variant="ghost" size="sm" asChild>
@@ -763,7 +826,7 @@ export function AlertsPage() {
             ) : (
               <div
                 ref={alertListRef}
-                className="flex min-h-0 flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto pb-2"
+                className="flex min-h-0 flex-1 flex-col gap-8 overflow-x-hidden overflow-y-auto pb-6 pr-1.5 [scrollbar-gutter:stable] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-0.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border"
               >
                 <p className="sr-only" aria-live="polite" aria-atomic="true">
                   {filteredAlerts.length} alert{filteredAlerts.length === 1 ? "" : "s"} in view
@@ -803,7 +866,7 @@ export function AlertsPage() {
           <aside
             aria-label="Alert detail"
             className={cn(
-              "hidden min-h-0 min-w-0 flex flex-1 flex-col overflow-hidden border-t border-border-subtle bg-surface-1 lg:flex lg:basis-0 lg:flex-1 lg:border-t-0",
+              "hidden min-h-0 min-w-0 flex flex-1 flex-col overflow-hidden border-t border-border-subtle bg-surface-1 lg:flex lg:min-w-0 lg:flex-1 lg:border-l lg:border-t-0 lg:border-border-subtle",
               focusedId && "max-lg:flex",
             )}
           >

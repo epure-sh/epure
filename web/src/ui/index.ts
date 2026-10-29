@@ -46,9 +46,15 @@ export { Input } from "./input";
 export { Label, labelVariants } from "./label";
 export { BreadcrumbTimeline } from "./breadcrumb-timeline";
 export { IssueDetailTabs } from "./issue-detail-tabs";
+export {
+  IssueImpactLine,
+  IssueImpactMetrics,
+  IssueOccurrenceTrend,
+} from "./issue-impact-strip";
 export { IssuesContextStrip } from "./issues-context-strip";
 export { IssuesHomeHint } from "./issues-home-hint";
 export { IssueOverviewPanel } from "./issue-overview-panel";
+export { OccurrencePicker } from "./occurrence-picker";
 export {
   IssuePriorityBadge,
   IssuePriorityIcon,
@@ -77,7 +83,12 @@ export {
   SelectValue,
 } from "./select";
 export { Separator } from "./separator";
-export { SettingsNav } from "./settings-nav";
+export {
+  ProjectSettingsSidebarItem,
+  SettingsNav,
+  PROJECT_SETTINGS_ITEMS,
+  PROJECT_SETTINGS_GROUPS,
+} from "./settings-nav";
 export { Section, SectionHeader } from "./section";
 export { SdkSnippetBlock } from "./sdk-snippet-block";
 export { SetupChecklist } from "./setup-checklist";

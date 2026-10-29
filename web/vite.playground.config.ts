@@ -145,6 +145,7 @@ export default defineConfig({
       "recharts",
       "driver.js",
       "react-zoom-pan-pinch",
+      "react-activity-calendar",
       // Prebundle icon barrels — without this, named imports still fan out to
       // thousands of /node_modules/.../IconName.es.js requests and blank #root.
       "lucide-react",

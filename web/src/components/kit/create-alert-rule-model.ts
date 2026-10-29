@@ -44,6 +44,8 @@ export interface AlertChannelChoice {
 export interface AlertRuleDraft {
   templateId: string;
   name: string;
+  /** Optional short note shown on the rule list. */
+  description: string;
   triggers: AlertTrigger[];
   match: "all" | "any";
   conditions: AlertCondition[];
@@ -252,7 +254,8 @@ export const PAYLOAD_BLOCKS: PayloadBlock[] = [
   },
 ];
 
-const DEFAULT_PAYLOAD: Record<string, boolean> = {
+/** Default “include on alert” checkboxes — also used when seeding fires. */
+export const DEFAULT_PAYLOAD: Record<string, boolean> = {
   stack_frames: true,
   "stack:in_app": true,
   "stack:line": true,
@@ -293,28 +296,32 @@ export interface AlertTemplate {
 }
 
 function draft(
-  partial: Omit<AlertRuleDraft, "payload" | "channelIds" | "cooldownCount"> & {
+  partial: Omit<AlertRuleDraft, "payload" | "channelIds" | "cooldownCount" | "description"> & {
     payload?: Record<string, boolean>;
     cooldownCount?: number;
+    description?: string;
   },
 ): AlertRuleDraft {
+  const { payload, cooldownCount, description, ...rest } = partial;
   return {
     channelIds: [],
-    cooldownCount: partial.cooldownCount ?? 1,
-    payload: { ...DEFAULT_PAYLOAD, ...partial.payload },
-    ...partial,
+    ...rest,
+    description: description ?? "",
+    cooldownCount: cooldownCount ?? 1,
+    payload: { ...DEFAULT_PAYLOAD, ...payload },
   };
 }
 
 export const ALERT_RULE_TEMPLATES: AlertTemplate[] = [
   {
     id: "production-crash",
-    title: "Prod crash",
-    detail: "Unhandled, in production",
+    title: "Production crash",
+    detail: "New unhandled error in production",
     recommended: true,
     draft: draft({
       templateId: "production-crash",
       name: "Production crash",
+      description: "New unhandled error in production",
       triggers: [{ type: "issue_new" }],
       match: "all",
       conditions: [
@@ -326,11 +333,12 @@ export const ALERT_RULE_TEMPLATES: AlertTemplate[] = [
   },
   {
     id: "regression-watchdog",
-    title: "Came back",
-    detail: "Resolved issue returns",
+    title: "Regression",
+    detail: "A resolved issue comes back",
     draft: draft({
       templateId: "regression-watchdog",
-      name: "Regression watchdog",
+      name: "Regression",
+      description: "A resolved issue comes back",
       triggers: [{ type: "issue_new" }],
       match: "all",
       conditions: [
@@ -342,11 +350,12 @@ export const ALERT_RULE_TEMPLATES: AlertTemplate[] = [
   },
   {
     id: "error-spike",
-    title: "Spike",
-      detail: "More than 100 in 5 min",
+    title: "Error spike",
+    detail: "100+ events in 5 minutes",
     draft: draft({
       templateId: "error-spike",
       name: "Error spike",
+      description: "100+ events in 5 minutes",
       triggers: [{ type: "issue_count", op: "gt", threshold: 100, window: "5m" }],
       match: "all",
       conditions: [{ field: "environment", op: "is", value: "production" }],
@@ -355,11 +364,12 @@ export const ALERT_RULE_TEMPLATES: AlertTemplate[] = [
   },
   {
     id: "many-users",
-    title: "Many users",
-      detail: "More than 25 in 1 hour",
+    title: "User impact",
+    detail: "25+ users affected in an hour",
     draft: draft({
       templateId: "many-users",
-      name: "Many users",
+      name: "User impact",
+      description: "25+ users affected in an hour",
       triggers: [{ type: "users_affected", op: "gt", threshold: 25, window: "1h" }],
       match: "all",
       conditions: [{ field: "priority", op: "at_least", value: "high" }],
@@ -368,11 +378,12 @@ export const ALERT_RULE_TEMPLATES: AlertTemplate[] = [
   },
   {
     id: "critical-routes",
-    title: "Checkout",
-    detail: "/checkout or enterprise",
+    title: "Critical path",
+    detail: "Checkout flow or enterprise plan",
     draft: draft({
       templateId: "critical-routes",
-      name: "Critical routes",
+      name: "Critical path",
+      description: "Checkout flow or enterprise plan",
       triggers: [{ type: "issue_new" }],
       match: "any",
       conditions: [
@@ -402,7 +413,12 @@ export function draftFromRule(rule: {
   kind?: string;
   environment?: string | null;
   threshold?: number | null;
-  filters_json?: { template_id?: unknown; cooldown_count?: unknown; cooldown_minutes?: unknown };
+  filters_json?: {
+    template_id?: unknown;
+    cooldown_count?: unknown;
+    cooldown_minutes?: unknown;
+    description?: unknown;
+  };
   triggers?: unknown;
   condition_match?: string | null;
   conditions?: unknown;
@@ -428,10 +444,13 @@ export function draftFromRule(rule: {
       : [];
   const count = Number(rule.filters_json?.cooldown_count);
   const minutes = rule.cooldown_mins ?? Number(rule.filters_json?.cooldown_minutes);
+  const description =
+    typeof rule.filters_json?.description === "string" ? rule.filters_json.description : "";
   return {
     ...base,
     templateId: typeof rule.filters_json?.template_id === "string" ? rule.filters_json.template_id : base.templateId,
     name: rule.name,
+    description,
     triggers: triggers.length > 0 ? triggers : fallbackTrigger,
     match: rule.condition_match === "any" ? "any" : "all",
     conditions: conditions.length > 0 ? conditions : fallbackConditions,
@@ -494,10 +513,66 @@ function parseConditions(value: unknown): AlertCondition[] {
 }
 
 function fallbackTriggerForKind(kind: string | undefined, threshold: number | null | undefined): AlertTrigger[] {
-  if (kind === "velocity_spike") {
-    return [{ type: "issue_count", op: "gt", threshold: threshold && threshold > 0 ? threshold : 100, window: "5m" }];
+  if (kind === "velocity_spike" || kind === "velocity" || kind === "event_milestone") {
+    return [
+      {
+        type: "issue_count",
+        op: "gt",
+        threshold: threshold && threshold > 0 ? threshold : 100,
+        window: kind === "velocity_spike" || kind === "velocity" ? "15m" : "5m",
+      },
+    ];
+  }
+  if (kind === "users_affected") {
+    return [
+      {
+        type: "users_affected",
+        op: "gt",
+        threshold: threshold && threshold > 0 ? threshold : 25,
+        window: "1h",
+      },
+    ];
   }
   return [{ type: "issue_new" }];
+}
+
+/** History detail — rebuild the create-alert draft the fire was evaluated from. */
+export function draftFromAlert(alert: {
+  kind: string;
+  payload_json?: Record<string, unknown> | null;
+}): AlertRuleDraft {
+  const payload = alert.payload_json ?? {};
+  const kind =
+    typeof payload.rule_kind === "string" && payload.rule_kind.trim()
+      ? payload.rule_kind.trim()
+      : alert.kind;
+  const threshold =
+    typeof payload.threshold === "number"
+      ? payload.threshold
+      : typeof payload.ratio === "number"
+        ? Math.max(1, Math.round((payload.ratio - 1) * 100))
+        : typeof payload.current_window === "number"
+          ? payload.current_window
+          : null;
+  const draft = draftFromRule({
+    name: typeof payload.rule_name === "string" ? payload.rule_name : "Alert",
+    kind,
+    environment: typeof payload.environment === "string" ? payload.environment : null,
+    threshold,
+    triggers: payload.triggers,
+    conditions: payload.conditions,
+    condition_match: typeof payload.condition_match === "string" ? payload.condition_match : null,
+    channel_ids: Array.isArray(payload.channel_ids)
+      ? payload.channel_ids.filter((id): id is string => typeof id === "string")
+      : null,
+  });
+  if (
+    (kind === "regression" || alert.kind === "regression") &&
+    !draft.conditions.some((item) => item.field === "came_back")
+  ) {
+    draft.conditions = [{ field: "came_back", op: "is", value: "yes" }, ...draft.conditions];
+  }
+  return draft;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -605,6 +680,7 @@ export function ruleToApiBody(rule: AlertRuleDraft, projectId: string) {
       cooldown_minutes: rule.cooldownMins,
       cooldown_count: rule.cooldownCount,
       template_id: rule.templateId,
+      description: rule.description.trim(),
     },
   };
 }

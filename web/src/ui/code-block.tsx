@@ -15,7 +15,7 @@ export function CodeBlock({ lines, className }: CodeBlockProps) {
   return (
     <div
       className={cn(
-        "epure-code-block overflow-hidden rounded-sm border border-border bg-bg-subtle font-mono text-xs",
+        "epure-code-block overflow-hidden rounded-sm border border-border bg-surface-1 font-mono text-xs shadow-xs",
         className,
       )}
     >

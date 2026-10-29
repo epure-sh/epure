@@ -6,6 +6,7 @@ import {
   workspaceSettingsPath,
   settingsTabFromPath,
   projectSettingsPath,
+  projectAlertRulesPath,
   projectPath,
   isWorkspaceSettingsRoute,
   organizationsPath,
@@ -37,6 +38,10 @@ describe("paths helpers for settings and releases", () => {
     assert.equal(projectSettingsPath("proj-123", "filters"), "/p/proj-123/settings/filters");
     assert.equal(projectSettingsPath("proj-123", "privacy"), "/p/proj-123/settings/privacy");
     assert.equal(projectSettingsPath("proj-123", "dsn"), "/p/proj-123/settings/dsn");
+    assert.equal(
+      projectAlertRulesPath("proj-123"),
+      "/p/proj-123/alerts?section=configure",
+    );
   });
 
   it("identifies workspace settings routes", () => {

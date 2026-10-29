@@ -64,7 +64,7 @@ export function CopyDsnBlock({
         </button>
       </div>
       {hint ? <p className="text-sm text-ink-muted">{hint}</p> : null}
-      <div className="epure-code-well flex gap-2 rounded-md border border-border bg-bg-subtle p-2">
+      <div className="epure-code-well flex gap-2 rounded-md border border-border bg-surface-1 p-2 shadow-xs">
         <Input
           readOnly
           value={revealed ? dsn : "••••••••••••••••••••••••••••••••"}

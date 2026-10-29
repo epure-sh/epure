@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { projectSettingsPath } from "../../lib/paths";
+import { useParams } from "react-router-dom";
 import {
   createDsnKey,
   fetchDsnKeys,
@@ -15,16 +14,17 @@ import { formatRelativeTime } from "../../lib/format-time";
 import { useAppContext } from "../../shell/app-context";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { CopyButton } from "../../ui/copy-button";
 import { CopyDsnBlock } from "../../ui/copy-dsn-block";
-import { Field } from "../../ui/field";
 import { Input } from "../../ui/input";
-import { SdkSnippetBlock } from "../../ui/sdk-snippet-block";
 import { useToast } from "../../ui/toast-provider";
-import { InfoCallout, MemberAccessNotice } from "./shared";
-import { DualSendingCard } from "../../ui/dual-sending-card";
-import { AskAgentCard } from "@/components/kit/ask-agent-card";
+import { SectionCard } from "@/components/kit/section-card";
+import {
+  InfoCallout,
+  MemberAccessNotice,
+  SettingsSkeleton,
+  SettingsStack,
+} from "./shared";
 
 export function DsnKeysSettings() {
   const { projectId: paramId } = useParams<{ projectId: string }>();
@@ -45,9 +45,7 @@ export function DsnKeysSettings() {
   const activeKey = activeKeys[0] ?? null;
 
   const loadKeys = useCallback(async () => {
-    if (projectsLoading || userLoading) {
-      return;
-    }
+    if (projectsLoading || userLoading) return;
     if (!activeProjectId || !canManage) {
       setKeys([]);
       setLoading(false);
@@ -55,10 +53,9 @@ export function DsnKeysSettings() {
     }
     setLoading(true);
     try {
-      const rows = await fetchDsnKeys(activeProjectId);
-      setKeys(rows);
+      setKeys(await fetchDsnKeys(activeProjectId));
     } catch {
-      toast("Failed to load DSN keys");
+      toast("Failed to load keys");
     } finally {
       setLoading(false);
     }
@@ -69,31 +66,25 @@ export function DsnKeysSettings() {
   }, [loadKeys]);
 
   async function handleCreate() {
-    if (!activeProjectId) {
-      return;
-    }
+    if (!activeProjectId) return;
     setBusy(true);
     try {
       const created = await createDsnKey(activeProjectId, keyLabel.trim() || "default");
       setRevealed(created);
       await loadKeys();
-      toast("DSN key created — copy it now");
+      toast("Key created — copy now");
     } catch {
-      toast("Failed to create DSN key");
+      toast("Create failed");
     } finally {
       setBusy(false);
     }
   }
 
   async function handleRotate() {
-    if (!activeProjectId) {
-      return;
-    }
+    if (!activeProjectId) return;
     if (
       activeKeys.length > 0 &&
-      !window.confirm(
-        "Rotate keys? Active keys will be revoked and your SDK must be updated with the new DSN.",
-      )
+      !window.confirm("Rotate? Active keys are revoked; update your SDK DSN.")
     ) {
       return;
     }
@@ -102,28 +93,24 @@ export function DsnKeysSettings() {
       const created = await rotateDsnKeys(activeProjectId, keyLabel.trim() || "rotated");
       setRevealed(created);
       await loadKeys();
-      toast("Rotated DSN — update your SDK");
+      toast("Rotated — update SDK");
     } catch {
-      toast("Failed to rotate DSN keys");
+      toast("Rotate failed");
     } finally {
       setBusy(false);
     }
   }
 
   async function handleRevoke(id: string) {
-    if (!window.confirm("Revoke this key? SDKs using it will stop sending events.")) {
-      return;
-    }
+    if (!window.confirm("Revoke this key?")) return;
     setBusy(true);
     try {
       await revokeDsnKey(id);
-      if (revealed?.id === id) {
-        setRevealed(null);
-      }
+      if (revealed?.id === id) setRevealed(null);
       await loadKeys();
-      toast("DSN key revoked");
+      toast("Revoked");
     } catch {
-      toast("Failed to revoke DSN key");
+      toast("Revoke failed");
     } finally {
       setBusy(false);
     }
@@ -131,27 +118,29 @@ export function DsnKeysSettings() {
 
   if (projectsLoading || userLoading) {
     return (
-      <div className="space-y-4">
-        <div className="h-32 rounded-lg border border-border-subtle bg-surface-1 animate-pulse" />
-      </div>
+      <SettingsStack>
+        <SettingsSkeleton />
+      </SettingsStack>
     );
   }
 
   if (!activeProjectId) {
     return (
-      <div className="space-y-4">
-        <InfoCallout variant="warning">Select a project to manage connection strings.</InfoCallout>
-      </div>
+      <SettingsStack>
+        <InfoCallout variant="warning">Select a project.</InfoCallout>
+      </SettingsStack>
     );
   }
 
   if (!canManage) {
-    return <MemberAccessNotice resource="DSN keys" />;
+    return (
+      <SettingsStack>
+        <MemberAccessNotice resource="client keys" />
+      </SettingsStack>
+    );
   }
 
-  const activeProject = safeProjects.find((row) => row && (row.id === activeProjectId || row.slug === activeProjectId)) ?? null;
-  const dsnSegment = activeProject ? dsnPathSegment(activeProject) : null;
-
+  const dsnSegment = project ? dsnPathSegment(project) : null;
   const activeDsn =
     activeKey && dsnSegment
       ? formatDsn(activeKey.public_key, dsnSegment)
@@ -160,172 +149,109 @@ export function DsnKeysSettings() {
         : null;
 
   return (
-    <div className="space-y-4">
-      <InfoCallout>
-        <strong className="font-medium text-fg-primary">Inbound only.</strong> DSN keys let the SDK send
-        errors to Epure. They cannot read issues, trigger alerts, or call outbound webhooks. To
-        notify Slack or Discord, use{" "}
-        <Link
-          to={projectSettingsPath(activeProjectId, "webhooks")}
-          className="font-medium text-primary underline-offset-2 hover:underline"
-        >
-          Notifications
-        </Link>
-        .
-      </InfoCallout>
-
-      {revealed ? (
-        <Card className="border-primary/30 bg-surface-2">
-          <CardHeader>
-            <CardTitle>New key created</CardTitle>
-            <CardDescription>
-              Copy the DSN and secret now. The secret is shown once at creation.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <CopyDsnBlock
-              dsn={dsnSegment ? formatDsn(revealed.public_key, dsnSegment) : ""}
-              label="Connection string (DSN)"
-              hint="Paste into your SDK init. Safe to embed in client apps."
-            />
-            <div className="epure-code-well rounded-md border border-border-subtle bg-surface-2 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs text-fg-muted">Secret key (server-side only)</p>
-                <CopyButton value={revealed.secret_key} label="Copy secret" />
-              </div>
-              <p className="mt-2 break-all font-mono text-xs text-fg-primary">{revealed.secret_key}</p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {activeDsn && !revealed ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Active connection string</CardTitle>
-            <CardDescription>Use this DSN in your SDK if you did not save it during setup.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CopyDsnBlock dsn={activeDsn} hint="One string — copy and paste into your SDK configuration." />
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {(activeKey || revealed) && dsnSegment ? (
-        <DualSendingCard
-          publicKey={activeKey ? activeKey.public_key : revealed!.public_key}
-          dsnSegment={dsnSegment}
-        />
-      ) : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Manage keys</CardTitle>
-          <CardDescription>Create, rotate, or revoke DSN credentials.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Field
-            label="Key label"
-            htmlFor="dsn-label"
-            hint="Optional label to distinguish keys (e.g. production, ci)."
-          >
+    <SettingsStack>
+      <SectionCard
+        title="Client keys"
+        description="DSN for SDK ingest. Inbound only."
+        headerActions={
+          <div className="flex items-center gap-1.5">
             <Input
-              id="dsn-label"
               value={keyLabel}
               onChange={(event) => setKeyLabel(event.target.value)}
-              placeholder="default"
+              placeholder="label"
               maxLength={64}
+              className="h-7 w-24 text-2xs"
+              aria-label="Key label"
             />
-          </Field>
-          <div className="flex flex-wrap gap-2">
-            <Button disabled={busy} onClick={() => void handleCreate()}>
-              Create key
+            <Button size="sm" disabled={busy} onClick={() => void handleCreate()}>
+              Create
             </Button>
-            <Button variant="secondary" disabled={busy} onClick={() => void handleRotate()}>
-              Rotate keys
+            <Button variant="secondary" size="sm" disabled={busy} onClick={() => void handleRotate()}>
+              Rotate
             </Button>
           </div>
-          <p className="text-xs text-fg-muted">
-            Rotating revokes all active keys and issues a new pair. Plan a deploy window before
-            rotating production keys.
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Key inventory</CardTitle>
-          <CardDescription>All keys for this project, newest first.</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0 pt-0">
-          {loading ? (
-            <p className="px-4 pb-4 text-sm text-fg-muted">Loading keys…</p>
-          ) : keys.length === 0 ? (
-            <p className="px-4 pb-4 text-sm text-fg-muted">
-              No DSN keys yet. Create one to connect your SDK.
-            </p>
+        }
+      >
+        <div className="space-y-3">
+          {revealed && dsnSegment ? (
+            <div className="space-y-2 rounded-md border border-border-subtle bg-surface-2/50 p-2.5">
+              <p className="text-2xs font-medium text-fg-primary">
+                New key — secret shown once
+              </p>
+              <CopyDsnBlock
+                compact
+                dsn={formatDsn(revealed.public_key, dsnSegment)}
+                label="DSN"
+                hint={null}
+              />
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={revealed.secret_key}
+                  className="h-8 min-w-0 flex-1 font-mono text-2xs"
+                  aria-label="Secret key"
+                  onFocus={(event) => event.currentTarget.select()}
+                />
+                <CopyButton value={revealed.secret_key} label="Secret" />
+              </div>
+            </div>
+          ) : activeDsn ? (
+            <CopyDsnBlock compact dsn={activeDsn} label="Active DSN" hint={null} />
           ) : (
-            <ul className="divide-y divide-border-subtle">
-              {keys.map((key) => (
-                <li
-                  key={key.id}
-                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-                >
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate font-mono text-sm text-fg-primary">{key.public_key}</p>
-                      <Badge variant={key.revoked_at ? "secondary" : "env"}>
+            <p className="text-xs text-fg-muted">No active key. Create one to connect an SDK.</p>
+          )}
+
+          <div className="w-full overflow-hidden rounded-md border border-border-subtle">
+            {loading ? (
+              <p className="px-3 py-2 text-2xs text-fg-muted">Loading…</p>
+            ) : keys.length === 0 ? (
+              <p className="px-3 py-2 text-2xs text-fg-muted">No keys yet.</p>
+            ) : (
+              <ul className="w-full divide-y divide-border-subtle">
+                {keys.map((key) => (
+                  <li
+                    key={key.id}
+                    className="flex w-full min-h-9 items-center justify-between gap-2 px-2.5 py-1.5"
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className="truncate font-mono text-2xs text-fg-primary">
+                        {key.public_key.slice(0, 12)}…
+                      </span>
+                      <Badge
+                        variant={key.revoked_at ? "secondary" : "env"}
+                        size="compact"
+                        className="shrink-0"
+                      >
                         {key.revoked_at ? "Revoked" : "Active"}
                       </Badge>
+                      <span className="truncate text-2xs text-fg-muted">
+                        {key.label ?? "—"} · {formatRelativeTime(key.created_at)}
+                      </span>
                     </div>
-                    <p className="text-xs text-fg-muted">
-                      {key.label ?? "unlabeled"} · created {formatRelativeTime(key.created_at)}
-                      {key.revoked_at
-                        ? ` · revoked ${formatRelativeTime(key.revoked_at)}`
-                        : null}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
                     {!key.revoked_at ? (
-                      <>
+                      <div className="flex shrink-0 items-center gap-1">
                         <CopyButton
                           value={dsnSegment ? formatDsn(key.public_key, dsnSegment) : ""}
-                          label="Copy DSN"
+                          label="DSN"
                         />
                         <Button
-                          variant="danger"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-2xs text-semantic-danger"
                           disabled={busy}
                           onClick={() => void handleRevoke(key.id)}
                         >
                           Revoke
                         </Button>
-                      </>
+                      </div>
                     ) : null}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
-      {activeDsn ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>SDK setup</CardTitle>
-            <CardDescription>Quick start with the official Sentry SDK.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <SdkSnippetBlock dsn={activeDsn} environment="production" />
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <AskAgentCard
-        title="Connect SDK with AI Assistant"
-        description="Ask your AI coding assistant to swap your DSN or set up error handling in your application in 1 prompt."
-        promptText={activeDsn ? `Configure our application to send errors to Epure with DSN: ${activeDsn}` : "Configure our application to send errors to Epure"}
-      />
-    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </SectionCard>
+    </SettingsStack>
   );
 }

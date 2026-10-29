@@ -9,8 +9,11 @@ import { issueStateBadge, issueWorkflowActions } from "./issue-triage-utils";
 
 export function IssueStateBadge({
   issue,
+  size = "md",
 }: {
   issue: Pick<IssueSummary, "status" | "snoozed" | "level" | "priority" | "priority_score">;
+  /** Detail header uses `md`; feed rows can pass `compact`. */
+  size?: "compact" | "sm" | "md";
 }) {
   const badge = issueStateBadge(issue);
   return (
@@ -20,9 +23,10 @@ export function IssueStateBadge({
         status={issue.status}
         priority={issue.priority}
         priorityScore={issue.priority_score}
-        compact
+        compact={size === "compact"}
+        className={size === "md" ? "h-6 min-h-6 px-2 text-xs" : undefined}
       />
-      <Badge size="compact" variant={badge.variant}>
+      <Badge size={size} variant={badge.variant}>
         {badge.label}
       </Badge>
     </>
@@ -63,7 +67,7 @@ export function IssueStateActions({
           tooltip="Resolve (E)"
           onClick={() => onResolve(issue.id)}
         >
-          <Check className="size-3.5" />
+          <Check className="size-4" />
           <span>{saving ?? "Resolve"}</span>
         </ActionButton>
       ) : null}
@@ -76,20 +80,22 @@ export function IssueStateActions({
           tooltip={reopenLabel}
           onClick={() => onReopen(issue.id)}
         >
-          <RotateCcw className="size-3.5" />
+          <RotateCcw className="size-4" />
           <span>{saving ?? reopenLabel}</span>
         </ActionButton>
       ) : null}
       {actions.includes("ignore") ? (
         <ActionButton
           variant="ghost"
-          size="icon"
+          size="sm"
+          className={DETAIL_INLINE_ACTION_CLASS}
           tooltip="Ignore (I)"
           disabled={disabled}
           aria-label="Ignore issue"
           onClick={() => onIgnore(issue.id)}
         >
-          <EyeOff className="size-3.5" aria-hidden />
+          <EyeOff className="size-4" aria-hidden />
+          <span>Ignore</span>
         </ActionButton>
       ) : null}
       {actions.includes("unsnooze") ? (
@@ -102,7 +108,7 @@ export function IssueStateActions({
           aria-label="Unsnooze issue"
           onClick={() => onUnsnooze(issue.id)}
         >
-          <BellRing className="size-3.5" aria-hidden />
+          <BellRing className="size-4" aria-hidden />
           <span>{saving ?? "Unsnooze"}</span>
         </ActionButton>
       ) : null}
@@ -111,8 +117,7 @@ export function IssueStateActions({
           issue={issue}
           disabled={disabled}
           variant="ghost"
-          iconOnly
-          iconSize="icon"
+          className={DETAIL_INLINE_ACTION_CLASS}
           showShortcutHint
           onSnooze={onSnooze}
         />

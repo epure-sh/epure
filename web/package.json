@@ -54,6 +54,7 @@
     "prop-types": "^15.8.1",
     "radix-ui": "^1.8.1",
     "react": "^19.1.1",
+    "react-activity-calendar": "^3.2.1",
     "react-dom": "^19.1.1",
     "react-hook-form": "^7.91.0",
     "react-hotkeys-hook": "^5.3.3",

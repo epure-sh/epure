@@ -45,7 +45,7 @@ export function DropdownMenuSubContent({
     <DropdownMenuPrimitive.SubContent
       data-slot="dropdown-menu-sub-content"
       className={cn(
-        "z-[100] min-w-[8rem] overflow-hidden rounded-control border border-border-strong bg-surface-1 p-1 text-fg-primary shadow-float",
+        "epure-popover-content z-[100] min-w-[8rem] overflow-hidden rounded-control border-2 border-border-strong bg-surface-1 p-1 text-fg-primary shadow-float",
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className
       )}
@@ -65,7 +65,7 @@ export function DropdownMenuContent({
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         className={cn(
-          "z-[100] min-w-[10rem] overflow-hidden rounded-control border border-border-strong bg-surface-1 p-1 text-fg-primary shadow-float",
+          "epure-popover-content z-[100] min-w-[10rem] overflow-hidden rounded-control border-2 border-border-strong bg-surface-1 p-1 text-fg-primary shadow-float",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           className
         )}

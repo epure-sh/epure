@@ -19,8 +19,6 @@ import {
 } from "./dialog";
 import { FilterChip } from "./filter-chip";
 import { Input } from "./input";
-import { OccurrencePicker } from "./occurrence-picker";
-
 const INLINE_CAP = 10;
 
 type BreadcrumbFilter = "all" | "http" | "console" | "errors";
@@ -303,13 +301,14 @@ export interface BreadcrumbTimelineProps {
   selectedEventId: string | null;
   selectedEvent?: EventDetail | null;
   onSelectEvent: (id: string, event?: EventDetail) => void;
+  /** @deprecated Occurrence picker lives in IssueDetailTabs. */
+  showOccurrencePicker?: boolean;
 }
 
 export function BreadcrumbTimeline({
   events,
   selectedEventId,
   selectedEvent: selectedEventProp,
-  onSelectEvent,
 }: BreadcrumbTimelineProps) {
   const [filter, setFilter] = useState<BreadcrumbFilter>("all");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -366,14 +365,6 @@ export function BreadcrumbTimeline({
   if (allCrumbs.length === 0) {
     return (
       <div className="epure-breadcrumb-timeline flex min-h-0 flex-1 flex-col">
-        <div className="flex shrink-0 items-center border-b border-border px-4 py-2 md:px-5">
-          <OccurrencePicker
-            events={events}
-            selectedEventId={selectedEventId}
-            selectedEvent={selectedEvent}
-            onSelectEvent={onSelectEvent}
-          />
-        </div>
         <div className="px-4 py-4 md:px-5">
           <div className="epure-inset-well px-3 py-6 text-center font-mono text-xs text-ink-muted">
             No breadcrumbs captured for this occurrence.
@@ -385,15 +376,6 @@ export function BreadcrumbTimeline({
 
   return (
     <div className="epure-breadcrumb-timeline flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center border-b border-border px-4 py-2 md:px-5">
-        <OccurrencePicker
-          events={events}
-          selectedEventId={selectedEventId}
-          selectedEvent={selectedEvent}
-          onSelectEvent={onSelectEvent}
-        />
-      </div>
-
       <div className="space-y-4 px-4 py-4 md:px-5">
         {summary ? (
           <p className="font-mono text-2xs uppercase tracking-wide text-ink-muted">{summary}</p>

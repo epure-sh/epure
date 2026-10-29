@@ -292,6 +292,7 @@ Prefer `@/components/ui/*` / `@/components/kit/data-table` façades. Deep-import
 | `ListGroup` / `Subnav` / `Truncated` | `@polar-sh/orbit` | Available; adopt when touching feed chrome |
 | `Alert` | `@polar-sh/orbit/Alert` | **Used** on org home pause/welcome banners |
 | `Status` / `Avatar` / `Grid` | façades / deep import | **Used** on org home project card gallery |
+| — | `@/components/kit/alert-execution-pipeline` | Alert fire inspector: Triggered → Conditions → Delivered (CSS grid, no canvas) |
 
 ### No Orbit equivalent (keep minimal Polar chrome)
 

@@ -102,14 +102,24 @@ export function Select({
 
   return (
     <>
-      <OrbitSelect open={open} onOpenChange={setOpen} {...props} />
+      {/*
+        Cast: Orbit's Select typings omit Radix `modal`. Keep non-modal so body
+        pointer-events stay usable inside the issue-detail overlay (z-70).
+      */}
+      <OrbitSelect
+        open={open}
+        onOpenChange={setOpen}
+        {...props}
+        {...({ modal: false } as object)}
+      />
       {open && typeof document !== "undefined"
         ? createPortal(
             <Box
               data-slot="select-backdrop"
               position="fixed"
               inset={0}
-              zIndex={40}
+              // Above issue-detail overlay (z-70); below select content (z-[80]).
+              zIndex={75}
               pointerEvents="auto"
               onPointerDown={(event) => {
                 event.preventDefault();
@@ -141,6 +151,8 @@ export function SelectTrigger({
       data-slot="select-trigger"
       className={cn(
         size === "sm" ? "h-8 min-h-8 px-3 text-xs" : "h-10 min-h-10 px-3 text-sm",
+        // Orbit defaults to [&>span]:line-clamp-1 — keep full label visible.
+        "w-fit max-w-none [&>span]:line-clamp-none [&>span]:overflow-visible [&>span]:whitespace-nowrap",
         className,
       )}
       {...props}
@@ -160,7 +172,8 @@ export function SelectContent({
     <OrbitSelectContent
       data-slot="select-content"
       position={position}
-      className={cn("z-50", className)}
+      // Above issue-detail overlay (z-70) + select backdrop (z-75).
+      className={cn("z-[80]", className)}
       {...props}
     >
       {children}

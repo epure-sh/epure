@@ -4,12 +4,13 @@ import { Button } from "./button";
 import { OccurrenceLineChart } from "./occurrence-line-chart";
 import { Section, SectionHeader } from "./section";
 
-export type TimelineWindowValue = "7d" | "14d" | "30d";
+export type TimelineWindowValue = "24h" | "7d" | "14d" | "30d";
 
 export const TIMELINE_WINDOW_OPTIONS: { value: TimelineWindowValue; label: string }[] = [
-  { value: "7d", label: "7d" },
-  { value: "14d", label: "14d" },
-  { value: "30d", label: "30d" },
+  { value: "24h", label: "Last 24 hours" },
+  { value: "7d", label: "Last 7 days" },
+  { value: "14d", label: "Last 14 days" },
+  { value: "30d", label: "Last 30 days" },
 ];
 
 export interface IssueOccurrenceTimelineProps {
@@ -22,6 +23,8 @@ export interface IssueOccurrenceTimelineProps {
 
 function windowLabel(window: TimelineWindowValue): string {
   switch (window) {
+    case "24h":
+      return "Last 24 hours";
     case "14d":
       return "Last 14 days";
     case "30d":

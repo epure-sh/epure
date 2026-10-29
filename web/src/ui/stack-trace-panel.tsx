@@ -408,10 +408,10 @@ function StackToolbarButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "text-xs font-medium focus-ring disabled:pointer-events-none disabled:opacity-40 transition-colors",
+        "rounded-sm px-1.5 py-1 text-2xs font-medium focus-ring disabled:pointer-events-none disabled:opacity-40 transition-colors",
         emphasis
-          ? "text-fg-primary hover:underline"
-          : "text-fg-muted hover:text-fg-primary hover:underline",
+          ? "bg-accent/10 text-fg-primary hover:bg-accent/15"
+          : "text-fg-muted hover:bg-state-hover hover:text-fg-primary",
       )}
     >
       {children}
@@ -436,8 +436,10 @@ function SegmentToggle({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "rounded-xs px-2 py-0.5 text-xs font-medium transition-colors focus-ring disabled:opacity-40",
-        active ? "bg-surface-1 text-fg-primary font-semibold" : "text-fg-muted hover:text-fg-primary",
+        "rounded-sm px-2 py-1 text-2xs font-medium transition-colors focus-ring disabled:opacity-40",
+        active
+          ? "bg-surface-1 text-fg-primary shadow-sm ring-1 ring-border-subtle"
+          : "text-fg-muted hover:bg-surface-1/70 hover:text-fg-primary",
       )}
     >
       {children}
@@ -481,26 +483,27 @@ function StackFrameRow({
         aria-expanded={expanded}
         disabled={!hasCode && !expanded}
         className={cn(
-          "flex w-full items-start gap-3 px-4 py-2.5 text-left transition-colors focus-ring",
+          "flex w-full items-start gap-2 px-3 py-1.5 text-left transition-colors focus-ring",
           "hover:bg-state-hover",
           !hasCode && "cursor-default",
-          isCulprit && "border-l-2 border-l-accent bg-surface-2/40",
+          isCulprit && "border-l-2 border-l-accent bg-accent/5",
+          expanded && hasCode && "bg-bg-subtle/80",
         )}
       >
-        <span className="mt-px shrink-0 text-fg-muted" aria-hidden>
+        <span className="mt-0.5 shrink-0 text-fg-muted" aria-hidden>
           {hasCode ? (
             expanded ? (
-              <ChevronDown className="size-3.5" />
+              <ChevronDown className="size-3" />
             ) : (
-              <ChevronRight className="size-3.5" />
+              <ChevronRight className="size-3" />
             )
           ) : (
-            <span className="inline-block size-3.5" />
+            <span className="inline-block size-3" />
           )}
         </span>
         <div
           className={cn(
-            "min-w-0 flex-1 pt-px font-mono text-sm leading-6 [overflow-wrap:anywhere]",
+            "min-w-0 flex-1 font-mono text-2xs leading-5 [overflow-wrap:anywhere]",
             vendor ? "text-fg-muted" : "text-fg-primary",
           )}
         >
@@ -544,10 +547,10 @@ function VendorRunToggle({
       type="button"
       onClick={onClick}
       aria-expanded={expanded}
-      className="flex w-full items-center gap-3 border-b border-border-subtle px-4 py-2.5 text-left text-xs text-fg-muted transition-colors hover:bg-state-hover hover:text-fg-primary focus-ring"
+      className="flex w-full items-center gap-2 border-b border-border-subtle bg-bg-subtle/40 px-3 py-1 text-left text-fg-muted transition-colors hover:bg-state-hover hover:text-fg-primary focus-ring"
     >
-      {expanded ? <ChevronDown className="size-3.5 shrink-0" /> : <ChevronRight className="size-3.5 shrink-0" />}
-      <span className="font-mono text-2xs">
+      {expanded ? <ChevronDown className="size-3 shrink-0" /> : <ChevronRight className="size-3 shrink-0" />}
+      <span className="font-mono text-[10px] uppercase tracking-wide">
         {expanded ? "Hide" : "Show"} {count} library frame{count === 1 ? "" : "s"}
       </span>
     </button>
@@ -559,7 +562,10 @@ export interface StackTracePanelProps {
   selectedEventId: string | null;
   selectedEvent?: EventDetail | null;
   onSelectEvent: (id: string, event?: EventDetail) => void;
+  /** @deprecated Occurrence picker lives in IssueDetailTabs. */
   showOccurrencePicker?: boolean;
+  /** Hide exception type/message when the pinned issue header already shows the title. */
+  hideExceptionTitle?: boolean;
   /** @deprecated Stack lives on its own tab; kept for API compatibility */
   embedded?: boolean;
   onViewGrouping?: () => void;
@@ -570,7 +576,8 @@ export function StackTracePanel({
   selectedEventId,
   selectedEvent: selectedEventProp,
   onSelectEvent,
-  showOccurrencePicker = true,
+  showOccurrencePicker = false,
+  hideExceptionTitle = true,
 }: StackTracePanelProps) {
   const [expandedFrames, setExpandedFrames] = useState<Set<number>>(() => new Set());
   const [expandedVendorRuns, setExpandedVendorRuns] = useState<Record<string, boolean>>({});
@@ -672,17 +679,6 @@ export function StackTracePanel({
     setExpandedVendorRuns({});
   };
 
-  const focusCulprit = () => {
-    if (culpritIndex == null) {
-      return;
-    }
-    revealVendorRun(culpritIndex);
-    setExpandedFrames(new Set([culpritIndex]));
-    requestAnimationFrame(() => {
-      culpritRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
-    });
-  };
-
   const handleCopyAll = async () => {
     try {
       const text = formatFullStackTrace(exception, uniqueFrames);
@@ -703,8 +699,28 @@ export function StackTracePanel({
     );
   }
 
+  const exceptionMeta =
+    exception && (exception.mechanism != null || exception.handled != null) ? (
+      <div className="flex flex-wrap gap-1">
+        {exception.mechanism != null ? (
+          <Badge variant="neutral" size="compact" className="font-mono font-normal">
+            {exception.mechanism}
+          </Badge>
+        ) : null}
+        {exception.handled != null ? (
+          <Badge
+            variant={exception.handled ? "healthy" : "warning"}
+            size="compact"
+            className="font-mono font-normal"
+          >
+            {exception.handled ? "handled" : "unhandled"}
+          </Badge>
+        ) : null}
+      </div>
+    ) : null;
+
   return (
-    <div className="epure-stack-trace flex min-h-0 flex-1 flex-col bg-surface-1">
+    <div className="epure-stack-trace flex min-h-0 flex-1 flex-col bg-transparent">
       {showOccurrencePicker ? (
         <div className="flex shrink-0 items-center border-b border-border-subtle px-4 py-2 md:px-5">
           <OccurrencePicker
@@ -716,13 +732,25 @@ export function StackTracePanel({
         </div>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 py-3 md:px-5">
-        <header className="shrink-0 space-y-2 border-b border-border-subtle pb-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-mono text-xs uppercase tracking-wide text-fg-muted">
-              Stack · newest first
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 py-3 md:px-5">
+        {hideExceptionTitle ? (
+          exceptionMeta ? <div className="shrink-0">{exceptionMeta}</div> : null
+        ) : exception ? (
+          <div className="shrink-0 space-y-1">
+            <h3 className="text-sm font-medium tracking-ui text-fg-primary">{exception.type}</h3>
+            <p className="text-xs leading-snug text-fg-secondary select-text [overflow-wrap:anywhere]">
+              {exception.message}
             </p>
-            <div className="inline-flex rounded-md border border-border-subtle bg-bg-subtle/80 p-0.5">
+            {exceptionMeta}
+          </div>
+        ) : (
+          <p className="shrink-0 text-2xs text-fg-muted">No exception details captured.</p>
+        )}
+
+        {/* Hug frame content; cap at panel height and scroll inside when taller. */}
+        <div className="epure-code-well flex min-h-0 w-full max-h-full flex-col overflow-hidden rounded-md border border-border bg-surface-1 shadow-xs">
+          <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border-subtle bg-surface-1 px-3 py-2">
+            <div className="inline-flex rounded-md border border-border-subtle bg-canvas p-0.5">
               <SegmentToggle active={viewMode === "full"} onClick={() => setViewMode("full")}>
                 Frames
               </SegmentToggle>
@@ -730,135 +758,104 @@ export function StackTracePanel({
                 Raw
               </SegmentToggle>
             </div>
-          </div>
 
-          {exception ? (
-            <div className="space-y-1.5">
-              <h3 className="text-md font-medium tracking-ui text-fg-primary">{exception.type}</h3>
-              <p className="text-sm leading-snug text-fg-secondary select-text [overflow-wrap:anywhere]">
-                {exception.message}
-              </p>
-              {exception.mechanism != null || exception.handled != null ? (
-                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                  {exception.mechanism != null ? (
-                    <Badge variant="neutral" size="compact" className="font-mono font-normal">
-                      {exception.mechanism}
-                    </Badge>
-                  ) : null}
-                  {exception.handled != null ? (
-                    <Badge
-                      variant={exception.handled ? "healthy" : "warning"}
-                      size="compact"
-                      className="font-mono font-normal"
-                    >
-                      {exception.handled ? "handled" : "unhandled"}
-                    </Badge>
-                  ) : null}
-                </div>
+            {viewMode === "full" ? (
+              <div className="inline-flex rounded-md border border-border-subtle bg-canvas p-0.5">
+                <SegmentToggle active={!inAppOnly} onClick={() => setInAppOnly(false)}>
+                  All {uniqueFrames.length}
+                </SegmentToggle>
+                <SegmentToggle
+                  active={inAppOnly}
+                  onClick={() => setInAppOnly(true)}
+                  disabled={!hasInAppFrames}
+                >
+                  In-app {inAppIndices.length}
+                </SegmentToggle>
+              </div>
+            ) : null}
+
+            <div className="ml-auto flex flex-wrap items-center gap-1">
+              {viewMode === "full" ? (
+                <>
+                  <StackToolbarButton onClick={expandAll} disabled={allExpanded}>
+                    Expand
+                  </StackToolbarButton>
+                  <StackToolbarButton onClick={collapseAll} disabled={noneExpanded}>
+                    Collapse
+                  </StackToolbarButton>
+                </>
               ) : null}
+              <button
+                type="button"
+                onClick={() => void handleCopyAll()}
+                className="inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-2xs font-medium text-fg-muted hover:bg-state-hover hover:text-fg-primary focus-ring"
+              >
+                {copiedAll ? <Check className="size-3 text-healthy" /> : <Copy className="size-3" />}
+                Copy
+              </button>
+            </div>
+          </header>
+
+          {viewMode === "raw" ? (
+            <pre className="min-h-0 overflow-y-auto bg-surface-1 p-3 font-mono text-2xs leading-relaxed text-fg-primary whitespace-pre-wrap select-text">
+              {formatFullStackTrace(exception, uniqueFrames)}
+            </pre>
+          ) : uniqueFrames.length > 0 ? (
+            <div className="epure-stack-trace-frames min-h-0 overflow-y-auto bg-surface-1">
+              {stackList.map((item) => {
+                if (item.type === "frame") {
+                  const { frame } = item.entry.unique;
+                  const globalIndex = item.entry.globalIndex;
+                  return (
+                    <StackFrameRow
+                      key={item.entry.unique.key}
+                      frame={frame}
+                      vendor={isVendorFrame(frame)}
+                      isCulprit={globalIndex === culpritIndex}
+                      rowRef={globalIndex === culpritIndex ? culpritRef : undefined}
+                      expanded={isFrameExpanded(globalIndex)}
+                      onToggle={() => toggleFrame(globalIndex)}
+                    />
+                  );
+                }
+
+                const vendorExpanded = isVendorRunExpanded(item.runId);
+                return (
+                  <div key={item.runId} className="epure-stack-trace-vendor-run">
+                    <VendorRunToggle
+                      count={item.frames.length}
+                      expanded={vendorExpanded}
+                      onClick={() =>
+                        setExpandedVendorRuns((current) => ({
+                          ...current,
+                          [item.runId]: !vendorExpanded,
+                        }))
+                      }
+                    />
+                    {vendorExpanded
+                      ? item.frames.map((entry) => (
+                          <StackFrameRow
+                            key={entry.unique.key}
+                            frame={entry.unique.frame}
+                            vendor
+                            nested
+                            isCulprit={entry.globalIndex === culpritIndex}
+                            rowRef={entry.globalIndex === culpritIndex ? culpritRef : undefined}
+                            expanded={isFrameExpanded(entry.globalIndex)}
+                            onToggle={() => toggleFrame(entry.globalIndex)}
+                          />
+                        ))
+                      : null}
+                  </div>
+                );
+              })}
             </div>
           ) : (
-            <p className="text-xs text-fg-muted">No exception details captured.</p>
+            <div className="bg-surface-1 px-3 py-8 text-center text-sm text-fg-muted">
+              No stack frames captured for this occurrence.
+            </div>
           )}
-
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
-            {viewMode === "full" ? (
-              <>
-                <div className="inline-flex rounded-md border border-border-subtle bg-bg-subtle/80 p-0.5">
-                  <SegmentToggle active={!inAppOnly} onClick={() => setInAppOnly(false)}>
-                    All {uniqueFrames.length}
-                  </SegmentToggle>
-                  <SegmentToggle
-                    active={inAppOnly}
-                    onClick={() => setInAppOnly(true)}
-                    disabled={!hasInAppFrames}
-                  >
-                    In-app {inAppIndices.length}
-                  </SegmentToggle>
-                </div>
-                {culpritIndex != null ? (
-                  <StackToolbarButton onClick={focusCulprit} emphasis>
-                    Suspect frame
-                  </StackToolbarButton>
-                ) : null}
-                <StackToolbarButton onClick={expandAll} disabled={allExpanded}>
-                  Expand all
-                </StackToolbarButton>
-                <StackToolbarButton onClick={collapseAll} disabled={noneExpanded}>
-                  Collapse
-                </StackToolbarButton>
-              </>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => void handleCopyAll()}
-              className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-fg-muted hover:text-fg-primary focus-ring"
-            >
-              {copiedAll ? <Check className="size-3.5 text-healthy" /> : <Copy className="size-3.5" />}
-              Copy
-            </button>
-          </div>
-        </header>
-
-        {viewMode === "raw" ? (
-          <pre className="epure-code-well min-h-0 flex-1 overflow-auto rounded-md border border-border bg-bg-subtle p-3 font-mono text-xs leading-relaxed text-fg-primary whitespace-pre-wrap select-text">
-            {formatFullStackTrace(exception, uniqueFrames)}
-          </pre>
-        ) : uniqueFrames.length > 0 ? (
-          <div className="epure-stack-trace-frames min-h-0 flex-1 overflow-auto rounded-md border border-border bg-bg-subtle">
-            {stackList.map((item) => {
-              if (item.type === "frame") {
-                const { frame } = item.entry.unique;
-                const globalIndex = item.entry.globalIndex;
-                return (
-                  <StackFrameRow
-                    key={item.entry.unique.key}
-                    frame={frame}
-                    vendor={isVendorFrame(frame)}
-                    isCulprit={globalIndex === culpritIndex}
-                    rowRef={globalIndex === culpritIndex ? culpritRef : undefined}
-                    expanded={isFrameExpanded(globalIndex)}
-                    onToggle={() => toggleFrame(globalIndex)}
-                  />
-                );
-              }
-
-              const vendorExpanded = isVendorRunExpanded(item.runId);
-              return (
-                <div key={item.runId} className="epure-stack-trace-vendor-run">
-                  <VendorRunToggle
-                    count={item.frames.length}
-                    expanded={vendorExpanded}
-                    onClick={() =>
-                      setExpandedVendorRuns((current) => ({
-                        ...current,
-                        [item.runId]: !vendorExpanded,
-                      }))
-                    }
-                  />
-                  {vendorExpanded
-                    ? item.frames.map((entry) => (
-                        <StackFrameRow
-                          key={entry.unique.key}
-                          frame={entry.unique.frame}
-                          vendor
-                          nested
-                          isCulprit={entry.globalIndex === culpritIndex}
-                          rowRef={entry.globalIndex === culpritIndex ? culpritRef : undefined}
-                          expanded={isFrameExpanded(entry.globalIndex)}
-                          onToggle={() => toggleFrame(entry.globalIndex)}
-                        />
-                      ))
-                    : null}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="rounded-md border border-border-subtle px-3 py-8 text-center text-sm text-fg-muted">
-            No stack frames captured for this occurrence.
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );

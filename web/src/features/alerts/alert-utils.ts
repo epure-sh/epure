@@ -513,6 +513,63 @@ export function getAlertCorrelatedIssueIds(alert?: AlertRow | null): string[] {
   return ids;
 }
 
+export type AlertRelatedIssueRow = {
+  issueId: string;
+  issueShort: string;
+  title: string | null;
+  events: number | null;
+  users: number | null;
+  release: string | null;
+  culprit: string | null;
+  primary: boolean;
+};
+
+function issueShortId(issueId: string): string {
+  return `#${issueId.replace(/-/g, "").slice(0, 8)}`;
+}
+
+/** Primary + correlated issues for the detail Related issues table. */
+export function getAlertRelatedIssueRows(alert?: AlertRow | null): AlertRelatedIssueRow[] {
+  if (!alert || alert.kind === "ingest_cap_hit") {
+    return [];
+  }
+
+  const payload = parsePayload(alert.payload_json);
+  const linked = getAlertLinkedIssueMeta(alert);
+  const { events, users } = getAlertImpactMetrics(alert);
+  const title =
+    typeof payload.title === "string" && payload.title.trim() ? payload.title.trim() : null;
+  const rows: AlertRelatedIssueRow[] = [];
+
+  if (alert.issue_id) {
+    rows.push({
+      issueId: alert.issue_id,
+      issueShort: issueShortId(alert.issue_id),
+      title,
+      events,
+      users,
+      release: linked.release,
+      culprit: linked.culprit,
+      primary: true,
+    });
+  }
+
+  for (const issueId of getAlertCorrelatedIssueIds(alert)) {
+    rows.push({
+      issueId,
+      issueShort: issueShortId(issueId),
+      title: null,
+      events: null,
+      users: null,
+      release: null,
+      culprit: null,
+      primary: false,
+    });
+  }
+
+  return rows;
+}
+
 export function getAlertRuleDisplayName(alert?: AlertRow | null): string {
   if (!alert) {
     return "Alert";

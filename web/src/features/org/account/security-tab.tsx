@@ -14,8 +14,13 @@ import {
 } from "../../../ui/dialog";
 import { Field } from "../../../ui/field";
 import { Input } from "../../../ui/input";
-import { Skeleton } from "../../../ui/skeleton";
 import { cn } from "../../../lib/cn";
+import { SectionCard } from "@/components/kit/section-card";
+import {
+  InfoCallout,
+  SettingsSkeleton,
+  SettingsStack,
+} from "../../settings/shared";
 
 function SettingsRow({
   title,
@@ -33,18 +38,23 @@ function SettingsRow({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center justify-between gap-3 px-4 py-3",
-        danger && "border-t border-semantic-danger/20 bg-semantic-danger/5",
+        "flex w-full min-h-10 flex-wrap items-center justify-between gap-3 px-3 py-2",
+        danger && "bg-semantic-danger/5",
       )}
     >
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className={cn("text-sm font-medium", danger ? "text-semantic-danger" : "text-ink")}>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <p
+            className={cn(
+              "text-xs font-medium",
+              danger ? "text-semantic-danger" : "text-fg-primary",
+            )}
+          >
             {title}
           </p>
           {badge}
         </div>
-        <p className="mt-0.5 text-xs text-ink-muted">{description}</p>
+        <p className="mt-0.5 text-2xs text-fg-muted">{description}</p>
       </div>
       <div className="shrink-0">{action}</div>
     </div>
@@ -73,25 +83,20 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
 
   if (settings.loading) {
     return (
-      <div className="space-y-3">
-        <div className="overflow-hidden rounded-lg border border-border bg-surface p-6 space-y-4">
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-72" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      </div>
+      <SettingsStack>
+        <SettingsSkeleton />
+      </SettingsStack>
     );
   }
 
   if (!profile) {
     return (
-      <div className="overflow-hidden rounded-lg border border-border bg-surface p-6 text-center space-y-3">
-        <p className="text-sm text-semantic-danger">Could not load account details.</p>
+      <SettingsStack>
+        <InfoCallout variant="warning">Could not load account.</InfoCallout>
         <Button variant="secondary" size="sm" onClick={() => void settings.load()}>
-          Try again
+          Retry
         </Button>
-      </div>
+      </SettingsStack>
     );
   }
 
@@ -111,9 +116,7 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
       setConfirmPassword("");
       setPasswordOpen(false);
     } catch (error) {
-      setPasswordError(
-        error instanceof Error ? error.message : "Could not update password.",
-      );
+      setPasswordError(error instanceof Error ? error.message : "Could not update password.");
     } finally {
       setPasswordBusy(false);
     }
@@ -122,9 +125,7 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
   async function handleDeleteAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setDeleteError(null);
-    if (!profile) {
-      return;
-    }
+    if (!profile) return;
 
     setDeleteBusy(true);
     try {
@@ -142,217 +143,206 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
   }
 
   return (
-    <div className="space-y-3">
-      <div className="overflow-hidden rounded-lg border border-border bg-surface divide-y divide-border">
-        {passwordAuthEnabled ? (
+    <SettingsStack>
+      <SectionCard title="Security" description="Sign-in, session, and account data." flush>
+        <div className="w-full divide-y divide-border-subtle">
+          {passwordAuthEnabled ? (
+            <SettingsRow
+              title="Password"
+              description={
+                profile.has_password
+                  ? "Email and password sign-in enabled."
+                  : "No password set."
+              }
+              badge={
+                <Badge variant="env" size="compact">
+                  {profile.has_password ? "On" : "Off"}
+                </Badge>
+              }
+              action={
+                <Button variant="secondary" size="sm" className="h-7" onClick={() => setPasswordOpen(true)}>
+                  {profile.has_password ? "Change" : "Set"}
+                </Button>
+              }
+            />
+          ) : null}
+
+          {googleEnabled ? (
+            <SettingsRow
+              title="Google"
+              description={profile.google_linked ? "Linked." : "Not connected."}
+              badge={
+                <Badge variant="env" size="compact">
+                  {profile.google_linked ? "On" : "Off"}
+                </Badge>
+              }
+              action={
+                profile.google_linked ? (
+                  <span className="text-2xs text-fg-muted">—</span>
+                ) : (
+                  <Button variant="secondary" size="sm" className="h-7" asChild>
+                    <a href="/api/v1/auth/google">Connect</a>
+                  </Button>
+                )
+              }
+            />
+          ) : null}
+
+          {githubEnabled ? (
+            <SettingsRow
+              title="GitHub"
+              description={profile.github_linked ? "Linked." : "Not connected."}
+              badge={
+                <Badge variant="env" size="compact">
+                  {profile.github_linked ? "On" : "Off"}
+                </Badge>
+              }
+              action={
+                profile.github_linked ? (
+                  <span className="text-2xs text-fg-muted">—</span>
+                ) : (
+                  <Button variant="secondary" size="sm" className="h-7" asChild>
+                    <a href="/api/v1/auth/github">Connect</a>
+                  </Button>
+                )
+              }
+            />
+          ) : null}
+
           <SettingsRow
-            title="Password"
-            description={
-              profile?.has_password
-                ? "Email and password sign-in is enabled."
-                : googleEnabled || githubEnabled
-                  ? `No password set — use ${[googleEnabled && "Google", githubEnabled && "GitHub"].filter(Boolean).join(" or ")} or set one.`
-                  : "No password set — set one to sign in with email."
-            }
-            badge={
-              <Badge variant="env" size="compact">
-                {profile?.has_password ? "Active" : "Not set"}
-              </Badge>
-            }
+            title="Session"
+            description="Signed in on this browser."
             action={
-              <Button variant="secondary" size="sm" onClick={() => setPasswordOpen(true)}>
-                {profile?.has_password ? "Change" : "Set password"}
+              <Button variant="secondary" size="sm" className="h-7" onClick={() => void logout()}>
+                Log out
               </Button>
             }
           />
-        ) : null}
 
-        {googleEnabled ? (
           <SettingsRow
-            title="Google"
-            description={
-              profile?.google_linked
-                ? "Linked for one-click sign-in."
-                : "Connect Google for faster sign-in."
-            }
-            badge={
-              <Badge variant="env" size="compact">
-                {profile?.google_linked ? "Connected" : "Not connected"}
-              </Badge>
-            }
+            title="Export data"
+            description={exportError ?? "Profile and memberships. No secrets."}
             action={
-              profile?.google_linked ? (
-                <span className="text-xs text-ink-muted">—</span>
-              ) : (
-                <Button variant="secondary" size="sm" asChild>
-                  <a href="/api/v1/auth/google">Connect</a>
-                </Button>
-              )
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-7"
+                onClick={() => {
+                  setExportError(null);
+                  void exportAccount()
+                    .then((data) => {
+                      const blob = new Blob([JSON.stringify(data, null, 2)], {
+                        type: "application/json",
+                      });
+                      const url = URL.createObjectURL(blob);
+                      const anchor = document.createElement("a");
+                      anchor.href = url;
+                      anchor.download = "epure-account.json";
+                      anchor.click();
+                      URL.revokeObjectURL(url);
+                    })
+                    .catch(() => setExportError("Export failed."));
+                }}
+              >
+                Export
+              </Button>
             }
           />
-        ) : null}
 
-        {githubEnabled ? (
           <SettingsRow
-            title="GitHub"
-            description={
-              profile?.github_linked
-                ? "Linked for one-click sign-in."
-                : "Connect GitHub for faster sign-in."
-            }
-            badge={
-              <Badge variant="env" size="compact">
-                {profile?.github_linked ? "Connected" : "Not connected"}
-              </Badge>
-            }
+            title="Privacy"
+            description="What this instance stores."
             action={
-              profile?.github_linked ? (
-                <span className="text-xs text-ink-muted">—</span>
-              ) : (
-                <Button variant="secondary" size="sm" asChild>
-                  <a href="/api/v1/auth/github">Connect</a>
-                </Button>
-              )
+              <Button variant="secondary" size="sm" className="h-7" asChild>
+                <Link to="/privacy">Open</Link>
+              </Button>
             }
           />
-        ) : null}
 
-        <SettingsRow
-          title="Session"
-          description="Signed in on this browser."
-          action={
-            <Button variant="secondary" size="sm" onClick={() => void logout()}>
-              Log out
-            </Button>
-          }
-        />
+          <SettingsRow
+            title="Delete account"
+            description="Permanent. Transfer ownership first if you're the only owner."
+            danger
+            action={
+              <Button variant="danger" size="sm" className="h-7" onClick={() => setDeleteOpen(true)}>
+                Delete
+              </Button>
+            }
+          />
+        </div>
+      </SectionCard>
 
-        <SettingsRow
-          title="Download my data"
-          description={
-            exportError ??
-            "Account profile and workspace memberships. Passwords and token secrets are not included."
-          }
-          action={
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setExportError(null);
-                void exportAccount()
-                  .then((data) => {
-                    const blob = new Blob([JSON.stringify(data, null, 2)], {
-                      type: "application/json",
-                    });
-                    const url = URL.createObjectURL(blob);
-                    const anchor = document.createElement("a");
-                    anchor.href = url;
-                    anchor.download = "epure-account.json";
-                    anchor.click();
-                    URL.revokeObjectURL(url);
-                  })
-                  .catch(() => {
-                    setExportError("Could not export your account.");
-                  });
-              }}
-            >
-              Export
-            </Button>
-          }
-        />
-
-        <SettingsRow
-          title="Privacy notice"
-          description="What this instance stores, the session cookie, and who to contact."
-          action={
-            <Button variant="secondary" size="sm" asChild>
-              <Link to="/privacy">Open</Link>
-            </Button>
-          }
-        />
-
-        <SettingsRow
-          title="Delete account"
-          description="Permanently remove your account. Transfer ownership first if you're the only owner."
-          danger
-          action={
-            <Button variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>
-              Delete
-            </Button>
-          }
-        />
-      </div>
-
-      {isCloudDeployment() ? (
-        <p className="px-1 text-xs text-ink-muted">
-          Need to reset your credentials or change SSO settings? Use Google or GitHub sign-in, or contact{" "}
-          <a href="mailto:support@epure.sh" className="text-ink underline-offset-2 hover:underline">
-            support@epure.sh
-          </a>
-          .
-        </p>
-      ) : (
-        <p className="px-1 text-xs text-ink-muted">
-          Self-hosted instances do not send password-reset emails. Ask your workspace owner for help.{" "}
-          <Link to="/login" className="text-ink underline-offset-2 hover:underline">
-            Sign in
-          </Link>
-        </p>
-      )}
+      <p className="text-2xs text-fg-muted">
+        {isCloudDeployment() ? (
+          <>
+            Need help with SSO? Contact{" "}
+            <a href="mailto:support@epure.sh" className="underline underline-offset-2">
+              support@epure.sh
+            </a>
+            .
+          </>
+        ) : (
+          <>
+            Self-hosted instances do not send password-reset email. Ask a workspace owner.{" "}
+            <Link to="/login" className="underline underline-offset-2">
+              Sign in
+            </Link>
+          </>
+        )}
+      </p>
 
       <Dialog open={passwordOpen} onOpenChange={setPasswordOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {profile?.has_password ? "Change password" : "Set password"}
-            </DialogTitle>
+            <DialogTitle>{profile.has_password ? "Change password" : "Set password"}</DialogTitle>
             <DialogDescription>
-              {profile?.has_password
+              {profile.has_password
                 ? "Enter your current password and choose a new one."
                 : "Choose a password for email sign-in."}
             </DialogDescription>
           </DialogHeader>
           <form className="space-y-3" onSubmit={(event) => void handlePasswordSubmit(event)}>
-            {profile?.has_password ? (
-              <Field label="Current password" htmlFor="current-password">
+            {profile.has_password ? (
+              <Field label="Current password" htmlFor="current-password" className="gap-1.5">
                 <Input
                   id="current-password"
                   type="password"
                   autoComplete="current-password"
                   value={currentPassword}
                   onChange={(event) => setCurrentPassword(event.target.value)}
+                  className="h-8 text-xs"
                 />
               </Field>
             ) : null}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="New password" htmlFor="new-password">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Field label="New password" htmlFor="new-password" className="gap-1.5">
                 <Input
                   id="new-password"
                   type="password"
                   autoComplete="new-password"
                   value={newPassword}
                   onChange={(event) => setNewPassword(event.target.value)}
+                  className="h-8 text-xs"
                 />
               </Field>
-              <Field label="Confirm" htmlFor="confirm-password">
+              <Field label="Confirm" htmlFor="confirm-password" className="gap-1.5">
                 <Input
                   id="confirm-password"
                   type="password"
                   autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
+                  className="h-8 text-xs"
                 />
               </Field>
             </div>
-            {passwordError ? (
-              <p className="text-xs text-semantic-danger">{passwordError}</p>
-            ) : null}
+            {passwordError ? <p className="text-xs text-semantic-danger">{passwordError}</p> : null}
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setPasswordOpen(false)}>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setPasswordOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" variant="secondary" disabled={passwordBusy}>
-                {profile?.has_password ? "Update" : "Set password"}
+              <Button type="submit" variant="secondary" size="sm" disabled={passwordBusy}>
+                {profile.has_password ? "Update" : "Set"}
               </Button>
             </div>
           </form>
@@ -363,44 +353,44 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete account</DialogTitle>
-            <DialogDescription>
-              Type your email to confirm. This permanently deletes your account.
-            </DialogDescription>
+            <DialogDescription>Type your email to confirm. This cannot be undone.</DialogDescription>
           </DialogHeader>
           <form className="space-y-3" onSubmit={(event) => void handleDeleteAccount(event)}>
-            <Field label="Confirm email" htmlFor="delete-email">
+            <Field label="Confirm email" htmlFor="delete-email" className="gap-1.5">
               <Input
                 id="delete-email"
                 type="email"
                 autoComplete="email"
-                placeholder={profile?.email ?? "you@example.com"}
+                placeholder={profile.email}
                 value={deleteEmail}
                 onChange={(event) => setDeleteEmail(event.target.value)}
+                className="h-8 text-xs"
               />
             </Field>
-            {profile?.has_password ? (
-              <Field label="Password" htmlFor="delete-password">
+            {profile.has_password ? (
+              <Field label="Password" htmlFor="delete-password" className="gap-1.5">
                 <Input
                   id="delete-password"
                   type="password"
                   autoComplete="current-password"
                   value={deletePassword}
                   onChange={(event) => setDeletePassword(event.target.value)}
+                  className="h-8 text-xs"
                 />
               </Field>
             ) : null}
             {deleteError ? <p className="text-xs text-semantic-danger">{deleteError}</p> : null}
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setDeleteOpen(false)}>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setDeleteOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" variant="danger" disabled={deleteBusy}>
-                Delete permanently
+              <Button type="submit" variant="danger" size="sm" disabled={deleteBusy}>
+                Delete
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </SettingsStack>
   );
 }

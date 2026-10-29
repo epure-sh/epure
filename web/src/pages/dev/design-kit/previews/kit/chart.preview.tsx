@@ -27,6 +27,18 @@ export default function ChartPreview() {
         <MatrixCell label="Sparkline · escalating">
           <Sparkline values={[1, 2, 2, 3, 5, 8, 13, 21]} status="escalating" />
         </MatrixCell>
+        <MatrixCell label="Sparkline · prominent (fills width)">
+          <Sparkline
+            points={SPARK.map((value, index) => ({
+              value,
+              at: new Date(Date.UTC(2026, 9, 22 + index, 12)).toISOString(),
+            }))}
+            prominent
+            scaleToExtent
+            xAxis="days"
+            className="w-full"
+          />
+        </MatrixCell>
         <MatrixCell label="Telemetry · primary">
           <TelemetryChart data={SERIES} height={100} color="primary" />
         </MatrixCell>

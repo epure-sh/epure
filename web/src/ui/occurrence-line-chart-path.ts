@@ -46,6 +46,22 @@ export function sparklineScaleFloor(counts: number[]): { minCount: number; maxCo
   return { minCount: 0, maxCount };
 }
 
+/** Map the series so min/max sit on the chart top and bottom edges. */
+export function fitExtremesScale(counts: number[]): { minCount: number; maxCount: number } {
+  if (counts.length === 0) {
+    return { minCount: 0, maxCount: 1 };
+  }
+  const minCount = Math.min(...counts);
+  const maxCount = Math.max(...counts);
+  if (minCount === maxCount) {
+    return {
+      minCount: Math.max(0, minCount - 1),
+      maxCount: maxCount + 1,
+    };
+  }
+  return { minCount, maxCount };
+}
+
 function clampY(y: number, minY: number, maxY: number): number {
   return Math.min(maxY, Math.max(minY, y));
 }

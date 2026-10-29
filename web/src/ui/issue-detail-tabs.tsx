@@ -1,13 +1,17 @@
 import { ChevronDown, ChevronLeft, ChevronUp } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
+import type { IssueSummary, IssueTimeline } from "../lib/api";
+import { Badge } from "./badge";
 import { Button } from "./button";
+import { IssueImpactLine, IssueOccurrenceTrend } from "./issue-impact-strip";
+import type { TimelineWindowValue } from "./issue-occurrence-timeline";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
 
-const DETAIL_TABS = ["overview", "breadcrumbs", "stack"] as const;
+const DETAIL_TABS = ["overview", "stack", "breadcrumbs"] as const;
 export type IssueDetailTab = (typeof DETAIL_TABS)[number] | "more";
-export const DETAIL_TOOLBAR_BUTTON_CLASS = "h-control-sm gap-1 px-2 text-xs";
-/** Title-row triage cluster — slightly taller than toolbar, still compact. */
-export const DETAIL_INLINE_ACTION_CLASS = "h-7 gap-1.5 px-2.5 text-xs";
+export const DETAIL_TOOLBAR_BUTTON_CLASS = "h-8 gap-1.5 px-2.5 text-sm";
+/** Triage cluster in the detail chrome — large enough to notice. */
+export const DETAIL_INLINE_ACTION_CLASS = "h-8 gap-1.5 px-3 text-sm";
 
 export interface IssueDetailTabsProps {
   overview: ReactNode;
@@ -24,12 +28,21 @@ export interface IssueDetailTabsProps {
   hasNext?: boolean;
   showBackLink?: boolean;
   issueTitle?: string;
+  issue?: IssueSummary;
   statusBadges?: ReactNode;
-  /** Triage actions (copy, resolve, snooze, …) — top toolbar, right of issue navigation. */
+  /** Triage actions (copy, resolve, snooze, …) — chrome row, right. */
   actions?: ReactNode;
-  /** @deprecated Prefer `actions` — still rendered in the top toolbar when `actions` is omitted. */
+  /** @deprecated Prefer `actions` — still rendered when `actions` is omitted. */
   inlineActions?: ReactNode;
   spacious?: boolean;
+  /** @deprecated Fullscreen control removed from the chrome. */
+  isFullscreen?: boolean;
+  /** @deprecated Fullscreen control removed from the chrome. */
+  onToggleFullscreen?: () => void;
+  timeline?: IssueTimeline | null;
+  timelineLoading?: boolean;
+  timelineWindow?: TimelineWindowValue;
+  onTimelineWindowChange?: (window: TimelineWindowValue) => void;
 }
 
 export function IssueDetailTabs({
@@ -45,12 +58,17 @@ export function IssueDetailTabs({
   hasPrevious = false,
   hasNext = false,
   issueTitle,
+  issue,
   statusBadges,
   actions,
   inlineActions,
+  timeline,
+  timelineLoading,
+  timelineWindow = "7d",
+  onTimelineWindowChange,
 }: IssueDetailTabsProps) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const activeTab = tab === "more" ? "stack" : tab;
+  const activeTab = tab === "more" ? "overview" : tab;
 
   useEffect(() => {
     const root = rootRef.current;
@@ -88,74 +106,138 @@ export function IssueDetailTabs({
   const tabsProps =
     activeTab && onTabChange
       ? { value: activeTab, onValueChange: (value: string) => onTabChange(value as IssueDetailTab) }
-      : { defaultValue: defaultTab };
+      : { defaultValue: defaultTab === "more" ? "overview" : defaultTab };
 
   const toolbarActions = actions ?? inlineActions;
+  const culprit = issue?.culprit?.trim() || null;
 
   return (
     <div
       ref={rootRef}
-      className="epure-issue-detail-tabs flex h-full min-h-0 flex-1 flex-col overflow-hidden outline-none bg-surface-1"
+      className="epure-issue-detail-tabs flex h-full min-h-0 flex-1 flex-col overflow-hidden outline-none bg-canvas"
       tabIndex={-1}
-      onMouseDown={() => rootRef.current?.focus()}
+      onPointerDownCapture={(event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        // Never steal focus from menus — that aborts Select open mid-gesture.
+        if (
+          target.closest(
+            'button, a, input, textarea, select, [role="combobox"], [role="listbox"], [data-slot="select-trigger"], [data-slot="select-content"], [contenteditable="true"]',
+          )
+        ) {
+          return;
+        }
+        rootRef.current?.focus({ preventScroll: true });
+      }}
     >
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle bg-surface-1 px-3 py-1.5">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle bg-canvas px-3 py-2">
         <div className="flex items-center gap-1">
           {onClose ? (
-            <Button variant="ghost" size="xs" onClick={onClose}>
-              <ChevronLeft className="size-3.5" aria-hidden />
-              Issues
+            <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close issue detail">
+              <ChevronLeft className="size-4" aria-hidden />
+              <span className="hidden sm:inline">Close</span>
             </Button>
           ) : null}
-          <Button variant="outline" size="icon-xs" onClick={onPrevious} disabled={!hasPrevious} aria-label="Previous issue">
+          <Button
+            variant="outline"
+            size="icon-xs"
+            onClick={onPrevious}
+            disabled={!hasPrevious}
+            aria-label="Previous issue"
+          >
             <ChevronUp className="size-3.5" />
           </Button>
-          <Button variant="outline" size="icon-xs" onClick={onNext} disabled={!hasNext} aria-label="Next issue">
+          <Button
+            variant="outline"
+            size="icon-xs"
+            onClick={onNext}
+            disabled={!hasNext}
+            aria-label="Next issue"
+          >
             <ChevronDown className="size-3.5" />
           </Button>
         </div>
         {toolbarActions ? (
-          <div className="ml-auto flex min-w-0 max-w-full shrink-0 flex-wrap items-center justify-end gap-1.5">
+          <div className="ml-auto flex min-w-0 max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
             {toolbarActions}
           </div>
         ) : null}
       </div>
 
-      <Tabs variant="folder" {...tabsProps} className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-surface-1">
-        <div className="shrink-0 bg-surface-1">
-          {issueTitle ? (
-            <div className="px-4 pt-3 pb-4 md:px-5">
-              {statusBadges ? (
-                <div className="mb-2.5 flex min-h-5 flex-wrap items-center gap-1.5">{statusBadges}</div>
+      <Tabs
+        variant="folder"
+        {...tabsProps}
+        className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-canvas"
+      >
+        <div className="shrink-0 bg-canvas px-4 pt-3.5 pb-4 md:px-5">
+          {statusBadges || issue?.is_unhandled || culprit ? (
+            <div className="mb-2.5 flex min-h-6 flex-wrap items-center gap-2">
+              {statusBadges}
+              {issue?.is_unhandled ? (
+                <Badge size="md" variant="warning">
+                  unhandled
+                </Badge>
               ) : null}
-              <h2
-                className="min-w-0 break-words text-lg font-semibold leading-snug tracking-ui text-fg-primary"
-                title={issueTitle}
-              >
-                {issueTitle}
-              </h2>
+              {culprit ? (
+                <span
+                  className="min-w-0 truncate font-mono text-xs text-fg-muted"
+                  title={culprit}
+                >
+                  {culprit}
+                </span>
+              ) : null}
             </div>
           ) : null}
-          <TabsList className="epure-issue-detail-tabs__list w-full shrink-0 justify-start gap-1 border-border-subtle !h-auto !min-h-0 !items-end !bg-surface-1 !pt-0 px-4">
-            <TabsTrigger value="overview" className="px-3.5 py-2">
-              Context
-            </TabsTrigger>
-            <TabsTrigger value="breadcrumbs" className="px-3.5 py-2">
-              Breadcrumbs
-            </TabsTrigger>
-            <TabsTrigger value="stack" className="px-3.5 py-2">
-              Stack trace
-            </TabsTrigger>
+          {issueTitle ? (
+            <h2
+              className="min-w-0 truncate text-base font-semibold leading-snug tracking-ui text-fg-primary md:text-lg"
+              title={issueTitle}
+            >
+              {issueTitle}
+            </h2>
+          ) : null}
+          {issue ? (
+            <div className="mt-3.5">
+              <IssueImpactLine issue={issue} />
+            </div>
+          ) : null}
+        </div>
+
+        <div className="sticky top-0 z-10 shrink-0 border-b border-border-subtle bg-canvas px-4 pt-1.5 md:px-5">
+          <TabsList className="w-full justify-start !border-b-0">
+            <TabsTrigger value="overview">Context</TabsTrigger>
+            <TabsTrigger value="stack">Stack trace</TabsTrigger>
+            <TabsTrigger value="breadcrumbs">Breadcrumbs</TabsTrigger>
           </TabsList>
         </div>
-        <TabsContent value="overview" className="flex min-h-0 flex-1 flex-col overflow-auto bg-surface-1">
-          {overview}
+
+        <TabsContent
+          value="overview"
+          className="mt-0 flex min-h-0 flex-1 flex-col overflow-auto bg-canvas"
+        >
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="shrink-0 border-b border-border-subtle px-4 py-3 md:px-5">
+              <IssueOccurrenceTrend
+                timeline={timeline}
+                timelineLoading={timelineLoading}
+                timelineWindow={timelineWindow}
+                onTimelineWindowChange={onTimelineWindowChange}
+              />
+            </div>
+            {overview}
+          </div>
         </TabsContent>
-        <TabsContent value="breadcrumbs" className="flex min-h-0 flex-1 flex-col overflow-auto bg-surface-1">
-          {breadcrumbs}
-        </TabsContent>
-        <TabsContent value="stack" className="flex min-h-0 flex-1 flex-col overflow-auto bg-surface-1">
+        <TabsContent
+          value="stack"
+          className="mt-0 flex min-h-0 flex-1 flex-col overflow-auto bg-canvas"
+        >
           {stack}
+        </TabsContent>
+        <TabsContent
+          value="breadcrumbs"
+          className="mt-0 flex min-h-0 flex-1 flex-col overflow-auto bg-canvas"
+        >
+          {breadcrumbs}
         </TabsContent>
       </Tabs>
     </div>

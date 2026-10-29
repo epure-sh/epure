@@ -19,6 +19,9 @@ export const DESIGN_KIT_SAMPLE_ISSUE: IssueSummary = {
   snooze_until: null,
   snooze_until_count: null,
   snooze_until_users: null,
+  culprit: "src/checkout.ts in submit",
+  is_unhandled: true,
+  first_release: "web@2.15.0",
 };
 
 export const DESIGN_KIT_SAMPLE_EVENT: EventDetail = {
@@ -37,7 +40,15 @@ export const DESIGN_KIT_SAMPLE_EVENT: EventDetail = {
   payload_json: {
     transaction: "checkout.submit",
     culprit: "src/checkout.ts:42",
+    request: {
+      method: "POST",
+      url: "https://app.example.com/api/checkout",
+      headers: { "content-type": "application/json" },
+      data: { cartId: "cart_1" },
+    },
+    contexts: { response: { status_code: 500 } },
+    tags: { route: "checkout", region: "eu" },
   },
-  stack_frames: [{ filename: "src/checkout.ts", lineno: 42, function: "submit" }],
+  stack_frames: [{ filename: "src/checkout.ts", lineno: 42, function: "submit", in_app: true }],
   breadcrumbs: [],
 };

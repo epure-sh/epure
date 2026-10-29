@@ -29,21 +29,28 @@ export default function AlertRulePreview() {
       channelIds: ["slack-prod"],
     },
   });
+  const [editDraft, setEditDraft] = useState<AlertRuleDraft>(() => ({
+    ...templateDraft("error-spike"),
+    channelIds: ["discord-eng"],
+  }));
+  const [paused, setPaused] = useState(false);
   const [channels, setChannels] = useState(SAMPLE_CHANNELS);
 
   return (
     <PreviewBlock
       id="alert-rule"
       title="Create alert rule"
-      description="The three steps, full width. Each one is the live setup."
+      description="Compact setup panel (max height + scroll). Edit mode is a single form."
     >
       <div className="mb-8 w-full min-w-0 overflow-x-auto rounded-lg border border-border-subtle bg-surface-1">
         <AlertRuleListRow
           name="Production crash"
-          why="New issue"
-          firedCount={12}
-          lastTriggered="2h ago"
+          description="Unhandled exceptions in production"
+          duration="30 min"
+          lastFired="2h ago"
           channel={{ provider: "slack", label: "#prod-alerts" }}
+          onSelectChange={() => undefined}
+          onEnabledChange={() => undefined}
           actions={
             <Button variant="ghost" size="icon-xs" aria-label="Actions for Production crash">
               <Icon icon={DotsThree} size={16} />
@@ -52,11 +59,16 @@ export default function AlertRulePreview() {
         />
         <AlertRuleListRow
           name="Error spike"
-          why="> 100 events · 5 min"
-          firedCount={18}
-          lastTriggered="14m ago"
+          description="Volume jump vs the last 5 minutes"
+          duration="15 min"
+          lastFired="14m ago"
           channel={{ provider: "discord", label: "engineering", extra: 1 }}
           selected
+          paused={paused}
+          bulkSelected
+          selectionActive
+          onSelectChange={() => undefined}
+          onEnabledChange={(enabled) => setPaused(!enabled)}
           actions={
             <Button variant="ghost" size="icon-xs" aria-label="Actions for Error spike">
               <Icon icon={DotsThree} size={16} />
@@ -64,9 +76,33 @@ export default function AlertRulePreview() {
           }
         />
       </div>
-      <div className="mx-auto flex w-full max-w-xl min-w-0 flex-col gap-8">
+      <div className="mx-auto flex w-full max-w-lg min-w-0 flex-col gap-6">
+        <div className="overflow-hidden rounded-panel border border-border-subtle">
+          <CreateAlertRulePanel
+            mode="edit"
+            step={2}
+            draft={editDraft}
+            channels={channels}
+            onChange={setEditDraft}
+            onStep={() => undefined}
+            onCreateChannel={async (input) => {
+              const created: AlertChannelChoice = {
+                id: `${input.provider}-${channels.length + 1}`,
+                provider: input.provider,
+                label: input.label,
+                enabled: true,
+              };
+              setChannels((current) => [...current, created]);
+              return created;
+            }}
+            onSubmit={() => undefined}
+          />
+        </div>
         {STEPS.map((step) => (
-          <div key={step} className="w-full min-w-0 animate-in fade-in duration-300">
+          <div
+            key={step}
+            className="w-full min-w-0 overflow-hidden rounded-panel border border-border-subtle animate-in fade-in duration-300"
+          >
             <CreateAlertRulePanel
               step={step}
               draft={drafts[step]}

@@ -185,6 +185,11 @@ async fn test_webhook(
 ) -> Result<impl IntoResponse, StatusCode> {
     require_min_role(&dashboard, Role::Admin)?;
 
+    if !crate::rate_limit::check_channel_test_limit(&dashboard.user_id.to_string(), &id.to_string())
+    {
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+
     webhook_dispatch::dispatch_test(&state.pools.app, dashboard.org_id, id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;

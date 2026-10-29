@@ -1,94 +1,184 @@
-import { NavLink } from "react-router-dom";
-import { Key, Laptop, Server, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { useEffect, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { ChevronDown, Settings } from "lucide-react";
 import { workspaceSettingsPath } from "../lib/paths";
 import { cn } from "../lib/cn";
-import { isCloudDeployment } from "../lib/deployment";
+import { sidebarNavIconClass, sidebarNavItemClass } from "../shell/sidebar-nav-link";
 
-const tabs = [
-  {
-    id: "general",
-    label: "General",
-    description: "Workspace name & profile",
-    icon: SlidersHorizontal,
-    path: workspaceSettingsPath(),
-  },
-  {
-    id: "security",
-    label: "Security",
-    description: "Authentication & access control",
-    icon: ShieldCheck,
-    path: workspaceSettingsPath("security"),
-  },
-  {
-    id: "agent",
-    label: "Agent tokens",
-    description: "Personal access tokens",
-    icon: Key,
-    path: workspaceSettingsPath("agent"),
-  },
+export type WorkspaceSettingsTab =
+  | "general"
+  | "security"
+  | "agent"
+  | "connected-apps"
+  | "operations";
+
+export interface WorkspaceSettingsNavItem {
+  id: WorkspaceSettingsTab;
+  label: string;
+  path: string;
+}
+
+/** Production sidebar tabs. Operations is omitted until a backups API exists. */
+export const WORKSPACE_SETTINGS_ITEMS: WorkspaceSettingsNavItem[] = [
+  { id: "general", label: "General", path: workspaceSettingsPath() },
+  { id: "security", label: "Security", path: workspaceSettingsPath("security") },
+  { id: "agent", label: "Agent tokens", path: workspaceSettingsPath("agent") },
   {
     id: "connected-apps",
-    label: "Connected Apps & CLI",
-    description: "OAuth CLI & MCP sessions",
-    icon: Laptop,
+    label: "Connected apps",
     path: workspaceSettingsPath("connected-apps"),
   },
-  {
-    id: "operations",
-    label: "Operations & Backups",
-    description: "Postgres health, backups & storage",
-    icon: Server,
-    path: workspaceSettingsPath("operations"),
-  },
-] as const;
+];
 
-export function WorkspaceSettingsNav() {
-  const cloud = isCloudDeployment();
-  const visibleTabs = cloud ? tabs.filter((tab) => tab.id !== "operations") : tabs;
+function storageKey(): string {
+  return "epure.workspace-settings-expanded";
+}
+
+function readExpanded(): boolean | null {
+  try {
+    const raw = sessionStorage.getItem(storageKey());
+    if (raw === "1") return true;
+    if (raw === "0") return false;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeExpanded(expanded: boolean): void {
+  try {
+    sessionStorage.setItem(storageKey(), expanded ? "1" : "0");
+  } catch {
+    // Ignore quota / private-mode failures.
+  }
+}
+
+export function isWorkspaceSettingsPath(pathname: string): boolean {
+  return pathname === "/settings" || pathname.startsWith("/settings/");
+}
+
+export function activeWorkspaceSettingsTab(pathname: string): WorkspaceSettingsTab {
+  const match = pathname.match(/^\/settings(?:\/([^/]+))?/);
+  const segment = match?.[1];
+  if (
+    segment === "security" ||
+    segment === "agent" ||
+    segment === "connected-apps" ||
+    segment === "operations"
+  ) {
+    return segment;
+  }
+  return "general";
+}
+
+export interface WorkspaceSettingsSidebarItemProps {
+  onNavigate?: () => void;
+  dataTour?: string;
+}
+
+/** Expandable Workspace Settings entry for the main app sidebar. */
+export function WorkspaceSettingsSidebarItem({
+  onNavigate,
+  dataTour = "nav-workspace-settings",
+}: WorkspaceSettingsSidebarItemProps) {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const onSettings = isWorkspaceSettingsPath(pathname);
+  const activeTab = activeWorkspaceSettingsTab(pathname);
+  const items = WORKSPACE_SETTINGS_ITEMS;
+
+  const [expanded, setExpanded] = useState(() => {
+    if (onSettings) return true;
+    return readExpanded() ?? false;
+  });
+
+  useEffect(() => {
+    if (onSettings) {
+      setExpanded(true);
+      writeExpanded(true);
+      return;
+    }
+    const stored = readExpanded();
+    if (stored != null) {
+      setExpanded(stored);
+    }
+  }, [onSettings]);
+
+  function setOpen(next: boolean) {
+    setExpanded(next);
+    writeExpanded(next);
+  }
+
+  function handleHeaderClick() {
+    if (!expanded) {
+      setOpen(true);
+      if (!onSettings) {
+        navigate(workspaceSettingsPath());
+        onNavigate?.();
+      }
+      return;
+    }
+    setOpen(false);
+  }
+
+  const parentActive = onSettings && !expanded;
+  const parentInSection = onSettings;
 
   return (
-    <nav
-      aria-label="Workspace settings"
-      className="epure-settings-nav flex w-full md:w-60 shrink-0 flex-col border-b md:border-b-0 md:border-r border-border-subtle bg-surface-1/30 p-2.5 select-none"
-    >
-      <div className="space-y-1">
-        <h3 className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
-          Workspace Settings
-        </h3>
-        <div className="space-y-0.5">
-          {visibleTabs.map((tab) => {
-            const Icon = tab.icon;
+    <div className="space-y-0.5">
+      <button
+        type="button"
+        data-tour={dataTour}
+        aria-expanded={expanded}
+        onClick={handleHeaderClick}
+        className={sidebarNavItemClass(parentActive, "w-full justify-between")}
+      >
+        <span className="relative z-10 flex min-w-0 items-center gap-2">
+          <Settings
+            size={13}
+            strokeWidth={parentInSection ? 2.1 : 1.8}
+            className={sidebarNavIconClass(parentInSection)}
+            aria-hidden
+          />
+          <span className="truncate">Workspace Settings</span>
+        </span>
+        <ChevronDown
+          size={12}
+          className={cn(
+            "relative z-10 shrink-0 text-fg-muted transition-transform duration-150",
+            expanded ? "rotate-0" : "-rotate-90",
+          )}
+          aria-hidden
+        />
+      </button>
+
+      {expanded ? (
+        <div className="ml-3 space-y-0.5 border-l border-border-subtle pl-1.5">
+          {items.map((item) => {
+            const active = onSettings && activeTab === item.id;
             return (
               <NavLink
-                key={tab.id}
-                to={tab.path}
-                end={tab.id === "general"}
-                className={({ isActive }) =>
-                  cn(
-                    "group flex items-start gap-2.5 rounded-md px-2.5 py-2 text-xs transition-colors focus-ring",
-                    isActive
-                      ? "bg-state-selected text-fg-primary font-semibold border-l-2 border-primary"
-                      : "text-fg-muted hover:bg-surface-2 hover:text-fg-primary border-l-2 border-transparent",
-                  )
-                }
+                key={item.id}
+                to={item.path}
+                end={item.id === "general"}
+                onClick={onNavigate}
+                className={sidebarNavItemClass(active)}
               >
-                <Icon
-                  size={15}
-                  className="mt-0.5 shrink-0 stroke-[1.8] text-fg-muted group-hover:text-fg-primary"
-                />
-                <div className="flex flex-col min-w-0">
-                  <span className="font-medium text-fg-primary leading-tight">
-                    {tab.label}
-                  </span>
-                  <span className="text-2xs text-fg-muted leading-tight mt-0.5">
-                    {tab.description}
-                  </span>
-                </div>
+                <span className="truncate">{item.label}</span>
               </NavLink>
             );
           })}
         </div>
-      </div>
-    </nav>
+      ) : null}
+    </div>
+  );
+}
+
+/** Design-kit preview of the expandable Workspace Settings sidebar item. */
+export function WorkspaceSettingsNav() {
+  return (
+    <div className="w-60 rounded-md border border-border-subtle bg-bg-subtle p-2">
+      <WorkspaceSettingsSidebarItem />
+    </div>
   );
 }

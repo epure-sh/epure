@@ -289,6 +289,7 @@ export interface AlertRuleFilters {
   query?: string | null;
   service?: string | null;
   release?: string | null;
+  description?: string | null;
   [key: string]: unknown;
 }
 
@@ -329,21 +330,64 @@ export async function fetchAlertRules(projectId?: string): Promise<AlertRuleRow[
   return Array.isArray(body?.rules) ? body.rules : [];
 }
 
+export interface AlertChannelConfig {
+  webhook_id?: string;
+  format?: string;
+  destination_preview?: string;
+  secret_prefix?: string;
+  recipients?: string[];
+  /** Public chat id only — bot_token is never returned. */
+  chat_id?: string;
+}
+
 export interface AlertChannelRow {
   id: string;
   org_id: string;
   project_id: string;
   provider: "slack" | "discord" | "telegram" | "email" | "webhook" | string;
   label: string;
+  config?: AlertChannelConfig;
   is_enabled: boolean;
   last_error: string | null;
+  last_tested_at?: string | null;
+  last_test_status?: "ok" | "fail" | string | null;
   created_at: string;
 }
 
-export async function fetchAlertChannels(projectId: string): Promise<AlertChannelRow[]> {
-  const body = await apiFetch<{ channels?: AlertChannelRow[] }>(
-    `/api/v1/alert-channels?project_id=${encodeURIComponent(projectId)}`,
-  );
+export interface CreatedAlertChannel {
+  id: string;
+  org_id: string;
+  project_id: string;
+  provider: string;
+  label: string;
+  config?: AlertChannelConfig;
+  is_enabled: boolean;
+  last_error: string | null;
+  last_tested_at?: string | null;
+  last_test_status?: string | null;
+  created_at: string;
+  signing_secret?: string | null;
+}
+
+function normalizeCreatedChannel(body: Record<string, unknown>): CreatedAlertChannel {
+  const nested = body.channel;
+  if (nested && typeof nested === "object") {
+    const channel = nested as AlertChannelRow;
+    return {
+      ...channel,
+      signing_secret:
+        typeof body.signing_secret === "string" ? body.signing_secret : null,
+    };
+  }
+  return body as unknown as CreatedAlertChannel;
+}
+
+export async function fetchAlertChannels(projectId?: string | null): Promise<AlertChannelRow[]> {
+  const qs =
+    projectId && projectId.trim()
+      ? `?project_id=${encodeURIComponent(projectId.trim())}`
+      : "";
+  const body = await apiFetch<{ channels?: AlertChannelRow[] }>(`/api/v1/alert-channels${qs}`);
   return Array.isArray(body?.channels) ? body.channels : [];
 }
 
@@ -351,10 +395,47 @@ export async function createAlertChannel(input: {
   project_id: string;
   provider: string;
   label: string;
-}): Promise<AlertChannelRow> {
-  return apiFetch<AlertChannelRow>("/api/v1/alert-channels", {
+  config?: {
+    url?: string;
+    recipients?: string[];
+    bot_token?: string;
+    chat_id?: string;
+  };
+  require_verify?: boolean;
+}): Promise<CreatedAlertChannel> {
+  const body = await apiFetch<Record<string, unknown>>("/api/v1/alert-channels", {
     method: "POST",
     body: JSON.stringify(input),
+  });
+  return normalizeCreatedChannel(body);
+}
+
+export async function testAlertChannel(
+  id: string,
+  options?: { enable_on_ok?: boolean },
+): Promise<{
+  sent: boolean;
+  status: string;
+  error?: string;
+  channel?: AlertChannelRow;
+}> {
+  return apiFetch(`/api/v1/alert-channels/${id}/test`, {
+    method: "POST",
+    body: JSON.stringify({ enable_on_ok: options?.enable_on_ok ?? true }),
+  });
+}
+
+export async function deleteAlertChannel(id: string): Promise<void> {
+  await apiFetch(`/api/v1/alert-channels/${id}`, { method: "DELETE" });
+}
+
+export async function setAlertChannelEnabled(
+  id: string,
+  is_enabled: boolean,
+): Promise<AlertChannelRow> {
+  return apiFetch<AlertChannelRow>(`/api/v1/alert-channels/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ is_enabled }),
   });
 }
 
@@ -1094,6 +1175,16 @@ export interface HeadlineStats {
   events_7d: number;
   regressions: number;
   snoozed: number;
+  high_priority?: number;
+  affected_users?: number;
+  valve_seen?: number;
+  valve_stored?: number;
+}
+
+export interface VelocityBucket {
+  start: string;
+  handled: number;
+  unhandled: number;
 }
 
 export async function fetchSetupProgress(projectId: string): Promise<SetupProgress> {
@@ -1158,10 +1249,33 @@ export async function fetchHeadlineStats(
 
 export async function fetchProjectActivity(
   projectId: string,
+  days?: number,
 ): Promise<TimelineBucket[]> {
+  const params = new URLSearchParams();
+  if (typeof days === "number") {
+    params.set("days", String(days));
+  }
+  const suffix = params.toString();
   const body = await apiFetch<{ project_id: string; buckets: TimelineBucket[] }>(
-    `/api/v1/projects/${encodeURIComponent(projectId)}/activity`,
+    `/api/v1/projects/${encodeURIComponent(projectId)}/activity${suffix ? `?${suffix}` : ""}`,
   );
+  return body.buckets;
+}
+
+export async function fetchProjectVelocity(
+  projectId: string,
+  window: "24h" | "7d" | "30d" = "24h",
+  environment?: string | null,
+): Promise<VelocityBucket[]> {
+  const params = new URLSearchParams({ window });
+  if (environment && environment !== "all") {
+    params.set("environment", environment);
+  }
+  const body = await apiFetch<{
+    project_id: string;
+    window: string;
+    buckets: VelocityBucket[];
+  }>(`/api/v1/projects/${encodeURIComponent(projectId)}/velocity?${params.toString()}`);
   return body.buckets;
 }
 
@@ -1348,19 +1462,7 @@ export async function syncCheckout(checkoutId: string): Promise<BillingStatus> {
   });
 }
 
-export interface MonitorItem {
-  id: string;
-  org_id: string;
-  project_id: string;
-  slug: string;
-  schedule: string | null;
-  status: "ok" | "in_progress" | "error" | "missed";
-  last_check_in_at: string | null;
-  last_duration_ms: number | null;
-  environment: string | null;
-  created_at: string;
-  updated_at: string;
-}
+export type MonitorStatus = "ok" | "in_progress" | "error" | "missed" | "timeout";
 
 export interface MonitorCheckIn {
   id: string;
@@ -1371,12 +1473,63 @@ export interface MonitorCheckIn {
   status: string;
   duration_ms: number | null;
   environment: string | null;
+  release?: string | null;
+  issue_id?: string | null;
+  trace_id?: string | null;
   created_at: string;
+}
+
+export interface MonitorItem {
+  id: string;
+  org_id: string;
+  project_id: string;
+  slug: string;
+  name: string | null;
+  schedule: string | null;
+  schedule_type: string | null;
+  timezone: string | null;
+  status: MonitorStatus;
+  last_check_in_at: string | null;
+  last_duration_ms: number | null;
+  next_check_in_at: string | null;
+  environment: string | null;
+  checkin_margin_mins: number;
+  max_runtime_mins: number;
+  failure_issue_threshold: number;
+  paused: boolean;
+  created_at: string;
+  updated_at: string;
+  recent_check_ins?: MonitorCheckIn[];
 }
 
 export interface MonitorDetails {
   monitor: MonitorItem;
   check_ins: MonitorCheckIn[];
+}
+
+export interface CreateMonitorInput {
+  project_id: string;
+  slug: string;
+  name?: string;
+  schedule?: string;
+  schedule_type?: "crontab" | "interval";
+  timezone?: string;
+  environment?: string;
+  checkin_margin_mins?: number;
+  max_runtime_mins?: number;
+  failure_issue_threshold?: number;
+}
+
+export interface UpdateMonitorInput {
+  name?: string;
+  schedule?: string;
+  schedule_type?: "crontab" | "interval";
+  timezone?: string;
+  environment?: string;
+  checkin_margin_mins?: number;
+  max_runtime_mins?: number;
+  failure_issue_threshold?: number;
+  paused?: boolean;
 }
 
 export async function fetchMonitors(projectId: string): Promise<MonitorItem[]> {
@@ -1390,16 +1543,34 @@ export async function fetchMonitorDetails(monitorId: string): Promise<MonitorDet
   return await apiFetch<MonitorDetails>(`/api/v1/monitors/${encodeURIComponent(monitorId)}`);
 }
 
-export async function createMonitor(input: {
-  project_id: string;
-  slug: string;
-  schedule?: string;
-  environment?: string;
-}): Promise<MonitorItem> {
+export async function createMonitor(input: CreateMonitorInput): Promise<MonitorItem> {
   return await apiFetch<MonitorItem>("/api/v1/monitors", {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export async function updateMonitor(
+  monitorId: string,
+  input: UpdateMonitorInput,
+): Promise<MonitorItem> {
+  return await apiFetch<MonitorItem>(`/api/v1/monitors/${encodeURIComponent(monitorId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function sendMonitorTestCheckIn(
+  monitorId: string,
+  input?: { status?: string; duration_ms?: number },
+): Promise<MonitorItem> {
+  return await apiFetch<MonitorItem>(
+    `/api/v1/monitors/${encodeURIComponent(monitorId)}/check-ins`,
+    {
+      method: "POST",
+      body: JSON.stringify(input ?? { status: "ok", duration_ms: 14 }),
+    },
+  );
 }
 
 export async function deleteMonitor(monitorId: string): Promise<void> {

@@ -21,6 +21,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/cn";
 
 export function CreateAlertRuleDialog({
   open,
@@ -35,6 +36,7 @@ export function CreateAlertRuleDialog({
   onOpenChange: (open: boolean) => void;
   onCreated?: () => void;
 }) {
+  const editing = Boolean(ruleId);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [draft, setDraft] = useState<AlertRuleDraft>(() => templateDraft("production-crash"));
   const [channels, setChannels] = useState<AlertChannelChoice[]>([]);
@@ -43,7 +45,7 @@ export function CreateAlertRuleDialog({
 
   useEffect(() => {
     if (!open) return;
-    setStep(1);
+    setStep(editing ? 2 : 1);
     setError(null);
     if (!ruleId) setDraft(templateDraft("production-crash"));
     if (!projectId) {
@@ -71,7 +73,7 @@ export function CreateAlertRuleDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, projectId, ruleId]);
+  }, [open, projectId, ruleId, editing]);
 
   async function createChannel(input: { provider: ChannelProvider; label: string }) {
     if (!projectId) return null;
@@ -79,8 +81,18 @@ export function CreateAlertRuleDialog({
       project_id: projectId,
       provider: input.provider,
       label: input.label,
+      require_verify: false,
     });
-    const choice = toChoice(row);
+    const choice = toChoice({
+      id: row.id,
+      org_id: row.org_id,
+      project_id: row.project_id,
+      provider: row.provider,
+      label: row.label,
+      is_enabled: row.is_enabled,
+      last_error: row.last_error,
+      created_at: row.created_at,
+    });
     setChannels((current) => [...current, choice]);
     return choice;
   }
@@ -110,9 +122,17 @@ export function CreateAlertRuleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl p-0">
-        <DialogTitle className="sr-only">New alert</DialogTitle>
+      <DialogContent
+        className={cn(
+          "flex max-w-none flex-col overflow-hidden p-0",
+          editing
+            ? "w-[min(calc(100vw-2rem),30rem)] max-h-[min(calc(100dvh-3rem),38rem)] sm:w-[min(calc(100vw-3rem),32rem)]"
+            : "w-[min(calc(100vw-2rem),32rem)] max-h-[min(calc(100dvh-3rem),38rem)] sm:w-[min(calc(100vw-3rem),34rem)]",
+        )}
+      >
+        <DialogTitle className="sr-only">{editing ? "Edit alert" : "New alert"}</DialogTitle>
         <CreateAlertRulePanel
+          mode={editing ? "edit" : "create"}
           step={step}
           draft={draft}
           channels={channels}
@@ -120,10 +140,14 @@ export function CreateAlertRuleDialog({
           onChange={setDraft}
           onStep={setStep}
           onCreateChannel={createChannel}
-          submitLabel={ruleId ? "Save alert" : "Create alert"}
+          submitLabel={editing ? "Save" : "Create"}
           onSubmit={() => void submit()}
         />
-        {error ? <p className="px-4 pb-3 text-xs text-fg-muted">{error}</p> : null}
+        {error ? (
+          <p className="shrink-0 border-t border-border-subtle/80 px-6 py-2.5 text-xs text-fg-muted">
+            {error}
+          </p>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

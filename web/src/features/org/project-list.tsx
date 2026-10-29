@@ -1,9 +1,16 @@
-import type { ReactNode } from "react";
-import { ArrowRight } from "lucide-react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowRight, Eye, EyeOff, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Box } from "@polar-sh/orbit/Box";
 import { Grid } from "@polar-sh/orbit/Grid";
 import { Text } from "@polar-sh/orbit/Text";
-import type { HeadlineStats, ProjectRow, TimelineBucket } from "../../lib/api";
+import {
+  deleteProject,
+  updateProject,
+  type HeadlineStats,
+  type ProjectRow,
+  type TimelineBucket,
+} from "../../lib/api";
 import { formatCompactCount } from "../../lib/format-count";
 import { projectPath } from "../../lib/paths";
 import { EmptyState } from "@/components/kit/empty-state";
@@ -16,8 +23,29 @@ import {
   PolarCardTitle,
 } from "@/components/kit/polar-card";
 import { Badge } from "../../ui/badge";
+import { Button } from "../../ui/button";
 import { Checkbox } from "../../ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../../ui/dropdown-menu";
+import { Input } from "../../ui/input";
 import { OccurrenceLineChart } from "../../ui/occurrence-line-chart";
+import { useAppContext } from "../../shell/app-context";
+import { useToast } from "../../ui/toast-provider";
+import { DeleteProjectsDialog } from "./delete-projects-dialog";
+import { loadHiddenProjectIds, toggleHiddenProjectId } from "./hidden-projects";
 
 export interface ProjectListProps {
   projects: ProjectRow[];
@@ -38,7 +66,13 @@ function ProjectCardBody({
   statsLoading,
   editMode,
   selected,
+  hidden,
+  canRename,
+  canDelete,
   onToggleSelect,
+  onRename,
+  onToggleHide,
+  onDelete,
 }: {
   project: ProjectRow;
   stats?: HeadlineStats;
@@ -46,14 +80,19 @@ function ProjectCardBody({
   statsLoading?: boolean;
   editMode?: boolean;
   selected?: boolean;
+  hidden?: boolean;
+  canRename?: boolean;
+  canDelete?: boolean;
   onToggleSelect?: (projectId: string) => void;
+  onRename?: (project: ProjectRow) => void;
+  onToggleHide?: (project: ProjectRow) => void;
+  onDelete?: (project: ProjectRow) => void;
 }) {
   const unresolved = stats?.unresolved ?? 0;
   const buckets = activity ?? [];
   const hasActivity = buckets.some((bucket) => bucket.count > 0);
-
-  /** Graph fills remaining card height (header stays compact). */
   const graphHeight = 120;
+  const showActions = !editMode && (canRename || canDelete || Boolean(onToggleHide));
 
   return (
     <Box
@@ -62,7 +101,8 @@ function ProjectCardBody({
       rowGap="l"
       width="100%"
       height="100%"
-      minHeight={260}>
+      minHeight={260}
+    >
       <PolarCardHeader>
         <Box alignItems="start" columnGap="m" minWidth={0} flex={1}>
           {editMode ? (
@@ -82,9 +122,53 @@ function ProjectCardBody({
           </Box>
         </Box>
 
-        <Badge variant={unresolved > 0 ? "escalating" : "healthy"} size="sm">
-          {statsLoading ? "…" : formatCompactCount(unresolved)} unresolved
-        </Badge>
+        <Box alignItems="start" columnGap="s" flexShrink={0}>
+          <Badge variant={unresolved > 0 ? "escalating" : "healthy"} size="sm">
+            {statsLoading ? "…" : formatCompactCount(unresolved)} unresolved
+          </Badge>
+          {showActions ? (
+            <Box
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={`Actions for ${project.name}`}
+                  >
+                    <MoreHorizontal size={14} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  {canRename ? (
+                    <DropdownMenuItem onSelect={() => onRename?.(project)}>
+                      <Pencil size={12} />
+                      Rename
+                    </DropdownMenuItem>
+                  ) : null}
+                  <DropdownMenuItem onSelect={() => onToggleHide?.(project)}>
+                    {hidden ? <Eye size={12} /> : <EyeOff size={12} />}
+                    {hidden ? "Show" : "Hide"}
+                  </DropdownMenuItem>
+                  {canDelete ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => onDelete?.(project)}>
+                        <Trash2 size={12} />
+                        <Text as="span" color="danger">
+                          Delete
+                        </Text>
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </Box>
+          ) : null}
+        </Box>
       </PolarCardHeader>
 
       <PolarCardFooter orientation="column" grow rowGap="s">
@@ -113,7 +197,8 @@ function ProjectCardBody({
               backgroundColor="background-secondary"
               borderWidth={1}
               borderStyle="dashed"
-              borderColor="border-primary">
+              borderColor="border-primary"
+            >
               <Text variant="caption" color="muted">
                 Quiet · no errors
               </Text>
@@ -172,10 +257,78 @@ export function ProjectList({
   activityByProject,
   loading = false,
   projectsLoading = false,
+  viewerRole,
   editMode = false,
   selectedIds,
   onToggleSelect,
 }: ProjectListProps) {
+  const navigate = useNavigate();
+  const { refreshProjects } = useAppContext();
+  const { toast } = useToast();
+  const canRename = viewerRole === "owner" || viewerRole === "admin";
+  const canDelete = viewerRole === "owner";
+
+  const [hiddenIds, setHiddenIds] = useState(() => loadHiddenProjectIds());
+  const [renameTarget, setRenameTarget] = useState<ProjectRow | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [renameBusy, setRenameBusy] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ProjectRow | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  const orderedProjects = useMemo(() => {
+    const visible: ProjectRow[] = [];
+    const hidden: ProjectRow[] = [];
+    for (const project of projects) {
+      if (hiddenIds.has(project.id)) hidden.push(project);
+      else visible.push(project);
+    }
+    return [...visible, ...hidden];
+  }, [projects, hiddenIds]);
+
+  const handleToggleHide = useCallback((project: ProjectRow) => {
+    setHiddenIds(toggleHiddenProjectId(project.id));
+  }, []);
+
+  const openRename = useCallback((project: ProjectRow) => {
+    setRenameTarget(project);
+    setRenameValue(project.name);
+  }, []);
+
+  const handleRename = useCallback(async () => {
+    if (!renameTarget) return;
+    const name = renameValue.trim();
+    if (!name || name === renameTarget.name) {
+      setRenameTarget(null);
+      return;
+    }
+    setRenameBusy(true);
+    try {
+      await updateProject(renameTarget.id, { name });
+      await refreshProjects();
+      toast("Project renamed");
+      setRenameTarget(null);
+    } catch {
+      toast("Could not rename project");
+    } finally {
+      setRenameBusy(false);
+    }
+  }, [renameTarget, renameValue, refreshProjects, toast]);
+
+  const handleDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    setDeleteBusy(true);
+    try {
+      await deleteProject(deleteTarget.id);
+      await refreshProjects();
+      toast("Project deleted");
+      setDeleteTarget(null);
+    } catch {
+      toast("Could not delete project");
+    } finally {
+      setDeleteBusy(false);
+    }
+  }, [deleteTarget, refreshProjects, toast]);
+
   if (projectsLoading && projects.length === 0) {
     return (
       <ProjectGallery>
@@ -206,53 +359,150 @@ export function ProjectList({
   }
 
   return (
-    <ProjectGallery>
-      {projects.map((project) => {
-        const selected = selectedIds?.has(project.id) ?? false;
-        const body = (
-          <ProjectCardBody
-            project={project}
-            stats={statsByProject.get(project.id)}
-            activity={activityByProject.get(project.id)}
-            statsLoading={loading && !statsByProject.has(project.id)}
-            editMode={editMode}
-            selected={selected}
-            onToggleSelect={onToggleSelect}
-          />
-        );
-
-        if (editMode) {
-          return (
-            <PolarCard
-              key={project.id}
+    <>
+      <ProjectGallery>
+        {orderedProjects.map((project) => {
+          const selected = selectedIds?.has(project.id) ?? false;
+          const hidden = hiddenIds.has(project.id);
+          const body = (
+            <ProjectCardBody
+              project={project}
+              stats={statsByProject.get(project.id)}
+              activity={activityByProject.get(project.id)}
+              statsLoading={loading && !statsByProject.has(project.id)}
+              editMode={editMode}
               selected={selected}
-              interactive
-              role="button"
-              tabIndex={0}
-              onClick={(event) => {
-                if ((event.target as HTMLElement).closest("button,input")) {
-                  return;
-                }
-                onToggleSelect?.(project.id);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onToggleSelect?.(project.id);
-                }
-              }}
-            >
-              {body}
-            </PolarCard>
+              hidden={hidden}
+              canRename={canRename}
+              canDelete={canDelete}
+              onToggleSelect={onToggleSelect}
+              onRename={openRename}
+              onToggleHide={handleToggleHide}
+              onDelete={setDeleteTarget}
+            />
           );
-        }
 
-        return (
-          <PolarCard key={project.id} to={projectPath(project.id, "issues")}>
-            {body}
-          </PolarCard>
-        );
-      })}
-    </ProjectGallery>
+          if (editMode) {
+            return (
+              <Box
+                key={project.id}
+                opacity={hidden ? 0.38 : 1}
+                transitionProperty="opacity"
+                transitionDuration="fast"
+              >
+                <PolarCard
+                  selected={selected}
+                  interactive
+                  role="button"
+                  tabIndex={0}
+                  onClick={(event) => {
+                    if ((event.target as HTMLElement).closest("button,input,[data-slot=dropdown-menu-content]")) {
+                      return;
+                    }
+                    onToggleSelect?.(project.id);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onToggleSelect?.(project.id);
+                    }
+                  }}
+                >
+                  {body}
+                </PolarCard>
+              </Box>
+            );
+          }
+
+          return (
+            <Box
+              key={project.id}
+              opacity={hidden ? 0.38 : 1}
+              transitionProperty="opacity"
+              transitionDuration="fast"
+            >
+              <PolarCard
+                interactive
+                role="link"
+                tabIndex={0}
+                onClick={(event) => {
+                  if (
+                    (event.target as HTMLElement).closest(
+                      "button,a,[role=menuitem],[data-slot=dropdown-menu-content]",
+                    )
+                  ) {
+                    return;
+                  }
+                  navigate(projectPath(project.id, "dashboard"));
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    navigate(projectPath(project.id, "dashboard"));
+                  }
+                }}
+              >
+                {body}
+              </PolarCard>
+            </Box>
+          );
+        })}
+      </ProjectGallery>
+
+      <Dialog
+        open={Boolean(renameTarget)}
+        onOpenChange={(open) => {
+          if (!open) setRenameTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rename project</DialogTitle>
+            <DialogDescription>
+              Updates the display name. The slug stays the same.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={renameValue}
+            autoFocus
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void handleRename();
+            }}
+            placeholder="Project name"
+          />
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={renameBusy}
+              onClick={() => setRenameTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              disabled={renameBusy || !renameValue.trim()}
+              onClick={() => void handleRename()}
+            >
+              {renameBusy ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <DeleteProjectsDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        projectNames={deleteTarget ? [deleteTarget.name] : []}
+        onConfirm={handleDelete}
+        busy={deleteBusy}
+      />
+    </>
   );
 }

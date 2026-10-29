@@ -13,6 +13,36 @@ use axum::{
 const WINDOW: Duration = Duration::from_secs(60);
 const MAX_REQUESTS: u32 = 20;
 
+/// Channel / webhook test sends: 3 per hour per (user, channel) key.
+const CHANNEL_TEST_WINDOW: Duration = Duration::from_secs(60 * 60);
+const CHANNEL_TEST_MAX: u32 = 3;
+
+static CHANNEL_TEST_LIMITER: LazyLock<Mutex<RateLimiter>> =
+    LazyLock::new(|| Mutex::new(RateLimiter::default()));
+
+/// Returns true when the test is allowed; false when the caller should 429.
+pub fn check_channel_test_limit(user_key: &str, channel_key: &str) -> bool {
+    let key = bucket_key(&format!("channel-test:{user_key}:{channel_key}"));
+    let now = Instant::now();
+    let mut guard = match CHANNEL_TEST_LIMITER.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    guard
+        .buckets
+        .retain(|_, (started, _)| now.duration_since(*started) < CHANNEL_TEST_WINDOW);
+    let entry = guard.buckets.entry(key).or_insert((now, 0));
+    if now.duration_since(entry.0) >= CHANNEL_TEST_WINDOW {
+        *entry = (now, 0);
+    }
+    if entry.1 >= CHANNEL_TEST_MAX {
+        false
+    } else {
+        entry.1 += 1;
+        true
+    }
+}
+
 #[derive(Default)]
 struct RateLimiter {
     buckets: HashMap<String, (Instant, u32)>,

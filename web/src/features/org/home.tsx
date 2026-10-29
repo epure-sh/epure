@@ -9,6 +9,8 @@ import {
   deleteProject,
   fetchBillingStatus,
   fetchHeadlineStats,
+  fetchSetupProgress,
+  setupOnboardingDone,
   type BillingStatus,
   type HeadlineStats,
   type TimelineBucket,
@@ -160,11 +162,28 @@ export function OrgHomePage() {
     setWizardOpen(true);
   }
 
-  function handleCreateClick() {
+  async function handleCreateClick() {
     if (!canManage || busy) {
       return;
     }
-    openWizard({ name: "" });
+    setBusy(true);
+    try {
+      for (const project of safeProjects) {
+        try {
+          const progress = await fetchSetupProgress(project.id);
+          if (!setupOnboardingDone(progress)) {
+            toast(`Finish setup for “${project.name}” before creating another project.`);
+            openWizard({ name: project.name, projectId: project.id });
+            return;
+          }
+        } catch {
+          /* skip unreachable projects */
+        }
+      }
+      openWizard({ name: "" });
+    } finally {
+      setBusy(false);
+    }
   }
 
   function handleWizardOpenChange(open: boolean) {
@@ -326,7 +345,7 @@ export function OrgHomePage() {
                       variant="primary"
                       size="sm"
                       disabled={busy}
-                      onClick={handleCreateClick}
+                      onClick={() => void handleCreateClick()}
                     >
                       <Plus size={14} />
                       Create project
