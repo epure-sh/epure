@@ -169,7 +169,7 @@ function TemplateStep({
               aria-pressed={selected}
               onClick={() => onChange(templateDraft(item.id))}
             >
-              {selected ? <Icon icon={Check} size={16} className="absolute top-3 right-3 text-fg-primary" /> : null}
+              {selected ? <Icon icon={Check} size={16} className="absolute right-3 bottom-3 text-fg-primary" /> : null}
               <span className="flex w-full flex-col items-start gap-2">
                 <span className="flex items-center gap-2">
                   <Icon icon={TEMPLATE_ICON[item.id] ?? Plus} size={22} className="text-fg-secondary" />
@@ -191,7 +191,7 @@ function TemplateStep({
           onClick={() => onChange(templateDraft(SCRATCH_TEMPLATE_ID))}
         >
           {draft.templateId === SCRATCH_TEMPLATE_ID ? (
-            <Icon icon={Check} size={16} className="absolute top-3 right-3 text-fg-primary" />
+            <Icon icon={Check} size={16} className="absolute right-3 bottom-3 text-fg-primary" />
           ) : null}
           <span className="flex w-full flex-col items-start gap-2">
             <span className="flex items-center gap-2">
