@@ -71,7 +71,7 @@ const ignored = sampleAlert({
   read_at: baseDate.toISOString(),
 });
 
-assert.equal(filterAlerts([velocity, regression], { kind: "regression" }).length, 1);
+assert.equal(filterAlerts([velocity, regression], { kind: "regression", timeWindow: "all" }).length, 1);
 assert.equal(countAlertsByKind([velocity, regression]).regression, 1);
 assert.equal(
   getAlertDetail(regression),
@@ -82,7 +82,7 @@ assert.equal(isAlertUnread(velocity), true);
 assert.equal(filterAlertsByViewMode([velocity, regression, ignored], "unread").length, 2);
 assert.equal(filterAlertsByViewMode([velocity, regression, ignored], "ignored").length, 1);
 assert.equal(filterAlertsByViewMode([velocity, regression, ignored], "all").length, 3);
-assert.equal(countAlertsForViewModes([velocity, regression], "7d").unread, 2);
+assert.equal(countAlertsForViewModes([velocity, regression], "all").unread, 2);
 assert.equal(groupAlertsByDay([velocity, regression]).length, 1);
 
 // Edge cases: null/undefined inputs
@@ -128,7 +128,7 @@ const resolvedAlert = sampleAlert({
 });
 assert.equal(filterAlertsByViewMode([velocity, regression, ignored, resolvedAlert], "resolved").length, 1);
 assert.equal(filterAlertsByViewMode([velocity, regression, ignored, resolvedAlert], "resolved")[0]?.id, "alert-4");
-assert.equal(countAlertsForViewModes([velocity, regression, ignored, resolvedAlert], "7d").resolved, 1);
+assert.equal(countAlertsForViewModes([velocity, regression, ignored, resolvedAlert], "all").resolved, 1);
 
 // formatAlertListTime and getAlertDayGroupLabel
 import { formatAlertListTime, getAlertDayGroupLabel } from "./alert-utils";

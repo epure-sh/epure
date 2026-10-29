@@ -9,7 +9,7 @@
     "build": "tsc -b tsconfig.app.json && vite build",
     "build:playground": "tsc -b tsconfig.playground.json && vite build --config vite.playground.config.ts",
     "preview": "vite preview",
-    "test": "node --import tsx --test 'src/**/*.test.ts' 'playground/**/*.test.ts'",
+    "test": "node --import ./stylex-test-register.mjs --import tsx --test 'src/**/*.test.ts' 'playground/**/*.test.ts'",
     "test:e2e": "playwright test",
     "test:playground-smoke": "playwright test --config playwright.playground.config.ts",
     "lint": "eslint .",

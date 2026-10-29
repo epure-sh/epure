@@ -249,7 +249,7 @@ export function OrgHomePage() {
             alignItems="center"
           >
             <Box alignItems="center" columnGap="s" minWidth={0} width="100%">
-              <Text as="h2" variant="heading-xs" flexShrink={0}>
+              <Text as="h2" variant="heading-xs">
                 Projects
               </Text>
               {projects.length > 0 ? (
