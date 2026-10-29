@@ -178,6 +178,7 @@ async fn seed_agency_hierarchy(pool: &PgPool) -> Result<(), sqlx::Error> {
             occurred_at: now,
             increment_by: 1,
             grouping: None,
+            rollup: epure_storage::issues::IssueRollup::default(),
         },
     )
     .await?;
@@ -195,6 +196,7 @@ async fn seed_agency_hierarchy(pool: &PgPool) -> Result<(), sqlx::Error> {
             occurred_at: now,
             increment_by: 1,
             grouping: None,
+            rollup: epure_storage::issues::IssueRollup::default(),
         },
     )
     .await?;

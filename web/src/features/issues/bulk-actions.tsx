@@ -22,6 +22,7 @@ export interface BulkActionsProps {
   onMarkRead: () => void;
   onReopen: () => void;
   onSnooze: (mode: SnoozeMode) => Promise<void>;
+  onUnsnooze?: () => void;
   onMerge?: () => void;
   onSplit?: () => void;
   onClear: () => void;
@@ -113,6 +114,7 @@ export function BulkActions({
   onMarkRead,
   onReopen,
   onSnooze,
+  onUnsnooze,
   onMerge,
   onSplit,
   onClear,
@@ -174,6 +176,17 @@ export function BulkActions({
             <Sparkles className="size-3.5" aria-hidden />
             <span>Ask AI</span>
           </BarButton>
+
+          {availability.unsnooze && onUnsnooze ? (
+            <BarButton
+              disabled={busy}
+              tooltip={busyTip ?? "Unsnooze"}
+              onClick={onUnsnooze}
+            >
+              <RotateCcw className="size-3.5" aria-hidden />
+              <span>Unsnooze</span>
+            </BarButton>
+          ) : null}
 
           {availability.snooze ? (
             <BulkSnoozeMenu disabled={busy} iconOnly onSnooze={onSnooze} />

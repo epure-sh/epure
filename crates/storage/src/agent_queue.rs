@@ -90,52 +90,53 @@ fn score_issue(
     alerts: &std::collections::HashMap<Uuid, Vec<&AlertRow>>,
     now: &DateTime<Utc>,
 ) -> QueuedIssue {
-    let mut score = 0i32;
+    let assessed = if issue.priority_pattern.is_none() && issue.priority_score == 0 {
+        Some(crate::issue_state::assess_priority(
+            &crate::issue_state::PrioritySignals {
+                level: issue.level.as_deref(),
+                unhandled: issue.is_unhandled,
+                status: &issue.status,
+                event_count: issue.event_count,
+                user_count: issue.unique_user_count,
+                environment: issue.environment.as_deref(),
+                environment_count: 1,
+                first_seen: issue.first_seen_at,
+                last_seen: issue.last_seen_at,
+                regressed_count: issue.regressed_count,
+                hourly_counts: &[],
+                now: *now,
+            },
+        ))
+    } else {
+        None
+    };
+
+    let mut score = assessed
+        .as_ref()
+        .map(|value| value.score)
+        .unwrap_or(issue.priority_score);
     let mut reasons = Vec::new();
-
-    if issue.status == "regression" {
-        score += 1000;
-        reasons.push("regression".into());
+    let pattern = assessed
+        .as_ref()
+        .map(|value| value.pattern)
+        .or(issue.priority_pattern.as_deref());
+    if let Some(pattern) = pattern {
+        reasons.push(pattern_reason(pattern));
     }
-
+    if issue.is_unhandled {
+        reasons.push("unhandled".into());
+    }
+    if issue.unique_user_count >= 2 {
+        reasons.push(format!("{} users affected", issue.unique_user_count));
+    }
     if let Some(rows) = alerts.get(&issue.id) {
         if let Some(alert) = rows.first() {
-            score += 500;
+            score = (score + 8).min(100);
             reasons.push(format!("{} alert", alert.kind));
         }
     }
-
-    match issue.level.as_deref() {
-        Some("fatal") => {
-            score += 200;
-            reasons.push("fatal level".into());
-        }
-        Some("error") => score += 100,
-        _ => {}
-    }
-
-    let event_boost = issue.event_count.clamp(0, 300) as i32;
-    if event_boost > 0 {
-        score += event_boost;
-        if event_boost >= 10 {
-            reasons.push(format!("{} events", issue.event_count));
-        }
-    }
-
-    let user_boost = (issue.unique_user_count * 10).min(200);
-    if user_boost > 0 {
-        score += user_boost;
-        if issue.unique_user_count >= 2 {
-            reasons.push(format!("{} users affected", issue.unique_user_count));
-        }
-    }
-
-    if let Some(last_seen) = issue.last_seen_at {
-        score += recency_boost(last_seen, *now);
-    }
-
     if reasons.is_empty() {
-        reasons.push("unresolved issue".into());
+        reasons.push(issue.priority.clone());
     }
 
     QueuedIssue {
@@ -145,18 +146,17 @@ fn score_issue(
     }
 }
 
-fn recency_boost(last_seen: DateTime<Utc>, now: DateTime<Utc>) -> i32 {
-    let hours = now.signed_duration_since(last_seen).num_hours();
-    if hours <= 1 {
-        100
-    } else if hours <= 24 {
-        80
-    } else if hours <= 72 {
-        50
-    } else if hours <= 168 {
-        25
-    } else {
-        0
+fn pattern_reason(pattern: &str) -> String {
+    match pattern {
+        "spike" => "spiking this hour".to_string(),
+        "ramp" => "rising over the last hours".to_string(),
+        "regression" => "regressed after a fix".to_string(),
+        "spread" => "seen in more than one environment".to_string(),
+        "new" => "new unhandled crash in production".to_string(),
+        "steady" => "steady volume".to_string(),
+        "noise" => "single-user noise".to_string(),
+        "stale" => "not seen recently".to_string(),
+        _ => "trickle".to_string(),
     }
 }
 

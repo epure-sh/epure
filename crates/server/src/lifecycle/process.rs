@@ -259,14 +259,42 @@ async fn emit_custom_matches(
     is_new_fingerprint: bool,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let environment = issue_environment(issue);
-    for rule in rules.iter().filter(|rule| rule.kind == kind) {
+    for rule in rules
+        .iter()
+        .filter(|rule| alert_rules::sentence_listens(rule, kind))
+    {
         if !alert_rules::rule_matches_environment(rule, environment) {
             continue;
         }
         if !alert_rules::rule_matches_filters(rule, is_new_fingerprint, issue.level.as_deref()) {
             continue;
         }
-        if kind == "velocity_spike" {
+        if !rule.triggers.is_empty()
+            && !alert_rules::sentence_matches(
+                rule,
+                &alert_rules::SentenceContext {
+                    event: kind,
+                    is_new: is_new_fingerprint,
+                    level: issue.level.as_deref(),
+                    environment: issue.environment.as_deref(),
+                    title: issue.title.as_deref(),
+                    release: issue.release.as_deref(),
+                    platform: issue.platform.as_deref(),
+                    culprit: issue.culprit.as_deref(),
+                    exception_type: issue.exception_type.as_deref(),
+                    priority: issue.priority.as_deref(),
+                    unhandled: issue.is_unhandled,
+                    event_count: issue.event_count,
+                    user_count: issue.unique_user_count,
+                    regressed_count: issue.regressed_count,
+                    status: Some(issue.status.as_str()),
+                },
+            )
+        {
+            continue;
+        }
+        // Sentence rules compare their own count. The ratio gate is for legacy spike rows.
+        if kind == "velocity_spike" && rule.triggers.is_empty() {
             let Some(ratio) = velocity_ratio else {
                 continue;
             };

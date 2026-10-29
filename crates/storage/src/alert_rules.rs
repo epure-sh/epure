@@ -29,6 +29,12 @@ pub struct AlertRuleRow {
     pub environment: Option<String>,
     pub threshold: Option<i32>,
     pub filters_json: sqlx::types::Json<AlertRuleFilters>,
+    pub triggers: sqlx::types::Json<Vec<serde_json::Value>>,
+    pub condition_match: String,
+    pub conditions: sqlx::types::Json<Vec<serde_json::Value>>,
+    pub payload_options: sqlx::types::Json<serde_json::Value>,
+    pub channel_ids: Vec<Uuid>,
+    pub cooldown_mins: i32,
     pub created_at: DateTime<Utc>,
 }
 
@@ -40,6 +46,12 @@ pub struct CreateAlertRuleParams {
     pub threshold: Option<i32>,
     pub filters_json: AlertRuleFilters,
     pub enabled: bool,
+    pub triggers: Vec<serde_json::Value>,
+    pub condition_match: String,
+    pub conditions: Vec<serde_json::Value>,
+    pub payload_options: serde_json::Value,
+    pub channel_ids: Vec<Uuid>,
+    pub cooldown_mins: i32,
 }
 
 pub struct UpdateAlertRuleParams {
@@ -48,6 +60,12 @@ pub struct UpdateAlertRuleParams {
     pub environment: Option<Option<String>>,
     pub threshold: Option<Option<i32>>,
     pub filters_json: Option<AlertRuleFilters>,
+    pub triggers: Option<Vec<serde_json::Value>>,
+    pub condition_match: Option<String>,
+    pub conditions: Option<Vec<serde_json::Value>>,
+    pub payload_options: Option<serde_json::Value>,
+    pub channel_ids: Option<Vec<Uuid>>,
+    pub cooldown_mins: Option<i32>,
 }
 
 pub fn validate_kind(kind: &str) -> bool {
@@ -62,7 +80,8 @@ pub async fn list_for_project(
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
     let rows = sqlx::query_as::<_, AlertRuleRow>(
         r#"
-        SELECT id, org_id, project_id, name, enabled, kind, environment, threshold, filters_json, created_at
+        SELECT id, org_id, project_id, name, enabled, kind, environment, threshold, filters_json,
+               triggers, condition_match, conditions, payload_options, channel_ids, cooldown_mins, created_at
         FROM alert_rules
         WHERE project_id = $1
         ORDER BY created_at ASC
@@ -79,7 +98,8 @@ pub async fn list_for_org(pool: &PgPool, org_id: Uuid) -> Result<Vec<AlertRuleRo
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
     let rows = sqlx::query_as::<_, AlertRuleRow>(
         r#"
-        SELECT id, org_id, project_id, name, enabled, kind, environment, threshold, filters_json, created_at
+        SELECT id, org_id, project_id, name, enabled, kind, environment, threshold, filters_json,
+               triggers, condition_match, conditions, payload_options, channel_ids, cooldown_mins, created_at
         FROM alert_rules
         ORDER BY created_at ASC
         "#,
@@ -98,7 +118,8 @@ pub async fn list_enabled_for_project_ingest(
     let mut tx = crate::rls::begin_ingest_transaction(pool, org_id).await?;
     let rows = sqlx::query_as::<_, AlertRuleRow>(
         r#"
-        SELECT id, org_id, project_id, name, enabled, kind, environment, threshold, filters_json, created_at
+        SELECT id, org_id, project_id, name, enabled, kind, environment, threshold, filters_json,
+               triggers, condition_match, conditions, payload_options, channel_ids, cooldown_mins, created_at
         FROM alert_rules
         WHERE project_id = $1 AND enabled = true
         ORDER BY created_at ASC
@@ -119,9 +140,13 @@ pub async fn create_rule(
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
     let row = sqlx::query_as::<_, AlertRuleRow>(
         r#"
-        INSERT INTO alert_rules (org_id, project_id, name, kind, environment, threshold, filters_json, enabled)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING id, org_id, project_id, name, enabled, kind, environment, threshold, filters_json, created_at
+        INSERT INTO alert_rules (
+            org_id, project_id, name, kind, environment, threshold, filters_json, enabled,
+            triggers, condition_match, conditions, payload_options, channel_ids, cooldown_mins
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        RETURNING id, org_id, project_id, name, enabled, kind, environment, threshold, filters_json,
+                  triggers, condition_match, conditions, payload_options, channel_ids, cooldown_mins, created_at
         "#,
     )
     .bind(org_id)
@@ -132,6 +157,12 @@ pub async fn create_rule(
     .bind(params.threshold)
     .bind(sqlx::types::Json(params.filters_json))
     .bind(params.enabled)
+    .bind(sqlx::types::Json(params.triggers))
+    .bind(&params.condition_match)
+    .bind(sqlx::types::Json(params.conditions))
+    .bind(sqlx::types::Json(params.payload_options))
+    .bind(&params.channel_ids)
+    .bind(params.cooldown_mins)
     .fetch_one(&mut *tx)
     .await?;
     tx.commit().await?;
@@ -153,9 +184,16 @@ pub async fn update_rule(
             enabled = COALESCE($3, enabled),
             environment = CASE WHEN $4 THEN $5 ELSE environment END,
             threshold = CASE WHEN $6 THEN $7 ELSE threshold END,
-            filters_json = COALESCE($8, filters_json)
+            filters_json = COALESCE($8, filters_json),
+            triggers = COALESCE($9, triggers),
+            condition_match = COALESCE($10, condition_match),
+            conditions = COALESCE($11, conditions),
+            payload_options = COALESCE($12, payload_options),
+            channel_ids = COALESCE($13, channel_ids),
+            cooldown_mins = COALESCE($14, cooldown_mins)
         WHERE id = $1
-        RETURNING id, org_id, project_id, name, enabled, kind, environment, threshold, filters_json, created_at
+        RETURNING id, org_id, project_id, name, enabled, kind, environment, threshold, filters_json,
+                  triggers, condition_match, conditions, payload_options, channel_ids, cooldown_mins, created_at
         "#,
     )
     .bind(rule_id)
@@ -170,6 +208,12 @@ pub async fn update_rule(
             .filters_json
             .map(sqlx::types::Json),
     )
+    .bind(params.triggers.map(sqlx::types::Json))
+    .bind(&params.condition_match)
+    .bind(params.conditions.map(sqlx::types::Json))
+    .bind(params.payload_options.map(sqlx::types::Json))
+    .bind(&params.channel_ids)
+    .bind(params.cooldown_mins)
     .fetch_optional(&mut *tx)
     .await?;
     tx.commit().await?;
@@ -209,6 +253,236 @@ fn level_rank(level: &str) -> i32 {
     }
 }
 
+/// Fields the ingest worker can check without another query.
+#[derive(Debug, Clone)]
+pub struct SentenceContext<'a> {
+    pub event: &'a str,
+    pub is_new: bool,
+    pub level: Option<&'a str>,
+    pub environment: Option<&'a str>,
+    pub title: Option<&'a str>,
+    pub release: Option<&'a str>,
+    pub platform: Option<&'a str>,
+    pub culprit: Option<&'a str>,
+    pub exception_type: Option<&'a str>,
+    pub priority: Option<&'a str>,
+    pub unhandled: bool,
+    pub event_count: i64,
+    pub user_count: i32,
+    pub regressed_count: i32,
+    pub status: Option<&'a str>,
+}
+
+/// Legacy rules with an empty sentence still run only on their stored kind.
+/// A sentence runs on the pass each trigger can hear.
+pub fn sentence_listens(rule: &AlertRuleRow, kind: &str) -> bool {
+    if rule.triggers.is_empty() {
+        return rule.kind == kind;
+    }
+    let came_back = came_back_yes(&rule.conditions);
+    rule.triggers
+        .iter()
+        .any(|trigger| trigger_hears(trigger, kind, came_back, &rule.kind))
+}
+
+fn came_back_yes(conditions: &[serde_json::Value]) -> bool {
+    conditions.iter().any(|condition| {
+        condition.get("field").and_then(|value| value.as_str()) == Some("came_back")
+            && condition
+                .get("op")
+                .and_then(|value| value.as_str())
+                .unwrap_or("is")
+                == "is"
+            && matches!(
+                condition.get("value").and_then(|value| value.as_str()),
+                Some("yes" | "true")
+            )
+    })
+}
+
+fn trigger_hears(
+    trigger: &serde_json::Value,
+    kind: &str,
+    came_back: bool,
+    rule_kind: &str,
+) -> bool {
+    match trigger
+        .get("type")
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+    {
+        // First fingerprint, unless the rule is "came back", which hears the regression pass.
+        "issue_new" if kind == "issue_created" => !came_back,
+        "issue_new" if kind == "regression" => came_back,
+        "issue_regression" => kind == "regression",
+        "issue_count" | "users_affected" | "project_count" => kind == "velocity_spike",
+        // Older rows: keep the kind they were saved with, don't fan out.
+        "any_event" => rule_kind == kind,
+        _ => false,
+    }
+}
+
+/// True when one stored trigger matches this event and the conditions hold.
+pub fn sentence_matches(rule: &AlertRuleRow, ctx: &SentenceContext<'_>) -> bool {
+    if rule.triggers.is_empty() {
+        return true;
+    }
+    let triggered = rule
+        .triggers
+        .iter()
+        .any(|trigger| trigger_matches(trigger, ctx));
+    if !triggered {
+        return false;
+    }
+    let checks: Vec<bool> = rule
+        .conditions
+        .iter()
+        .map(|item| condition_matches(item, ctx))
+        .collect();
+    if checks.is_empty() {
+        return true;
+    }
+    if rule.condition_match == "any" {
+        checks.iter().any(|item| *item)
+    } else {
+        checks.iter().all(|item| *item)
+    }
+}
+
+fn trigger_matches(trigger: &serde_json::Value, ctx: &SentenceContext<'_>) -> bool {
+    let kind = trigger
+        .get("type")
+        .and_then(|value| value.as_str())
+        .unwrap_or("");
+    match kind {
+        // `regression` is heard only by rules whose condition is came back.
+        "issue_new" => match ctx.event {
+            "issue_created" => ctx.is_new,
+            "regression" => true,
+            _ => false,
+        },
+        "issue_regression" => ctx.event == "regression",
+        "priority_escalated" => matches!(ctx.priority, Some("high" | "critical")),
+        "any_event" => true,
+        "issue_count" => count_compare(trigger, ctx.event_count),
+        "users_affected" => count_compare(trigger, i64::from(ctx.user_count)),
+        "project_count" => ctx.event == "velocity_spike",
+        _ => false,
+    }
+}
+
+/// `gt` / `lt` / `eq` are the sentence. A stored count with no op keeps `>=`.
+fn count_compare(trigger: &serde_json::Value, actual: i64) -> bool {
+    let threshold = trigger
+        .get("threshold")
+        .and_then(|value| value.as_i64())
+        .unwrap_or(1);
+    match trigger.get("op").and_then(|value| value.as_str()) {
+        Some("gt") => actual > threshold,
+        Some("lt") => actual < threshold,
+        Some("eq") => actual == threshold,
+        _ => actual >= threshold,
+    }
+}
+
+fn condition_matches(condition: &serde_json::Value, ctx: &SentenceContext<'_>) -> bool {
+    let field = condition
+        .get("field")
+        .and_then(|value| value.as_str())
+        .unwrap_or("");
+    let op = condition
+        .get("op")
+        .and_then(|value| value.as_str())
+        .unwrap_or("is");
+    let expected = condition
+        .get("value")
+        .and_then(|value| value.as_str())
+        .unwrap_or("");
+    let actual = match field {
+        "level" => ctx.level,
+        "environment" => ctx.environment,
+        "title" => ctx.title,
+        "release" => ctx.release,
+        "platform" => ctx.platform,
+        "culprit" => ctx.culprit,
+        "exception_type" => ctx.exception_type,
+        "priority" => ctx.priority,
+        "is_unhandled" => Some(if ctx.unhandled { "true" } else { "false" }),
+        "came_back" => {
+            let yes = ctx.event == "regression" || ctx.status == Some("regression");
+            let want = matches!(expected, "yes" | "true");
+            return op == "is" && yes == want;
+        }
+        "regressed_count" => return number_op(op, i64::from(ctx.regressed_count), expected),
+        "user.email"
+        | "user_key"
+        | "transaction_name"
+        | "request.url"
+        | "request.method"
+        | "contexts.browser.name"
+        | "contexts.os.name"
+        | "contexts.runtime.name"
+        | "tags.plan"
+        | "tags.tenant" => return false,
+        _ => return false,
+    };
+    text_op(op, actual, expected)
+}
+
+fn text_op(op: &str, actual: Option<&str>, expected: &str) -> bool {
+    match op {
+        "exists" | "is_not_null" => actual.is_some_and(|value| !value.is_empty()),
+        "is" | "equals" => actual.is_some_and(|value| value.eq_ignore_ascii_case(expected)),
+        "is_not" => actual.is_some_and(|value| !value.eq_ignore_ascii_case(expected)),
+        "contains" => actual.is_some_and(|value| {
+            value
+                .to_ascii_lowercase()
+                .contains(&expected.to_ascii_lowercase())
+        }),
+        "not_contains" => actual.is_some_and(|value| {
+            !value
+                .to_ascii_lowercase()
+                .contains(&expected.to_ascii_lowercase())
+        }),
+        "starts_with" => actual.is_some_and(|value| {
+            value
+                .to_ascii_lowercase()
+                .starts_with(&expected.to_ascii_lowercase())
+        }),
+        "ends_with" => actual.is_some_and(|value| {
+            value
+                .to_ascii_lowercase()
+                .ends_with(&expected.to_ascii_lowercase())
+        }),
+        "at_least" => actual.is_some_and(|value| rank(value) >= rank(expected)),
+        "is_one_of" => actual.is_some_and(|value| {
+            expected
+                .split(',')
+                .any(|part| value.eq_ignore_ascii_case(part.trim()))
+        }),
+        _ => false,
+    }
+}
+
+fn number_op(op: &str, actual: i64, expected: &str) -> bool {
+    let expected = expected.parse::<i64>().unwrap_or(0);
+    match op {
+        "gt" => actual > expected,
+        "is" | "equals" => actual == expected,
+        _ => false,
+    }
+}
+
+fn rank(value: &str) -> i32 {
+    match value.to_ascii_lowercase().as_str() {
+        "fatal" | "critical" => 50,
+        "error" | "high" => 40,
+        "warning" | "medium" => 30,
+        "info" | "low" => 20,
+        _ => 0,
+    }
+}
+
 /// `first_seen: "new"` limits `issue_created` rules to the first event on a fingerprint.
 pub fn rule_matches_filters(
     rule: &AlertRuleRow,
@@ -223,6 +497,86 @@ pub fn rule_matches_filters(
         None | Some("") | Some("any") => true,
         Some(min) => issue_level.is_some_and(|level| level_rank(level) >= level_rank(min)),
     }
+}
+
+#[derive(Debug, sqlx::FromRow, serde::Serialize, Clone)]
+pub struct AlertChannelRow {
+    pub id: Uuid,
+    pub org_id: Uuid,
+    pub project_id: Uuid,
+    pub provider: String,
+    pub label: String,
+    pub is_enabled: bool,
+    pub last_error: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+pub fn validate_provider(provider: &str) -> bool {
+    matches!(
+        provider,
+        "slack" | "discord" | "telegram" | "email" | "webhook"
+    )
+}
+
+pub async fn list_channels(
+    pool: &PgPool,
+    org_id: Uuid,
+    project_id: Uuid,
+) -> Result<Vec<AlertChannelRow>, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let rows = sqlx::query_as::<_, AlertChannelRow>(
+        r#"
+        SELECT id, org_id, project_id, provider, label, is_enabled, last_error, created_at
+        FROM alert_channels
+        WHERE project_id = $1
+        ORDER BY created_at ASC
+        "#,
+    )
+    .bind(project_id)
+    .fetch_all(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(rows)
+}
+
+pub async fn create_channel(
+    pool: &PgPool,
+    org_id: Uuid,
+    project_id: Uuid,
+    provider: &str,
+    label: &str,
+) -> Result<AlertChannelRow, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let row = sqlx::query_as::<_, AlertChannelRow>(
+        r#"
+        INSERT INTO alert_channels (org_id, project_id, provider, label)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, org_id, project_id, provider, label, is_enabled, last_error, created_at
+        "#,
+    )
+    .bind(org_id)
+    .bind(project_id)
+    .bind(provider)
+    .bind(label)
+    .fetch_one(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
+pub async fn channel_ready(
+    pool: &PgPool,
+    org_id: Uuid,
+    channel_id: Uuid,
+) -> Result<Option<bool>, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let enabled =
+        sqlx::query_scalar::<_, bool>("SELECT is_enabled FROM alert_channels WHERE id = $1")
+            .bind(channel_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+    tx.commit().await?;
+    Ok(enabled)
 }
 
 #[cfg(test)]
@@ -244,8 +598,47 @@ mod tests {
                 first_seen: first_seen.map(str::to_string),
                 ..Default::default()
             }),
+            triggers: sqlx::types::Json(Vec::new()),
+            condition_match: "all".into(),
+            conditions: sqlx::types::Json(Vec::new()),
+            payload_options: sqlx::types::Json(serde_json::json!({})),
+            channel_ids: Vec::new(),
+            cooldown_mins: 30,
             created_at: Utc::now(),
         }
+    }
+
+    #[test]
+    fn production_crash_sentence_requires_unhandled_prod() {
+        let mut rule = sample_rule(None, None);
+        rule.triggers = sqlx::types::Json(vec![serde_json::json!({"type": "issue_new"})]);
+        rule.conditions = sqlx::types::Json(vec![
+            serde_json::json!({"field": "environment", "op": "is", "value": "production"}),
+            serde_json::json!({"field": "is_unhandled", "op": "is", "value": "true"}),
+        ]);
+        let mut ctx = SentenceContext {
+            event: "issue_created",
+            is_new: true,
+            level: Some("error"),
+            environment: Some("production"),
+            title: Some("TypeError"),
+            release: None,
+            platform: Some("node"),
+            culprit: None,
+            exception_type: Some("TypeError"),
+            priority: Some("high"),
+            unhandled: true,
+            event_count: 1,
+            user_count: 1,
+            regressed_count: 0,
+            status: Some("unresolved"),
+        };
+        assert!(sentence_matches(&rule, &ctx));
+        ctx.unhandled = false;
+        assert!(!sentence_matches(&rule, &ctx));
+        ctx.unhandled = true;
+        ctx.environment = Some("staging");
+        assert!(!sentence_matches(&rule, &ctx));
     }
 
     #[test]
@@ -298,5 +691,106 @@ mod tests {
         // Empty json defaults cleanly
         let empty: AlertRuleFilters = serde_json::from_str("{}").expect("empty parse");
         assert_eq!(empty, AlertRuleFilters::default());
+    }
+
+    fn event_ctx<'a>(event: &'a str, status: &'a str, event_count: i64) -> SentenceContext<'a> {
+        SentenceContext {
+            event,
+            is_new: event == "issue_created",
+            level: Some("error"),
+            environment: Some("production"),
+            title: None,
+            release: None,
+            platform: None,
+            culprit: None,
+            exception_type: None,
+            priority: Some("high"),
+            unhandled: true,
+            event_count,
+            user_count: 4,
+            regressed_count: if status == "regression" { 1 } else { 0 },
+            status: Some(status),
+        }
+    }
+
+    #[test]
+    fn issue_count_uses_greater_less_or_equal() {
+        let mut rule = sample_rule(None, None);
+        rule.kind = "velocity_spike".into();
+        rule.triggers = sqlx::types::Json(vec![
+            serde_json::json!({"type": "issue_count", "op": "gt", "threshold": 100, "window": "5m"}),
+        ]);
+        let ctx = event_ctx("velocity_spike", "unresolved", 100);
+        assert!(!sentence_matches(&rule, &ctx));
+        let over = event_ctx("velocity_spike", "unresolved", 101);
+        assert!(sentence_matches(&rule, &over));
+
+        rule.triggers = sqlx::types::Json(vec![
+            serde_json::json!({"type": "issue_count", "op": "eq", "threshold": 100}),
+        ]);
+        assert!(sentence_matches(&rule, &ctx));
+
+        rule.triggers = sqlx::types::Json(vec![
+            serde_json::json!({"type": "issue_count", "op": "lt", "threshold": 100}),
+        ]);
+        let under = event_ctx("velocity_spike", "unresolved", 99);
+        assert!(sentence_matches(&rule, &under));
+        assert!(!sentence_matches(&rule, &ctx));
+    }
+
+    #[test]
+    fn legacy_count_without_op_is_at_least() {
+        let mut rule = sample_rule(None, None);
+        rule.triggers = sqlx::types::Json(vec![
+            serde_json::json!({"type": "issue_count", "threshold": 100}),
+        ]);
+        let exact = event_ctx("velocity_spike", "unresolved", 100);
+        assert!(sentence_matches(&rule, &exact));
+        let under = event_ctx("velocity_spike", "unresolved", 99);
+        assert!(!sentence_matches(&rule, &under));
+    }
+
+    #[test]
+    fn came_back_condition_matches_a_regression() {
+        let mut rule = sample_rule(None, None);
+        rule.kind = "regression".into();
+        rule.triggers = sqlx::types::Json(vec![serde_json::json!({"type": "issue_new"})]);
+        rule.conditions = sqlx::types::Json(vec![
+            serde_json::json!({"field": "came_back", "op": "is", "value": "yes"}),
+        ]);
+        let back = event_ctx("regression", "regression", 12);
+        assert!(sentence_matches(&rule, &back));
+        let fresh = event_ctx("issue_created", "unresolved", 1);
+        assert!(!sentence_matches(&rule, &fresh));
+        assert!(sentence_listens(&rule, "regression"));
+        assert!(!sentence_listens(&rule, "issue_created"));
+    }
+
+    #[test]
+    fn new_issue_rule_does_not_hear_a_regression() {
+        let mut rule = sample_rule(None, None);
+        rule.kind = "issue_created".into();
+        rule.triggers = sqlx::types::Json(vec![serde_json::json!({"type": "issue_new"})]);
+        assert!(sentence_listens(&rule, "issue_created"));
+        assert!(!sentence_listens(&rule, "regression"));
+        assert!(!sentence_listens(&rule, "velocity_spike"));
+    }
+
+    #[test]
+    fn count_or_new_hears_both_passes() {
+        let mut rule = sample_rule(None, None);
+        rule.kind = "velocity_spike".into();
+        rule.triggers = sqlx::types::Json(vec![
+            serde_json::json!({"type": "issue_new"}),
+            serde_json::json!({"type": "users_affected", "op": "gt", "threshold": 25, "window": "1h"}),
+        ]);
+        assert!(sentence_listens(&rule, "issue_created"));
+        assert!(sentence_listens(&rule, "velocity_spike"));
+        assert!(!sentence_listens(&rule, "regression"));
+        let users = event_ctx("velocity_spike", "unresolved", 10);
+        assert!(!sentence_matches(&rule, &users));
+        let mut many = users.clone();
+        many.user_count = 26;
+        assert!(sentence_matches(&rule, &many));
     }
 }

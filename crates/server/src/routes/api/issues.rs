@@ -10,7 +10,7 @@ use axum::{
 use epure_auth::DashboardSession;
 use epure_storage::alerts;
 use epure_storage::events;
-use epure_storage::issues::{self, IssueListFilter, IssueSummary, SnoozeMode, UpdateIssueParams};
+use epure_storage::issues::{self, IssueListFilter, IssueSummary, UpdateIssueParams};
 use epure_storage::projects;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -247,12 +247,7 @@ async fn snooze_issue(
     Path(id): Path<Uuid>,
     Json(body): Json<SnoozeBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let mode = match body.mode.as_str() {
-        "hours" | "4h" => SnoozeMode::Hours4,
-        "occurrences" | "100" => SnoozeMode::Occurrences100,
-        "users" | "10" => SnoozeMode::Users10,
-        _ => return Err(StatusCode::BAD_REQUEST),
-    };
+    let mode = issues::parse_snooze_mode(&body.mode).ok_or(StatusCode::BAD_REQUEST)?;
 
     let row = issues::apply_snooze(&state.pools.app, dashboard.org_id, id, mode)
         .await

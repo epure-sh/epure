@@ -6,6 +6,7 @@ pub mod frames;
 pub mod grouping;
 pub mod metadata;
 pub mod noise;
+pub mod retain;
 pub mod scrub;
 pub mod store;
 
@@ -28,6 +29,7 @@ pub use noise::{
     client_event_id, match_noise, outcome_reason, parse_client_report, ClientDiscard, NoiseMatch,
     NoisePolicy,
 };
+pub use retain::{culprit_from_event, event_occurred_at, is_unhandled, project_event};
 pub use scrub::{
     apply_privacy_policy, looks_like_email, pseudonym_for, scrub_event, scrub_string, PrivacyPolicy,
 };

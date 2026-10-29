@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Timelike, Utc};
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
@@ -49,6 +49,7 @@ pub async fn persist_counter_only(
             occurred_at: params.occurred_at,
             increment_by: 1,
             grouping: None,
+            rollup: crate::issues::IssueRollup::default(),
         },
     )
     .await?;
@@ -63,6 +64,7 @@ pub async fn persist_counter_only(
         },
     )
     .await?;
+    refresh_issue_priority_in_tx(&mut tx, issue_id, Utc::now()).await?;
     tx.commit().await?;
     Ok((prior, issue_id))
 }
@@ -110,6 +112,7 @@ pub async fn persist_counter_delta(
                 ),
                 spike_coalesced_delta: params.count_delta,
             }),
+            rollup: crate::issues::IssueRollup::default(),
         },
     )
     .await?;
@@ -124,6 +127,7 @@ pub async fn persist_counter_delta(
         },
     )
     .await?;
+    refresh_issue_priority_in_tx(&mut tx, issue_id, Utc::now()).await?;
     tx.commit().await?;
     Ok(issue_id)
 }
@@ -158,6 +162,7 @@ pub async fn persist_store_event(
     event.issue_id = issue_id;
     insert_event_in_tx(&mut tx, &event).await?;
     sync_counter_in_tx(&mut tx, params.counter).await?;
+    refresh_issue_priority_in_tx(&mut tx, issue_id, Utc::now()).await?;
     tx.commit().await?;
 
     Ok(PersistOutcome {
@@ -199,6 +204,27 @@ pub async fn upsert_issue_in_tx(
         variants: serde_json::Value::Array(Vec::new()),
         spike_coalesced_delta: 0,
     });
+    let existing_number = sqlx::query_scalar::<_, Option<i64>>(
+        r#"
+        SELECT issue_number
+        FROM issues
+        WHERE project_id = $1 AND fingerprint = $2 AND merge_parent_id IS NULL
+        "#,
+    )
+    .bind(params.project_id)
+    .bind(&params.fingerprint)
+    .fetch_optional(&mut **tx)
+    .await?;
+    let issue_number = if matches!(existing_number, None | Some(None)) {
+        Some(
+            sqlx::query_scalar::<_, i64>("SELECT next_issue_number($1)")
+                .bind(params.project_id)
+                .fetch_one(&mut **tx)
+                .await?,
+        )
+    } else {
+        None
+    };
     let merge_reason = grouping.merge_reason.unwrap_or_default();
     let anchor = grouping
         .grouping_anchor
@@ -224,7 +250,17 @@ pub async fn upsert_issue_in_tx(
             merge_reason,
             grouping_anchor,
             coalesced_variants,
-            spike_coalesced
+            spike_coalesced,
+            culprit,
+            platform,
+            is_unhandled,
+            first_release,
+            last_release,
+            latest_event_id,
+            environments,
+            issue_number,
+            priority,
+            priority_score
         )
         VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $8, $9,
@@ -232,7 +268,12 @@ pub async fn upsert_issue_in_tx(
             COALESCE(NULLIF($14, ''), 'exact_stack'),
             COALESCE($15, '{}'::jsonb),
             COALESCE($16, '[]'::jsonb),
-            $17
+            $17,
+            $18, $19, $20, $7, $7, $21,
+            CASE WHEN $6 IS NULL THEN '[]'::jsonb ELSE jsonb_build_array($6) END,
+            $22,
+            'low',
+            0
         )
         ON CONFLICT (project_id, fingerprint) WHERE merge_parent_id IS NULL
         DO UPDATE SET
@@ -255,6 +296,18 @@ pub async fn upsert_issue_in_tx(
                 ELSE issues.grouping_anchor
             END,
             spike_coalesced = issues.spike_coalesced + EXCLUDED.spike_coalesced,
+            culprit = COALESCE(issues.culprit, EXCLUDED.culprit),
+            platform = COALESCE(issues.platform, EXCLUDED.platform),
+            is_unhandled = issues.is_unhandled OR EXCLUDED.is_unhandled,
+            first_release = COALESCE(issues.first_release, EXCLUDED.first_release),
+            last_release = COALESCE(EXCLUDED.last_release, issues.last_release),
+            latest_event_id = COALESCE(EXCLUDED.latest_event_id, issues.latest_event_id),
+            environments = CASE
+                WHEN EXCLUDED.environment IS NULL OR issues.environments ? EXCLUDED.environment
+                    THEN issues.environments
+                ELSE issues.environments || jsonb_build_array(EXCLUDED.environment)
+            END,
+            issue_number = COALESCE(issues.issue_number, EXCLUDED.issue_number),
             coalesced_variants = (
                 SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
                 FROM (
@@ -288,6 +341,11 @@ pub async fn upsert_issue_in_tx(
     .bind(&anchor)
     .bind(&grouping.variants)
     .bind(grouping.spike_coalesced_delta)
+    .bind(&params.rollup.culprit)
+    .bind(&params.rollup.platform)
+    .bind(params.rollup.is_unhandled)
+    .bind(params.rollup.latest_event_id)
+    .bind(issue_number)
     .fetch_one(&mut **tx)
     .await
 }
@@ -303,7 +361,8 @@ pub async fn get_issue_by_fingerprint_in_tx(
             id, org_id, project_id, title, level, status, release, environment,
             event_count, unique_user_count,
             resolved_in_release, snooze_until, snooze_until_count, snooze_until_users,
-            pre_snooze_status
+            pre_snooze_status, is_unhandled, priority, culprit, exception_type, platform,
+            regressed_count
         FROM issues
         WHERE project_id = $1 AND fingerprint = $2 AND merge_parent_id IS NULL
         "#,
@@ -398,20 +457,22 @@ async fn record_unique_user_in_tx(
     issue_id: Uuid,
     user_key: &str,
 ) -> Result<bool, sqlx::Error> {
-    let inserted = sqlx::query_scalar::<_, Uuid>(
+    let inserted = sqlx::query_scalar::<_, bool>(
         r#"
-        INSERT INTO issue_unique_users (issue_id, user_key)
-        VALUES ($1, $2)
-        ON CONFLICT DO NOTHING
-        RETURNING issue_id
+        INSERT INTO issue_unique_users (issue_id, user_key, first_seen_at, last_seen_at, event_count)
+        VALUES ($1, $2, now(), now(), 1)
+        ON CONFLICT (issue_id, user_key) DO UPDATE
+        SET last_seen_at = now(),
+            event_count = issue_unique_users.event_count + 1
+        RETURNING (xmax = 0)
         "#,
     )
     .bind(issue_id)
     .bind(user_key)
-    .fetch_optional(&mut **tx)
+    .fetch_one(&mut **tx)
     .await?;
 
-    if inserted.is_some() {
+    if inserted {
         sqlx::query(
             r#"
             UPDATE issues
@@ -426,4 +487,123 @@ async fn record_unique_user_in_tx(
     } else {
         Ok(false)
     }
+}
+
+async fn refresh_issue_priority_in_tx(
+    tx: &mut Transaction<'_, Postgres>,
+    issue_id: Uuid,
+    now: DateTime<Utc>,
+) -> Result<(), sqlx::Error> {
+    #[derive(sqlx::FromRow)]
+    struct PriorityRow {
+        level: Option<String>,
+        is_unhandled: bool,
+        status: String,
+        event_count: i64,
+        unique_user_count: i32,
+        environment: Option<String>,
+        environment_count: i32,
+        first_seen_at: Option<DateTime<Utc>>,
+        last_seen_at: Option<DateTime<Utc>>,
+        regressed_count: i32,
+        priority_locked: bool,
+        project_id: Uuid,
+        fingerprint: String,
+    }
+
+    let Some(row) = sqlx::query_as::<_, PriorityRow>(
+        r#"
+        SELECT
+            level,
+            is_unhandled,
+            status,
+            event_count,
+            unique_user_count,
+            environment,
+            jsonb_array_length(environments)::int AS environment_count,
+            first_seen_at,
+            last_seen_at,
+            regressed_count,
+            priority_locked,
+            project_id,
+            fingerprint
+        FROM issues
+        WHERE id = $1
+        "#,
+    )
+    .bind(issue_id)
+    .fetch_optional(&mut **tx)
+    .await?
+    else {
+        return Ok(());
+    };
+    if row.priority_locked {
+        return Ok(());
+    }
+
+    let points: Vec<(DateTime<Utc>, i64)> = sqlx::query_as(
+        r#"
+        SELECT window_start, count
+        FROM issue_counters
+        WHERE project_id = $1 AND fingerprint = $2 AND window_start >= $3
+        ORDER BY window_start ASC
+        "#,
+    )
+    .bind(row.project_id)
+    .bind(&row.fingerprint)
+    .bind(now - chrono::Duration::hours(24))
+    .fetch_all(&mut **tx)
+    .await?;
+    let hours = dense_hours(&points, now);
+    let assessment = crate::issue_state::assess_priority(&crate::issue_state::PrioritySignals {
+        level: row.level.as_deref(),
+        unhandled: row.is_unhandled,
+        status: &row.status,
+        event_count: row.event_count,
+        user_count: row.unique_user_count,
+        environment: row.environment.as_deref(),
+        environment_count: row.environment_count,
+        first_seen: row.first_seen_at,
+        last_seen: row.last_seen_at,
+        regressed_count: row.regressed_count,
+        hourly_counts: &hours,
+        now,
+    });
+
+    sqlx::query(
+        r#"
+        UPDATE issues
+        SET priority_score = $2,
+            priority = $3,
+            priority_pattern = $4
+        WHERE id = $1 AND priority_locked = false
+        "#,
+    )
+    .bind(issue_id)
+    .bind(assessment.score)
+    .bind(assessment.label)
+    .bind(assessment.pattern)
+    .execute(&mut **tx)
+    .await?;
+    Ok(())
+}
+
+fn dense_hours(points: &[(DateTime<Utc>, i64)], now: DateTime<Utc>) -> Vec<i64> {
+    let end = hour_floor(now);
+    let mut counts = vec![0_i64; 24];
+    for (start, count) in points {
+        let ago = (end - hour_floor(*start)).num_hours();
+        if (0..24).contains(&ago) {
+            let index = (23 - ago) as usize;
+            counts[index] = counts[index].saturating_add(*count);
+        }
+    }
+    counts
+}
+
+fn hour_floor(time: DateTime<Utc>) -> DateTime<Utc> {
+    time.date_naive()
+        .and_hms_opt(time.hour(), 0, 0)
+        .map(|naive| naive.and_utc())
+        .unwrap_or(time)
 }

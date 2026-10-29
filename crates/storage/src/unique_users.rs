@@ -14,20 +14,22 @@ pub async fn record_unique_user(
     issue_id: Uuid,
     user_key: &str,
 ) -> Result<bool, sqlx::Error> {
-    let inserted = sqlx::query_scalar::<_, Uuid>(
+    let inserted = sqlx::query_scalar::<_, bool>(
         r#"
-        INSERT INTO issue_unique_users (issue_id, user_key)
-        VALUES ($1, $2)
-        ON CONFLICT DO NOTHING
-        RETURNING issue_id
+        INSERT INTO issue_unique_users (issue_id, user_key, first_seen_at, last_seen_at, event_count)
+        VALUES ($1, $2, now(), now(), 1)
+        ON CONFLICT (issue_id, user_key) DO UPDATE
+        SET last_seen_at = now(),
+            event_count = issue_unique_users.event_count + 1
+        RETURNING (xmax = 0)
         "#,
     )
     .bind(issue_id)
     .bind(user_key)
-    .fetch_optional(pool)
+    .fetch_one(pool)
     .await?;
 
-    if inserted.is_some() {
+    if inserted {
         sqlx::query(
             r#"
             UPDATE issues

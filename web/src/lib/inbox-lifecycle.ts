@@ -16,7 +16,7 @@ export function inboxLifecycleLabel(kind: InboxLifecycleKind): string {
 
 export function issueInboxLifecycleKinds(issue: Pick<IssueSummary, "status" | "snoozed" | "came_back">): InboxLifecycleKind[] {
   const kinds: InboxLifecycleKind[] = [];
-  if (issue.snoozed) {
+  if (issue.snoozed || issue.status === "snoozed") {
     kinds.push("snoozed");
   }
   if (issue.status === "regression" || issue.came_back) {

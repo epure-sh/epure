@@ -164,12 +164,12 @@ impl McpHandler {
             },
             {
                 "name": "snooze_issue",
-                "description": "Temporarily snooze/mute an issue until a deadline or occurrence/user threshold",
+                "description": "Snooze an issue while events keep arriving. Time modes hold until the deadline: 1h, 4h, 1d, 7d, 30d, 90d. occurrences and users wake earlier if the issue spreads.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "issue_id": { "type": "string", "description": "Issue UUID" },
-                        "mode": { "type": "string", "description": "Snooze duration mode: 'hours', 'occurrences', 'users' (default 'hours')" }
+                        "mode": { "type": "string", "description": "1h, 4h (also 'hours'), 1d, 7d, 30d, 90d, occurrences, or users. Default 4h." }
                     },
                     "required": ["issue_id"]
                 }

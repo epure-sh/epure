@@ -14,6 +14,16 @@ pub struct UpsertIssueParams {
     pub occurred_at: DateTime<Utc>,
     pub increment_by: i64,
     pub grouping: Option<IssueGrouping>,
+    pub rollup: IssueRollup,
+}
+
+/// Fields maintained on the issue from each stored occurrence.
+#[derive(Debug, Clone, Default)]
+pub struct IssueRollup {
+    pub culprit: Option<String>,
+    pub platform: Option<String>,
+    pub is_unhandled: bool,
+    pub latest_event_id: Option<Uuid>,
 }
 
 /// Signatures written beside the issue key. Hashes use the PostgreSQL BIGINT bit pattern.
@@ -133,6 +143,7 @@ pub enum IssueSort {
     FirstSeenDesc,
     FirstSeenAsc,
     TitleAsc,
+    PriorityDesc,
 }
 
 impl IssueSort {
@@ -144,6 +155,7 @@ impl IssueSort {
             Some("first_seen_desc") => Self::FirstSeenDesc,
             Some("first_seen_asc") => Self::FirstSeenAsc,
             Some("title_asc") => Self::TitleAsc,
+            Some("priority_desc") => Self::PriorityDesc,
             _ => Self::LastSeenDesc,
         }
     }
@@ -157,6 +169,7 @@ impl IssueSort {
             Self::FirstSeenDesc => "first_seen_desc",
             Self::FirstSeenAsc => "first_seen_asc",
             Self::TitleAsc => "title_asc",
+            Self::PriorityDesc => "priority_desc",
         }
     }
 
@@ -169,6 +182,7 @@ impl IssueSort {
             Self::FirstSeenDesc => "first_seen_at DESC NULLS LAST, created_at DESC",
             Self::FirstSeenAsc => "first_seen_at ASC NULLS LAST, created_at ASC",
             Self::TitleAsc => "title ASC NULLS LAST, last_seen_at DESC NULLS LAST",
+            Self::PriorityDesc => "priority_score DESC, last_seen_at DESC NULLS LAST",
         }
     }
 }
@@ -221,6 +235,20 @@ pub struct IssueSummary {
     pub merge_reason: String,
     pub spike_coalesced: i64,
     pub coalesced_variants: Value,
+    pub culprit: Option<String>,
+    pub platform: Option<String>,
+    pub is_unhandled: bool,
+    pub first_release: Option<String>,
+    pub last_release: Option<String>,
+    pub resolved_at: Option<DateTime<Utc>>,
+    pub regressed_count: i32,
+    pub latest_event_id: Option<Uuid>,
+    pub environments: Value,
+    pub issue_number: Option<i64>,
+    pub priority: String,
+    pub priority_score: i32,
+    pub priority_locked: bool,
+    pub priority_pattern: Option<String>,
 }
 
 pub const SNOOZE_ACTIVE_SQL: &str = r#"
@@ -256,7 +284,21 @@ const ISSUE_SUMMARY_COLUMNS: &str = r#"
     ) AS snoozed,
     merge_reason,
     spike_coalesced,
-    coalesced_variants
+    coalesced_variants,
+    culprit,
+    platform,
+    is_unhandled,
+    first_release,
+    last_release,
+    resolved_at,
+    regressed_count,
+    latest_event_id,
+    environments,
+    issue_number,
+    priority,
+    priority_score,
+    priority_locked,
+    priority_pattern
 "#;
 
 pub async fn list_issue_summaries(
@@ -562,6 +604,12 @@ pub struct IssueLifecycleState {
     pub snooze_until_count: Option<i32>,
     pub snooze_until_users: Option<i32>,
     pub pre_snooze_status: Option<String>,
+    pub is_unhandled: bool,
+    pub priority: Option<String>,
+    pub culprit: Option<String>,
+    pub exception_type: Option<String>,
+    pub platform: Option<String>,
+    pub regressed_count: i32,
 }
 
 pub async fn get_issue_by_fingerprint(
@@ -611,7 +659,8 @@ pub async fn get_issue_by_id(
             id, org_id, project_id, title, level, status, release, environment,
             event_count, unique_user_count,
             resolved_in_release, snooze_until, snooze_until_count, snooze_until_users,
-            pre_snooze_status
+            pre_snooze_status, is_unhandled, priority, culprit, exception_type, platform,
+            regressed_count
         FROM issues
         WHERE id = $1 AND merge_parent_id IS NULL
         "#,
@@ -632,8 +681,10 @@ pub async fn mark_regression(
     sqlx::query(
         r#"
         UPDATE issues
-        SET status = 'regression'
-        WHERE id = $1 AND merge_parent_id IS NULL
+        SET status = 'regression',
+            regressed_count = regressed_count + 1,
+            resolved_at = NULL
+        WHERE id = $1 AND merge_parent_id IS NULL AND status = 'resolved'
         "#,
     )
     .bind(issue_id)
@@ -660,7 +711,15 @@ pub async fn update_issue(
         UPDATE issues
         SET
             status = COALESCE($2, status),
-            resolved_in_release = COALESCE($3, resolved_in_release),
+            resolved_in_release = CASE
+                WHEN $2 = 'unresolved' OR $2 = 'regression' THEN NULL
+                ELSE COALESCE($3, resolved_in_release)
+            END,
+            resolved_at = CASE
+                WHEN $2 = 'resolved' THEN COALESCE(resolved_at, now())
+                WHEN $2 IN ('unresolved', 'regression') THEN NULL
+                ELSE resolved_at
+            END,
             snooze_until = CASE WHEN $2 IS NOT NULL THEN NULL ELSE snooze_until END,
             snooze_until_count = CASE WHEN $2 IS NOT NULL THEN NULL ELSE snooze_until_count END,
             snooze_until_users = CASE WHEN $2 IS NOT NULL THEN NULL ELSE snooze_until_users END,
@@ -709,10 +768,30 @@ pub async fn unsnooze_issue(
     Ok(row)
 }
 
+/// How long an issue stays out of the inbox.
+///
+/// A time snooze keeps holding while new events arrive. It ends at the
+/// deadline, or when someone unsnoozes it. Count and user snoozes end earlier
+/// if the issue spreads past the threshold.
 pub enum SnoozeMode {
-    Hours4,
-    Occurrences100,
-    Users10,
+    Hours(i64),
+    Months(u32),
+    Occurrences(i32),
+    Users(i32),
+}
+
+pub fn parse_snooze_mode(raw: &str) -> Option<SnoozeMode> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "1h" | "hour" => Some(SnoozeMode::Hours(1)),
+        "4h" | "hours" => Some(SnoozeMode::Hours(4)),
+        "1d" | "day" | "24h" => Some(SnoozeMode::Hours(24)),
+        "7d" | "week" => Some(SnoozeMode::Hours(24 * 7)),
+        "30d" | "month" => Some(SnoozeMode::Months(1)),
+        "90d" | "3months" | "quarter" => Some(SnoozeMode::Months(3)),
+        "occurrences" | "100" => Some(SnoozeMode::Occurrences(100)),
+        "users" | "10" => Some(SnoozeMode::Users(10)),
+        _ => None,
+    }
 }
 
 pub async fn apply_snooze(
@@ -743,13 +822,31 @@ pub async fn apply_snooze(
     let overlay_status = pre_snooze_status.unwrap_or(status);
 
     let (snooze_until, snooze_until_count, snooze_until_users) = match mode {
-        SnoozeMode::Hours4 => (Some(Utc::now() + chrono::Duration::hours(4)), None, None),
-        SnoozeMode::Occurrences100 => {
-            let threshold = event_count.saturating_add(100);
+        SnoozeMode::Hours(hours) => {
+            let hours = hours.clamp(1, 24 * 366);
+            (
+                Some(Utc::now() + chrono::Duration::hours(hours)),
+                None,
+                None,
+            )
+        }
+        SnoozeMode::Months(months) => {
+            let months = months.clamp(1, 12);
+            let until = Utc::now()
+                .checked_add_months(chrono::Months::new(months))
+                .ok_or_else(|| sqlx::Error::Protocol("snooze deadline overflow".into()))?;
+            (Some(until), None, None)
+        }
+        SnoozeMode::Occurrences(extra) => {
+            let threshold = event_count.saturating_add(i64::from(extra.max(1)));
             let threshold = i32::try_from(threshold).unwrap_or(i32::MAX);
             (None, Some(threshold), None)
         }
-        SnoozeMode::Users10 => (None, None, Some(unique_user_count.saturating_add(10))),
+        SnoozeMode::Users(extra) => (
+            None,
+            None,
+            Some(unique_user_count.saturating_add(extra.max(1))),
+        ),
     };
     let row = sqlx::query_as::<_, IssueSummary>(&format!(
         r#"
@@ -876,6 +973,35 @@ pub async fn load_grouping_seeds(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn snooze_modes_cover_hours_days_and_months() {
+        assert!(matches!(
+            parse_snooze_mode("1h"),
+            Some(SnoozeMode::Hours(1))
+        ));
+        assert!(matches!(
+            parse_snooze_mode("hours"),
+            Some(SnoozeMode::Hours(4))
+        ));
+        assert!(matches!(
+            parse_snooze_mode("1d"),
+            Some(SnoozeMode::Hours(24))
+        ));
+        assert!(matches!(
+            parse_snooze_mode("7d"),
+            Some(SnoozeMode::Hours(168))
+        ));
+        assert!(matches!(
+            parse_snooze_mode("month"),
+            Some(SnoozeMode::Months(1))
+        ));
+        assert!(matches!(
+            parse_snooze_mode("90d"),
+            Some(SnoozeMode::Months(3))
+        ));
+        assert!(parse_snooze_mode("snoozed").is_none());
+    }
 
     #[test]
     fn issue_list_and_bulk_are_capped() {

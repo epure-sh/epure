@@ -1772,12 +1772,27 @@ export function getAlertLifecycle(alert: AlertRow): AlertLifecycle {
 export function buildLastTriggeredByKind(alerts: AlertRow[]): Record<string, string> {
   const map: Record<string, string> = {};
   for (const row of alerts) {
-    const existing = map[row.kind];
-    if (!existing || new Date(row.fired_at).getTime() > new Date(existing).getTime()) {
-      map[row.kind] = row.fired_at;
+    const ruleId = row.payload_json?.rule_id;
+    const keys = typeof ruleId === "string" && ruleId ? [row.kind, ruleId] : [row.kind];
+    for (const key of keys) {
+      const existing = map[key];
+      if (!existing || new Date(row.fired_at).getTime() > new Date(existing).getTime()) {
+        map[key] = row.fired_at;
+      }
     }
   }
   return map;
+}
+
+/** Fired alerts keyed by `payload.rule_id`. */
+export function buildRuleFiredCounts(alerts: AlertRow[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const row of alerts) {
+    const ruleId = row.payload_json?.rule_id;
+    if (typeof ruleId !== "string" || !ruleId) continue;
+    counts[ruleId] = (counts[ruleId] ?? 0) + 1;
+  }
+  return counts;
 }
 
 export function filterAlertsByViewMode(
@@ -2034,6 +2049,7 @@ export function issueSortToAlertSort(sort: IssueSortValue): AlertSort {
     case "first_seen_asc":
       return "oldest";
     case "events_desc":
+    case "priority_desc":
       return "severity";
     default:
       return "newest";

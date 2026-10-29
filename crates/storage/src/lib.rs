@@ -7,6 +7,7 @@ pub mod bootstrap;
 pub mod counters;
 pub mod dsn_keys;
 pub mod events;
+pub mod issue_state;
 pub mod issues;
 pub mod members;
 pub mod monitors;

@@ -1,6 +1,7 @@
 import { applyOptimisticSnooze, issueMatchesParsedQuery } from "../src/features/issues/issue-triage-utils";
 import { parseQuery } from "../src/features/issues/query-utils";
 import type {
+  AlertChannelRow,
   AlertRow,
   AlertRuleRow,
   CreatedDsnKey,
@@ -19,6 +20,7 @@ import type {
 } from "../src/lib/api";
 import { alertMatchesEnvironmentFilter } from "./alert-environment";
 import {
+  alertChannels,
   alertRules,
   alerts,
   buildEvents,
@@ -43,6 +45,7 @@ interface MockStore {
   webhooks: WebhookRow[];
   alerts: AlertRow[];
   alertRules: AlertRuleRow[];
+  alertChannels: AlertChannelRow[];
   mergeParents: Map<string, string[]>;
 }
 
@@ -179,6 +182,7 @@ function createStore(): MockStore {
     webhooks: clone(webhooks),
     alerts: clone(alerts),
     alertRules: clone(alertRules),
+    alertChannels: clone(alertChannels),
     mergeParents: new Map(),
   };
 }
@@ -527,6 +531,13 @@ function handleGet(path: string, url: URL): Response {
     const projectId = url.searchParams.get("project_id") ?? "";
     return jsonResponse({
       rules: store.alertRules.filter((row) => row.project_id === projectId),
+    });
+  }
+
+  if (path === "/api/v1/alert-channels") {
+    const projectId = url.searchParams.get("project_id") ?? "";
+    return jsonResponse({
+      channels: store.alertChannels.filter((row) => row.project_id === projectId),
     });
   }
 
@@ -1023,6 +1034,31 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
       }
     }
     return jsonResponse({ updated: splitIds.length });
+  }
+
+  if (path === "/api/v1/alert-channels") {
+    const created: AlertChannelRow = {
+      id: crypto.randomUUID(),
+      org_id: "11111111-1111-1111-1111-111111111111",
+      project_id: body.project_id,
+      provider: body.provider,
+      label: body.label,
+      is_enabled: true,
+      last_error: null,
+      created_at: new Date().toISOString(),
+    };
+    store.alertChannels.push(created);
+    return jsonResponse(created, 201);
+  }
+
+  const channelPing = path.match(/^\/api\/v1\/alert-channels\/([^/]+)\/ping$/);
+  if (channelPing) {
+    const channel = store.alertChannels.find((row) => row.id === channelPing[1]);
+    if (!channel) return jsonResponse({ error: "not found" }, 404);
+    return jsonResponse({
+      status: "ready",
+      detail: "Channel is saved. A message is sent when this rule matches.",
+    });
   }
 
   if (path === "/api/v1/alert-rules") {

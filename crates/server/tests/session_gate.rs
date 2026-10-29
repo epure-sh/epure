@@ -162,6 +162,7 @@ async fn seed_dev_issue(pool: &PgPool) -> Result<(), sqlx::Error> {
             occurred_at: chrono::Utc::now(),
             increment_by: 1,
             grouping: None,
+            rollup: epure_storage::issues::IssueRollup::default(),
         },
     )
     .await?;
@@ -228,6 +229,7 @@ async fn seed_org_b_user_and_issue(pool: &PgPool) -> Result<(), sqlx::Error> {
             occurred_at: chrono::Utc::now(),
             increment_by: 1,
             grouping: None,
+            rollup: epure_storage::issues::IssueRollup::default(),
         },
     )
     .await?;

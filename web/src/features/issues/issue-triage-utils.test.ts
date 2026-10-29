@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import {
+  applyIssueStatus,
   applyOptimisticSnooze,
   bulkTriageAvailability,
+  issueStateBadge,
+  issueWorkflowActions,
   canIgnoreIssue,
   canReopenIssue,
   canResolveIssue,
@@ -29,17 +32,18 @@ assert.deepEqual(
     { status: "unresolved", snoozed: false },
     { status: "resolved", snoozed: false },
   ]),
-  { resolve: true, ignore: true, reopen: true, snooze: true },
+  { resolve: true, ignore: true, reopen: true, snooze: true, unsnooze: false },
 );
 assert.deepEqual(bulkTriageAvailability([{ status: "resolved", snoozed: false }]), {
   resolve: false,
   ignore: false,
   reopen: true,
   snooze: false,
+  unsnooze: false,
 });
 assert.deepEqual(
   bulkTriageAvailability([{ status: "unresolved", snoozed: true }]),
-  { resolve: true, ignore: true, reopen: false, snooze: false },
+  { resolve: false, ignore: false, reopen: false, snooze: false, unsnooze: true },
 );
 
 const baseIssue = {
@@ -62,6 +66,17 @@ const baseIssue = {
   snooze_until_count: null,
   snooze_until_users: null,
 };
+
+const snoozed = applyOptimisticSnooze(baseIssue, "1d");
+assert.equal(issueStateBadge(snoozed).label, "Snoozed");
+assert.deepEqual(issueWorkflowActions(snoozed), ["unsnooze"]);
+
+const resolved = applyIssueStatus(snoozed, "resolved", "v2");
+assert.equal(resolved.snoozed, false);
+assert.equal(resolved.snooze_until, null);
+assert.equal(resolved.resolved_in_release, "v2");
+assert.equal(issueStateBadge(resolved).label, "Resolved");
+assert.deepEqual(issueWorkflowActions(resolved), ["reopen"]);
 
 const snoozedForOccurrences = applyOptimisticSnooze(baseIssue, "occurrences");
 assert.equal(snoozedForOccurrences.snoozed, true);

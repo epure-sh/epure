@@ -27,8 +27,10 @@ import { AlertDetailPanel } from "./alert-detail-panel";
 import { useAlertExportHotkey } from "./export-markdown";
 import { AlertListRow } from "./alert-row";
 import { AlertRulesManager, type AlertRulesManagerHandle } from "./alert-rules-manager";
+import { CreateAlertRuleDialog } from "./create-alert-rule-dialog";
 import {
   buildLastTriggeredByKind,
+  buildRuleFiredCounts,
   getIssueLink,
   alertMatchesHistoryRuleFocus,
   type HistoryRuleFocus,
@@ -75,6 +77,9 @@ export function AlertsPage() {
   const [activeRuleCount, setActiveRuleCount] = useState(0);
   const [activeRuleId, setActiveRuleId] = useState<string | null>(null);
   const rulesManagerRef = useRef<AlertRulesManagerHandle>(null);
+  const [createRuleOpen, setCreateRuleOpen] = useState(false);
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
+  const [rulesVersion, setRulesVersion] = useState(0);
   const alertListRef = useRef<HTMLDivElement>(null);
 
   const safeProjects = Array.isArray(projects) ? projects : [];
@@ -159,7 +164,7 @@ export function AlertsPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeProjectId]);
+  }, [activeProjectId, rulesVersion]);
 
   useEffect(() => {
     if (projectsLoading || !activeProjectId || !canManageWebhooks) {
@@ -518,34 +523,20 @@ export function AlertsPage() {
   const projectSlug = activeProject?.slug ?? "checkout-web";
 
   const openCreateRule = useCallback(() => {
-    if (section !== "configure") {
-      setSection("configure");
-      window.setTimeout(() => rulesManagerRef.current?.openCreate(), 0);
-      return;
-    }
-    rulesManagerRef.current?.openCreate();
-  }, [section]);
+    setEditingRuleId(null);
+    setCreateRuleOpen(true);
+  }, []);
 
   const openEditRule = useCallback(() => {
-    if (!activeRuleId) {
-      return;
-    }
-    if (section !== "configure") {
-      setSection("configure");
-      window.setTimeout(() => rulesManagerRef.current?.openEdit(activeRuleId), 0);
-      return;
-    }
-    rulesManagerRef.current?.openEdit(activeRuleId);
-  }, [activeRuleId, section]);
+    if (!activeRuleId) return;
+    setEditingRuleId(activeRuleId);
+    setCreateRuleOpen(true);
+  }, [activeRuleId]);
 
   const openEditRuleById = useCallback((ruleId: string) => {
-    if (section !== "configure") {
-      setSection("configure");
-      window.setTimeout(() => rulesManagerRef.current?.openEdit(ruleId), 0);
-      return;
-    }
-    rulesManagerRef.current?.openEdit(ruleId);
-  }, [section]);
+    setEditingRuleId(ruleId);
+    setCreateRuleOpen(true);
+  }, []);
 
   return (
     <PageShell density="full-bleed">
@@ -600,6 +591,17 @@ export function AlertsPage() {
             onHistoryRuleNameClear={() => setHistoryRuleFocus(null)}
           />
 
+          <CreateAlertRuleDialog
+            open={createRuleOpen}
+            projectId={activeProjectId}
+            ruleId={editingRuleId}
+            onOpenChange={(next) => {
+              setCreateRuleOpen(next);
+              if (!next) setEditingRuleId(null);
+            }}
+            onCreated={() => setRulesVersion((value) => value + 1)}
+          />
+
           {section === "configure" ? (
             <div className={cn("flex min-h-0 flex-1 flex-col overflow-auto py-4", INBOX_FEED_BODY_PAD_CLASS)}>
                 <AlertRulesManager
@@ -612,11 +614,13 @@ export function AlertsPage() {
                   destinationFilter={rulesDestinationFilter}
                   activeRuleId={activeRuleId}
                   onActiveRuleIdChange={setActiveRuleId}
+                  onEditRule={(rule) => openEditRuleById(rule.id)}
                   onViewHistory={(focus) => {
                     setSection("history");
                     setHistoryRuleFocus(focus);
                   }}
                   lastTriggered={buildLastTriggeredByKind(safeAlerts)}
+                  firedCounts={buildRuleFiredCounts(safeAlerts)}
                 />
             </div>
           ) : null}

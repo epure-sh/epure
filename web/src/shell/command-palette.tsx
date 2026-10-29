@@ -298,6 +298,25 @@ export function CommandPalette() {
                           Unresolve selected issue
                         </CommandItem>
                       ) : null}
+                      {triage.canUnsnooze ? (
+                        <CommandItem
+                          disabled={triage.busy}
+                          onSelect={() => run(() => triage.handlers.unsnoozeSelected())}
+                        >
+                          <CircleDot className="h-4 w-4 text-ink-muted" />
+                          Unsnooze selected issue
+                        </CommandItem>
+                      ) : null}
+                      {triage.canSnooze ? (
+                        <CommandItem
+                          disabled={triage.busy}
+                          onSelect={() => run(() => triage.handlers.snoozeSelected())}
+                        >
+                          <CircleDot className="h-4 w-4 text-ink-muted" />
+                          Snooze selected issue
+                          <CommandShortcut>S</CommandShortcut>
+                        </CommandItem>
+                      ) : null}
                       <CommandItem
                         disabled={triage.busy}
                         onSelect={() => run(() => triage.handlers.exportSelected())}

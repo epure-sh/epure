@@ -3,6 +3,8 @@ export interface IssuesTriageHandlers {
   resolveSelected: () => void;
   ignoreSelected: () => void;
   reopenSelected: () => void;
+  snoozeSelected: () => void;
+  unsnoozeSelected: () => void;
   exportSelected: () => void;
   openDiff: () => void;
   mergeSelected: () => void;
@@ -16,6 +18,8 @@ export interface IssuesTriageState {
   canResolve: boolean;
   canIgnore: boolean;
   canReopen: boolean;
+  canSnooze: boolean;
+  canUnsnooze: boolean;
   canMerge: boolean;
   handlers: IssuesTriageHandlers;
 }

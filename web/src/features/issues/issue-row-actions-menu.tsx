@@ -23,13 +23,8 @@ import {
   Trash,
 } from "@/components/ui/icon";
 import type { BulkTriageAvailability } from "./issue-triage-utils";
-import { bulkTriageAvailability, canSnoozeIssue } from "./issue-triage-utils";
-
-const SNOOZE_OPTIONS: { mode: SnoozeMode; label: string }[] = [
-  { mode: "hours", label: "4 hours" },
-  { mode: "occurrences", label: "100 more occurrences" },
-  { mode: "users", label: "10 more users" },
-];
+import { bulkTriageAvailability, issueWorkflowActions } from "./issue-triage-utils";
+import { SnoozeMenuItems } from "./snooze-menu";
 
 export interface IssueRowActionsMenuProps {
   issue: IssueSummary;
@@ -43,6 +38,7 @@ export interface IssueRowActionsMenuProps {
   onReopen: (ids: string[]) => void;
   onSnooze: (mode: SnoozeMode, ids: string[]) => void;
   onUnsnooze: (id: string) => void;
+  onUnsnoozeMany?: (ids: string[]) => void;
   onAskAi: (issues: IssueSummary[]) => void;
   onMarkRead: (ids: string[]) => void;
   onDeleteRequest: (ids: string[]) => void;
@@ -79,6 +75,7 @@ export function IssueRowActionsMenu({
   onReopen,
   onSnooze,
   onUnsnooze,
+  onUnsnoozeMany,
   onAskAi,
   onMarkRead,
   onDeleteRequest,
@@ -88,9 +85,15 @@ export function IssueRowActionsMenu({
 }: IssueRowActionsMenuProps) {
   const { ids, issues, bulk } = targetIssues(issue, selectedIds, allIssues);
   const availability = availabilityFor(issues.length > 0 ? issues : [issue]);
+  const actions = issueWorkflowActions(issue);
   const count = ids.length;
   const single = issue;
-  const snoozed = single.snoozed || single.status === "snoozed";
+  const showResolve = bulk ? availability.resolve : actions.includes("resolve");
+  const showIgnore = bulk ? availability.ignore : actions.includes("ignore");
+  const showReopen = bulk ? availability.reopen : actions.includes("reopen");
+  const showSnooze = bulk ? availability.snooze : actions.includes("snooze");
+  const showUnsnooze = bulk ? availability.unsnooze : actions.includes("unsnooze");
+  const reopenLabel = single.status === "ignored" ? "Reopen" : "Unresolve";
 
   return (
     <DropdownMenu modal={false}>
@@ -113,7 +116,7 @@ export function IssueRowActionsMenu({
           </p>
         ) : null}
 
-        {availability.resolve ? (
+        {showResolve ? (
           <DropdownMenuItem disabled={busy} onSelect={() => onResolve(ids)}>
             <Icon icon={Check} size={14} className="mr-2" />
             {bulk ? "Mark resolved" : "Resolve"}
@@ -130,64 +133,51 @@ export function IssueRowActionsMenu({
           Ask AI
         </DropdownMenuItem>
 
-        {!bulk && snoozed ? (
-          <DropdownMenuItem disabled={busy} onSelect={() => onUnsnooze(single.id)}>
+        {showUnsnooze ? (
+          <DropdownMenuItem
+            disabled={busy}
+            onSelect={() => (bulk ? onUnsnoozeMany?.(ids) : onUnsnooze(single.id))}
+          >
             <Icon icon={Bell} size={14} className="mr-2" />
-            Unsnooze
+            {bulk ? "Unsnooze selected" : "Unsnooze"}
           </DropdownMenuItem>
         ) : null}
 
-        {!bulk && !snoozed && canSnoozeIssue(single) ? (
+        {showSnooze && !bulk ? (
           <DropdownMenuSub>
             <DropdownMenuSubTrigger disabled={busy} className="gap-0">
               <Icon icon={Clock} size={14} className="mr-2 shrink-0" aria-hidden />
               Snooze
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
-              {SNOOZE_OPTIONS.map((option) => (
-                <DropdownMenuItem
-                  key={option.mode}
-                  disabled={busy}
-                  onSelect={() => onSnooze(option.mode, ids)}
-                >
-                  {option.label}
-                </DropdownMenuItem>
-              ))}
+              <SnoozeMenuItems pending={busy} onSelect={(mode) => onSnooze(mode, ids)} />
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         ) : null}
 
-        {bulk && availability.snooze ? (
+        {bulk && showSnooze ? (
           <DropdownMenuSub>
             <DropdownMenuSubTrigger disabled={busy} className="gap-0">
               <Icon icon={Clock} size={14} className="mr-2 shrink-0" aria-hidden />
               Snooze
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
-              {SNOOZE_OPTIONS.map((option) => (
-                <DropdownMenuItem
-                  key={option.mode}
-                  disabled={busy}
-                  onSelect={() => onSnooze(option.mode, ids)}
-                >
-                  {option.label}
-                </DropdownMenuItem>
-              ))}
+              <SnoozeMenuItems pending={busy} onSelect={(mode) => onSnooze(mode, ids)} />
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         ) : null}
 
-        {availability.ignore ? (
+        {showIgnore ? (
           <DropdownMenuItem disabled={busy} onSelect={() => onIgnore(ids)}>
             <Icon icon={Archive} size={14} className="mr-2" />
             {bulk ? "Ignore selected" : "Ignore"}
           </DropdownMenuItem>
         ) : null}
 
-        {availability.reopen ? (
+        {showReopen ? (
           <DropdownMenuItem disabled={busy} onSelect={() => onReopen(ids)}>
             <Icon icon={ArrowCounterClockwise} size={14} className="mr-2" />
-            {bulk ? "Unresolve selected" : "Reopen"}
+            {bulk ? "Unresolve selected" : reopenLabel}
           </DropdownMenuItem>
         ) : null}
 

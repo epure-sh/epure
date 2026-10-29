@@ -317,7 +317,9 @@ export function DesignKitPage() {
                       id={mod}
                       title={mod}
                       subtitle="kit family"
-                      className={cn(WIDE_TILES.has(mod) ? "col-span-3" : "col-span-2")}
+                      className={cn(
+                        mod === "alert-rule" ? "col-span-4" : WIDE_TILES.has(mod) ? "col-span-3" : "col-span-2",
+                      )}
                     >
                       <Preview />
                     </CanvasArtboard>

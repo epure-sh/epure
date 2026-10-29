@@ -8,6 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip";
@@ -25,11 +26,51 @@ interface SnoozeMenuProps {
   onSnooze: (mode: SnoozeMode) => Promise<void>;
 }
 
-const OPTIONS: { mode: SnoozeMode; label: string }[] = [
-  { mode: "hours", label: "4 hours" },
+const TIME_OPTIONS: { mode: SnoozeMode; label: string }[] = [
+  { mode: "1h", label: "1 hour" },
+  { mode: "4h", label: "4 hours" },
+  { mode: "1d", label: "1 day" },
+  { mode: "7d", label: "1 week" },
+  { mode: "30d", label: "1 month" },
+  { mode: "90d", label: "3 months" },
+];
+
+const UNTIL_OPTIONS: { mode: SnoozeMode; label: string }[] = [
   { mode: "occurrences", label: "100 more occurrences" },
   { mode: "users", label: "10 more users" },
 ];
+
+export function SnoozeMenuItems({
+  pending = false,
+  onSelect,
+}: {
+  pending?: boolean;
+  onSelect: (mode: SnoozeMode) => void;
+}) {
+  return (
+    <>
+      {TIME_OPTIONS.map((option) => (
+        <DropdownMenuItem
+          key={option.mode}
+          disabled={pending}
+          onSelect={() => onSelect(option.mode)}
+        >
+          {option.label}
+        </DropdownMenuItem>
+      ))}
+      <DropdownMenuSeparator />
+      {UNTIL_OPTIONS.map((option) => (
+        <DropdownMenuItem
+          key={option.mode}
+          disabled={pending}
+          onSelect={() => onSelect(option.mode)}
+        >
+          {option.label}
+        </DropdownMenuItem>
+      ))}
+    </>
+  );
+}
 
 interface BulkSnoozeMenuProps {
   disabled?: boolean;
@@ -102,16 +143,8 @@ export function BulkSnoozeMenu({
           </TooltipContent>
         </Tooltip>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={6} className="min-w-[11rem]">
-        {OPTIONS.map((option) => (
-          <DropdownMenuItem
-            key={option.mode}
-            disabled={pending}
-            onSelect={() => void handleSnooze(option.mode)}
-          >
-            {option.label}
-          </DropdownMenuItem>
-        ))}
+      <DropdownMenuContent align="start" sideOffset={6} className="min-w-[14rem]">
+        <SnoozeMenuItems pending={pending} onSelect={(mode) => void handleSnooze(mode)} />
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -207,16 +240,8 @@ export function SnoozeMenu({
           trigger
         )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={6} className="min-w-[11rem]">
-        {OPTIONS.map((option) => (
-          <DropdownMenuItem
-            key={option.mode}
-            disabled={pending}
-            onSelect={() => void handleSnooze(option.mode)}
-          >
-            {option.label}
-          </DropdownMenuItem>
-        ))}
+      <DropdownMenuContent align="end" sideOffset={6} className="min-w-[14rem]">
+        <SnoozeMenuItems pending={pending} onSelect={(mode) => void handleSnooze(mode)} />
       </DropdownMenuContent>
     </DropdownMenu>
   );
