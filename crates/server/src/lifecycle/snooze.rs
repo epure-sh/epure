@@ -61,6 +61,12 @@ mod tests {
             snooze_until_count,
             snooze_until_users: None,
             pre_snooze_status: pre_snooze_status.map(str::to_string),
+            is_unhandled: false,
+            priority: None,
+            culprit: None,
+            exception_type: None,
+            platform: None,
+            regressed_count: 0,
         }
     }
 

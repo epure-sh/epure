@@ -361,7 +361,8 @@ pub async fn get_issue_by_fingerprint_in_tx(
             id, org_id, project_id, title, level, status, release, environment,
             event_count, unique_user_count,
             resolved_in_release, snooze_until, snooze_until_count, snooze_until_users,
-            pre_snooze_status
+            pre_snooze_status, is_unhandled, priority, culprit, exception_type, platform,
+            regressed_count
         FROM issues
         WHERE project_id = $1 AND fingerprint = $2 AND merge_parent_id IS NULL
         "#,

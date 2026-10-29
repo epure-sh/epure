@@ -604,6 +604,12 @@ pub struct IssueLifecycleState {
     pub snooze_until_count: Option<i32>,
     pub snooze_until_users: Option<i32>,
     pub pre_snooze_status: Option<String>,
+    pub is_unhandled: bool,
+    pub priority: Option<String>,
+    pub culprit: Option<String>,
+    pub exception_type: Option<String>,
+    pub platform: Option<String>,
+    pub regressed_count: i32,
 }
 
 pub async fn get_issue_by_fingerprint(
@@ -653,7 +659,8 @@ pub async fn get_issue_by_id(
             id, org_id, project_id, title, level, status, release, environment,
             event_count, unique_user_count,
             resolved_in_release, snooze_until, snooze_until_count, snooze_until_users,
-            pre_snooze_status
+            pre_snooze_status, is_unhandled, priority, culprit, exception_type, platform,
+            regressed_count
         FROM issues
         WHERE id = $1 AND merge_parent_id IS NULL
         "#,

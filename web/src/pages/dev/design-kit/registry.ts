@@ -340,6 +340,7 @@ export const DESIGN_KIT_KIT_MODULES = [
   "agent",
   "banner",
   "product-tour",
+  "alert-rule",
 ] as const;
 
 export type DesignKitKitModule = (typeof DESIGN_KIT_KIT_MODULES)[number];
@@ -489,6 +490,12 @@ export const DESIGN_KIT_KIT_META: Record<DesignKitKitModule, DesignKitKitMeta> =
     description: "driver.js product tour popover.",
     importPath: "@/components/kit/product-tour",
     family: "Product",
+  },
+  "alert-rule": {
+    description: "Create-alert setup: template, sentence, and delivery.",
+    importPath: "@/components/kit/create-alert-rule",
+    family: "Product",
+    absorbs: ["create-alert-rule"],
   },
 };
 

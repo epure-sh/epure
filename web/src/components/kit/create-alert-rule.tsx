@@ -1,0 +1,693 @@
+import { useState, type ReactNode } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  CaretDown,
+  CaretLeft,
+  Check,
+  Clock,
+  Icon,
+  Plus,
+  X,
+} from "@/components/ui/icon";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/cn";
+import {
+  ALERT_RULE_TEMPLATES,
+  COOLDOWNS,
+  CONDITION_FIELDS,
+  OP_LABEL,
+  PAYLOAD_GROUPS,
+  SCRATCH_TEMPLATE_ID,
+  TRIGGER_GROUPS,
+  TRIGGER_LABEL,
+  canAdvance,
+  defaultCondition,
+  defaultTrigger,
+  describeRule,
+  fieldLabel,
+  templateDraft,
+  type AlertChannelChoice,
+  type AlertCondition,
+  type AlertRuleDraft,
+  type AlertTrigger,
+  type ChannelProvider,
+  type ConditionOp,
+  type TriggerType,
+} from "./create-alert-rule-model";
+
+export interface CreateAlertRulePanelProps {
+  step: 1 | 2 | 3;
+  draft: AlertRuleDraft;
+  channels?: AlertChannelChoice[];
+  busy?: boolean;
+  onChange: (next: AlertRuleDraft) => void;
+  onStep: (step: 1 | 2 | 3) => void;
+  onCreateChannel?: (input: { provider: ChannelProvider; label: string }) => Promise<AlertChannelChoice | null>;
+  onPing?: (channelId: string) => Promise<string>;
+  onSubmit?: () => void;
+}
+
+export function CreateAlertRulePanel({
+  step,
+  draft,
+  channels = [],
+  busy = false,
+  onChange,
+  onStep,
+  onCreateChannel,
+  onPing,
+  onSubmit,
+}: CreateAlertRulePanelProps) {
+  return (
+    <section
+      data-slot="create-alert-rule"
+      className="flex h-full min-h-[32rem] w-full min-w-[22rem] flex-col rounded-panel border border-border-subtle bg-surface-1"
+      aria-label={`New alert, step ${step} of 3`}
+    >
+      <header className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
+        <div>
+          <h2 className="text-sm font-semibold text-fg-primary">New alert</h2>
+          <p className="text-xs text-fg-muted">Step {step} of 3</p>
+        </div>
+        <span className="font-mono text-[10px] uppercase tracking-wide text-fg-muted">
+          {step === 1 ? "Template" : step === 2 ? "Rule" : "Delivery"}
+        </span>
+      </header>
+      <div
+        key={step}
+        className="flex-1 animate-in fade-in slide-in-from-right-2 px-4 py-4 duration-300"
+      >
+        {step === 1 ? <TemplateStep draft={draft} onChange={onChange} /> : null}
+        {step === 2 ? <SentenceStep draft={draft} onChange={onChange} /> : null}
+        {step === 3 ? (
+          <DeliveryStep
+            draft={draft}
+            channels={channels}
+            onChange={onChange}
+            onCreateChannel={onCreateChannel}
+            onPing={onPing}
+          />
+        ) : null}
+      </div>
+      <footer className="flex items-center justify-between gap-2 border-t border-border-subtle px-4 py-3">
+        {step > 1 ? (
+          <Button variant="ghost" size="sm" disabled={busy} onClick={() => onStep((step - 1) as 1 | 2)}>
+            <Icon icon={CaretLeft} size={14} />
+            Back
+          </Button>
+        ) : (
+          <span />
+        )}
+        {step < 3 ? (
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={busy || !canAdvance(step, draft)}
+            onClick={() => onStep((step + 1) as 2 | 3)}
+          >
+            Next
+            <Icon icon={CaretDown} size={14} className="-rotate-90" />
+          </Button>
+        ) : (
+          <Button variant="primary" size="sm" disabled={busy || !canAdvance(3, draft)} onClick={onSubmit}>
+            <Icon icon={Check} size={14} />
+            {busy ? "Saving…" : "Create alert"}
+          </Button>
+        )}
+      </footer>
+    </section>
+  );
+}
+
+function TemplateStep({
+  draft,
+  onChange,
+}: {
+  draft: AlertRuleDraft;
+  onChange: (next: AlertRuleDraft) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-sm font-medium text-fg-primary">Start with a template</p>
+      <div className="grid grid-cols-2 gap-2">
+        {ALERT_RULE_TEMPLATES.map((item) => {
+          const selected = draft.templateId === item.id;
+          return (
+            <Button
+              key={item.id}
+              variant={selected ? "secondary" : "outline"}
+              className="h-auto items-start justify-start whitespace-normal px-3 py-3 text-left"
+              aria-pressed={selected}
+              onClick={() => onChange(templateDraft(item.id))}
+            >
+              <span className="flex flex-col gap-1">
+                <span className="flex items-center gap-1.5 text-sm font-medium text-fg-primary">
+                  {item.title}
+                  {item.recommended ? (
+                    <Badge size="compact" variant="info">
+                      Recommended
+                    </Badge>
+                  ) : null}
+                </span>
+                <span className="text-xs font-normal text-fg-muted">{item.detail}</span>
+              </span>
+            </Button>
+          );
+        })}
+        <Button
+          variant={draft.templateId === SCRATCH_TEMPLATE_ID ? "secondary" : "outline"}
+          className="h-auto items-start justify-start whitespace-normal px-3 py-3 text-left"
+          aria-pressed={draft.templateId === SCRATCH_TEMPLATE_ID}
+          onClick={() => onChange(templateDraft(SCRATCH_TEMPLATE_ID))}
+        >
+          <span className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-fg-primary">Start from scratch</span>
+            <span className="text-xs font-normal text-fg-muted">An empty sentence</span>
+          </span>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SentenceStep({
+  draft,
+  onChange,
+}: {
+  draft: AlertRuleDraft;
+  onChange: (next: AlertRuleDraft) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <label className="flex flex-col gap-1">
+        <span className="text-xs font-medium text-fg-secondary">Name</span>
+        <Input
+          size="sm"
+          value={draft.name}
+          placeholder="Production crash"
+          onChange={(event) => onChange({ ...draft, name: event.target.value })}
+        />
+      </label>
+      <RuleSection title="When" hint="Any of these">
+        <div className="flex flex-col gap-2">
+          {draft.triggers.map((trigger, index) => (
+            <div key={`${trigger.type}-${index}`} className="flex items-center gap-2">
+              <Select
+                value={trigger.type}
+                onValueChange={(value) => {
+                  const next = draft.triggers.slice();
+                  next[index] = defaultTrigger(value as TriggerType);
+                  onChange({ ...draft, triggers: next });
+                }}
+              >
+                <SelectTrigger size="sm" className="min-w-0 flex-1" aria-label="Trigger">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TRIGGER_GROUPS.map((group) => (
+                    <SelectGroup key={group.label}>
+                      <SelectLabel>{group.label}</SelectLabel>
+                      {group.types.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {TRIGGER_LABEL[type]}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
+              <TriggerExtras
+                trigger={trigger}
+                onChange={(next) => {
+                  const triggers = draft.triggers.slice();
+                  triggers[index] = next;
+                  onChange({ ...draft, triggers });
+                }}
+              />
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Remove trigger"
+                onClick={() => onChange({ ...draft, triggers: draft.triggers.filter((_, i) => i !== index) })}
+              >
+                <Icon icon={X} size={14} />
+              </Button>
+            </div>
+          ))}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="self-start"
+            onClick={() => onChange({ ...draft, triggers: [...draft.triggers, defaultTrigger("issue_new")] })}
+          >
+            <Icon icon={Plus} size={14} />
+            Add trigger
+          </Button>
+        </div>
+      </RuleSection>
+      <RuleSection
+        title="If"
+        hint={draft.match === "all" ? "All of these" : "Any of these"}
+        extra={
+          <Select
+            value={draft.match}
+            onValueChange={(value) => onChange({ ...draft, match: value === "any" ? "any" : "all" })}
+          >
+            <SelectTrigger size="sm" className="w-24" aria-label="Condition match">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="any">Any</SelectItem>
+            </SelectContent>
+          </Select>
+        }
+      >
+        <div className="flex flex-col gap-2">
+          {draft.conditions.map((condition, index) => (
+            <ConditionRow
+              key={`${condition.field}-${index}`}
+              condition={condition}
+              onChange={(next) => {
+                const conditions = draft.conditions.slice();
+                conditions[index] = next;
+                onChange({ ...draft, conditions });
+              }}
+              onRemove={() =>
+                onChange({ ...draft, conditions: draft.conditions.filter((_, i) => i !== index) })
+              }
+            />
+          ))}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="self-start"
+            onClick={() => onChange({ ...draft, conditions: [...draft.conditions, defaultCondition()] })}
+          >
+            <Icon icon={Plus} size={14} />
+            Add condition
+          </Button>
+        </div>
+      </RuleSection>
+      <RuleSection title="Then" hint="Don't repeat for the same issue">
+        <div className="flex items-center gap-2">
+          <Icon icon={Clock} size={15} className="text-fg-muted" />
+          <Select
+            value={String(draft.cooldownMins)}
+            onValueChange={(value) => onChange({ ...draft, cooldownMins: Number(value) })}
+          >
+            <SelectTrigger size="sm" className="w-36" aria-label="Cooldown">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {COOLDOWNS.map((item) => (
+                <SelectItem key={item.mins} value={String(item.mins)}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </RuleSection>
+      <p className="rounded-control bg-surface-2 px-3 py-2 text-xs text-fg-secondary">{describeRule(draft)}</p>
+    </div>
+  );
+}
+
+function TriggerExtras({
+  trigger,
+  onChange,
+}: {
+  trigger: AlertTrigger;
+  onChange: (next: AlertTrigger) => void;
+}) {
+  if (trigger.type !== "project_count" && trigger.type !== "issue_count" && trigger.type !== "users_affected") {
+    return null;
+  }
+  const windows = trigger.type === "users_affected" ? ["1h", "24h", "total"] : ["1m", "5m", "15m", "1h", "24h"];
+  return (
+    <>
+      <Input
+        size="sm"
+        className="w-16"
+        inputMode="numeric"
+        aria-label="Threshold"
+        value={String(trigger.threshold)}
+        onChange={(event) => {
+          const threshold = Number(event.target.value.replace(/[^\d]/g, "")) || 1;
+          onChange({ ...trigger, threshold });
+        }}
+      />
+      <Select value={trigger.window} onValueChange={(window) => onChange({ ...trigger, window } as AlertTrigger)}>
+        <SelectTrigger size="sm" className="w-20" aria-label="Window">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {windows.map((window) => (
+            <SelectItem key={window} value={window}>
+              {window}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </>
+  );
+}
+
+function ConditionRow({
+  condition,
+  onChange,
+  onRemove,
+}: {
+  condition: AlertCondition;
+  onChange: (next: AlertCondition) => void;
+  onRemove: () => void;
+}) {
+  const spec = CONDITION_FIELDS.find((item) => item.field === condition.field) ?? CONDITION_FIELDS[0];
+  const hideValue = condition.op === "exists" || condition.op === "is_not_null";
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Select
+        value={condition.field}
+        onValueChange={(field) => onChange(defaultCondition(field))}
+      >
+        <SelectTrigger size="sm" className="min-w-36 flex-1" aria-label="Field">
+          <SelectValue placeholder={fieldLabel(condition.field)} />
+        </SelectTrigger>
+        <SelectContent>
+          {groupedFields().map((group) => (
+            <SelectGroup key={group.label}>
+              <SelectLabel>{group.label}</SelectLabel>
+              {group.fields.map((field) => (
+                <SelectItem key={field.field} value={field.field}>
+                  {field.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
+        value={condition.op}
+        onValueChange={(op) => onChange({ ...condition, op: op as ConditionOp })}
+      >
+        <SelectTrigger size="sm" className="w-32" aria-label="Operator">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {spec.ops.map((op) => (
+            <SelectItem key={op} value={op}>
+              {OP_LABEL[op]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {hideValue ? null : spec.values ? (
+        <Select value={condition.value} onValueChange={(value) => onChange({ ...condition, value })}>
+          <SelectTrigger size="sm" className="w-32" aria-label="Value">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {spec.values.map((value) => (
+              <SelectItem key={value} value={value}>
+                {value}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        <Input
+          size="sm"
+          className="w-36"
+          aria-label="Value"
+          value={condition.value}
+          onChange={(event) => onChange({ ...condition, value: event.target.value })}
+        />
+      )}
+      <Button variant="ghost" size="icon-xs" aria-label="Remove condition" onClick={onRemove}>
+        <Icon icon={X} size={14} />
+      </Button>
+    </div>
+  );
+}
+
+function groupedFields() {
+  const groups = new Map<string, typeof CONDITION_FIELDS>();
+  for (const field of CONDITION_FIELDS) {
+    const list = groups.get(field.group) ?? [];
+    list.push(field);
+    groups.set(field.group, list);
+  }
+  return Array.from(groups, ([label, fields]) => ({ label, fields }));
+}
+
+function DeliveryStep({
+  draft,
+  channels,
+  onChange,
+  onCreateChannel,
+  onPing,
+}: {
+  draft: AlertRuleDraft;
+  channels: AlertChannelChoice[];
+  onChange: (next: AlertRuleDraft) => void;
+  onCreateChannel?: CreateAlertRulePanelProps["onCreateChannel"];
+  onPing?: CreateAlertRulePanelProps["onPing"];
+}) {
+  const [provider, setProvider] = useState<ChannelProvider>("slack");
+  const [label, setLabel] = useState("");
+  const [ping, setPing] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
+
+  function toggleChannel(id: string) {
+    const selected = draft.channelIds.includes(id);
+    onChange({
+      ...draft,
+      channelIds: selected ? draft.channelIds.filter((item) => item !== id) : [...draft.channelIds, id],
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-medium text-fg-secondary">Send to</p>
+        <div className="flex flex-wrap gap-2">
+          {channels.map((channel) => {
+            const selected = draft.channelIds.includes(channel.id);
+            return (
+              <Button
+                key={channel.id}
+                size="sm"
+                variant={selected ? "secondary" : "outline"}
+                aria-pressed={selected}
+                disabled={!channel.enabled}
+                onClick={() => toggleChannel(channel.id)}
+              >
+                {selected ? <Icon icon={Check} size={14} /> : null}
+                {providerName(channel.provider)} · {channel.label}
+              </Button>
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={provider} onValueChange={(value) => setProvider(value as ChannelProvider)}>
+            <SelectTrigger size="sm" className="w-32" aria-label="Channel provider">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(["slack", "discord", "telegram", "email", "webhook"] as const).map((item) => (
+                <SelectItem key={item} value={item}>
+                  {providerName(item)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            size="sm"
+            className="w-44"
+            placeholder={provider === "slack" ? "#prod-alerts" : "Name"}
+            value={label}
+            onChange={(event) => setLabel(event.target.value)}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!onCreateChannel || label.trim().length === 0 || connecting}
+            onClick={() => {
+              if (!onCreateChannel) return;
+              setConnecting(true);
+              void onCreateChannel({ provider, label: label.trim() })
+                .then((created) => {
+                  if (created) {
+                    onChange({ ...draft, channelIds: [...draft.channelIds, created.id] });
+                    setLabel("");
+                  }
+                })
+                .finally(() => setConnecting(false));
+            }}
+          >
+            <Icon icon={Plus} size={14} />
+            {connecting ? "Connecting…" : "Add channel"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={!onPing || draft.channelIds.length === 0}
+            onClick={() => {
+              const id = draft.channelIds[0];
+              if (!onPing || !id) return;
+              void onPing(id).then(setPing);
+            }}
+          >
+            Send test ping
+          </Button>
+        </div>
+        {ping ? <p className="text-xs text-fg-muted">{ping}</p> : null}
+      </div>
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-medium text-fg-secondary">Include in the message</p>
+        {PAYLOAD_GROUPS.map((group) => (
+          <PayloadGroupBlock
+            key={group.id}
+            label={group.label}
+            items={group.items}
+            payload={draft.payload}
+            onChange={(payload) => onChange({ ...draft, payload })}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PayloadGroupBlock({
+  label,
+  items,
+  payload,
+  onChange,
+}: {
+  label: string;
+  items: { id: string; label: string; hint: string }[];
+  payload: Record<string, boolean>;
+  onChange: (next: Record<string, boolean>) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const selected = items.filter((item) => payload[item.id]).length;
+  const checked = selected === 0 ? false : selected === items.length ? true : "indeterminate";
+
+  function setAll(next: boolean) {
+    const copy = { ...payload };
+    for (const item of items) copy[item.id] = next;
+    onChange(copy);
+  }
+
+  return (
+    <div className="rounded-control border border-border-subtle">
+      <div className="flex items-center gap-2 px-2 py-1.5">
+        <Checkbox
+          checked={checked}
+          aria-label={label}
+          onCheckedChange={(value) => setAll(value === true)}
+        />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="min-w-0 flex-1 justify-between"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+        >
+          <span className="text-sm text-fg-primary">{label}</span>
+          <Icon
+            icon={CaretDown}
+            size={14}
+            className={cn("text-fg-muted transition-transform duration-200", open ? "rotate-0" : "-rotate-90")}
+          />
+        </Button>
+      </div>
+      <div className={cn("grid transition-[grid-template-rows] duration-200", open ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
+        <div className="overflow-hidden">
+          <ul className="flex flex-col pb-1">
+            {items.map((item) => (
+              <li key={item.id} className="flex items-center gap-2 px-2 py-1 pl-8">
+                <Checkbox
+                  checked={Boolean(payload[item.id])}
+                  aria-label={item.label}
+                  onCheckedChange={(value) => onChange({ ...payload, [item.id]: value === true })}
+                />
+                <span className="min-w-0 flex-1 text-sm text-fg-primary">{item.label}</span>
+                <span className="text-xs text-fg-muted">{item.hint}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RuleSection({
+  title,
+  hint,
+  extra,
+  children,
+}: {
+  title: string;
+  hint: string;
+  extra?: ReactNode;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <section className="rounded-control border border-border-subtle">
+      <div className="flex items-center gap-2 px-3 py-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="min-w-0 flex-1 justify-start"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+        >
+          <Icon
+            icon={CaretDown}
+            size={14}
+            className={cn("text-fg-muted transition-transform duration-200", open ? "rotate-0" : "-rotate-90")}
+          />
+          <span className="text-xs font-semibold uppercase tracking-wide text-fg-secondary">{title}</span>
+          <span className="truncate text-xs font-normal text-fg-muted">{hint}</span>
+        </Button>
+        {extra}
+      </div>
+      <div className={cn("grid transition-[grid-template-rows] duration-200", open ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
+        <div className="overflow-hidden">
+          <div className="px-3 pb-3">{children}</div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function providerName(provider: ChannelProvider): string {
+  switch (provider) {
+    case "slack":
+      return "Slack";
+    case "discord":
+      return "Discord";
+    case "telegram":
+      return "Telegram";
+    case "email":
+      return "Email";
+    case "webhook":
+      return "Webhook";
+  }
+}

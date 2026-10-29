@@ -27,6 +27,7 @@ import { AlertDetailPanel } from "./alert-detail-panel";
 import { useAlertExportHotkey } from "./export-markdown";
 import { AlertListRow } from "./alert-row";
 import { AlertRulesManager, type AlertRulesManagerHandle } from "./alert-rules-manager";
+import { CreateAlertRuleDialog } from "./create-alert-rule-dialog";
 import {
   buildLastTriggeredByKind,
   getIssueLink,
@@ -75,6 +76,8 @@ export function AlertsPage() {
   const [activeRuleCount, setActiveRuleCount] = useState(0);
   const [activeRuleId, setActiveRuleId] = useState<string | null>(null);
   const rulesManagerRef = useRef<AlertRulesManagerHandle>(null);
+  const [createRuleOpen, setCreateRuleOpen] = useState(false);
+  const [rulesVersion, setRulesVersion] = useState(0);
   const alertListRef = useRef<HTMLDivElement>(null);
 
   const safeProjects = Array.isArray(projects) ? projects : [];
@@ -159,7 +162,7 @@ export function AlertsPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeProjectId]);
+  }, [activeProjectId, rulesVersion]);
 
   useEffect(() => {
     if (projectsLoading || !activeProjectId || !canManageWebhooks) {
@@ -518,13 +521,8 @@ export function AlertsPage() {
   const projectSlug = activeProject?.slug ?? "checkout-web";
 
   const openCreateRule = useCallback(() => {
-    if (section !== "configure") {
-      setSection("configure");
-      window.setTimeout(() => rulesManagerRef.current?.openCreate(), 0);
-      return;
-    }
-    rulesManagerRef.current?.openCreate();
-  }, [section]);
+    setCreateRuleOpen(true);
+  }, []);
 
   const openEditRule = useCallback(() => {
     if (!activeRuleId) {
@@ -598,6 +596,13 @@ export function AlertsPage() {
             headlineStats={alertFilterStats}
             historyRuleName={historyRuleName}
             onHistoryRuleNameClear={() => setHistoryRuleFocus(null)}
+          />
+
+          <CreateAlertRuleDialog
+            open={createRuleOpen}
+            projectId={activeProjectId}
+            onOpenChange={setCreateRuleOpen}
+            onCreated={() => setRulesVersion((value) => value + 1)}
           />
 
           {section === "configure" ? (

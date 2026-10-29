@@ -323,6 +323,39 @@ export async function fetchAlertRules(projectId?: string): Promise<AlertRuleRow[
   return Array.isArray(body?.rules) ? body.rules : [];
 }
 
+export interface AlertChannelRow {
+  id: string;
+  org_id: string;
+  project_id: string;
+  provider: "slack" | "discord" | "telegram" | "email" | "webhook" | string;
+  label: string;
+  is_enabled: boolean;
+  last_error: string | null;
+  created_at: string;
+}
+
+export async function fetchAlertChannels(projectId: string): Promise<AlertChannelRow[]> {
+  const body = await apiFetch<{ channels?: AlertChannelRow[] }>(
+    `/api/v1/alert-channels?project_id=${encodeURIComponent(projectId)}`,
+  );
+  return Array.isArray(body?.channels) ? body.channels : [];
+}
+
+export async function createAlertChannel(input: {
+  project_id: string;
+  provider: string;
+  label: string;
+}): Promise<AlertChannelRow> {
+  return apiFetch<AlertChannelRow>("/api/v1/alert-channels", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function pingAlertChannel(id: string): Promise<{ status: string; detail: string }> {
+  return apiFetch(`/api/v1/alert-channels/${id}/ping`, { method: "POST" });
+}
+
 export async function createAlertRule(input: {
   project_id: string;
   name: string;
@@ -331,6 +364,12 @@ export async function createAlertRule(input: {
   threshold?: number | null;
   filters_json?: AlertRuleFilters;
   enabled?: boolean;
+  triggers?: unknown[];
+  condition_match?: "all" | "any";
+  conditions?: unknown[];
+  payload_options?: Record<string, boolean>;
+  channel_ids?: string[];
+  cooldown_mins?: number;
 }): Promise<AlertRuleRow> {
   return apiFetch<AlertRuleRow>("/api/v1/alert-rules", {
     method: "POST",
