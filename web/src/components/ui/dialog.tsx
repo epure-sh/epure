@@ -3,6 +3,7 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { closeOpenSelects, restorePagePointerEvents } from "@/components/ui/select";
 
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
@@ -26,16 +27,39 @@ export function DialogOverlay({
   );
 }
 
+function selectMenuIsOpen(): boolean {
+  return document.querySelector('[data-slot="select-content"][data-state="open"]') instanceof HTMLElement;
+}
+
 export function DialogContent({
   className,
   children,
+  onEscapeKeyDown,
+  onPointerDownOutside,
+  onInteractOutside,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content>) {
+  React.useEffect(() => () => restorePagePointerEvents(), []);
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        onEscapeKeyDown={(event) => {
+          if (selectMenuIsOpen()) {
+            event.preventDefault();
+            closeOpenSelects();
+          }
+          onEscapeKeyDown?.(event);
+        }}
+        onPointerDownOutside={(event) => {
+          if (selectMenuIsOpen()) event.preventDefault();
+          onPointerDownOutside?.(event);
+        }}
+        onInteractOutside={(event) => {
+          if (selectMenuIsOpen()) event.preventDefault();
+          onInteractOutside?.(event);
+        }}
         className={cn(
           "fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-panel border border-border-strong bg-surface-1 p-5 shadow-float outline-none",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",

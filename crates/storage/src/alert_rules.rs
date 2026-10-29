@@ -270,6 +270,56 @@ pub struct SentenceContext<'a> {
     pub event_count: i64,
     pub user_count: i32,
     pub regressed_count: i32,
+    pub status: Option<&'a str>,
+}
+
+/// Legacy rules with an empty sentence still run only on their stored kind.
+/// A sentence runs on the pass each trigger can hear.
+pub fn sentence_listens(rule: &AlertRuleRow, kind: &str) -> bool {
+    if rule.triggers.is_empty() {
+        return rule.kind == kind;
+    }
+    let came_back = came_back_yes(&rule.conditions);
+    rule.triggers
+        .iter()
+        .any(|trigger| trigger_hears(trigger, kind, came_back, &rule.kind))
+}
+
+fn came_back_yes(conditions: &[serde_json::Value]) -> bool {
+    conditions.iter().any(|condition| {
+        condition.get("field").and_then(|value| value.as_str()) == Some("came_back")
+            && condition
+                .get("op")
+                .and_then(|value| value.as_str())
+                .unwrap_or("is")
+                == "is"
+            && matches!(
+                condition.get("value").and_then(|value| value.as_str()),
+                Some("yes" | "true")
+            )
+    })
+}
+
+fn trigger_hears(
+    trigger: &serde_json::Value,
+    kind: &str,
+    came_back: bool,
+    rule_kind: &str,
+) -> bool {
+    match trigger
+        .get("type")
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+    {
+        // First fingerprint, unless the rule is "came back", which hears the regression pass.
+        "issue_new" if kind == "issue_created" => !came_back,
+        "issue_new" if kind == "regression" => came_back,
+        "issue_regression" => kind == "regression",
+        "issue_count" | "users_affected" | "project_count" => kind == "velocity_spike",
+        // Older rows: keep the kind they were saved with, don't fan out.
+        "any_event" => rule_kind == kind,
+        _ => false,
+    }
 }
 
 /// True when one stored trigger matches this event and the conditions hold.
@@ -304,19 +354,34 @@ fn trigger_matches(trigger: &serde_json::Value, ctx: &SentenceContext<'_>) -> bo
         .get("type")
         .and_then(|value| value.as_str())
         .unwrap_or("");
+    match kind {
+        // `regression` is heard only by rules whose condition is came back.
+        "issue_new" => match ctx.event {
+            "issue_created" => ctx.is_new,
+            "regression" => true,
+            _ => false,
+        },
+        "issue_regression" => ctx.event == "regression",
+        "priority_escalated" => matches!(ctx.priority, Some("high" | "critical")),
+        "any_event" => true,
+        "issue_count" => count_compare(trigger, ctx.event_count),
+        "users_affected" => count_compare(trigger, i64::from(ctx.user_count)),
+        "project_count" => ctx.event == "velocity_spike",
+        _ => false,
+    }
+}
+
+/// `gt` / `lt` / `eq` are the sentence. A stored count with no op keeps `>=`.
+fn count_compare(trigger: &serde_json::Value, actual: i64) -> bool {
     let threshold = trigger
         .get("threshold")
         .and_then(|value| value.as_i64())
         .unwrap_or(1);
-    match kind {
-        "issue_new" => ctx.event == "issue_created" && ctx.is_new,
-        "issue_regression" => ctx.event == "regression",
-        "priority_escalated" => matches!(ctx.priority, Some("high" | "critical")),
-        "any_event" => true,
-        "issue_count" => ctx.event_count >= threshold,
-        "users_affected" => i64::from(ctx.user_count) >= threshold,
-        "project_count" => ctx.event == "velocity_spike",
-        _ => false,
+    match trigger.get("op").and_then(|value| value.as_str()) {
+        Some("gt") => actual > threshold,
+        Some("lt") => actual < threshold,
+        Some("eq") => actual == threshold,
+        _ => actual >= threshold,
     }
 }
 
@@ -343,6 +408,11 @@ fn condition_matches(condition: &serde_json::Value, ctx: &SentenceContext<'_>) -
         "exception_type" => ctx.exception_type,
         "priority" => ctx.priority,
         "is_unhandled" => Some(if ctx.unhandled { "true" } else { "false" }),
+        "came_back" => {
+            let yes = ctx.event == "regression" || ctx.status == Some("regression");
+            let want = matches!(expected, "yes" | "true");
+            return op == "is" && yes == want;
+        }
         "regressed_count" => return number_op(op, i64::from(ctx.regressed_count), expected),
         "user.email"
         | "user_key"
@@ -561,6 +631,7 @@ mod tests {
             event_count: 1,
             user_count: 1,
             regressed_count: 0,
+            status: Some("unresolved"),
         };
         assert!(sentence_matches(&rule, &ctx));
         ctx.unhandled = false;
@@ -620,5 +691,106 @@ mod tests {
         // Empty json defaults cleanly
         let empty: AlertRuleFilters = serde_json::from_str("{}").expect("empty parse");
         assert_eq!(empty, AlertRuleFilters::default());
+    }
+
+    fn event_ctx<'a>(event: &'a str, status: &'a str, event_count: i64) -> SentenceContext<'a> {
+        SentenceContext {
+            event,
+            is_new: event == "issue_created",
+            level: Some("error"),
+            environment: Some("production"),
+            title: None,
+            release: None,
+            platform: None,
+            culprit: None,
+            exception_type: None,
+            priority: Some("high"),
+            unhandled: true,
+            event_count,
+            user_count: 4,
+            regressed_count: if status == "regression" { 1 } else { 0 },
+            status: Some(status),
+        }
+    }
+
+    #[test]
+    fn issue_count_uses_greater_less_or_equal() {
+        let mut rule = sample_rule(None, None);
+        rule.kind = "velocity_spike".into();
+        rule.triggers = sqlx::types::Json(vec![
+            serde_json::json!({"type": "issue_count", "op": "gt", "threshold": 100, "window": "5m"}),
+        ]);
+        let ctx = event_ctx("velocity_spike", "unresolved", 100);
+        assert!(!sentence_matches(&rule, &ctx));
+        let over = event_ctx("velocity_spike", "unresolved", 101);
+        assert!(sentence_matches(&rule, &over));
+
+        rule.triggers = sqlx::types::Json(vec![
+            serde_json::json!({"type": "issue_count", "op": "eq", "threshold": 100}),
+        ]);
+        assert!(sentence_matches(&rule, &ctx));
+
+        rule.triggers = sqlx::types::Json(vec![
+            serde_json::json!({"type": "issue_count", "op": "lt", "threshold": 100}),
+        ]);
+        let under = event_ctx("velocity_spike", "unresolved", 99);
+        assert!(sentence_matches(&rule, &under));
+        assert!(!sentence_matches(&rule, &ctx));
+    }
+
+    #[test]
+    fn legacy_count_without_op_is_at_least() {
+        let mut rule = sample_rule(None, None);
+        rule.triggers = sqlx::types::Json(vec![
+            serde_json::json!({"type": "issue_count", "threshold": 100}),
+        ]);
+        let exact = event_ctx("velocity_spike", "unresolved", 100);
+        assert!(sentence_matches(&rule, &exact));
+        let under = event_ctx("velocity_spike", "unresolved", 99);
+        assert!(!sentence_matches(&rule, &under));
+    }
+
+    #[test]
+    fn came_back_condition_matches_a_regression() {
+        let mut rule = sample_rule(None, None);
+        rule.kind = "regression".into();
+        rule.triggers = sqlx::types::Json(vec![serde_json::json!({"type": "issue_new"})]);
+        rule.conditions = sqlx::types::Json(vec![
+            serde_json::json!({"field": "came_back", "op": "is", "value": "yes"}),
+        ]);
+        let back = event_ctx("regression", "regression", 12);
+        assert!(sentence_matches(&rule, &back));
+        let fresh = event_ctx("issue_created", "unresolved", 1);
+        assert!(!sentence_matches(&rule, &fresh));
+        assert!(sentence_listens(&rule, "regression"));
+        assert!(!sentence_listens(&rule, "issue_created"));
+    }
+
+    #[test]
+    fn new_issue_rule_does_not_hear_a_regression() {
+        let mut rule = sample_rule(None, None);
+        rule.kind = "issue_created".into();
+        rule.triggers = sqlx::types::Json(vec![serde_json::json!({"type": "issue_new"})]);
+        assert!(sentence_listens(&rule, "issue_created"));
+        assert!(!sentence_listens(&rule, "regression"));
+        assert!(!sentence_listens(&rule, "velocity_spike"));
+    }
+
+    #[test]
+    fn count_or_new_hears_both_passes() {
+        let mut rule = sample_rule(None, None);
+        rule.kind = "velocity_spike".into();
+        rule.triggers = sqlx::types::Json(vec![
+            serde_json::json!({"type": "issue_new"}),
+            serde_json::json!({"type": "users_affected", "op": "gt", "threshold": 25, "window": "1h"}),
+        ]);
+        assert!(sentence_listens(&rule, "issue_created"));
+        assert!(sentence_listens(&rule, "velocity_spike"));
+        assert!(!sentence_listens(&rule, "regression"));
+        let users = event_ctx("velocity_spike", "unresolved", 10);
+        assert!(!sentence_matches(&rule, &users));
+        let mut many = users.clone();
+        many.user_count = 26;
+        assert!(sentence_matches(&rule, &many));
     }
 }

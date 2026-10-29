@@ -259,7 +259,10 @@ async fn emit_custom_matches(
     is_new_fingerprint: bool,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let environment = issue_environment(issue);
-    for rule in rules.iter().filter(|rule| rule.kind == kind) {
+    for rule in rules
+        .iter()
+        .filter(|rule| alert_rules::sentence_listens(rule, kind))
+    {
         if !alert_rules::rule_matches_environment(rule, environment) {
             continue;
         }
@@ -284,12 +287,14 @@ async fn emit_custom_matches(
                     event_count: issue.event_count,
                     user_count: issue.unique_user_count,
                     regressed_count: issue.regressed_count,
+                    status: Some(issue.status.as_str()),
                 },
             )
         {
             continue;
         }
-        if kind == "velocity_spike" {
+        // Sentence rules compare their own count. The ratio gate is for legacy spike rows.
+        if kind == "velocity_spike" && rule.triggers.is_empty() {
             let Some(ratio) = velocity_ratio else {
                 continue;
             };

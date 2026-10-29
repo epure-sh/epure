@@ -33,7 +33,7 @@
 - `IssueRowShell` (`@/components/kit/issue-row-shell`): Locked CSS Grid feed row (issue, last seen, age, events, users, priority icon, row menu slot) — checkbox on row hover or when any bulk selection is active; unread = left accent rail + semibold title
 - Alerts History (`AlertListRow`, `AlertsDayGroup`): stacked `PolarCard` rows with day buckets
 - `TelemetryChart` (`@/components/kit/telemetry-chart`): Vercel-style Recharts wrapper with locked dark crosshair tooltip
-- `CreateAlertRulePanel` (`@/components/kit/create-alert-rule`): Three-step alert setup. Step 1 picks a template, step 2 builds When / If / Then, step 3 chooses channels and message fields. Props: `step`, `draft`, `channels`, `onChange`, `onStep`, `onCreateChannel`, `onPing`, `onSubmit`.
+- `CreateAlertRulePanel` (`@/components/kit/create-alert-rule`): Three-step alert setup. Step 1 picks a template, step 2 is WHEN (a new issue arrives, or a count comparison) and IF (came back lives here), step 3 chooses channels and optional blocks. Props: `step`, `draft`, `channels`, `onChange`, `onStep`, `onCreateChannel`, `onSubmit`.
 - `AskAgentCard` (`@/components/kit/ask-agent-card`): Primary `[Ask Agent]` copy button + secondary `Check docs ↗` link
 - `UsageMeterCard` (`@/components/kit/usage-meter-card`): Resource usage quota meter card with status thresholds
 - `EmptyState` (`@/components/kit/empty-state`): Standard zero-data / empty state display

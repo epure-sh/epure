@@ -1,5 +1,6 @@
 // src/components/ui/select.tsx — Phase 2: Orbit Select + Epure size API
 import * as React from "react";
+import { createPortal } from "react-dom";
 import {
   Select as OrbitSelect,
   SelectContent as OrbitSelectContent,
@@ -10,9 +11,118 @@ import {
   SelectTrigger as OrbitSelectTrigger,
   SelectValue as OrbitSelectValue,
 } from "@polar-sh/orbit/Select";
+import { Box } from "@polar-sh/orbit/Box";
 import { cn } from "@/lib/utils";
 
-export const Select = OrbitSelect;
+const selectClosers = new Set<() => void>();
+
+function isSelectMenuOpen(): boolean {
+  return document.querySelector('[data-slot="select-content"][data-state="open"]') instanceof HTMLElement;
+}
+
+/** Close every open select without sending Escape, which also dismisses a dialog. */
+export function closeOpenSelects() {
+  for (const close of [...selectClosers]) close();
+}
+
+/** Radix modal layers from different packages can leave the page unable to receive clicks. */
+export function restorePagePointerEvents() {
+  window.setTimeout(() => {
+    const dialogOpen = document.querySelector('[data-slot="dialog-content"][data-state="open"]');
+    if (!isSelectMenuOpen() && !dialogOpen && document.body.style.pointerEvents === "none") {
+      document.body.style.pointerEvents = "";
+    }
+  }, 0);
+}
+
+function installSelectOutsideClose() {
+  if (typeof document === "undefined") return;
+  const win = window as Window & { __epureSelectOutside?: boolean };
+  if (win.__epureSelectOutside) return;
+  win.__epureSelectOutside = true;
+
+  let swallowClick = false;
+  document.addEventListener(
+    "pointerdown",
+    (event) => {
+      const content = document.querySelector('[data-slot="select-content"][data-state="open"]');
+      if (!(content instanceof HTMLElement)) return;
+      const target = event.target;
+      if (!(target instanceof Node) || content.contains(target)) return;
+      const trigger = document.querySelector('[data-slot="select-trigger"][data-state="open"]');
+      if (trigger instanceof Node && trigger.contains(target)) return;
+      swallowClick = true;
+      event.preventDefault();
+      event.stopPropagation();
+      closeOpenSelects();
+    },
+    true,
+  );
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (!swallowClick) return;
+      swallowClick = false;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    true,
+  );
+}
+
+export function Select({
+  open: openProp,
+  defaultOpen = false,
+  onOpenChange,
+  ...props
+}: React.ComponentProps<typeof OrbitSelect>) {
+  const [uncontrolled, setUncontrolled] = React.useState(defaultOpen);
+  const open = openProp ?? uncontrolled;
+  const onOpenChangeRef = React.useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+
+  const setOpen = React.useCallback((next: boolean) => {
+    onOpenChangeRef.current?.(next);
+    if (openProp === undefined) setUncontrolled(next);
+  }, [openProp]);
+
+  React.useEffect(() => {
+    installSelectOutsideClose();
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    selectClosers.add(close);
+    return () => {
+      selectClosers.delete(close);
+      restorePagePointerEvents();
+    };
+  }, [open, setOpen]);
+
+  return (
+    <>
+      <OrbitSelect open={open} onOpenChange={setOpen} {...props} />
+      {open && typeof document !== "undefined"
+        ? createPortal(
+            <Box
+              data-slot="select-backdrop"
+              position="fixed"
+              inset={0}
+              zIndex={40}
+              pointerEvents="auto"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setOpen(false);
+              }}
+            />,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
 export const SelectGroup = OrbitSelectGroup;
 export const SelectValue = OrbitSelectValue;
 export const SelectLabel = OrbitSelectLabel;
@@ -40,25 +150,6 @@ export function SelectTrigger({
   );
 }
 
-function CloseMenuOnOutsidePointer() {
-  React.useEffect(() => {
-    function onPointerDown(event: PointerEvent) {
-      const content = document.querySelector('[data-slot="select-content"][data-state="open"]');
-      if (!(content instanceof HTMLElement)) return;
-      const target = event.target;
-      if (target instanceof Node && content.contains(target)) return;
-      const trigger = document.querySelector('[data-slot="select-trigger"][data-state="open"]');
-      if (target instanceof Node && trigger?.contains(target)) return;
-      document.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
-      );
-    }
-    document.addEventListener("pointerdown", onPointerDown, true);
-    return () => document.removeEventListener("pointerdown", onPointerDown, true);
-  }, []);
-  return null;
-}
-
 export function SelectContent({
   className,
   children,
@@ -69,10 +160,9 @@ export function SelectContent({
     <OrbitSelectContent
       data-slot="select-content"
       position={position}
-      className={cn(className)}
+      className={cn("z-50", className)}
       {...props}
     >
-      <CloseMenuOnOutsidePointer />
       {children}
     </OrbitSelectContent>
   );

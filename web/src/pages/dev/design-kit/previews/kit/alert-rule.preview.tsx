@@ -20,7 +20,7 @@ const STEPS = [1, 2, 3] as const;
 export default function AlertRulePreview() {
   const [drafts, setDrafts] = useState<Record<number, AlertRuleDraft>>({
     1: templateDraft("production-crash"),
-    2: templateDraft("production-crash"),
+    2: templateDraft("error-spike"),
     3: {
       ...templateDraft("many-users"),
       channelIds: ["slack-prod"],

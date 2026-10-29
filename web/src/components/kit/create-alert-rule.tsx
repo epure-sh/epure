@@ -32,10 +32,11 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/cn";
 import {
-  ADVANCED_TRIGGERS,
   ALERT_RULE_TEMPLATES,
   BASE_FIELDS,
-  BASE_TRIGGERS,
+  COMPARE_LABEL,
+  COMPARE_OPS,
+  COUNT_WINDOWS,
   COOLDOWN_COUNTS,
   COOLDOWNS,
   CONDITION_FIELDS,
@@ -43,6 +44,8 @@ import {
   PAYLOAD_BLOCKS,
   SCRATCH_TEMPLATE_ID,
   TRIGGER_LABEL,
+  TRIGGER_TYPES,
+  USER_WINDOWS,
   canAdvance,
   defaultCondition,
   defaultTrigger,
@@ -54,7 +57,9 @@ import {
   type AlertRuleDraft,
   type AlertTrigger,
   type ChannelProvider,
+  type CompareOp,
   type ConditionOp,
+  type PayloadChoice,
   type TriggerType,
 } from "./create-alert-rule-model";
 
@@ -218,10 +223,6 @@ function SentenceStep({
       (item) => !BASE_FIELDS.includes(item.field as (typeof BASE_FIELDS)[number]),
     ),
   );
-  const triggerChoices =
-    draft.templateId === SCRATCH_TEMPLATE_ID
-      ? [...BASE_TRIGGERS, ...ADVANCED_TRIGGERS]
-      : BASE_TRIGGERS;
 
   return (
     <div className="flex flex-col gap-5">
@@ -234,31 +235,40 @@ function SentenceStep({
           onChange={(event) => onChange({ ...draft, name: event.target.value })}
         />
       </label>
-      <RuleSection title="When" hint="Any of these">
+      <RuleSection title="When" hint="(any of these happens)">
         <div className="flex flex-col gap-2">
           {draft.triggers.map((trigger, index) => (
-            <div key={`${trigger.type}-${index}`} className="flex items-center gap-2">
-              <Select
-                value={trigger.type}
-                onValueChange={(value) => {
-                  const next = draft.triggers.slice();
-                  next[index] = defaultTrigger(value as TriggerType);
-                  onChange({ ...draft, triggers: next });
-                }}
-              >
-                <SelectTrigger size="md" className="min-w-0 flex-1" aria-label="Trigger">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(triggerChoices.includes(trigger.type) ? triggerChoices : [trigger.type, ...triggerChoices]).map(
-                    (type) => (
+            <div key={`${trigger.type}-${index}`} className="flex flex-wrap items-center gap-2">
+              <div className="flex min-w-52 flex-1 items-center gap-2">
+                <Icon icon={TRIGGER_ICON[trigger.type]} size={15} className="text-fg-secondary" />
+                <Select
+                  value={trigger.type}
+                  onValueChange={(value) => {
+                    const next = draft.triggers.slice();
+                    next[index] = defaultTrigger(value as TriggerType);
+                    onChange({ ...draft, triggers: next });
+                  }}
+                >
+                  <SelectTrigger size="md" className="min-w-0 flex-1" aria-label="Trigger">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TRIGGER_TYPES.map((type) => (
                       <SelectItem key={type} value={type}>
                         {TRIGGER_LABEL[type]}
                       </SelectItem>
-                    ),
-                  )}
-                </SelectContent>
-              </Select>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Remove trigger"
+                  onClick={() => onChange({ ...draft, triggers: draft.triggers.filter((_, i) => i !== index) })}
+                >
+                  <Icon icon={X} size={14} />
+                </Button>
+              </div>
               <TriggerExtras
                 trigger={trigger}
                 onChange={(next) => {
@@ -267,21 +277,13 @@ function SentenceStep({
                   onChange({ ...draft, triggers });
                 }}
               />
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label="Remove trigger"
-                onClick={() => onChange({ ...draft, triggers: draft.triggers.filter((_, i) => i !== index) })}
-              >
-                <Icon icon={X} size={14} />
-              </Button>
             </div>
           ))}
           <Button
             variant="ghost"
             size="sm"
             className="self-start"
-            onClick={() => onChange({ ...draft, triggers: [...draft.triggers, defaultTrigger("issue_new")] })}
+            onClick={() => onChange({ ...draft, triggers: [...draft.triggers, nextTrigger(draft.triggers)] })}
           >
             <Icon icon={Plus} size={14} />
             Add trigger
@@ -290,7 +292,7 @@ function SentenceStep({
       </RuleSection>
       <RuleSection
         title="If"
-        hint={draft.match === "all" ? "All of these" : "Any of these"}
+        hint={draft.match === "all" ? "(all of these)" : "(any of these)"}
         extra={
           <Select
             value={draft.match}
@@ -387,6 +389,18 @@ function SentenceStep({
   );
 }
 
+const TRIGGER_ICON = {
+  issue_new: WarningOctagon,
+  issue_count: TrendUp,
+  users_affected: Users,
+} as const;
+
+function nextTrigger(existing: AlertTrigger[]): AlertTrigger {
+  const used = new Set(existing.map((item) => item.type));
+  const type = TRIGGER_TYPES.find((item) => !used.has(item)) ?? "issue_count";
+  return defaultTrigger(type);
+}
+
 function TriggerExtras({
   trigger,
   onChange,
@@ -394,36 +408,54 @@ function TriggerExtras({
   trigger: AlertTrigger;
   onChange: (next: AlertTrigger) => void;
 }) {
-  if (trigger.type !== "project_count" && trigger.type !== "issue_count" && trigger.type !== "users_affected") {
-    return null;
-  }
-  const windows = trigger.type === "users_affected" ? ["1h", "24h", "total"] : ["1m", "5m", "15m", "1h", "24h"];
+  if (trigger.type !== "issue_count" && trigger.type !== "users_affected") return null;
+  const windows = trigger.type === "users_affected" ? USER_WINDOWS : COUNT_WINDOWS;
   return (
-    <>
-      <Input
-        size="sm"
-        className="w-16"
-        inputMode="numeric"
-        aria-label="Threshold"
-        value={String(trigger.threshold)}
-        onChange={(event) => {
-          const threshold = Number(event.target.value.replace(/[^\d]/g, "")) || 1;
-          onChange({ ...trigger, threshold });
-        }}
-      />
-      <Select value={trigger.window} onValueChange={(window) => onChange({ ...trigger, window } as AlertTrigger)}>
-        <SelectTrigger size="sm" className="w-20" aria-label="Window">
+    <div className="flex flex-wrap items-center gap-2">
+      <Select
+        value={trigger.op}
+        onValueChange={(op) => onChange({ ...trigger, op: op as CompareOp })}
+      >
+        <SelectTrigger size="md" className="w-16 justify-center px-2 text-base" aria-label="Comparison">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {windows.map((window) => (
-            <SelectItem key={window} value={window}>
-              {window}
+          {COMPARE_OPS.map((op) => (
+            <SelectItem key={op} value={op} className="justify-center text-base">
+              {COMPARE_LABEL[op]}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-    </>
+      <Input
+        size="md"
+        className="w-16 tabular-nums"
+        inputMode="numeric"
+        aria-label="Number"
+        value={String(trigger.threshold)}
+        onChange={(event) => {
+          const raw = event.target.value.replace(/[^\d]/g, "");
+          const threshold = raw === "" ? 0 : Number(raw);
+          onChange({ ...trigger, threshold });
+        }}
+      />
+      <span className="text-sm text-fg-secondary">in</span>
+      <Select
+        value={trigger.window}
+        onValueChange={(window) => onChange({ ...trigger, window } as AlertTrigger)}
+      >
+        <SelectTrigger size="md" className="w-28" aria-label="Time">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {windows.map((window) => (
+            <SelectItem key={window.id} value={window.id}>
+              {window.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -545,56 +577,59 @@ function DeliveryStep({
             Create output channel
           </Button>
         </div>
-        <Input
-          size="md"
-          value={query}
-          placeholder="Search channels"
-          leadingIcon={<Icon icon={MagnifyingGlass} size={15} />}
-          onFocus={() => setListOpen(true)}
-          onBlur={() => setListOpen(false)}
-          onChange={(event) => setQuery(event.target.value)}
-        />
+        <div className="flex min-h-14 flex-wrap items-center gap-2 rounded-2xl border border-border-subtle bg-surface-1 px-3 py-2 focus-within:border-border-strong">
+          <Icon icon={MagnifyingGlass} size={18} className="text-fg-muted" />
+          {selected.map((channel) => (
+            <Badge key={channel.id} size="md" className="h-10 gap-2 px-3 text-base">
+              <Icon icon={channelIcon(channel.provider)} size={18} />
+              {channel.label}
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`Remove ${channel.label}`}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() =>
+                  onChange({
+                    ...draft,
+                    channelIds: draft.channelIds.filter((id) => id !== channel.id),
+                  })
+                }
+              >
+                <Icon icon={X} size={14} />
+              </Button>
+            </Badge>
+          ))}
+          <div className="min-w-40 flex-1">
+            <Input
+              size="auto"
+              variant="ghost"
+              value={query}
+              placeholder="Search channels"
+              className="h-10 w-full border-0! bg-transparent! px-1 text-base shadow-none! ring-0! focus:ring-0!"
+              onFocus={() => setListOpen(true)}
+              onBlur={() => setListOpen(false)}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+        </div>
         {listOpen ? (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 rounded-2xl border border-border-subtle bg-surface-1 p-1">
             {matches.map((channel) => (
               <Button
                 key={channel.id}
                 variant="ghost"
                 size="md"
-                className="h-10 justify-start gap-2"
+                className="h-12 justify-start gap-3 px-3 text-base"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => addChannel(channel.id)}
               >
-                <Icon icon={channelIcon(channel.provider)} size={18} />
+                <Icon icon={channelIcon(channel.provider)} size={20} />
                 {providerName(channel.provider)} · {channel.label}
               </Button>
             ))}
             {matches.length === 0 ? (
-              <p className="px-1 text-xs text-fg-muted">No channel matches.</p>
+              <p className="px-3 py-3 text-sm text-fg-muted">No channel matches.</p>
             ) : null}
-          </div>
-        ) : null}
-        {selected.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {selected.map((channel) => (
-              <Badge key={channel.id} size="md" className="h-9 gap-2 px-2 text-sm">
-                <Icon icon={channelIcon(channel.provider)} size={18} />
-                {channel.label}
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label={`Remove ${channel.label}`}
-                  onClick={() =>
-                    onChange({
-                      ...draft,
-                      channelIds: draft.channelIds.filter((id) => id !== channel.id),
-                    })
-                  }
-                >
-                  <Icon icon={X} size={14} />
-                </Button>
-              </Badge>
-            ))}
           </div>
         ) : null}
         {creating ? (
@@ -645,16 +680,6 @@ function DeliveryStep({
         <p className="text-sm leading-relaxed text-fg-secondary">
           Every alert shows when it fired, why, the conditions that matched, the issue, events, users, environment, and release.
         </p>
-        <ul className="flex flex-col">
-          {PAYLOAD_BLOCKS.filter((block) => !block.advanced).map((block) => (
-            <PayloadRow
-              key={block.id}
-              block={block}
-              payload={draft.payload}
-              onChange={(payload) => onChange({ ...draft, payload })}
-            />
-          ))}
-        </ul>
         <Button
           variant="ghost"
           size="sm"
@@ -662,16 +687,16 @@ function DeliveryStep({
           aria-expanded={messageOpen}
           onClick={() => setMessageOpen((value) => !value)}
         >
+          Advanced
           <Icon
             icon={CaretDown}
             size={14}
             className={cn("transition-transform duration-200", messageOpen ? "rotate-0" : "-rotate-90")}
           />
-          More detail
         </Button>
         {messageOpen ? (
           <ul className="flex flex-col">
-            {PAYLOAD_BLOCKS.filter((block) => block.advanced).map((block) => (
+            {PAYLOAD_BLOCKS.map((block) => (
               <PayloadRow
                 key={block.id}
                 block={block}
@@ -697,17 +722,26 @@ function PayloadRow({
 }) {
   const [open, setOpen] = useState(false);
   const children = block.children ?? [];
-  const checked = children.length === 0
-    ? Boolean(payload[block.id])
-    : children.every((item) => payload[item.id])
-      ? true
-      : children.some((item) => payload[item.id])
-        ? "indeterminate"
-        : false;
+  const checked = blockChecked(children, payload, block.id);
 
   function toggle(next: boolean) {
     const copy = { ...payload, [block.id]: next };
-    for (const child of children) copy[child.id] = next;
+    const seen = new Set<string>();
+    for (const child of children) {
+      if (!child.group) {
+        copy[child.id] = next;
+        continue;
+      }
+      if (!next) {
+        copy[child.id] = false;
+        continue;
+      }
+      if (seen.has(child.group)) continue;
+      const members = children.filter((item) => item.group === child.group);
+      const pick = members.find((item) => item.default) ?? members[0];
+      for (const member of members) copy[member.id] = member.id === pick.id;
+      seen.add(child.group);
+    }
     onChange(copy);
   }
 
@@ -719,40 +753,123 @@ function PayloadRow({
           aria-label={block.label}
           onCheckedChange={(value) => toggle(value === true)}
         />
-        <Button
-          variant="ghost"
-          size="sm"
-          className="min-w-0 flex-1 justify-between"
-          aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
-        >
-          <span className="text-sm text-fg-primary">{block.label}</span>
-          <Icon
-            icon={CaretDown}
-            size={14}
-            className={cn("text-fg-muted transition-transform duration-200", open ? "rotate-0" : "-rotate-90")}
-          />
-        </Button>
+        {children.length > 0 ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="min-w-0 flex-1 justify-between"
+            aria-expanded={open}
+            onClick={() => setOpen((value) => !value)}
+          >
+            <span className="text-sm text-fg-primary">{block.label}</span>
+            <Icon
+              icon={CaretDown}
+              size={14}
+              className={cn("text-fg-muted transition-transform duration-200", open ? "rotate-0" : "-rotate-90")}
+            />
+          </Button>
+        ) : (
+          <span className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
+            <span className="text-sm text-fg-primary">{block.label}</span>
+            <span className="truncate text-xs text-fg-muted">{block.detail}</span>
+          </span>
+        )}
       </div>
-      {open ? (
+      {open && children.length > 0 ? (
         <div className="flex flex-col gap-2 py-2 pl-8">
           <p className="text-xs leading-relaxed text-fg-muted">{block.detail}</p>
-          {children.map((child) => (
-            <label key={child.id} className="flex items-center gap-2 text-sm text-fg-primary">
-              <Checkbox
-                checked={Boolean(payload[child.id])}
-                aria-label={child.label}
-                onCheckedChange={(value) =>
-                  onChange({ ...payload, [block.id]: true, [child.id]: value === true })
-                }
-              />
-              {child.label}
-            </label>
-          ))}
+          <PayloadOptions blockId={block.id} children={children} payload={payload} onChange={onChange} />
         </div>
       ) : null}
     </li>
   );
+}
+
+function PayloadOptions({
+  blockId,
+  children,
+  payload,
+  onChange,
+}: {
+  blockId: string;
+  children: PayloadChoice[];
+  payload: Record<string, boolean>;
+  onChange: (next: Record<string, boolean>) => void;
+}) {
+  const seen = new Set<string>();
+  return (
+    <>
+      {children.map((child) => {
+        if (child.group) {
+          if (seen.has(child.group)) return null;
+          seen.add(child.group);
+          const members = children.filter((item) => item.group === child.group);
+          const selected =
+            members.find((item) => payload[item.id])?.id ??
+            members.find((item) => item.default)?.id ??
+            members[0].id;
+          return (
+            <div key={child.group} className="flex items-center gap-2">
+              <span className="text-sm text-fg-secondary">{child.groupLabel ?? "Choice"}</span>
+              <Select
+                value={selected}
+                onValueChange={(id) => {
+                  const copy = { ...payload, [blockId]: true };
+                  for (const member of members) copy[member.id] = member.id === id;
+                  onChange(copy);
+                }}
+              >
+                <SelectTrigger size="sm" className="w-28" aria-label={child.groupLabel ?? "Choice"}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {members.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          );
+        }
+        return (
+          <label key={child.id} className="flex items-center gap-2 text-sm text-fg-primary">
+            <Checkbox
+              checked={Boolean(payload[child.id])}
+              aria-label={child.label}
+              onCheckedChange={(value) => onChange({ ...payload, [blockId]: true, [child.id]: value === true })}
+            />
+            {child.label}
+          </label>
+        );
+      })}
+    </>
+  );
+}
+
+function blockChecked(
+  children: PayloadChoice[],
+  payload: Record<string, boolean>,
+  blockId: string,
+): boolean | "indeterminate" {
+  if (children.length === 0) return Boolean(payload[blockId]);
+  const groups = new Map<string, PayloadChoice[]>();
+  const boxes: PayloadChoice[] = [];
+  for (const child of children) {
+    if (child.group) {
+      const list = groups.get(child.group) ?? [];
+      list.push(child);
+      groups.set(child.group, list);
+    } else {
+      boxes.push(child);
+    }
+  }
+  const boxesOn = boxes.filter((item) => payload[item.id]).length;
+  const groupsOn = [...groups.values()].filter((members) => members.some((item) => payload[item.id])).length;
+  if (boxesOn === boxes.length && groupsOn === groups.size) return true;
+  if (boxesOn === 0 && groupsOn === 0) return false;
+  return "indeterminate";
 }
 
 function channelIcon(provider: ChannelProvider) {
