@@ -192,6 +192,7 @@ export interface AlertRulesManagerProps {
   activeRuleId?: string | null;
   onActiveRuleIdChange?: (ruleId: string | null) => void;
   onViewHistory?: (focus: HistoryRuleFocus) => void;
+  onEditRule?: (rule: AlertRuleRow) => void;
   /** Latest trigger time per rule id or built-in kind, when the caller has alert history. */
   lastTriggered?: Record<string, string>;
   selectedRuleIds?: Set<string>;
@@ -216,6 +217,7 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
       activeRuleId = null,
       onActiveRuleIdChange,
       onViewHistory,
+      onEditRule,
       lastTriggered = {},
       selectedRuleIds,
       onRuleSelectChange,
@@ -616,7 +618,7 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
                       type="button"
                       className="h-auto min-w-0 flex-1 flex-col items-start justify-start p-0 pl-3 text-left whitespace-normal font-normal hover:bg-transparent"
                       onClick={() => onActiveRuleIdChange?.(rule.id)}
-                      onDoubleClick={() => canManage && openEdit(rule)}
+                      onDoubleClick={() => canManage && (onEditRule ? onEditRule(rule) : openEdit(rule))}
                     >
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-sm font-semibold text-fg-primary">{rule.name}</span>
@@ -650,7 +652,7 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="min-w-[11rem]">
-                            <DropdownMenuItem onSelect={() => openEdit(rule)}>
+                            <DropdownMenuItem onSelect={() => (onEditRule ? onEditRule(rule) : openEdit(rule))}>
                               <Icon icon={PencilSimple} size={14} className="mr-2" />
                               Edit rule
                             </DropdownMenuItem>

@@ -77,6 +77,7 @@ export function AlertsPage() {
   const [activeRuleId, setActiveRuleId] = useState<string | null>(null);
   const rulesManagerRef = useRef<AlertRulesManagerHandle>(null);
   const [createRuleOpen, setCreateRuleOpen] = useState(false);
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [rulesVersion, setRulesVersion] = useState(0);
   const alertListRef = useRef<HTMLDivElement>(null);
 
@@ -521,29 +522,20 @@ export function AlertsPage() {
   const projectSlug = activeProject?.slug ?? "checkout-web";
 
   const openCreateRule = useCallback(() => {
+    setEditingRuleId(null);
     setCreateRuleOpen(true);
   }, []);
 
   const openEditRule = useCallback(() => {
-    if (!activeRuleId) {
-      return;
-    }
-    if (section !== "configure") {
-      setSection("configure");
-      window.setTimeout(() => rulesManagerRef.current?.openEdit(activeRuleId), 0);
-      return;
-    }
-    rulesManagerRef.current?.openEdit(activeRuleId);
-  }, [activeRuleId, section]);
+    if (!activeRuleId) return;
+    setEditingRuleId(activeRuleId);
+    setCreateRuleOpen(true);
+  }, [activeRuleId]);
 
   const openEditRuleById = useCallback((ruleId: string) => {
-    if (section !== "configure") {
-      setSection("configure");
-      window.setTimeout(() => rulesManagerRef.current?.openEdit(ruleId), 0);
-      return;
-    }
-    rulesManagerRef.current?.openEdit(ruleId);
-  }, [section]);
+    setEditingRuleId(ruleId);
+    setCreateRuleOpen(true);
+  }, []);
 
   return (
     <PageShell density="full-bleed">
@@ -601,7 +593,11 @@ export function AlertsPage() {
           <CreateAlertRuleDialog
             open={createRuleOpen}
             projectId={activeProjectId}
-            onOpenChange={setCreateRuleOpen}
+            ruleId={editingRuleId}
+            onOpenChange={(next) => {
+              setCreateRuleOpen(next);
+              if (!next) setEditingRuleId(null);
+            }}
             onCreated={() => setRulesVersion((value) => value + 1)}
           />
 
@@ -617,6 +613,7 @@ export function AlertsPage() {
                   destinationFilter={rulesDestinationFilter}
                   activeRuleId={activeRuleId}
                   onActiveRuleIdChange={setActiveRuleId}
+                  onEditRule={(rule) => openEditRuleById(rule.id)}
                   onViewHistory={(focus) => {
                     setSection("history");
                     setHistoryRuleFocus(focus);

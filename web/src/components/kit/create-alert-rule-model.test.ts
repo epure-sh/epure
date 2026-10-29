@@ -19,7 +19,8 @@ describe("create alert rule sentence", () => {
     assert.equal(body.environment, "production");
     assert.equal(body.condition_match, "all");
     assert.equal(body.payload_options.stack_frames, true);
-    assert.equal(body.payload_options.affected_user, false);
+    assert.equal(body.payload_options.affected_user, true);
+    assert.equal(body.payload_options.breadcrumbs, true);
   });
 
   it("treats a count trigger as a spike rule", () => {

@@ -309,6 +309,12 @@ export interface AlertRuleRow {
   environment: string | null;
   threshold: number | null;
   filters_json?: AlertRuleFilters;
+  triggers?: unknown[];
+  condition_match?: "all" | "any" | string | null;
+  conditions?: unknown[];
+  payload_options?: Record<string, boolean>;
+  channel_ids?: string[];
+  cooldown_mins?: number | null;
   created_at: string;
 }
 
@@ -385,6 +391,12 @@ export async function updateAlertRule(
     environment?: string | null;
     threshold?: number | null;
     filters_json?: AlertRuleFilters;
+    triggers?: unknown[];
+    condition_match?: "all" | "any";
+    conditions?: unknown[];
+    payload_options?: Record<string, boolean>;
+    channel_ids?: string[];
+    cooldown_mins?: number;
   },
 ): Promise<AlertRuleRow> {
   return apiFetch<AlertRuleRow>(`/api/v1/alert-rules/${id}`, {

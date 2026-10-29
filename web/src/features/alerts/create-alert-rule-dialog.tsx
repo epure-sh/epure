@@ -3,10 +3,13 @@ import {
   createAlertChannel,
   createAlertRule,
   fetchAlertChannels,
+  fetchAlertRules,
+  updateAlertRule,
   type AlertChannelRow,
 } from "@/lib/api";
 import { CreateAlertRulePanel } from "@/components/kit/create-alert-rule";
 import {
+  draftFromRule,
   templateDraft,
   ruleToApiBody,
   type AlertChannelChoice,
@@ -22,11 +25,13 @@ import {
 export function CreateAlertRuleDialog({
   open,
   projectId,
+  ruleId = null,
   onOpenChange,
   onCreated,
 }: {
   open: boolean;
   projectId: string | null;
+  ruleId?: string | null;
   onOpenChange: (open: boolean) => void;
   onCreated?: () => void;
 }) {
@@ -39,8 +44,8 @@ export function CreateAlertRuleDialog({
   useEffect(() => {
     if (!open) return;
     setStep(1);
-    setDraft(templateDraft("production-crash"));
     setError(null);
+    if (!ruleId) setDraft(templateDraft("production-crash"));
     if (!projectId) {
       setChannels([]);
       return;
@@ -53,10 +58,20 @@ export function CreateAlertRuleDialog({
       .catch(() => {
         if (!cancelled) setChannels([]);
       });
+    if (ruleId) {
+      void fetchAlertRules(projectId)
+        .then((rows) => {
+          const rule = rows.find((item) => item.id === ruleId);
+          if (!cancelled && rule) setDraft(draftFromRule(rule));
+        })
+        .catch(() => {
+          if (!cancelled) setError("Could not load this rule.");
+        });
+    }
     return () => {
       cancelled = true;
     };
-  }, [open, projectId]);
+  }, [open, projectId, ruleId]);
 
   async function createChannel(input: { provider: ChannelProvider; label: string }) {
     if (!projectId) return null;
@@ -78,11 +93,16 @@ export function CreateAlertRuleDialog({
     setBusy(true);
     setError(null);
     try {
-      await createAlertRule(ruleToApiBody(draft, projectId));
+      const body = ruleToApiBody(draft, projectId);
+      if (ruleId) {
+        await updateAlertRule(ruleId, body);
+      } else {
+        await createAlertRule(body);
+      }
       onCreated?.();
       onOpenChange(false);
     } catch {
-      setError("Could not save this alert. Check the name and try again.");
+      setError(ruleId ? "Could not save this alert." : "Could not save this alert. Check the name and try again.");
     } finally {
       setBusy(false);
     }
@@ -100,6 +120,7 @@ export function CreateAlertRuleDialog({
           onChange={setDraft}
           onStep={setStep}
           onCreateChannel={createChannel}
+          submitLabel={ruleId ? "Save alert" : "Create alert"}
           onSubmit={() => void submit()}
         />
         {error ? <p className="px-4 pb-3 text-xs text-fg-muted">{error}</p> : null}

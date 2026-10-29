@@ -67,6 +67,7 @@ export interface CreateAlertRulePanelProps {
   onStep: (step: 1 | 2 | 3) => void;
   onCreateChannel?: (input: { provider: ChannelProvider; label: string }) => Promise<AlertChannelChoice | null>;
   onSubmit?: () => void;
+  submitLabel?: string;
 }
 
 export function CreateAlertRulePanel({
@@ -78,6 +79,7 @@ export function CreateAlertRulePanel({
   onStep,
   onCreateChannel,
   onSubmit,
+  submitLabel = "Create alert",
 }: CreateAlertRulePanelProps) {
   return (
     <section
@@ -126,7 +128,7 @@ export function CreateAlertRulePanel({
         ) : (
           <Button variant="primary" size="sm" disabled={busy || !canAdvance(3, draft)} onClick={onSubmit}>
             <Icon icon={Check} size={14} />
-            {busy ? "Saving…" : "Create alert"}
+            {busy ? "Saving…" : submitLabel}
           </Button>
         )}
       </footer>

@@ -220,14 +220,14 @@ export const PAYLOAD_BLOCKS: PayloadBlock[] = [
 const DEFAULT_PAYLOAD: Record<string, boolean> = {
   stack_frames: true,
   culprit: true,
-  request: false,
-  affected_user: false,
-  breadcrumbs: false,
-  runtime: false,
-  tags: false,
-  "tag:tenant": false,
-  "tag:region": false,
-  "tag:plan": false,
+  request: true,
+  affected_user: true,
+  breadcrumbs: true,
+  runtime: true,
+  tags: true,
+  "tag:tenant": true,
+  "tag:region": true,
+  "tag:plan": true,
   actions: true,
   "action:view": true,
   "action:fix": true,
@@ -343,6 +343,81 @@ export function scratchDraft(): AlertRuleDraft {
     conditions: [],
     cooldownMins: 30,
   });
+}
+
+export function draftFromRule(rule: {
+  name: string;
+  kind?: string;
+  environment?: string | null;
+  threshold?: number | null;
+  filters_json?: { template_id?: unknown; cooldown_count?: unknown; cooldown_minutes?: unknown };
+  triggers?: unknown;
+  condition_match?: string | null;
+  conditions?: unknown;
+  payload_options?: unknown;
+  channel_ids?: string[] | null;
+  cooldown_mins?: number | null;
+}): AlertRuleDraft {
+  const triggers = parseTriggers(rule.triggers);
+  const conditions = parseConditions(rule.conditions);
+  const base = templateDraft(
+    typeof rule.filters_json?.template_id === "string" ? rule.filters_json.template_id : SCRATCH_TEMPLATE_ID,
+  );
+  const fallbackTrigger = fallbackTriggerForKind(rule.kind, rule.threshold);
+  const fallbackConditions =
+    rule.environment && conditions.length === 0
+      ? [{ field: "environment", op: "is" as const, value: rule.environment }]
+      : [];
+  const count = Number(rule.filters_json?.cooldown_count);
+  const minutes = rule.cooldown_mins ?? Number(rule.filters_json?.cooldown_minutes);
+  return {
+    ...base,
+    templateId: typeof rule.filters_json?.template_id === "string" ? rule.filters_json.template_id : base.templateId,
+    name: rule.name,
+    triggers: triggers.length > 0 ? triggers : fallbackTrigger,
+    match: rule.condition_match === "any" ? "any" : "all",
+    conditions: conditions.length > 0 ? conditions : fallbackConditions,
+    cooldownCount: Number.isFinite(count) && count > 0 ? count : 1,
+    cooldownMins: Number.isFinite(minutes) && minutes > 0 ? minutes : base.cooldownMins,
+    channelIds: rule.channel_ids ?? [],
+    payload: {
+      ...DEFAULT_PAYLOAD,
+      ...(isRecord(rule.payload_options) ? boolRecord(rule.payload_options) : {}),
+    },
+  };
+}
+
+function parseTriggers(value: unknown): AlertTrigger[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is AlertTrigger => isRecord(item) && typeof item.type === "string");
+}
+
+function parseConditions(value: unknown): AlertCondition[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item) || typeof item.field !== "string" || typeof item.op !== "string") return [];
+    return [{ field: item.field, op: item.op as AlertCondition["op"], value: String(item.value ?? "") }];
+  });
+}
+
+function fallbackTriggerForKind(kind: string | undefined, threshold: number | null | undefined): AlertTrigger[] {
+  if (kind === "regression") return [{ type: "issue_regression" }];
+  if (kind === "velocity_spike") {
+    return [{ type: "project_count", threshold: threshold && threshold > 0 ? threshold : 100, window: "5m" }];
+  }
+  return [{ type: "issue_new" }];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function boolRecord(value: Record<string, unknown>): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (typeof item === "boolean") out[key] = item;
+  }
+  return out;
 }
 
 export function templateDraft(id: string): AlertRuleDraft {
