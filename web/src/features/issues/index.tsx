@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BellRing, Check, EyeOff, RotateCcw, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { Navigate, useParams } from "react-router-dom";
 import { setupNeedsWizard } from "../../lib/api";
 import { projectPath } from "../../lib/paths";
 import { cn } from "../../lib/cn";
 import { useIssuesLayoutMode } from "../../lib/style-theme";
 import { useAppContext } from "../../shell/app-context";
-import { Badge } from "../../ui/badge";
-import { IssuePriorityBadge } from "../../ui/issue-priority";
 import { ActionButton } from "../../ui/action-button";
 import { BreadcrumbTimeline } from "../../ui/breadcrumb-timeline";
 import { ErrorState, ForbiddenState } from "../../ui/error-state";
@@ -30,8 +28,7 @@ import { downloadIssuesCsv } from "./export-csv";
 import { DiffPanel } from "./diff-panel";
 import {
   canIgnoreIssue,
-  canReopenIssue,
-  canResolveIssue,
+  issueWorkflowActions,
 } from "./issue-triage-utils";
 import {
   copyBulkIssueExport,
@@ -45,7 +42,7 @@ import {
   DEFAULT_TIME_WINDOW,
 } from "./query-utils";
 import { registerIssuesTriage } from "./triage-bridge";
-import { SnoozeMenu } from "./snooze-menu";
+import { IssueStateActions, IssueStateBadge } from "./issue-state-actions";
 import { useResizableIssueDetail } from "./use-resizable-issue-detail";
 import { useIssueTriageMachine } from "./use-issue-triage-machine";
 
@@ -126,6 +123,7 @@ export function IssuesPage() {
     handleReopen,
     handleSnooze,
     handleUnsnooze,
+    handleUnsnoozeIds,
     handleBulk,
     handleSnoozeIds,
     handleMarkReadIds,
@@ -255,14 +253,17 @@ export function IssuesPage() {
 
   useEffect(() => {
     const triageIssue = selectedIssue ?? focusedIssue;
+    const triageActions = triageIssue ? issueWorkflowActions(triageIssue) : [];
     registerIssuesTriage({
       active: true,
       busy: actionsDisabled,
       hasSelectedIssue: Boolean(triageIssue),
       selectedCount: selectedIds.size,
-      canResolve: triageIssue ? canResolveIssue(triageIssue.status) : false,
-      canIgnore: triageIssue ? canIgnoreIssue(triageIssue.status) : false,
-      canReopen: triageIssue ? canReopenIssue(triageIssue.status) : false,
+      canResolve: triageActions.includes("resolve"),
+      canIgnore: triageActions.includes("ignore"),
+      canReopen: triageActions.includes("reopen"),
+      canSnooze: triageActions.includes("snooze"),
+      canUnsnooze: triageActions.includes("unsnooze"),
       canMerge: selectedIds.size >= 2 && Boolean(activeIssueId) && !actionsDisabled,
       handlers: {
         applyFilter,
@@ -274,6 +275,16 @@ export function IssuesPage() {
         ignoreSelected: () => {
           if (activeIssueId) {
             handleIgnore(activeIssueId);
+          }
+        },
+        snoozeSelected: () => {
+          if (activeIssueId) {
+            void handleSnooze("4h", activeIssueId);
+          }
+        },
+        unsnoozeSelected: () => {
+          if (activeIssueId) {
+            void handleUnsnooze(activeIssueId);
           }
         },
         reopenSelected: () => {
@@ -295,6 +306,8 @@ export function IssuesPage() {
     handleMerge,
     handleReopen,
     handleResolve,
+    handleSnooze,
+    handleUnsnooze,
     activeIssueId,
     focusedIssue,
     selectedIds.size,
@@ -361,33 +374,7 @@ export function IssuesPage() {
         onClose={handleCloseDetail}
         showBackLink={!isOverlayLayout}
         issueTitle={selectedIssue.title ?? "Untitled issue"}
-        statusBadges={
-          <>
-            <IssuePriorityBadge
-              level={selectedIssue.level}
-              status={selectedIssue.status}
-              compact
-            />
-            <Badge
-              size="compact"
-              variant={
-                selectedIssue.status === "resolved"
-                  ? "resolved"
-                  : selectedIssue.status === "regression"
-                    ? "warning"
-                    : "env"
-              }
-            >
-              {selectedIssue.status}
-            </Badge>
-            {selectedIssue.status === "regression" ? (
-              <Badge size="compact" variant="warning">Came back</Badge>
-            ) : null}
-            {selectedIssue.snoozed ? (
-              <Badge size="compact" variant="info">Snoozed</Badge>
-            ) : null}
-          </>
-        }
+        statusBadges={<IssueStateBadge issue={selectedIssue} />}
         onPrevious={() => handleMoveSelection("up")}
         onNext={() => handleMoveSelection("down")}
         hasPrevious={issues.findIndex((issue) => issue.id === selectedIssue.id) > 0}
@@ -408,66 +395,16 @@ export function IssuesPage() {
               <Sparkles className="size-3.5" />
               <span>Copy for agent</span>
             </ActionButton>
-            {canResolveIssue(selectedIssue.status) ? (
-              <ActionButton
-                variant="primary"
-                size="sm"
-                className={DETAIL_INLINE_ACTION_CLASS}
-                disabled={actionsDisabled}
-                tooltip="Resolve (E)"
-                onClick={() => void handleResolve(selectedIssue.id)}
-              >
-                <Check className="size-3.5" />
-                <span>{pendingIds.has(selectedIssue.id) ? "Saving…" : "Resolve"}</span>
-              </ActionButton>
-            ) : null}
-            {canReopenIssue(selectedIssue.status) ? (
-              <ActionButton
-                variant="ghost"
-                size="sm"
-                className={DETAIL_INLINE_ACTION_CLASS}
-                disabled={actionsDisabled}
-                tooltip="Reopen"
-                onClick={() => void handleReopen(selectedIssue.id)}
-              >
-                <RotateCcw className="size-3.5" />
-                <span>{pendingIds.has(selectedIssue.id) ? "Saving…" : "Reopen"}</span>
-              </ActionButton>
-            ) : null}
-            {canIgnoreIssue(selectedIssue.status) ? (
-              <ActionButton
-                variant="ghost"
-                size="icon"
-                tooltip="Ignore (I)"
-                disabled={actionsDisabled}
-                aria-label="Ignore issue"
-                onClick={() => void handleIgnore(selectedIssue.id)}
-              >
-                <EyeOff className="size-3.5" aria-hidden />
-              </ActionButton>
-            ) : null}
-            {selectedIssue.snoozed || selectedIssue.status === "snoozed" ? (
-              <ActionButton
-                variant="ghost"
-                size="icon"
-                tooltip="Unsnooze"
-                disabled={actionsDisabled}
-                aria-label="Unsnooze issue"
-                onClick={() => void handleUnsnooze(selectedIssue.id)}
-              >
-                <BellRing className="size-3.5" aria-hidden />
-              </ActionButton>
-            ) : (
-              <SnoozeMenu
-                issue={selectedIssue}
-                disabled={actionsDisabled}
-                variant="ghost"
-                iconOnly
-                iconSize="icon"
-                showShortcutHint
-                onSnooze={handleSnooze}
-              />
-            )}
+            <IssueStateActions
+              issue={selectedIssue}
+              disabled={actionsDisabled}
+              pending={pendingIds.has(selectedIssue.id)}
+              onResolve={handleResolve}
+              onReopen={handleReopen}
+              onIgnore={handleIgnore}
+              onSnooze={handleSnooze}
+              onUnsnooze={(id) => void handleUnsnooze(id)}
+            />
           </>
         }
         overview={
@@ -620,6 +557,8 @@ export function IssuesPage() {
                 onMenuIgnore={(ids) => void handleBulk("ignore", { ids })}
                 onMenuReopen={(ids) => void handleBulk("reopen", { ids })}
                 onMenuSnooze={(mode, ids) => void handleSnoozeIds(mode, ids)}
+                onMenuUnsnooze={(ids) => void handleUnsnoozeIds(ids)}
+                selectedIssue={selectedIssue}
                 onMenuAskAi={handleMenuAskAi}
                 onMenuMarkRead={handleMarkReadIds}
                 onMenuDeleteRequest={(ids) => {

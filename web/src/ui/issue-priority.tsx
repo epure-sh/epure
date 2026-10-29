@@ -151,6 +151,8 @@ export function IssuePriorityIcon({
 export interface IssuePriorityBadgeProps {
   level?: string | null;
   status?: string | null;
+  priority?: string | null;
+  priorityScore?: number | null;
   compact?: boolean;
   className?: string;
 }
@@ -171,10 +173,15 @@ function priorityBadgeVariant(priority: IssuePriority): BadgeVariant {
 export function IssuePriorityBadge({
   level,
   status,
+  priority: storedPriority,
+  priorityScore,
   compact = false,
   className,
 }: IssuePriorityBadgeProps) {
-  const priority = resolveIssuePriority(level, status);
+  const priority = resolveIssuePriority(level, status, {
+    priority: storedPriority,
+    priority_score: priorityScore,
+  });
 
   return (
     <Badge

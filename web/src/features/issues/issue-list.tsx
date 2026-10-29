@@ -18,12 +18,7 @@ import {
   inferTrendStatus,
   parseIssueTitle,
 } from "./issue-feed-utils";
-import {
-  canIgnoreIssue,
-  canResolveIssue,
-  bulkTriageAvailability,
-  canSnoozeIssue,
-} from "./issue-triage-utils";
+import { bulkTriageAvailability, issueWorkflowActions } from "./issue-triage-utils";
 import { BulkActions } from "./bulk-actions";
 
 export interface IssueListProps {
@@ -60,6 +55,9 @@ export interface IssueListProps {
   onMenuIgnore: (ids: string[]) => void;
   onMenuReopen: (ids: string[]) => void;
   onMenuSnooze: (mode: SnoozeMode, ids: string[]) => void;
+  onMenuUnsnooze?: (ids: string[]) => void;
+  /** Open issue, including when the active filter has already dropped it. */
+  selectedIssue?: IssueSummary | null;
   onMenuAskAi: (issues: IssueSummary[]) => void;
   onMenuMarkRead: (ids: string[]) => void;
   onMenuDeleteRequest: (ids: string[]) => void;
@@ -103,6 +101,8 @@ export function IssueList({
   onMenuIgnore,
   onMenuReopen,
   onMenuSnooze,
+  onMenuUnsnooze,
+  selectedIssue = null,
   onMenuAskAi,
   onMenuMarkRead,
   onMenuDeleteRequest,
@@ -183,14 +183,15 @@ export function IssueList({
         targetId &&
         !actionsDisabled
       ) {
-        const issue = issues.find((row) => row.id === targetId);
+        const issue =
+          issues.find((row) => row.id === targetId) ??
+          (selectedIssue?.id === targetId ? selectedIssue : undefined);
         if (issue) {
-          if (issue.status === "resolved") {
-            if (onReopen) {
-              event.preventDefault();
-              onReopen(targetId);
-            }
-          } else if (canResolveIssue(issue.status)) {
+          const actions = issueWorkflowActions(issue);
+          if (actions.includes("reopen") && onReopen) {
+            event.preventDefault();
+            onReopen(targetId);
+          } else if (actions.includes("resolve")) {
             event.preventDefault();
             onResolve(targetId);
           }
@@ -207,12 +208,15 @@ export function IssueList({
         targetId &&
         !actionsDisabled
       ) {
-        const issue = issues.find((row) => row.id === targetId);
+        const issue =
+          issues.find((row) => row.id === targetId) ??
+          (selectedIssue?.id === targetId ? selectedIssue : undefined);
         if (issue) {
-          if ((issue.snoozed || issue.status === "snoozed") && onUnsnooze) {
+          const actions = issueWorkflowActions(issue);
+          if (actions.includes("unsnooze") && onUnsnooze) {
             event.preventDefault();
             onUnsnooze(targetId);
-          } else if (canSnoozeIssue(issue) && onSnooze) {
+          } else if (actions.includes("snooze") && onSnooze) {
             event.preventDefault();
             onSnooze(targetId);
           }
@@ -245,8 +249,10 @@ export function IssueList({
 
       // I: Ignore
       if (event.key === "i" && targetId && !actionsDisabled) {
-        const issue = issues.find((row) => row.id === targetId);
-        if (issue && canIgnoreIssue(issue.status)) {
+        const issue =
+          issues.find((row) => row.id === targetId) ??
+          (selectedIssue?.id === targetId ? selectedIssue : undefined);
+        if (issue && issueWorkflowActions(issue).includes("ignore")) {
           event.preventDefault();
           onIgnore(targetId);
         }
@@ -269,8 +275,11 @@ export function IssueList({
       onMoveSelection,
       onOpenDetail,
       onResolve,
+      onReopen,
       onSnooze,
+      onUnsnooze,
       onToggleSelect,
+      selectedIssue,
       handleCopyAgentPrompt,
     ],
   );
@@ -357,6 +366,7 @@ export function IssueList({
           onSnooze={async (mode) => {
             onMenuSnooze(mode, Array.from(selectedIds));
           }}
+          onUnsnooze={() => onMenuUnsnooze?.(Array.from(selectedIds))}
           onMerge={onMenuMerge}
           onSplit={onBulkSplit ?? onMenuSplit}
           onClear={() => onClearSelection?.()}
@@ -413,6 +423,7 @@ export function IssueList({
                     onReopen={onMenuReopen}
                     onSnooze={onMenuSnooze}
                     onUnsnooze={(id) => onUnsnooze?.(id)}
+                    onUnsnoozeMany={onMenuUnsnooze}
                     onAskAi={onMenuAskAi}
                     onMarkRead={onMenuMarkRead}
                     onDeleteRequest={onMenuDeleteRequest}

@@ -35,8 +35,11 @@ import {
   bulkTriageAvailability,
   canIgnoreIssue,
   canReopenIssue,
+  applyIssueStatus,
+  applyIssueUnsnooze,
   canResolveIssue,
   canSnoozeIssue,
+  isIssueSnoozed,
   headlineStatsDelta,
   snoozeModeFromIssue,
   issueMatchesParsedQuery,
@@ -161,6 +164,8 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
 
   const [focusedId, setFocusedId] = useState<string | null>(urlIssueId);
   const [selectedId, setSelectedId] = useState<string | null>(urlIssueId);
+  const selectedIdRef = useRef<string | null>(urlIssueId);
+  selectedIdRef.current = selectedId;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   const handleSetQuery = useCallback(
@@ -201,11 +206,18 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
   /** Every issue we know about with optimistic overrides applied, regardless of the active filter. */
   const knownIssues = useMemo(() => {
     const rows: IssueSummary[] = [];
+    const seen = new Set<string>();
     for (const row of rawIssues) {
       const override = overrides.get(row.id);
-      if (!override) {
-        rows.push(row);
-      } else if (override.issue) {
+      if (override && !override.issue) {
+        continue;
+      }
+      const issue = override?.issue ?? row;
+      rows.push(issue);
+      seen.add(issue.id);
+    }
+    for (const override of overrides.values()) {
+      if (override.issue && !seen.has(override.issue.id)) {
         rows.push(override.issue);
       }
     }
@@ -339,7 +351,12 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
         let changed = false;
         const next = new Map(current);
         for (const [id, override] of current) {
-          if (override.settledAt !== null && override.settledAt <= startedAt) {
+          if (override.settledAt === null || override.settledAt > startedAt) {
+            continue;
+          }
+          const stillListed = rows.some((row) => row.id === id);
+          const open = id === selectedIdRef.current || id === urlIssueIdRef.current;
+          if (stillListed || !open) {
             next.delete(id);
             changed = true;
           }
@@ -802,7 +819,7 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
       if (!current) {
         return;
       }
-      const optimistic: IssueSummary = { ...current, status };
+      const optimistic = applyIssueStatus(current, status, resolvedInRelease);
 
       toast.success(
         status === "resolved"
@@ -912,13 +929,7 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
       if (!current) {
         return;
       }
-      const optimistic: IssueSummary = {
-        ...current,
-        snoozed: false,
-        snooze_until: null,
-        snooze_until_count: null,
-        snooze_until_users: null,
-      };
+      const optimistic = applyIssueUnsnooze(current);
       const previousMode = snoozeModeFromIssue(current);
 
       toast.success("Issue unsnoozed", {
@@ -941,6 +952,27 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
       );
     },
     [actionsDisabled, focusedId, issueById, runOptimistic, selectedId],
+  );
+
+  const handleUnsnoozeIds = useCallback(
+    async (ids: string[]) => {
+      const eligible = ids
+        .map((id) => issueById.get(id))
+        .filter((issue): issue is IssueSummary => Boolean(issue && isIssueSnoozed(issue)));
+      if (eligible.length === 0 || actionsDisabled) {
+        return;
+      }
+      setSelectedIds(new Set());
+      const ok = await runOptimistic(
+        eligible.map((issue) => ({ before: issue, after: applyIssueUnsnooze(issue) })),
+        () => Promise.all(eligible.map((issue) => unsnoozeIssue(issue.id))),
+        "Failed to unsnooze",
+      );
+      if (ok) {
+        toast.success(eligible.length === 1 ? "Issue unsnoozed" : `Unsnoozed ${eligible.length} issues`);
+      }
+    },
+    [actionsDisabled, issueById, runOptimistic],
   );
 
   const previousIssueIdsRef = useRef<string[]>([]);
@@ -1117,7 +1149,10 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
         const before = issueById.get(id);
         if (!before) continue;
         const status = nextStatus[action];
-        changes.push({ before, after: status === null ? null : { ...before, status } });
+        changes.push({
+          before,
+          after: status === null ? null : applyIssueStatus(before, status, before.release),
+        });
       }
 
       setSelectedIds(new Set());
@@ -1308,6 +1343,7 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
     handleReopen,
     handleSnooze,
     handleUnsnooze,
+    handleUnsnoozeIds,
     handleBulk,
     handleBulkSnooze,
     handleSnoozeIds,

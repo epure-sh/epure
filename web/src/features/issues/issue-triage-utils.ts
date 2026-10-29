@@ -15,10 +15,93 @@ export function canReopenIssue(status: string): boolean {
   return status === "resolved" || status === "ignored";
 }
 
+export function isIssueSnoozed(issue: Pick<IssueSummary, "status" | "snoozed">): boolean {
+  return issue.snoozed || issue.status === "snoozed";
+}
+
 export function canSnoozeIssue(issue: Pick<IssueSummary, "status" | "snoozed">): boolean {
   return (
-    (canResolveIssue(issue.status) || issue.status === "ignored") && !issue.snoozed
+    (canResolveIssue(issue.status) || issue.status === "ignored") && !isIssueSnoozed(issue)
   );
+}
+
+export type IssueWorkflowAction = "resolve" | "ignore" | "reopen" | "snooze" | "unsnooze";
+
+/** Actions the screen should offer for this issue right now. */
+export function issueWorkflowActions(
+  issue: Pick<IssueSummary, "status" | "snoozed">,
+): IssueWorkflowAction[] {
+  const actions: IssueWorkflowAction[] = [];
+  if (isIssueSnoozed(issue)) {
+    actions.push("unsnooze");
+  } else if (canSnoozeIssue(issue)) {
+    actions.push("snooze");
+  }
+  if (!isIssueSnoozed(issue) && canResolveIssue(issue.status)) {
+    actions.push("resolve");
+  }
+  if (!isIssueSnoozed(issue) && canIgnoreIssue(issue.status)) {
+    actions.push("ignore");
+  }
+  if (canReopenIssue(issue.status)) {
+    actions.push("reopen");
+  }
+  return actions;
+}
+
+export function issueStateBadge(issue: Pick<IssueSummary, "status" | "snoozed">): {
+  label: string;
+  variant: "resolved" | "warning" | "info" | "env";
+} {
+  if (isIssueSnoozed(issue)) {
+    return { label: "Snoozed", variant: "info" };
+  }
+  switch (issue.status) {
+    case "resolved":
+      return { label: "Resolved", variant: "resolved" };
+    case "ignored":
+      return { label: "Ignored", variant: "env" };
+    case "regression":
+      return { label: "Came back", variant: "warning" };
+    default:
+      return { label: "Unresolved", variant: "env" };
+  }
+}
+
+/** Status change as the server will store it, including clearing a snooze overlay. */
+export function applyIssueStatus(
+  issue: IssueSummary,
+  status: string,
+  resolvedInRelease?: string | null,
+): IssueSummary {
+  const reopening = status === "unresolved" || status === "regression";
+  const resolving = status === "resolved";
+  return {
+    ...issue,
+    status,
+    snoozed: false,
+    snooze_until: null,
+    snooze_until_count: null,
+    snooze_until_users: null,
+    resolved_in_release: resolving
+      ? (resolvedInRelease ?? issue.release ?? null)
+      : reopening
+        ? null
+        : issue.resolved_in_release,
+    resolved_at: resolving ? new Date().toISOString() : reopening ? null : issue.resolved_at,
+    came_back: status === "regression",
+  };
+}
+
+export function applyIssueUnsnooze(issue: IssueSummary): IssueSummary {
+  return {
+    ...issue,
+    status: issue.status === "snoozed" ? "unresolved" : issue.status,
+    snoozed: false,
+    snooze_until: null,
+    snooze_until_count: null,
+    snooze_until_users: null,
+  };
 }
 
 const SNOOZE_HOURS: Record<Exclude<SnoozeMode, "occurrences" | "users">, number> = {
@@ -176,19 +259,22 @@ export interface BulkTriageAvailability {
   ignore: boolean;
   reopen: boolean;
   snooze: boolean;
+  unsnooze: boolean;
 }
 
 export function bulkTriageAvailability(
   issues: Pick<IssueSummary, "status" | "snoozed">[],
 ): BulkTriageAvailability {
   if (issues.length === 0) {
-    return { resolve: false, ignore: false, reopen: false, snooze: false };
+    return { resolve: false, ignore: false, reopen: false, snooze: false, unsnooze: false };
   }
 
+  const actions = issues.map((issue) => issueWorkflowActions(issue));
   return {
-    resolve: issues.some((issue) => canResolveIssue(issue.status)),
-    ignore: issues.some((issue) => canIgnoreIssue(issue.status)),
-    reopen: issues.some((issue) => canReopenIssue(issue.status)),
-    snooze: issues.some((issue) => canSnoozeIssue(issue)),
+    resolve: actions.some((row) => row.includes("resolve")),
+    ignore: actions.some((row) => row.includes("ignore")),
+    reopen: actions.some((row) => row.includes("reopen")),
+    snooze: actions.some((row) => row.includes("snooze")),
+    unsnooze: actions.some((row) => row.includes("unsnooze")),
   };
 }
