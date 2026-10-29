@@ -7,9 +7,14 @@ import {
   CaretLeft,
   Check,
   Clock,
+  DiscordLogo,
+  EnvelopeSimple,
   Icon,
   MagnifyingGlass,
   Plus,
+  SlackLogo,
+  TelegramLogo,
+  WebhooksLogo,
   X,
 } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -26,10 +31,11 @@ import {
   ALERT_RULE_TEMPLATES,
   BASE_FIELDS,
   BASE_TRIGGERS,
+  COOLDOWN_COUNTS,
   COOLDOWNS,
   CONDITION_FIELDS,
   OP_LABEL,
-  PAYLOAD_GROUPS,
+  PAYLOAD_BLOCKS,
   SCRATCH_TEMPLATE_ID,
   TRIGGER_LABEL,
   canAdvance,
@@ -300,26 +306,41 @@ function SentenceStep({
           </Button>
         </div>
       </RuleSection>
-      <RuleSection title="Then" hint="Don't repeat for the same issue">
-        <div className="flex items-center gap-2">
-          <Icon icon={Clock} size={15} className="text-fg-muted" />
-          <Select
-            value={String(draft.cooldownMins)}
-            onValueChange={(value) => onChange({ ...draft, cooldownMins: Number(value) })}
-          >
-            <SelectTrigger size="sm" className="w-36" aria-label="Cooldown">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {COOLDOWNS.map((item) => (
-                <SelectItem key={item.mins} value={String(item.mins)}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </RuleSection>
+      <div className="flex flex-wrap items-center gap-3 py-1">
+        <Icon icon={Clock} size={16} className="text-fg-muted" />
+        <span className="text-sm text-fg-primary">Triggered at most</span>
+        <Select
+          value={String(draft.cooldownCount)}
+          onValueChange={(value) => onChange({ ...draft, cooldownCount: Number(value) })}
+        >
+          <SelectTrigger size="md" className="w-20" aria-label="Max times">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {COOLDOWN_COUNTS.map((count) => (
+              <SelectItem key={count} value={String(count)}>
+                {count}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-sm text-fg-primary">{draft.cooldownCount === 1 ? "time" : "times"} per</span>
+        <Select
+          value={String(draft.cooldownMins)}
+          onValueChange={(value) => onChange({ ...draft, cooldownMins: Number(value) })}
+        >
+          <SelectTrigger size="md" className="w-32" aria-label="Window">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {COOLDOWNS.map((item) => (
+              <SelectItem key={item.mins} value={String(item.mins)}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <div className="flex flex-col gap-2">
         <Button variant="ghost" size="sm" className="self-start" aria-expanded={advanced} onClick={() => setAdvanced((value) => !value)}>
           <Icon icon={CaretDown} size={14} className={cn("transition-transform duration-200", advanced ? "rotate-0" : "-rotate-90")} />
@@ -498,50 +519,46 @@ function DeliveryStep({
           leadingIcon={<Icon icon={MagnifyingGlass} size={15} />}
           onChange={(event) => setQuery(event.target.value)}
         />
-        {needle ? (
-          <div className="flex flex-col gap-1">
-            {matches.slice(0, 6).map((channel) => (
-              <Button
-                key={channel.id}
-                variant="ghost"
-                size="sm"
-                className="justify-start"
-                onClick={() => addChannel(channel.id)}
-              >
-                {providerName(channel.provider)} · {channel.label}
-              </Button>
-            ))}
-            {needle && matches.length === 0 ? (
-              <p className="px-1 text-xs text-fg-muted">No channel matches.</p>
-            ) : null}
-          </div>
-        ) : null}
+        <div className="flex flex-col gap-1">
+          {matches.map((channel) => (
+            <Button
+              key={channel.id}
+              variant="ghost"
+              size="md"
+              className="h-10 justify-start gap-2"
+              onClick={() => addChannel(channel.id)}
+            >
+              <Icon icon={channelIcon(channel.provider)} size={18} />
+              {providerName(channel.provider)} · {channel.label}
+            </Button>
+          ))}
+          {needle && matches.length === 0 ? (
+            <p className="px-1 text-xs text-fg-muted">No channel matches.</p>
+          ) : null}
+        </div>
         {selected.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {selected.map((channel) => (
-              <span key={channel.id} className="inline-flex items-center gap-1">
-              <Badge size="sm" variant="neutral">
-                {providerName(channel.provider)} · {channel.label}
+              <Badge key={channel.id} size="md" className="h-9 gap-2 px-2 text-sm">
+                <Icon icon={channelIcon(channel.provider)} size={18} />
+                {channel.label}
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`Remove ${channel.label}`}
+                  onClick={() =>
+                    onChange({
+                      ...draft,
+                      channelIds: draft.channelIds.filter((id) => id !== channel.id),
+                    })
+                  }
+                >
+                  <Icon icon={X} size={14} />
+                </Button>
               </Badge>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label={`Remove ${channel.label}`}
-                onClick={() =>
-                  onChange({
-                    ...draft,
-                    channelIds: draft.channelIds.filter((id) => id !== channel.id),
-                  })
-                }
-              >
-                <Icon icon={X} size={12} />
-              </Button>
-            </span>
             ))}
           </div>
-        ) : (
-          <p className="text-xs text-fg-muted">Search, then click a channel to add it.</p>
-        )}
+        ) : null}
         {creating ? (
           <div className="flex flex-wrap items-center gap-2 rounded-control border border-border-subtle p-3">
             <Select value={provider} onValueChange={(value) => setProvider(value as ChannelProvider)}>
@@ -586,7 +603,20 @@ function DeliveryStep({
         ) : null}
       </div>
 
-      <section className="flex flex-col gap-3 rounded-panel border border-border-subtle p-4">
+      <div className="flex flex-col gap-3">
+        <p className="text-sm leading-relaxed text-fg-secondary">
+          Every alert shows when it fired, why, the conditions that matched, the issue, events, users, environment, and release.
+        </p>
+        <ul className="flex flex-col">
+          {PAYLOAD_BLOCKS.filter((block) => !block.advanced).map((block) => (
+            <PayloadRow
+              key={block.id}
+              block={block}
+              payload={draft.payload}
+              onChange={(payload) => onChange({ ...draft, payload })}
+            />
+          ))}
+        </ul>
         <Button
           variant="ghost"
           size="sm"
@@ -599,57 +629,57 @@ function DeliveryStep({
             size={14}
             className={cn("transition-transform duration-200", messageOpen ? "rotate-0" : "-rotate-90")}
           />
-          Advanced
+          More detail
         </Button>
-        <p className="text-xs leading-relaxed text-fg-muted">
-          The message already includes the title, stack, counts, and release. Open this to add people, tags, or buttons.
-        </p>
         {messageOpen ? (
-          <div className="flex flex-col gap-2">
-            {PAYLOAD_GROUPS.map((group) => (
-              <PayloadGroupBlock
-                key={group.id}
-                label={group.label}
-                items={group.items}
+          <ul className="flex flex-col">
+            {PAYLOAD_BLOCKS.filter((block) => block.advanced).map((block) => (
+              <PayloadRow
+                key={block.id}
+                block={block}
                 payload={draft.payload}
                 onChange={(payload) => onChange({ ...draft, payload })}
               />
             ))}
-          </div>
+          </ul>
         ) : null}
-      </section>
+      </div>
     </div>
   );
 }
 
-function PayloadGroupBlock({
-  label,
-  items,
+function PayloadRow({
+  block,
   payload,
   onChange,
 }: {
-  label: string;
-  items: { id: string; label: string; hint: string }[];
+  block: (typeof PAYLOAD_BLOCKS)[number];
   payload: Record<string, boolean>;
   onChange: (next: Record<string, boolean>) => void;
 }) {
-  const [open, setOpen] = useState(true);
-  const selected = items.filter((item) => payload[item.id]).length;
-  const checked = selected === 0 ? false : selected === items.length ? true : "indeterminate";
+  const [open, setOpen] = useState(false);
+  const children = block.children ?? [];
+  const checked = children.length === 0
+    ? Boolean(payload[block.id])
+    : children.every((item) => payload[item.id])
+      ? true
+      : children.some((item) => payload[item.id])
+        ? "indeterminate"
+        : false;
 
-  function setAll(next: boolean) {
-    const copy = { ...payload };
-    for (const item of items) copy[item.id] = next;
+  function toggle(next: boolean) {
+    const copy = { ...payload, [block.id]: next };
+    for (const child of children) copy[child.id] = next;
     onChange(copy);
   }
 
   return (
-    <div className="rounded-control border border-border-subtle">
-      <div className="flex items-center gap-2 px-2 py-1.5">
+    <li className="border-b border-border-subtle py-2 last:border-b-0">
+      <div className="flex items-center gap-3">
         <Checkbox
           checked={checked}
-          aria-label={label}
-          onCheckedChange={(value) => setAll(value === true)}
+          aria-label={block.label}
+          onCheckedChange={(value) => toggle(value === true)}
         />
         <Button
           variant="ghost"
@@ -658,7 +688,7 @@ function PayloadGroupBlock({
           aria-expanded={open}
           onClick={() => setOpen((value) => !value)}
         >
-          <span className="text-sm text-fg-primary">{label}</span>
+          <span className="text-sm text-fg-primary">{block.label}</span>
           <Icon
             icon={CaretDown}
             size={14}
@@ -666,25 +696,40 @@ function PayloadGroupBlock({
           />
         </Button>
       </div>
-      <div className={cn("grid transition-[grid-template-rows] duration-200", open ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
-        <div className="overflow-hidden">
-          <ul className="flex flex-col pb-1">
-            {items.map((item) => (
-              <li key={item.id} className="flex items-center gap-2 px-2 py-1 pl-8">
-                <Checkbox
-                  checked={Boolean(payload[item.id])}
-                  aria-label={item.label}
-                  onCheckedChange={(value) => onChange({ ...payload, [item.id]: value === true })}
-                />
-                <span className="min-w-0 flex-1 text-sm text-fg-primary">{item.label}</span>
-                <span className="text-xs text-fg-muted">{item.hint}</span>
-              </li>
-            ))}
-          </ul>
+      {open ? (
+        <div className="flex flex-col gap-2 py-2 pl-8">
+          <p className="text-xs leading-relaxed text-fg-muted">{block.detail}</p>
+          {children.map((child) => (
+            <label key={child.id} className="flex items-center gap-2 text-sm text-fg-primary">
+              <Checkbox
+                checked={Boolean(payload[child.id])}
+                aria-label={child.label}
+                onCheckedChange={(value) =>
+                  onChange({ ...payload, [block.id]: true, [child.id]: value === true })
+                }
+              />
+              {child.label}
+            </label>
+          ))}
         </div>
-      </div>
-    </div>
+      ) : null}
+    </li>
   );
+}
+
+function channelIcon(provider: ChannelProvider) {
+  switch (provider) {
+    case "slack":
+      return SlackLogo;
+    case "discord":
+      return DiscordLogo;
+    case "telegram":
+      return TelegramLogo;
+    case "email":
+      return EnvelopeSimple;
+    case "webhook":
+      return WebhooksLogo;
+  }
 }
 
 function RuleSection({

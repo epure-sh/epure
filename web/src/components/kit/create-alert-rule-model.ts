@@ -55,11 +55,15 @@ export interface AlertRuleDraft {
   triggers: AlertTrigger[];
   match: "all" | "any";
   conditions: AlertCondition[];
+  /** How many times this issue may alert inside the window. */
+  cooldownCount: number;
   cooldownMins: number;
   channelIds: string[];
-  /** Payload checkboxes, including `tag:*` and `action:*` keys. */
+  /** Optional sidebar blocks. General alert context is always included. */
   payload: Record<string, boolean>;
 }
+
+export const COOLDOWN_COUNTS = [1, 2, 3, 5, 10] as const;
 
 export const COOLDOWNS = [
   { mins: 5, label: "5 min" },
@@ -129,60 +133,86 @@ export const OP_LABEL: Record<ConditionOp, string> = {
   is_not_null: "is set",
 };
 
-export interface PayloadItem {
+export interface PayloadChoice {
   id: string;
   label: string;
-  hint: string;
 }
 
-export interface PayloadGroup {
+/** Optional blocks printed on the alert, under the context that is always included. */
+export interface PayloadBlock {
   id: string;
   label: string;
-  items: PayloadItem[];
+  /** What this block prints on the alert detail. */
+  detail: string;
+  advanced?: boolean;
+  children?: PayloadChoice[];
 }
 
-export const PAYLOAD_GROUPS: PayloadGroup[] = [
+export const ALWAYS_ON_ALERT = [
+  "When it fired",
+  "Why it fired",
+  "Conditions that matched",
+  "Issue and error type",
+  "Events, users, priority",
+  "Environment and release",
+  "Status",
+] as const;
+
+export const PAYLOAD_BLOCKS: PayloadBlock[] = [
   {
-    id: "breakage",
-    label: "What broke",
-    items: [
-      { id: "stack_frames", label: "Top 3 in-app frames", hint: "stack" },
-      { id: "culprit", label: "Culprit and route", hint: "location" },
-    ],
+    id: "stack_frames",
+    label: "Stack",
+    detail: "Top in-app frames, with the crashing line.",
   },
   {
-    id: "impact",
-    label: "How bad",
-    items: [
-      { id: "impact", label: "Priority, events, users", hint: "counts" },
-      { id: "release", label: "Environment and release", hint: "deploy" },
-    ],
+    id: "culprit",
+    label: "Crash site",
+    detail: "File, function, and route.",
   },
   {
-    id: "trail",
-    label: "People and the path",
-    items: [
-      { id: "affected_user", label: "Affected user", hint: "email or key" },
-      { id: "breadcrumbs", label: "Last 3 breadcrumbs", hint: "trail" },
-    ],
+    id: "request",
+    label: "Request",
+    detail: "Method and URL.",
+    advanced: true,
+  },
+  {
+    id: "affected_user",
+    label: "Person",
+    detail: "Email or user key on the event.",
+    advanced: true,
+  },
+  {
+    id: "breadcrumbs",
+    label: "Breadcrumbs",
+    detail: "Last 3 steps before the error.",
+    advanced: true,
+  },
+  {
+    id: "runtime",
+    label: "Runtime",
+    detail: "Browser, OS, and runtime.",
+    advanced: true,
   },
   {
     id: "tags",
     label: "Tags",
-    items: [
-      { id: "tag:tenant", label: "tenant", hint: "tag" },
-      { id: "tag:region", label: "region", hint: "tag" },
-      { id: "tag:plan", label: "plan", hint: "tag" },
+    detail: "Only the tags you tick.",
+    advanced: true,
+    children: [
+      { id: "tag:tenant", label: "Tenant" },
+      { id: "tag:region", label: "Region" },
+      { id: "tag:plan", label: "Plan" },
     ],
   },
   {
     id: "actions",
-    label: "Buttons",
-    items: [
-      { id: "action:view", label: "View in Epure", hint: "link" },
-      { id: "action:fix", label: "Copy AI fix prompt", hint: "prompt" },
-      { id: "action:resolve", label: "Resolve", hint: "action" },
-      { id: "action:mute", label: "Mute for 24 hours", hint: "action" },
+    label: "Actions",
+    detail: "Buttons on the alert.",
+    children: [
+      { id: "action:view", label: "Open issue" },
+      { id: "action:fix", label: "Copy fix prompt" },
+      { id: "action:resolve", label: "Resolve" },
+      { id: "action:mute", label: "Mute 24h" },
     ],
   },
 ];
@@ -190,13 +220,15 @@ export const PAYLOAD_GROUPS: PayloadGroup[] = [
 const DEFAULT_PAYLOAD: Record<string, boolean> = {
   stack_frames: true,
   culprit: true,
-  impact: true,
-  release: true,
+  request: false,
   affected_user: false,
   breadcrumbs: false,
+  runtime: false,
+  tags: false,
   "tag:tenant": false,
   "tag:region": false,
   "tag:plan": false,
+  actions: true,
   "action:view": true,
   "action:fix": true,
   "action:resolve": true,
@@ -211,9 +243,15 @@ export interface AlertTemplate {
   draft: AlertRuleDraft;
 }
 
-function draft(partial: Omit<AlertRuleDraft, "payload" | "channelIds"> & { payload?: Record<string, boolean> }): AlertRuleDraft {
+function draft(
+  partial: Omit<AlertRuleDraft, "payload" | "channelIds" | "cooldownCount"> & {
+    payload?: Record<string, boolean>;
+    cooldownCount?: number;
+  },
+): AlertRuleDraft {
   return {
     channelIds: [],
+    cooldownCount: partial.cooldownCount ?? 1,
     payload: { ...DEFAULT_PAYLOAD, ...partial.payload },
     ...partial,
   };
@@ -358,7 +396,8 @@ export function describeRule(rule: AlertRuleDraft): string {
     .map((item) => `${fieldLabel(item.field)} ${OP_LABEL[item.op]} ${item.value}`.trim());
   const ifs = conds.length > 0 ? ` · ${conds.join(rule.match === "all" ? " · " : " or ")}` : "";
   const wait = COOLDOWNS.find((item) => item.mins === rule.cooldownMins)?.label ?? `${rule.cooldownMins} min`;
-  return `${when}${ifs} · once / ${wait}`;
+  const times = rule.cooldownCount === 1 ? "1 time" : `${rule.cooldownCount} times`;
+  return `${when}${ifs} · max ${times} / ${wait}`;
 }
 
 export function fieldLabel(field: string): string {
@@ -393,6 +432,7 @@ export function ruleToApiBody(rule: AlertRuleDraft, projectId: string) {
     cooldown_mins: rule.cooldownMins,
     filters_json: {
       cooldown_minutes: rule.cooldownMins,
+      cooldown_count: rule.cooldownCount,
       template_id: rule.templateId,
     },
   };
