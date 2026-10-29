@@ -58,7 +58,7 @@ jobs:
 
       - name: Build web assets (embedded in server binary)
         working-directory: web
-        run: npm install -g typescript@5.9.3 && npm ci && npm run build
+        run: npm ci && npm run build
 
       - name: Web unit tests
         working-directory: web

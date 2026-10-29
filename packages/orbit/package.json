@@ -41,7 +41,7 @@
   ],
   "scripts": {
     "build:types": "tsc -p tsconfig.declarations.json",
-    "prepare": "npm run build:types",
+    "prepare": "node ./scripts/prepare-types.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
