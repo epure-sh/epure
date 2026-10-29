@@ -67,7 +67,7 @@ export function SelectItem({
     <OrbitSelectItem
       data-slot="select-item"
       className={cn(
-        "text-sm focus:bg-surface-2 focus:text-fg-primary data-[highlighted]:bg-surface-2 data-[highlighted]:text-fg-primary",
+        "text-sm hover:!bg-surface-2 hover:!text-fg-primary focus:!bg-surface-2 focus:!text-fg-primary data-[highlighted]:!bg-surface-2 data-[highlighted]:!text-fg-primary",
         className,
       )}
       {...props}

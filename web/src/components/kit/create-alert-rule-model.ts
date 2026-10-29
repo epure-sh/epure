@@ -83,12 +83,12 @@ export const ADVANCED_TRIGGERS: TriggerType[] = [
 ];
 
 export const TRIGGER_LABEL: Record<TriggerType, string> = {
-  issue_new: "New issue",
-  issue_regression: "Came back",
-  issue_count: "Repeats",
-  project_count: "Spike",
-  users_affected: "Users",
-  any_event: "Every event",
+  issue_new: "a new issue appears",
+  issue_regression: "an issue comes back",
+  issue_count: "one issue repeats",
+  project_count: "errors spike",
+  users_affected: "many users are hit",
+  any_event: "any error happens",
 };
 
 export interface ConditionField {
@@ -119,16 +119,16 @@ export const CONDITION_FIELDS: ConditionField[] = [
 
 export const OP_LABEL: Record<ConditionOp, string> = {
   is: "is",
-  is_not: "isn't",
-  at_least: "≥",
+  is_not: "is not",
+  at_least: "is at least",
   equals: "is",
   contains: "contains",
   starts_with: "starts with",
   ends_with: "ends with",
   regex: "matches",
-  not_contains: "excludes",
-  gt: ">",
-  is_one_of: "one of",
+  not_contains: "does not contain",
+  gt: "is greater than",
+  is_one_of: "is one of",
   exists: "exists",
   is_not_null: "is set",
 };
@@ -372,11 +372,11 @@ export function defaultCondition(field = "environment"): AlertCondition {
 export function describeTrigger(trigger: AlertTrigger): string {
   switch (trigger.type) {
     case "project_count":
-      return `Spike ${trigger.threshold} / ${trigger.window}`;
+      return `errors spike, ${trigger.threshold} in ${trigger.window}`;
     case "issue_count":
-      return `Repeats ${trigger.threshold} / ${trigger.window}`;
+      return `one issue repeats ${trigger.threshold} times in ${trigger.window}`;
     case "users_affected":
-      return `Users ${trigger.threshold} / ${trigger.window}`;
+      return `many users are hit, ${trigger.threshold} in ${trigger.window}`;
     default:
       return TRIGGER_LABEL[trigger.type];
   }

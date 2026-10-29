@@ -159,14 +159,19 @@ function TemplateStep({
           return (
             <Button
               key={item.id}
-              variant={selected ? "secondary" : "outline"}
-              className="aspect-square h-auto flex-col items-start justify-between whitespace-normal p-4 text-left"
+              variant="outline"
+              className={cn(
+                "relative aspect-square h-auto flex-col items-start justify-between gap-3 whitespace-normal rounded-2xl! p-4 text-left",
+                "hover:border-border-strong hover:bg-surface-2",
+                selected && "border-border-strong bg-surface-2",
+              )}
               aria-pressed={selected}
               onClick={() => onChange(templateDraft(item.id))}
             >
+              {selected ? <Icon icon={Check} size={16} className="absolute top-3 right-3 text-fg-primary" /> : null}
               <Icon icon={TEMPLATE_ICON[item.id] ?? Plus} size={22} className="text-fg-secondary" />
-              <span className="flex flex-col gap-1">
-                <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-fg-primary">
+              <span className="flex flex-col gap-1.5">
+                <span className="flex flex-wrap items-center gap-1.5 text-base font-medium text-fg-primary">
                   {item.title}
                   {item.recommended ? (
                     <Badge size="compact" variant="info">
@@ -174,21 +179,28 @@ function TemplateStep({
                     </Badge>
                   ) : null}
                 </span>
-                <span className="text-xs font-normal text-fg-muted">{item.detail}</span>
+                <span className="text-sm font-normal text-fg-muted">{item.detail}</span>
               </span>
             </Button>
           );
         })}
         <Button
-          variant={draft.templateId === SCRATCH_TEMPLATE_ID ? "secondary" : "outline"}
-          className="aspect-square h-auto flex-col items-start justify-between whitespace-normal p-4 text-left"
+          variant="outline"
+          className={cn(
+            "relative aspect-square h-auto flex-col items-start justify-between gap-3 whitespace-normal rounded-2xl! p-4 text-left",
+            "hover:border-border-strong hover:bg-surface-2",
+            draft.templateId === SCRATCH_TEMPLATE_ID && "border-border-strong bg-surface-2",
+          )}
           aria-pressed={draft.templateId === SCRATCH_TEMPLATE_ID}
           onClick={() => onChange(templateDraft(SCRATCH_TEMPLATE_ID))}
         >
+          {draft.templateId === SCRATCH_TEMPLATE_ID ? (
+            <Icon icon={Check} size={16} className="absolute top-3 right-3 text-fg-primary" />
+          ) : null}
           <Icon icon={Plus} size={22} className="text-fg-secondary" />
-          <span className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-fg-primary">Blank</span>
-            <span className="text-xs font-normal text-fg-muted">Empty rule</span>
+          <span className="flex flex-col gap-1.5">
+            <span className="text-base font-medium text-fg-primary">Blank</span>
+            <span className="text-sm font-normal text-fg-muted">Empty rule</span>
           </span>
         </Button>
       </div>
@@ -447,7 +459,7 @@ function ConditionRow({
         value={condition.op}
         onValueChange={(op) => onChange({ ...condition, op: op as ConditionOp })}
       >
-        <SelectTrigger size="sm" className="w-32" aria-label="Operator">
+        <SelectTrigger size="md" className="w-40" aria-label="Operator">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
