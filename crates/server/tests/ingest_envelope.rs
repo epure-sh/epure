@@ -282,10 +282,11 @@ async fn envelope_ingest_records_cron_check_in_in_progress_and_ok() {
     // 1. Post in_progress check_in
     let check_in_1 =
         r#"{"check_in_id":"ci_test_101","monitor_slug":"nightly-backup","status":"in_progress"}"#;
+    let check_in_1_header = format!(r#"{{"type":"check_in","length":{}}}"#, check_in_1.len());
     let body_1 = format!(
         "{}\n{}\n{}\n",
         r#"{"event_id":"880e8400-e29b-41d4-a716-4466554400cc"}"#,
-        format!(r#"{{"type":"check_in","length":{}}}"#, check_in_1.len()),
+        check_in_1_header,
         check_in_1
     );
 
@@ -301,10 +302,11 @@ async fn envelope_ingest_records_cron_check_in_in_progress_and_ok() {
 
     // 2. Post ok check_in with duration
     let check_in_2 = r#"{"check_in_id":"ci_test_101","monitor_slug":"nightly-backup","status":"ok","duration":1.42}"#;
+    let check_in_2_header = format!(r#"{{"type":"check_in","length":{}}}"#, check_in_2.len());
     let body_2 = format!(
         "{}\n{}\n{}\n",
         r#"{"event_id":"880e8400-e29b-41d4-a716-4466554400dd"}"#,
-        format!(r#"{{"type":"check_in","length":{}}}"#, check_in_2.len()),
+        check_in_2_header,
         check_in_2
     );
 
@@ -343,17 +345,21 @@ async fn envelope_ingest_accepts_client_report_and_sessions() {
     let session = r#"{"sid":"cccccccccccccccccccccccccccccccc","status":"exited","duration":12.5}"#;
     let event = r#"{"level":"info","message":"Application initialized successfully"}"#;
 
+    let cr_header = format!(
+        r#"{{"type":"client_report","length":{}}}"#,
+        client_report.len()
+    );
+    let session_header = format!(r#"{{"type":"session","length":{}}}"#, session.len());
+    let event_header = format!(r#"{{"type":"event","length":{}}}"#, event.len());
+
     let body = format!(
         "{}\n{}\n{}\n{}\n{}\n{}\n{}\n",
         r#"{"event_id":"990e8400-e29b-41d4-a716-4466554400ee","sdk":{"name":"sentry.javascript.browser","version":"8.38.0"}}"#,
-        format!(
-            r#"{{"type":"client_report","length":{}}}"#,
-            client_report.len()
-        ),
+        cr_header,
         client_report,
-        format!(r#"{{"type":"session","length":{}}}"#, session.len()),
+        session_header,
         session,
-        format!(r#"{{"type":"event","length":{}}}"#, event.len()),
+        event_header,
         event,
     );
 
