@@ -486,17 +486,17 @@ async fn patch_channel(
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string());
 
-    let project_id = if let Some(raw) = body.project_id.as_deref().map(str::trim).filter(|s| !s.is_empty())
+    let project_id = if let Some(raw) = body
+        .project_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
     {
         Some(
-            epure_storage::projects::resolve_project_id(
-                &state.pools.app,
-                dashboard.org_id,
-                raw,
-            )
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-            .ok_or(StatusCode::NOT_FOUND)?,
+            epure_storage::projects::resolve_project_id(&state.pools.app, dashboard.org_id, raw)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+                .ok_or(StatusCode::NOT_FOUND)?,
         )
     } else {
         None
@@ -576,9 +576,9 @@ async fn patch_channel(
                     );
                     obj.insert(
                         "destination_preview".into(),
-                        serde_json::Value::String(
-                            crate::lifecycle::telegram::mask_chat_id(chat_id),
-                        ),
+                        serde_json::Value::String(crate::lifecycle::telegram::mask_chat_id(
+                            chat_id,
+                        )),
                     );
                     config_changed = true;
                 }
