@@ -5,6 +5,7 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { makeForwardRef } from "@/lib/forward-ref";
 import { closeOpenSelects, restorePagePointerEvents } from "./select";
 
 export const Dialog = DialogPrimitive.Root;
@@ -13,12 +14,13 @@ export const DialogPortal = DialogPrimitive.Portal;
 export const DialogClose = DialogPrimitive.Close;
 export { Modal, type ModalProps } from "@/components/ui/modal";
 
-export function DialogOverlay({
-  className,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
+export const DialogOverlay = makeForwardRef<
+  React.ElementRef<typeof DialogPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
+>(function DialogOverlay({ className, ...props }, ref) {
   return (
     <DialogPrimitive.Overlay
+      ref={ref}
       data-slot="dialog-overlay"
       className={cn(
         // Above driver.js tour overlay (z-index 1e9) so setup stays interactive.
@@ -29,7 +31,7 @@ export function DialogOverlay({
       {...props}
     />
   );
-}
+});
 
 function selectMenuIsOpen(): boolean {
   return (
@@ -38,19 +40,26 @@ function selectMenuIsOpen(): boolean {
   );
 }
 
-export function DialogContent({
-  className,
-  children,
-  onEscapeKeyDown,
-  onPointerDownOutside,
-  onInteractOutside,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content>) {
+export const DialogContent = makeForwardRef<
+  React.ElementRef<typeof DialogPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+>(function DialogContent(
+  {
+    className,
+    children,
+    onEscapeKeyDown,
+    onPointerDownOutside,
+    onInteractOutside,
+    ...props
+  },
+  ref,
+) {
   React.useEffect(() => () => restorePagePointerEvents(), []);
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
+        ref={ref}
         data-slot="dialog-content"
         onEscapeKeyDown={(event) => {
           if (selectMenuIsOpen()) {
@@ -85,7 +94,7 @@ export function DialogContent({
       </DialogPrimitive.Content>
     </DialogPortal>
   );
-}
+});
 
 export function DialogHeader({
   className,

@@ -178,10 +178,10 @@ export function IssuesFeedFilterRowActions({
         onValueChange={onTimeWindowChange}
       />
 
-      <DropdownMenu>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
+      <Tooltip>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <TooltipTrigger asChild>
               <Button
                 type="button"
                 variant="outline"
@@ -191,27 +191,27 @@ export function IssuesFeedFilterRowActions({
               >
                 <ArrowUpDown className="size-3.5 text-fg-muted" aria-hidden />
               </Button>
-            </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">
-            {getIssueSortLabel(issueSort)}
-          </TooltipContent>
-        </Tooltip>
-        <DropdownMenuContent align="end" className="w-44">
-          {ISSUE_SORT_OPTIONS.map((option) => (
-            <DropdownMenuItem
-              key={option.value}
-              className="text-xs"
-              onSelect={() => onIssueSortChange(option.value)}
-            >
-              <span>{getIssueSortLabel(option.value)}</span>
-              {issueSort === option.value ? (
-                <Check className="ml-auto size-3" weight="bold" />
-              ) : null}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+            </TooltipTrigger>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            {ISSUE_SORT_OPTIONS.map((option) => (
+              <DropdownMenuItem
+                key={option.value}
+                className="text-xs"
+                onSelect={() => onIssueSortChange(option.value)}
+              >
+                <span>{getIssueSortLabel(option.value)}</span>
+                {issueSort === option.value ? (
+                  <Check className="ml-auto size-3" weight="bold" />
+                ) : null}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <TooltipContent side="bottom" className="text-xs">
+          {getIssueSortLabel(issueSort)}
+        </TooltipContent>
+      </Tooltip>
 
       {trailing}
     </div>

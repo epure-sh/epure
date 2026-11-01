@@ -125,6 +125,20 @@ export function BillingPage() {
     [projects],
   );
 
+  const isTrial = Boolean(
+    billingStatus?.subscription_status === "trialing" ||
+      (!billingStatus?.subscription_id && billingStatus?.canary_expires_at),
+  );
+  const trialExpired = Boolean(
+    billingStatus?.canary_expires_at &&
+      new Date(billingStatus.canary_expires_at).getTime() <= Date.now(),
+  );
+  const trialDaysRemaining = useMemo(() => {
+    if (!billingStatus?.canary_expires_at) return 0;
+    const diff = new Date(billingStatus.canary_expires_at).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  }, [billingStatus?.canary_expires_at]);
+
   const loadBilling = useCallback(async () => {
     setBillingLoading(true);
     let status: BillingStatus | null = null;
@@ -302,14 +316,12 @@ export function BillingPage() {
                 Self-hosted
               </Badge>
             ) : null}
-            {!billingLoading && cloud && plan ? (
+            {!billingLoading && cloud ? (
               <Badge
-                variant={subscriptionBadgeVariant(
-                  billingStatus?.subscription_status ?? "",
-                )}
+                variant={isTrial ? (trialExpired ? "regression" : "info") : subscriptionBadgeVariant(billingStatus?.subscription_status ?? "")}
                 size="compact"
               >
-                {plan.name}
+                {isTrial ? (trialExpired ? "Trial Expired" : "Trial Sandbox") : (plan?.name ?? "Cloud")}
               </Badge>
             ) : null}
           </div>
@@ -388,16 +400,27 @@ export function BillingPage() {
               <div className="min-w-0 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm font-semibold text-fg-primary">
-                    {plan?.name ?? billingStatus.plan_tier}
+                    {isTrial ? "Trial Sandbox" : (plan?.name ?? billingStatus.plan_tier)}
                   </p>
                   <Badge
-                    variant={subscriptionBadgeVariant(billingStatus.subscription_status)}
+                    variant={isTrial ? (trialExpired ? "regression" : "info") : subscriptionBadgeVariant(billingStatus.subscription_status)}
                     size="compact"
                   >
-                    {subscriptionLabel(billingStatus.subscription_status)}
+                    {isTrial ? (trialExpired ? "Trial Expired" : "Trial Active") : subscriptionLabel(billingStatus.subscription_status)}
                   </Badge>
                 </div>
-                {plan?.priceAnnual || plan?.priceMonthly ? (
+                {isTrial ? (
+                  <div className="pt-0.5">
+                    <p className="text-sm font-medium text-fg-primary">
+                      {trialExpired
+                        ? "Evaluation period ended"
+                        : `${trialDaysRemaining} day${trialDaysRemaining === 1 ? "" : "s"} remaining in evaluation`}
+                    </p>
+                    <p className="text-2xs text-fg-muted">
+                      Full access to Pro features enabled for evaluation. No credit card charged.
+                    </p>
+                  </div>
+                ) : (plan?.priceAnnual || plan?.priceMonthly) ? (
                   <p className="font-mono text-2xl font-semibold tabular-nums text-fg-primary">
                     {plan.priceAnnual ?? plan.priceMonthly}
                     <span className="ml-1 font-sans text-xs font-normal text-fg-muted">
@@ -640,20 +663,28 @@ export function BillingPage() {
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {CLOUD_PLANS.map((tier) => {
                 const isCurrent = plan?.id === tier.id;
+                const isPaidActive = isCurrent && !isTrial;
+                const isTrialFeatureSet = isCurrent && isTrial;
                 return (
                   <div
                     key={tier.id}
                     className={
-                      isCurrent
+                      isPaidActive
                         ? "flex flex-col rounded-lg border border-accent/40 bg-accent/5 p-4"
-                        : "flex flex-col rounded-lg border border-border-subtle bg-surface-1 p-4"
+                        : isTrialFeatureSet
+                          ? "flex flex-col rounded-lg border border-border-subtle bg-surface-1 p-4"
+                          : "flex flex-col rounded-lg border border-border-subtle bg-surface-1 p-4"
                     }
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-sm font-semibold text-fg-primary">{tier.name}</p>
-                      {isCurrent ? (
+                      {isPaidActive ? (
                         <Badge variant="healthy" size="compact">
-                          Current
+                          Active
+                        </Badge>
+                      ) : isTrialFeatureSet ? (
+                        <Badge variant="info" size="compact">
+                          Trial capability
                         </Badge>
                       ) : tier.comingSoon ? (
                         <Badge variant="neutral" size="compact">
@@ -679,7 +710,7 @@ export function BillingPage() {
                       ))}
                     </ul>
                     <div className="mt-4">
-                      {isCurrent ? (
+                      {isPaidActive ? (
                         <Button type="button" variant="outline" size="sm" disabled>
                           Active
                         </Button>
@@ -695,6 +726,8 @@ export function BillingPage() {
                         >
                           {upgradingPlanId === tier.id ? (
                             <Icon icon={CircleNotch} size={14} className="animate-spin" />
+                          ) : isTrialFeatureSet ? (
+                            `Upgrade to ${tier.name.replace(/^Cloud /, "")}`
                           ) : (
                             `Switch to ${tier.name.replace(/^Cloud /, "")}`
                           )}

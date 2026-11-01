@@ -6,6 +6,7 @@ import {
   fetchAlertRules,
   updateAlertRule,
   type AlertChannelRow,
+  type AlertRuleRow,
 } from "@/lib/api";
 import { CreateAlertRulePanel } from "@/components/kit/create-alert-rule";
 import {
@@ -34,7 +35,7 @@ export function CreateAlertRuleDialog({
   projectId: string | null;
   ruleId?: string | null;
   onOpenChange: (open: boolean) => void;
-  onCreated?: () => void;
+  onCreated?: (rule?: AlertRuleRow) => void;
 }) {
   const editing = Boolean(ruleId);
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -106,12 +107,10 @@ export function CreateAlertRuleDialog({
     setError(null);
     try {
       const body = ruleToApiBody(draft, projectId);
-      if (ruleId) {
-        await updateAlertRule(ruleId, body);
-      } else {
-        await createAlertRule(body);
-      }
-      onCreated?.();
+      const saved = ruleId
+        ? await updateAlertRule(ruleId, body)
+        : await createAlertRule(body);
+      onCreated?.(saved);
       onOpenChange(false);
     } catch {
       setError(ruleId ? "Could not save this alert." : "Could not save this alert. Check the name and try again.");

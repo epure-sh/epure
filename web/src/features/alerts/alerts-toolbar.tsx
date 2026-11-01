@@ -127,7 +127,7 @@ export function AlertsToolbar({
               />
             ) : null}
 
-            {!isHistory && canManageRules && onCreateRule ? (
+            {canManageRules && onCreateRule ? (
               <Button
                 variant="primary"
                 size="sm"

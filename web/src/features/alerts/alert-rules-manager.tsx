@@ -176,12 +176,15 @@ export interface AlertRulesManagerHandle {
   openEdit: (ruleId: string) => void;
   bulkSetEnabled: (ids: string[], enabled: boolean) => Promise<void>;
   bulkDelete: (ids: string[]) => Promise<void>;
+  reload: () => Promise<void>;
+  addRule: (rule: AlertRuleRow) => void;
 }
 
 export interface AlertRulesManagerProps {
   projectId: string;
   projectSlug?: string;
   canManage?: boolean;
+  version?: number;
   query?: string;
   statusFilter?: RulesStatusFilter;
   destinationFilter?: RuleDestinationKind;
@@ -208,6 +211,7 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
       projectId,
       projectSlug: _projectSlug = "checkout-web",
       canManage = true,
+      version = 0,
       query = "",
       statusFilter = "all",
       destinationFilter = "all",
@@ -259,7 +263,7 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, version]);
 
   useEffect(() => {
     if (!projectId) {
@@ -582,8 +586,12 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
       },
       bulkSetEnabled,
       bulkDelete,
+      reload: load,
+      addRule: (rule: AlertRuleRow) => {
+        setRules((prev) => [rule, ...prev.filter((r) => r.id !== rule.id)]);
+      },
     }),
-    [bulkDelete, bulkSetEnabled, rules],
+    [bulkDelete, bulkSetEnabled, load, rules],
   );
 
   const summary = conditionSummary(

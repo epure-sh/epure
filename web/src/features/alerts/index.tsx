@@ -78,6 +78,25 @@ export function AlertsPage() {
     const fromUrl = searchParams.get("section") === "configure" ? "configure" : "history";
     setSection((prev) => (prev === fromUrl ? prev : fromUrl));
   }, [searchParams]);
+
+  useEffect(() => {
+    if (searchParams.get("new") === "1" || searchParams.get("action") === "new_rule") {
+      setSection("configure");
+      setRulesMounted(true);
+      setEditingRuleId(null);
+      setCreateRuleOpen(true);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("new");
+          next.delete("action");
+          next.set("section", "configure");
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  }, [searchParams, setSearchParams]);
   const [ruleCount, setRuleCount] = useState(0);
   const [historyRuleFocus, setHistoryRuleFocus] = useState<HistoryRuleFocus | null>(null);
   const historyRuleName = historyRuleFocus?.ruleName ?? null;
@@ -706,7 +725,29 @@ export function AlertsPage() {
               setCreateRuleOpen(next);
               if (!next) setEditingRuleId(null);
             }}
-            onCreated={() => setRulesVersion((value) => value + 1)}
+            onCreated={(rule) => {
+              setRulesMounted(true);
+              setSection("configure");
+              setRulesSearch("");
+              setRulesStatusFilter("all");
+              setRulesDestinationFilter("all");
+              setRulesVersion((value) => value + 1);
+              if (rule) {
+                setActiveRuleId(rule.id);
+                rulesManagerRef.current?.addRule(rule);
+              }
+              void rulesManagerRef.current?.reload();
+              setSearchParams(
+                (prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.set("section", "configure");
+                  next.delete("new");
+                  next.delete("action");
+                  return next;
+                },
+                { replace: true },
+              );
+            }}
           />
 
           {rulesMounted ? (
@@ -723,6 +764,7 @@ export function AlertsPage() {
                 ref={rulesManagerRef}
                 projectId={activeProjectId}
                 projectSlug={projectSlug}
+                version={rulesVersion}
                 canManage={canManageWebhooks}
                 query={rulesSearch}
                 statusFilter={rulesStatusFilter}
@@ -839,6 +881,8 @@ export function AlertsPage() {
                     size="sm"
                     onClick={() => {
                       setSection("configure");
+                      setRulesMounted(true);
+                      openCreateRule();
                       setSearchParams(
                         (prev) => {
                           const params = new URLSearchParams(prev);

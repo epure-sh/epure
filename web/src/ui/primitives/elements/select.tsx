@@ -2,7 +2,6 @@
 // Orbit Select compound primitives + Epure size API and overlay outside-click mechanics.
 
 import * as React from "react";
-import { createPortal } from "react-dom";
 import {
   Select as OrbitSelect,
   SelectContent as OrbitSelectContent,
@@ -13,7 +12,6 @@ import {
   SelectTrigger as OrbitSelectTrigger,
   SelectValue as OrbitSelectValue,
 } from "@polar-sh/orbit/Select";
-import { Box } from "@polar-sh/orbit/Box";
 import { cn } from "@/lib/utils";
 import { MENU_ITEM_RADIUS_FORCE, MENU_SURFACE_PADDED_CHILD } from "@/lib/menu-chrome";
 
@@ -50,7 +48,6 @@ function installSelectOutsideClose() {
   if (win.__epureSelectOutside) return;
   win.__epureSelectOutside = true;
 
-  let swallowClick = false;
   document.addEventListener(
     "pointerdown",
     (event) => {
@@ -64,20 +61,7 @@ function installSelectOutsideClose() {
         '[data-slot="select-trigger"][data-state="open"]',
       );
       if (trigger instanceof Node && trigger.contains(target)) return;
-      swallowClick = true;
-      event.preventDefault();
-      event.stopPropagation();
       closeOpenSelects();
-    },
-    true,
-  );
-  document.addEventListener(
-    "click",
-    (event) => {
-      if (!swallowClick) return;
-      swallowClick = false;
-      event.preventDefault();
-      event.stopPropagation();
     },
     true,
   );
@@ -117,31 +101,12 @@ export function Select({
   }, [open, setOpen]);
 
   return (
-    <>
-      <OrbitSelect
-        open={open}
-        onOpenChange={setOpen}
-        {...props}
-        {...({ modal: false } as object)}
-      />
-      {open && typeof document !== "undefined"
-        ? createPortal(
-            <Box
-              data-slot="select-backdrop"
-              position="fixed"
-              inset={0}
-              zIndex={75}
-              pointerEvents="auto"
-              onPointerDown={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setOpen(false);
-              }}
-            />,
-            document.body,
-          )
-        : null}
-    </>
+    <OrbitSelect
+      open={open}
+      onOpenChange={setOpen}
+      {...props}
+      {...({ modal: false } as object)}
+    />
   );
 }
 

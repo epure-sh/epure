@@ -144,19 +144,22 @@ export interface ButtonProps
   fullWidth?: boolean;
 }
 
-export function Button({
-  variant = "secondary",
-  size = "sm",
-  asChild = false,
-  hotkey,
-  loading = false,
-  disabled,
-  children,
-  className,
-  type = "button",
-  fullWidth,
-  ...props
-}: ButtonProps) {
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    variant = "secondary",
+    size = "sm",
+    asChild = false,
+    hotkey,
+    loading = false,
+    disabled,
+    children,
+    className,
+    type = "button",
+    fullWidth,
+    ...props
+  },
+  ref,
+) {
   const orbitVariant = ORBIT_VARIANT[variant ?? "secondary"];
   const orbitSize = ORBIT_SIZE[size ?? "sm"];
   const productClass = cn(
@@ -183,6 +186,7 @@ export function Button({
   if (asChild) {
     return (
       <Slot
+        ref={ref}
         data-slot="button"
         className={cn(
           asChildVariants({ variant: orbitVariant, size: orbitSize }),
@@ -199,6 +203,7 @@ export function Button({
 
   return (
     <OrbitButton
+      ref={ref as React.RefObject<HTMLButtonElement>}
       data-slot="button"
       type={type}
       variant={orbitVariant}
@@ -223,4 +228,5 @@ export function Button({
       {hotkeyElement}
     </OrbitButton>
   );
-}
+});
+Button.displayName = "Button";

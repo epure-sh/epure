@@ -134,6 +134,11 @@ export function projectAlertRulesPath(projectId: string): string {
   return `${projectPath(projectId, "alerts")}?section=configure`;
 }
 
+/** Deep-link directly into Alerts → Rules and open the New Rule modal. */
+export function projectNewAlertRulePath(projectId: string): string {
+  return `${projectPath(projectId, "alerts")}?section=configure&new=1`;
+}
+
 export function projectIdFromPath(pathname: string): string | null {
   const match = pathname.match(/^\/p\/([^/]+)/);
   return match?.[1] ?? null;

@@ -126,10 +126,10 @@ export function BulkSnoozeMenu({
     </Button>
   );
 
-  return (
+  const menu = (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild disabled={triggerDisabled}>
-        <Tooltip>
+        {tooltip ? (
           <TooltipTrigger asChild>
             <span
               className={triggerDisabled ? "inline-flex cursor-not-allowed" : "inline-flex"}
@@ -138,16 +138,28 @@ export function BulkSnoozeMenu({
               {trigger}
             </span>
           </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">
-            {tooltip}
-          </TooltipContent>
-        </Tooltip>
+        ) : (
+          trigger
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={6} className="min-w-[14rem]">
         <SnoozeMenuItems pending={pending} onSelect={(mode) => void handleSnooze(mode)} />
       </DropdownMenuContent>
     </DropdownMenu>
   );
+
+  if (tooltip) {
+    return (
+      <Tooltip>
+        {menu}
+        <TooltipContent side="bottom" className="text-xs">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return menu;
 }
 
 export function SnoozeMenu({
@@ -221,21 +233,18 @@ export function SnoozeMenu({
     </Button>
   );
 
-  return (
+  const menu = (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild disabled={triggerDisabled}>
         {tooltip ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span
-                className={triggerDisabled ? "inline-flex cursor-not-allowed" : "inline-flex"}
-                tabIndex={triggerDisabled ? 0 : undefined}
-              >
-                {trigger}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>{tooltip}</TooltipContent>
-          </Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className={triggerDisabled ? "inline-flex cursor-not-allowed" : "inline-flex"}
+              tabIndex={triggerDisabled ? 0 : undefined}
+            >
+              {trigger}
+            </span>
+          </TooltipTrigger>
         ) : (
           trigger
         )}
@@ -245,4 +254,15 @@ export function SnoozeMenu({
       </DropdownMenuContent>
     </DropdownMenu>
   );
+
+  if (tooltip) {
+    return (
+      <Tooltip>
+        {menu}
+        <TooltipContent>{tooltip}</TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return menu;
 }

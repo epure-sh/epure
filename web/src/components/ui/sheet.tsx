@@ -4,18 +4,20 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { makeForwardRef } from "@/lib/forward-ref";
 
 export const Sheet = DialogPrimitive.Root;
 export const SheetTrigger = DialogPrimitive.Trigger;
 export const SheetClose = DialogPrimitive.Close;
 export const SheetPortal = DialogPrimitive.Portal;
 
-export function SheetOverlay({
-  className,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
+export const SheetOverlay = makeForwardRef<
+  React.ElementRef<typeof DialogPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
+>(function SheetOverlay({ className, ...props }, ref) {
   return (
     <DialogPrimitive.Overlay
+      ref={ref}
       data-slot="sheet-overlay"
       className={cn(
         "fixed inset-0 z-50 bg-overlay backdrop-blur-xs",
@@ -25,7 +27,7 @@ export function SheetOverlay({
       {...props}
     />
   );
-}
+});
 
 const sheetVariants = cva(
   "fixed z-50 gap-4 border-border-strong bg-surface-1 p-6 shadow-float transition ease-in-out data-[state=closed]:duration-150 data-[state=open]:duration-200 outline-none",
@@ -47,19 +49,26 @@ const sheetVariants = cva(
 );
 
 export interface SheetContentProps
-  extends React.ComponentProps<typeof DialogPrimitive.Content>,
+  extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>,
     VariantProps<typeof sheetVariants> {}
 
-export function SheetContent({
-  side = "right",
-  className,
-  children,
-  ...props
-}: SheetContentProps) {
+export const SheetContent = makeForwardRef<
+  React.ElementRef<typeof DialogPrimitive.Content>,
+  SheetContentProps
+>(function SheetContent(
+  {
+    side = "right",
+    className,
+    children,
+    ...props
+  },
+  ref
+) {
   return (
     <SheetPortal>
       <SheetOverlay />
       <DialogPrimitive.Content
+        ref={ref}
         data-slot="sheet-content"
         className={cn(sheetVariants({ side }), className)}
         {...props}
@@ -75,7 +84,7 @@ export function SheetContent({
       </DialogPrimitive.Content>
     </SheetPortal>
   );
-}
+});
 
 export function SheetHeader({
   className,

@@ -1,4 +1,4 @@
-import { Pencil, Plus, Search } from "lucide-react";
+import { Bot, Pencil, Plus, Search, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -32,6 +32,8 @@ import { emptyListTrendBuckets } from "../issues/issue-feed-utils";
 import { fetchProjectActivityBuckets } from "./project-activity";
 import { DeleteProjectsDialog } from "./delete-projects-dialog";
 import { PROJECT_GALLERY_GRID_COLUMNS, ProjectList } from "./project-list";
+import { AgentVendorAvatars } from "@/ui/components/agent-vendor-avatars";
+import { AgentOnboardingDialog } from "./agent-onboarding-dialog";
 
 export function OrgHomePage() {
   const navigate = useNavigate();
@@ -51,6 +53,7 @@ export function OrgHomePage() {
   const [editMode, setEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [agentOnboardingOpen, setAgentOnboardingOpen] = useState(false);
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const { toast } = useToast();
 
@@ -276,22 +279,49 @@ export function OrgHomePage() {
           ) : null}
 
           {searchParams.get("welcome") === "canary" ? (
-            <Alert
-              variant="info"
-              title="Welcome to your Epure Cloud sandbox"
-              description="Sample exceptions, a dedicated DSN, and Spike Valve protection are ready. Connect Claude Code or Cursor via epure-mcp, or upgrade to keep data beyond 7 days."
-              onDismiss={() => {
-                const next = new URLSearchParams(searchParams);
-                next.delete("welcome");
-                setSearchParams(next, { replace: true });
-              }}
-              actions={[
-                {
-                  text: "View plans",
-                  onClick: () => navigate("/billing"),
-                },
-              ]}
-            />
+            <div className="relative overflow-hidden rounded-xl border border-blue-500/20 bg-surface-1 p-4 shadow-sm">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="flex size-5 items-center justify-center rounded-full bg-blue-500/10 text-blue-500">
+                      <Sparkles className="size-3.5" />
+                    </span>
+                    <p className="text-sm font-semibold text-fg-primary">
+                      Welcome to your Epure Cloud sandbox
+                    </p>
+                  </div>
+                  <p className="text-xs text-fg-muted max-w-2xl">
+                    Real-time exception ingestion, Spike Valve load protection, and automated triage are ready. Connect your AI coding agents to triage and fix issues directly from your editor.
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setAgentOnboardingOpen(true)}
+                    className="gap-2"
+                  >
+                    <AgentVendorAvatars size={16} />
+                    <Bot className="size-3.5" />
+                    <span>Onboard agent</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => {
+                      const next = new URLSearchParams(searchParams);
+                      next.delete("welcome");
+                      setSearchParams(next, { replace: true });
+                    }}
+                    title="Dismiss"
+                  >
+                    <X className="size-3.5 text-fg-muted" />
+                  </Button>
+                </div>
+              </div>
+            </div>
           ) : null}
 
           <Grid
@@ -422,6 +452,11 @@ export function OrgHomePage() {
         projectNames={selectedProjects.map((project) => project.name)}
         onConfirm={handleBulkDelete}
         busy={busy}
+      />
+
+      <AgentOnboardingDialog
+        open={agentOnboardingOpen}
+        onOpenChange={setAgentOnboardingOpen}
       />
     </>
   );

@@ -42,7 +42,7 @@ import {
 } from "@/lib/api";
 import { formatCompactCount } from "@/lib/format-count";
 import { formatRelativeTime } from "@/lib/format-time";
-import { issuesFilterPath, projectAlertRulesPath, projectPath, projectSettingsPath } from "@/lib/paths";
+import { issuesFilterPath, projectNewAlertRulePath, projectPath, projectSettingsPath } from "@/lib/paths";
 import { IssuePriorityBadge, resolveIssuePriority } from "@/ui/components";
 import { OccurrenceLineChart } from "@/ui/block";
 import { toast } from "@/components/ui/sonner";
@@ -708,7 +708,7 @@ export function DashboardPage({ isEmbed = false }: { isEmbed?: boolean }) {
             releasesHref={activeProjectId ? projectPath(activeProjectId, "releases") : "#"}
             alertsHref={activeProjectId ? projectPath(activeProjectId, "alerts") : "#"}
             newAlertHref={
-              activeProjectId ? projectAlertRulesPath(activeProjectId) : "#"
+              activeProjectId ? projectNewAlertRulePath(activeProjectId) : "#"
             }
             newMonitorHref={activeProjectId ? projectPath(activeProjectId, "monitors") : "#"}
             dsnHref={activeProjectId ? projectSettingsPath(activeProjectId, "dsn") : "#"}

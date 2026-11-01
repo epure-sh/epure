@@ -7,6 +7,7 @@ import {
   settingsTabFromPath,
   projectSettingsPath,
   projectAlertRulesPath,
+  projectNewAlertRulePath,
   projectPath,
   isWorkspaceSettingsRoute,
   organizationsPath,
@@ -41,6 +42,10 @@ describe("paths helpers for settings and releases", () => {
     assert.equal(
       projectAlertRulesPath("proj-123"),
       "/p/proj-123/alerts?section=configure",
+    );
+    assert.equal(
+      projectNewAlertRulePath("proj-123"),
+      "/p/proj-123/alerts?section=configure&new=1",
     );
   });
 
