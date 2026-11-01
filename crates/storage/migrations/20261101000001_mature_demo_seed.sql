@@ -43,6 +43,11 @@ DECLARE
     v_event_id uuid := gen_random_uuid();
     v_num bigint;
 BEGIN
+    PERFORM ensure_event_partition(
+        EXTRACT(YEAR FROM p_last_seen)::int,
+        EXTRACT(MONTH FROM p_last_seen)::int
+    );
+
     v_num := next_issue_number(p_project_id);
     INSERT INTO issues (
         id, org_id, project_id, fingerprint, title, status, level,
@@ -142,6 +147,10 @@ BEGIN
     PERFORM ensure_event_partition(
         EXTRACT(YEAR FROM v_now)::int,
         EXTRACT(MONTH FROM v_now)::int
+    );
+    PERFORM ensure_event_partition(
+        EXTRACT(YEAR FROM (v_now - interval '1 month'))::int,
+        EXTRACT(MONTH FROM (v_now - interval '1 month'))::int
     );
 
     PERFORM demo_seed_issue(
