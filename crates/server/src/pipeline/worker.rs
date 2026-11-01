@@ -283,6 +283,7 @@ async fn process_job(
                     store_end_user_identifiers: store_identifiers,
                 },
             );
+            let title = issues::title_from_event(&payload_json);
             let stored_event = project_event(&payload_json, &now.to_rfc3339());
             let culprit = culprit_from_event(&stored_event);
             payload_json = stored_event;
@@ -313,7 +314,7 @@ async fn process_job(
                         org_id,
                         project_id,
                         fingerprint: fingerprint.clone(),
-                        title: issues::title_from_event(&payload_json),
+                        title: title.or_else(|| issues::title_from_event(&payload_json)),
                         level: payload_json
                             .get("level")
                             .and_then(Value::as_str)

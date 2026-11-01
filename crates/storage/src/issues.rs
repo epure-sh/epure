@@ -78,11 +78,16 @@ pub fn title_from_event(payload: &Value) -> Option<String> {
     if let Some(values) = payload
         .pointer("/exception/values")
         .and_then(Value::as_array)
+        .or_else(|| payload.get("exceptions").and_then(Value::as_array))
     {
         if let Some(first) = values.first() {
             let ty = first.get("type").and_then(Value::as_str).unwrap_or("Error");
             let msg = first.get("value").and_then(Value::as_str).unwrap_or("");
-            return Some(format!("{ty}: {msg}"));
+            return if msg.is_empty() {
+                Some(ty.to_string())
+            } else {
+                Some(format!("{ty}: {msg}"))
+            };
         }
     }
 
