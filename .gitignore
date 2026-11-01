@@ -18,6 +18,7 @@ playwright-report/
 # IDEs & Editor configurations
 .cursor/
 .claude/
+.test-apps/
 .vscode/
 .idea/
 *.swp
