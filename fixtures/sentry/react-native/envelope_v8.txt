@@ -1,0 +1,3 @@
+{"event_id":"770e8400-e29b-41d4-a716-446655440833","sdk":{"name":"sentry.javascript.react-native","version":"8.33.0"}}
+{"type":"event"}
+{"event_id":"770e8400-e29b-41d4-a716-446655440833","platform":"javascript","level":"error","exception":{"values":[{"type":"ReactFabricError","value":"ShadowTree mutation failed during layout pass","stacktrace":{"frames":[{"filename":"app/navigation/RootNavigator.tsx","function":"onStateChange","lineno":64,"in_app":true}]}}]},"contexts":{"device":{"family":"Pixel","model":"Pixel 9 Pro"},"os":{"name":"Android","version":"15"}},"environment":"production"}

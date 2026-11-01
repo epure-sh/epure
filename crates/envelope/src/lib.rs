@@ -12,7 +12,8 @@ pub mod store;
 
 pub use auth_header::{parse_auth, AuthCredentials, AuthError};
 pub use envelope::{
-    parse_check_in_payload, parse_envelope, CheckInItem, EnvelopeError, ParsedEnvelope,
+    parse_check_in_payload, parse_envelope, parse_user_feedback_payload, CheckInItem,
+    EnvelopeError, ParsedEnvelope, UserFeedbackItem,
 };
 pub use extract::{breadcrumbs_to_json, extract_breadcrumbs, Breadcrumb};
 pub use fingerprint::{

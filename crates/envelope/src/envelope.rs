@@ -38,11 +38,20 @@ pub struct CheckInItem {
     pub failure_issue_threshold: Option<i32>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UserFeedbackItem {
+    pub event_id: Option<uuid::Uuid>,
+    pub name: Option<String>,
+    pub email: Option<String>,
+    pub comments: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParsedEnvelope {
     pub event_payload: Vec<u8>,
     pub check_ins: Vec<CheckInItem>,
     pub client_discards: Vec<ClientDiscard>,
+    pub user_feedback: Vec<UserFeedbackItem>,
     pub envelope_header: Option<Value>,
 }
 
@@ -215,6 +224,50 @@ pub fn parse_check_in_payload(payload: &[u8]) -> Option<CheckInItem> {
     })
 }
 
+pub fn parse_user_feedback_payload(raw: &[u8]) -> Option<UserFeedbackItem> {
+    let val: serde_json::Value = serde_json::from_slice(raw).ok()?;
+    let feedback_ctx = val.get("contexts").and_then(|c| c.get("feedback"));
+
+    let comments = feedback_ctx
+        .and_then(|f| f.get("message").or_else(|| f.get("comments")))
+        .or_else(|| val.get("comments").or_else(|| val.get("message")))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let name = feedback_ctx
+        .and_then(|f| f.get("name"))
+        .or_else(|| val.get("name"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let email = feedback_ctx
+        .and_then(|f| f.get("contact_email").or_else(|| f.get("email")))
+        .or_else(|| val.get("email").or_else(|| val.get("contact_email")))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let event_id_str = feedback_ctx
+        .and_then(|f| f.get("associated_event_id").or_else(|| f.get("event_id")))
+        .or_else(|| {
+            val.get("associated_event_id")
+                .or_else(|| val.get("event_id"))
+        })
+        .and_then(|v| v.as_str());
+
+    let event_id = event_id_str.and_then(|s| uuid::Uuid::parse_str(s).ok());
+
+    if comments.is_some() || name.is_some() || email.is_some() || event_id.is_some() {
+        Some(UserFeedbackItem {
+            event_id,
+            name,
+            email,
+            comments,
+        })
+    } else {
+        None
+    }
+}
+
 fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> {
     let header_end = next_line_end(body, 0).ok_or(EnvelopeError::MalformedItemHeader)?;
     let header_line = trim_bytes(&body[..header_end]);
@@ -228,6 +281,7 @@ fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> 
     let mut event_payload = None;
     let mut check_ins = Vec::new();
     let mut client_discards = Vec::new();
+    let mut user_feedback = Vec::new();
     let mut has_non_error_items = false;
 
     while offset < body.len() {
@@ -274,6 +328,13 @@ fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> 
                 has_non_error_items = true;
                 client_discards.extend(parse_client_report(&payload));
             }
+            Some("feedback") | Some("user_report") => {
+                if let Some(fb) = parse_user_feedback_payload(&payload) {
+                    user_feedback.push(fb);
+                } else {
+                    has_non_error_items = true;
+                }
+            }
             Some("transaction")
             | Some("session")
             | Some("replay_event")
@@ -293,13 +354,15 @@ fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> 
             event_payload,
             check_ins,
             client_discards,
+            user_feedback,
             envelope_header,
         })
-    } else if !check_ins.is_empty() || !client_discards.is_empty() {
+    } else if !check_ins.is_empty() || !client_discards.is_empty() || !user_feedback.is_empty() {
         Ok(ParsedEnvelope {
             event_payload: Vec::new(),
             check_ins,
             client_discards,
+            user_feedback,
             envelope_header,
         })
     } else if has_non_error_items {
@@ -389,6 +452,12 @@ mod tests {
         "react",
         "nestjs",
         "profiling-node",
+        "svelte",
+        "vue",
+        "remix",
+        "astro",
+        "react-native",
+        "electron",
     ];
 
     fn all_envelope_fixture_paths() -> Vec<(String, PathBuf)> {
@@ -398,6 +467,9 @@ mod tests {
             for entry in entries.flatten() {
                 if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
                     let lang = entry.file_name().to_string_lossy().to_string();
+                    if lang == "feedback" {
+                        continue;
+                    }
                     if let Ok(files) = fs::read_dir(entry.path()) {
                         for file in files.flatten() {
                             let name = file.file_name().to_string_lossy().to_string();
@@ -676,5 +748,46 @@ mod tests {
         assert_eq!(item.status, "in_progress");
         assert_eq!(item.duration, None); // Negative duration rejected
         assert_eq!(item.schedule.as_deref(), Some("every 10 minute"));
+    }
+
+    #[test]
+    fn parses_user_feedback_in_envelope() {
+        let fb_body =
+            fs::read(fixture_path("feedback", "envelope.txt")).expect("read feedback/envelope.txt");
+        let parsed = parse_envelope(&fb_body).expect("parse standalone feedback envelope");
+        assert_eq!(parsed.user_feedback.len(), 1);
+        let fb = &parsed.user_feedback[0];
+        assert_eq!(
+            fb.event_id,
+            Some(uuid::Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap())
+        );
+        assert_eq!(fb.name.as_deref(), Some("Alice Smith"));
+        assert_eq!(fb.email.as_deref(), Some("alice@example.com"));
+        assert_eq!(
+            fb.comments.as_deref(),
+            Some("Checkout button threw an exception when paying with card")
+        );
+
+        let report_body = fs::read(fixture_path("feedback", "envelope_user_report.txt"))
+            .expect("read feedback/envelope_user_report.txt");
+        let parsed_report = parse_envelope(&report_body).expect("parse user_report envelope");
+        assert_eq!(parsed_report.user_feedback.len(), 1);
+        let rfb = &parsed_report.user_feedback[0];
+        assert_eq!(rfb.name.as_deref(), Some("Bob Jones"));
+        assert_eq!(rfb.email.as_deref(), Some("bob@example.com"));
+        assert_eq!(
+            rfb.comments.as_deref(),
+            Some("The page froze after clicking save")
+        );
+
+        let multi_body = fs::read(fixture_path("feedback", "envelope_with_event.txt"))
+            .expect("read feedback/envelope_with_event.txt");
+        let parsed_multi =
+            parse_envelope(&multi_body).expect("parse multi-item event+feedback envelope");
+        assert!(!parsed_multi.event_payload.is_empty());
+        assert_eq!(parsed_multi.user_feedback.len(), 1);
+        let mfb = &parsed_multi.user_feedback[0];
+        assert_eq!(mfb.name.as_deref(), Some("Charlie Brown"));
+        assert_eq!(mfb.email.as_deref(), Some("charlie@example.com"));
     }
 }

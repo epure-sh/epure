@@ -26,6 +26,12 @@ const ENVELOPE_LANGUAGES: &[&str] = &[
     "react",
     "nestjs",
     "profiling-node",
+    "svelte",
+    "vue",
+    "remix",
+    "astro",
+    "react-native",
+    "electron",
 ];
 
 fn all_envelope_fixtures() -> Vec<(String, std::path::PathBuf)> {
@@ -35,6 +41,9 @@ fn all_envelope_fixtures() -> Vec<(String, std::path::PathBuf)> {
         for entry in entries.flatten() {
             if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
                 let lang = entry.file_name().to_string_lossy().to_string();
+                if lang == "feedback" {
+                    continue;
+                }
                 if let Ok(files) = fs::read_dir(entry.path()) {
                     for file in files.flatten() {
                         let name = file.file_name().to_string_lossy().to_string();
@@ -465,6 +474,54 @@ async fn envelope_ingest_accepts_client_report_and_sessions() {
     )
     .await;
     assert_eq!(res.status(), reqwest::StatusCode::ACCEPTED);
+
+    server.abort();
+}
+
+#[tokio::test]
+async fn envelope_ingest_records_user_feedback_from_envelopes() {
+    let (base_url, pool, server) = spawn_test_server().await;
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/{}/envelope/", base_url, project_id());
+
+    let initial_count: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM user_feedback WHERE project_id = $1")
+            .bind(project_id())
+            .fetch_one(&pool)
+            .await
+            .unwrap_or(0);
+
+    // 1. Standalone feedback envelope with "type": "feedback"
+    let raw_fb = fs::read(fixture_path("feedback", "envelope.txt")).expect("feedback fixture");
+    let res = post_envelope(&client, &url, raw_fb, None, Some(public_key_auth())).await;
+    assert_eq!(res.status(), reqwest::StatusCode::ACCEPTED);
+
+    // 2. Standalone feedback envelope with "type": "user_report"
+    let raw_report =
+        fs::read(fixture_path("feedback", "envelope_user_report.txt")).expect("report fixture");
+    let res = post_envelope(&client, &url, raw_report, None, Some(public_key_auth())).await;
+    assert_eq!(res.status(), reqwest::StatusCode::ACCEPTED);
+
+    // 3. Multi-item envelope containing event AND feedback
+    let raw_multi =
+        fs::read(fixture_path("feedback", "envelope_with_event.txt")).expect("multi fixture");
+    let parsed_multi = epure_envelope::parse_envelope(&raw_multi).expect("parse multi");
+    let fp = preview_fingerprint(&parsed_multi.event_payload);
+    let res = post_envelope(&client, &url, raw_multi, None, Some(public_key_auth())).await;
+    assert_eq!(res.status(), reqwest::StatusCode::ACCEPTED);
+    wait_for_fingerprint(&pool, &fp).await;
+
+    // Verify feedback rows in database
+    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM user_feedback WHERE project_id = $1")
+        .bind(project_id())
+        .fetch_one(&pool)
+        .await
+        .expect("feedback count");
+    assert_eq!(
+        count - initial_count,
+        3,
+        "expected 3 new feedback rows in user_feedback table"
+    );
 
     server.abort();
 }

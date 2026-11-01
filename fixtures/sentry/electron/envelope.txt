@@ -1,0 +1,3 @@
+{"event_id":"880e8400-e29b-41d4-a716-446655440512","sdk":{"name":"sentry.javascript.electron","version":"5.12.0"}}
+{"type":"event"}
+{"event_id":"880e8400-e29b-41d4-a716-446655440512","platform":"node","level":"error","exception":{"values":[{"type":"Error","value":"IPC channel 'window-minimize' failed to respond","stacktrace":{"frames":[{"filename":"src/main/ipc.ts","function":"handleWindowAction","lineno":42,"in_app":true}]}}]},"contexts":{"runtime":{"name":"electron","version":"28.2.0"}},"environment":"production"}

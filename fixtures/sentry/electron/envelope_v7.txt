@@ -1,0 +1,3 @@
+{"event_id":"880e8400-e29b-41d4-a716-446655440720","sdk":{"name":"sentry.javascript.electron","version":"7.20.2"}}
+{"type":"event"}
+{"event_id":"880e8400-e29b-41d4-a716-446655440720","platform":"javascript","level":"error","exception":{"values":[{"type":"Error","value":"Preload script failed to expose contextBridge API","stacktrace":{"frames":[{"filename":"src/preload/index.ts","function":"initBridge","lineno":15,"in_app":true}]}}]},"contexts":{"runtime":{"name":"electron","version":"30.0.0"}},"environment":"production"}

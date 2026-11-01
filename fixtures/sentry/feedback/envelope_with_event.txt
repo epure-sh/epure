@@ -1,0 +1,5 @@
+{"event_id":"990e8400-e29b-41d4-a716-446655440003","sdk":{"name":"@sentry/react","version":"11.10.0"}}
+{"type":"event"}
+{"event_id":"990e8400-e29b-41d4-a716-446655440003","platform":"javascript","level":"error","exception":{"values":[{"type":"SubmissionError","value":"Failed to submit multi-step checkout form","stacktrace":{"frames":[{"filename":"src/components/CheckoutModal.tsx","function":"onSubmit","lineno":112,"in_app":true}]}}]},"environment":"production"}
+{"type":"feedback"}
+{"associated_event_id":"990e8400-e29b-41d4-a716-446655440003","name":"Charlie Brown","email":"charlie@example.com","message":"It crashed right as I submitted the form"}

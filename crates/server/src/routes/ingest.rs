@@ -201,6 +201,29 @@ async fn post_envelope(
         }
     }
 
+    for feedback in &parsed.user_feedback {
+        let event_id = feedback
+            .event_id
+            .or_else(|| parsed.envelope_event_id())
+            .unwrap_or_else(Uuid::new_v4);
+        let email = feedback.email.as_ref().map(|value| scrub_string(value));
+        if let Err(err) = epure_storage::user_feedback::insert_feedback(
+            &state.pools.ingest,
+            record.org_id,
+            epure_storage::user_feedback::InsertFeedbackParams {
+                event_id,
+                project_id,
+                name: feedback.name.clone(),
+                email,
+                comments: feedback.comments.clone(),
+            },
+        )
+        .await
+        {
+            tracing::warn!("Failed to store envelope user feedback: {err}");
+        }
+    }
+
     if parsed.event_payload.is_empty() {
         return cors_response(&state, &headers, StatusCode::ACCEPTED);
     }
