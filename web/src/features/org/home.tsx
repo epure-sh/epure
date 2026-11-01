@@ -1,6 +1,11 @@
 import { Pencil, Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  stopProductTour,
+  tryAutoStartEpureProductTour,
+} from "@/components/kit/product-tour";
+import { isDemoProject } from "../../lib/demo-utils";
 import { Box } from "@polar-sh/orbit/Box";
 import { Grid, GridItem } from "@polar-sh/orbit";
 import { Text } from "@polar-sh/orbit/Text";
@@ -17,11 +22,11 @@ import {
 } from "../../lib/api";
 import { isCloudDeployment } from "../../lib/deployment";
 import { useAppContext } from "../../shell/app-context";
-import { Badge } from "../../ui/badge";
-import { Button } from "../../ui/button";
-import { Input } from "../../ui/input";
-import { useToast } from "../../ui/toast-provider";
-import { PageShell } from "@/components/kit/page-shell";
+import { Badge } from "@/ui/primitives";
+import { Button } from "@/ui/primitives";
+import { Input } from "@/ui/primitives";
+import { useToast } from "@/ui/components";
+import { PageShell } from "@/ui/block";
 import { SetupWizardDialog } from "../setup/setup-wizard-dialog";
 import { emptyListTrendBuckets } from "../issues/issue-feed-utils";
 import { fetchProjectActivityBuckets } from "./project-activity";
@@ -63,6 +68,29 @@ export function OrgHomePage() {
 
   const canManage = user?.role === "owner" || user?.role === "admin";
   const canDeleteProjects = user?.role === "owner";
+
+  const tourProjectId = useMemo(() => {
+    const demo = safeProjects.find((project) => isDemoProject(project));
+    return demo?.id ?? safeProjects[0]?.id ?? null;
+  }, [safeProjects]);
+
+  useEffect(() => {
+    // Tour overlay sits above dialogs — never run while setup is open.
+    if (wizardOpen) {
+      stopProductTour();
+      return;
+    }
+    if (projectsLoading || !user?.user_id || !tourProjectId) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      tryAutoStartEpureProductTour(user.user_id, true, {
+        projectId: tourProjectId,
+        navigate,
+      });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [projectsLoading, user?.user_id, tourProjectId, navigate, wizardOpen]);
 
   const filteredProjects = useMemo(() => {
     if (!searchQuery.trim()) return safeProjects;
@@ -106,6 +134,7 @@ export function OrgHomePage() {
     if (!projects.some((project) => project.id === setupParam)) {
       return;
     }
+    stopProductTour();
     setWizardProjectId(setupParam);
     setWizardName(projects.find((project) => project.id === setupParam)?.name ?? "");
     setWizardOpen(true);
@@ -157,6 +186,7 @@ export function OrgHomePage() {
   }, [projects]);
 
   function openWizard(opts: { name?: string; projectId?: string | null }) {
+    stopProductTour();
     setWizardName(opts.name?.trim() ?? "");
     setWizardProjectId(opts.projectId ?? null);
     setWizardOpen(true);
@@ -187,6 +217,9 @@ export function OrgHomePage() {
   }
 
   function handleWizardOpenChange(open: boolean) {
+    if (open) {
+      stopProductTour();
+    }
     setWizardOpen(open);
     if (!open && setupParam) {
       const next = new URLSearchParams(searchParams);
@@ -211,7 +244,7 @@ export function OrgHomePage() {
       if (failed > 0) {
         toast(
           deleted > 0
-            ? `Deleted ${deleted} project${deleted === 1 ? "" : "s"} — ${failed} failed`
+            ? `Deleted ${deleted} project${deleted === 1 ? "" : "s"}. ${failed} failed`
             : "Failed to delete projects",
         );
       } else {

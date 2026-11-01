@@ -7,11 +7,12 @@ import {
   updateProject,
 } from "../../lib/api";
 import { useAppContext } from "../../shell/app-context";
-import { Button } from "../../ui/button";
-import { Field } from "../../ui/field";
-import { Input } from "../../ui/input";
-import { Switch } from "../../ui/switch";
-import { useToast } from "../../ui/toast-provider";
+import { Button } from "@/ui/primitives";
+import { Field } from "@/ui/components";
+import { Input } from "@/ui/primitives";
+import { Switch } from "@/ui/primitives";
+import { useToast } from "@/ui/components";
+import { toastWithUndo } from "@/lib/toast-undo";
 import { SectionCard } from "@/components/kit/section-card";
 import {
   DangerZone,
@@ -66,12 +67,18 @@ export function ProjectPrivacySettings() {
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!project) return;
+    const previous = Boolean(project.store_end_user_identifiers);
+    const next = draft;
     setSaving(true);
     try {
-      await updateProject(project.id, { store_end_user_identifiers: draft });
+      await updateProject(project.id, { store_end_user_identifiers: next });
       await refreshProjects();
       setStoreIdentifiers(null);
-      toast(draft ? "Identifiers on" : "Identifiers off");
+      toastWithUndo(next ? "Identifiers on" : "Identifiers off", async () => {
+        await updateProject(project.id, { store_end_user_identifiers: previous });
+        await refreshProjects();
+        setStoreIdentifiers(previous);
+      }, { method: toast });
     } catch {
       toast("Failed to save");
     } finally {

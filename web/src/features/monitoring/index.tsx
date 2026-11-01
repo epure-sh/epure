@@ -1,8 +1,9 @@
 import * as React from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { CircleHelp } from "lucide-react";
 import { Box } from "@polar-sh/orbit/Box";
 import { Text } from "@polar-sh/orbit/Text";
-import { PageShell } from "@/components/kit/page-shell";
+import { PageShell, ProjectPageTitle } from "@/ui/block";
 import { SectionCard } from "@/components/kit/section-card";
 import {
   DataTable,
@@ -19,6 +20,8 @@ import { EmptyState } from "@/components/kit/empty-state";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShieldCheck, TrendDown, TrendUp } from "@/components/ui/icon";
+import { startEpureProductTour } from "@/components/kit/product-tour";
+import { isDemoProject } from "@/lib/demo-utils";
 import { cn } from "@/lib/cn";
 import { useAppContext } from "@/shell/app-context";
 import {
@@ -40,8 +43,8 @@ import {
 import { formatCompactCount } from "@/lib/format-count";
 import { formatRelativeTime } from "@/lib/format-time";
 import { issuesFilterPath, projectAlertRulesPath, projectPath, projectSettingsPath } from "@/lib/paths";
-import { IssuePriorityBadge, resolveIssuePriority } from "@/ui/issue-priority";
-import { OccurrenceLineChart } from "@/ui/occurrence-line-chart";
+import { IssuePriorityBadge, resolveIssuePriority } from "@/ui/components";
+import { OccurrenceLineChart } from "@/ui/block";
 import { toast } from "@/components/ui/sonner";
 
 type VelocityWindow = "24h" | "7d" | "30d";
@@ -98,7 +101,7 @@ function pickTriage(issues: IssueSummary[]): IssueSummary[] {
       if (byRank !== 0) return byRank;
       return (b.event_count ?? 0) - (a.event_count ?? 0);
     })
-    .slice(0, 8);
+    .slice(0, 5);
 }
 
 function formatBucketLabel(iso: string, window: VelocityWindow): string {
@@ -112,13 +115,29 @@ function formatBucketLabel(iso: string, window: VelocityWindow): string {
 export function DashboardPage({ isEmbed = false }: { isEmbed?: boolean }) {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { projects, environment } = useAppContext();
+  const { projects, environment, user } = useAppContext();
   const safeProjects = Array.isArray(projects) ? projects : [];
   const project =
     safeProjects.find((p) => p && (p.id === projectId || p.slug === projectId)) ??
     safeProjects[0] ??
     null;
   const activeProjectId = project?.id ?? null;
+  const tourProjectId =
+    safeProjects.find((p) => isDemoProject(p))?.id ?? activeProjectId ?? safeProjects[0]?.id ?? null;
+
+  const launchTour = React.useCallback(() => {
+    if (!tourProjectId) {
+      return;
+    }
+    navigate("/");
+    window.setTimeout(() => {
+      startEpureProductTour(undefined, user?.user_id, {
+        force: true,
+        projectId: tourProjectId,
+        navigate,
+      });
+    }, 280);
+  }, [navigate, tourProjectId, user?.user_id]);
 
   const [data, setData] = React.useState<OverviewData | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -255,7 +274,7 @@ export function DashboardPage({ isEmbed = false }: { isEmbed?: boolean }) {
               {row.original.title ?? "Untitled issue"}
             </Text>
             <Text variant="caption" color="muted" truncate>
-              {row.original.culprit ?? row.original.release ?? "—"}
+              {row.original.culprit ?? row.original.release ?? "-"}
             </Text>
           </Box>
         ),
@@ -275,7 +294,7 @@ export function DashboardPage({ isEmbed = false }: { isEmbed?: boolean }) {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Last" />,
         cell: ({ row }) => (
           <Text variant="caption" color="muted" monospace>
-            {row.original.last_seen_at ? formatRelativeTime(row.original.last_seen_at) : "—"}
+            {row.original.last_seen_at ? formatRelativeTime(row.original.last_seen_at) : "-"}
           </Text>
         ),
         size: 88,
@@ -320,7 +339,7 @@ export function DashboardPage({ isEmbed = false }: { isEmbed?: boolean }) {
           <Text variant="caption" color="muted" monospace>
             {row.original.last_check_in_at
               ? formatRelativeTime(row.original.last_check_in_at)
-              : "—"}
+              : "-"}
           </Text>
         ),
         size: 110,
@@ -365,9 +384,23 @@ export function DashboardPage({ isEmbed = false }: { isEmbed?: boolean }) {
     />
   ) : (
     <Box flexDirection="column" rowGap="l" width="100%">
-      <Text as="h2" variant="heading-xs" truncate>
-        {project?.name ?? "Project"}
-      </Text>
+      <ProjectPageTitle
+        title={project?.name ?? "Project"}
+        trailing={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            data-tour="dashboard-tour-help"
+            className="size-7 shrink-0 text-fg-muted hover:text-fg-primary"
+            aria-label="Product tour"
+            title="Product tour"
+            onClick={launchTour}
+          >
+            <CircleHelp className="size-3.5" aria-hidden />
+          </Button>
+        }
+      />
 
       {/* Top: compact metrics (~30%) + heatmap (~70%) */}
       <Box
@@ -445,7 +478,7 @@ export function DashboardPage({ isEmbed = false }: { isEmbed?: boolean }) {
                 {
                   key: "valve",
                   label: "Valve",
-                  value: loading ? "…" : filteredPct === null ? "—" : `${filteredPct.toFixed(1)}%`,
+                  value: loading ? "…" : filteredPct === null ? "-" : `${filteredPct.toFixed(1)}%`,
                   onClick: undefined as (() => void) | undefined,
                   meta:
                     filteredPct !== null ? (
@@ -526,7 +559,7 @@ export function DashboardPage({ isEmbed = false }: { isEmbed?: boolean }) {
               toast.message(day.date, {
                 description:
                   day.count === 0
-                    ? "Clean day — no stored errors."
+                    ? "Clean day. No stored errors."
                     : `${formatCompactCount(day.count)} errors that day. Opening unresolved issues.`,
               });
             }}
@@ -586,7 +619,7 @@ export function DashboardPage({ isEmbed = false }: { isEmbed?: boolean }) {
 
         <SectionCard
           title="Needs triage"
-          description="Unresolved & regressed"
+          description="Top 5 unresolved & regressed"
           headerActions={
             activeProjectId ? (
               <Button variant="ghost" size="xs" onClick={() => goIssues("is:unresolved")}>
@@ -694,14 +727,11 @@ export function DashboardPage({ isEmbed = false }: { isEmbed?: boolean }) {
   }
 
   return (
-    <PageShell
-      title="Dashboard"
-      description={
-        project ? `Project pulse for ${project.name}` : "Project health, triage, and monitors"
-      }
-      density="full-bleed"
-    >
-      <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 overflow-auto px-6 py-5">
+    <PageShell density="full-bleed">
+      <div
+        data-tour="project-dashboard"
+        className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 overflow-auto px-6 py-5"
+      >
         {content}
       </div>
     </PageShell>

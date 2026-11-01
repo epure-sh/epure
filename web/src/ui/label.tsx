@@ -1,1 +1,1 @@
-export { Label, labelVariants } from "@/components/ui/label";
+export * from "./primitives/elements/label";

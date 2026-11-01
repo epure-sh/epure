@@ -1,32 +1,26 @@
 import type { HeadlineStats } from "../../lib/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Icon, Check, Plus, Warning } from "@/components/ui/icon";
+import { Icon, Plus } from "@/components/ui/icon";
 import {
   INBOX_FEED_TOOLBAR_HEADER_CLASS,
   INBOX_FEED_TOOLBAR_MAIN_CLASS,
   INBOX_FEED_TOOLBAR_RAIL_CLASS,
   INBOX_FEED_TOOLBAR_ROW_CLASS,
+  INBOX_FEED_TOOLBAR_SHELL_CLASS,
 } from "@/components/kit/inbox-read-cue";
 import { IssuesFeedQueryPanel } from "../issues/issues-feed-query-panel";
 import { IssuesFeedFilterRowActions } from "../issues/issues-feed-filter-row";
 import type { IssueSortValue, TimeWindowValue } from "../issues/query-utils";
-import {
-  AlertsSectionToggle,
-  type AlertsSection,
-  type AlertsSectionCounts,
-} from "./alerts-section-toggle";
+import type { AlertsSection } from "./alerts-section-toggle";
 import { AlertsRulesQueryPanel } from "./alerts-rules-query-panel";
 import type { RuleDestinationKind } from "./alert-rules-display";
-import { FilterChip } from "@/ui/filter-chip";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
+import { FilterChip } from "@/ui/components";
 
 export type RulesStatusFilter = "all" | "monitoring" | "paused";
 
 export interface AlertsToolbarProps {
   section: AlertsSection;
-  onSectionChange: (value: AlertsSection) => void;
-  sectionCounts?: AlertsSectionCounts;
   canManageRules?: boolean;
   onCreateRule?: () => void;
   /** History — shared with Issues feed. */
@@ -40,11 +34,6 @@ export interface AlertsToolbarProps {
   /** History — filter fired rows to one rule (from Configure “View history”). */
   historyRuleName?: string | null;
   onHistoryRuleNameClear?: () => void;
-  highSeverityOnly?: boolean;
-  onHighSeverityOnlyChange?: (value: boolean) => void;
-  highSeverityCount?: number;
-  onAcknowledgeAll?: () => void;
-  acknowledgeAllBusy?: boolean;
   /** Rules — local to Rules tab. */
   rulesSearch: string;
   onRulesSearchChange: (value: string) => void;
@@ -56,11 +45,9 @@ export interface AlertsToolbarProps {
   totalRulesCount?: number;
 }
 
-/** Filters left · sort + Inbox|Rules + actions right (Issues feed rhythm). */
+/** Filters left · sort + create-rule right (Inbox|Rules lives on the page title). */
 export function AlertsToolbar({
   section,
-  onSectionChange,
-  sectionCounts,
   canManageRules = false,
   onCreateRule,
   query,
@@ -72,11 +59,6 @@ export function AlertsToolbar({
   headlineStats,
   historyRuleName = null,
   onHistoryRuleNameClear,
-  highSeverityOnly = false,
-  onHighSeverityOnlyChange,
-  highSeverityCount,
-  onAcknowledgeAll,
-  acknowledgeAllBusy = false,
   rulesSearch,
   onRulesSearchChange,
   rulesStatusFilter = "all",
@@ -87,7 +69,6 @@ export function AlertsToolbar({
   totalRulesCount,
 }: AlertsToolbarProps) {
   const isHistory = section === "history";
-  const unreadCount = sectionCounts?.history ?? 0;
 
   const filterCluster = isHistory ? (
     <IssuesFeedQueryPanel
@@ -103,30 +84,6 @@ export function AlertsToolbar({
       searchAriaLabel="Search alerts"
       unresolvedLabel="Needs action"
       filterRowClassName="max-w-full [&_[data-slot=issues-feed-query]]:max-w-[min(100%,11rem)] sm:[&_[data-slot=issues-feed-query]]:max-w-sm"
-      extraFilterChips={
-        onHighSeverityOnlyChange ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant={highSeverityOnly ? "secondary" : "outline"}
-                size="icon"
-                className="size-7 shrink-0"
-                aria-label="High severity"
-                aria-pressed={highSeverityOnly}
-                onClick={() => onHighSeverityOnlyChange(!highSeverityOnly)}
-              >
-                <Icon icon={Warning} size={14} aria-hidden />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              {typeof highSeverityCount === "number" && highSeverityCount > 0
-                ? `High severity · ${highSeverityCount}`
-                : "High severity"}
-            </TooltipContent>
-          </Tooltip>
-        ) : null
-      }
       inlineTrailing={
         historyRuleName ? (
           <FilterChip
@@ -155,48 +112,30 @@ export function AlertsToolbar({
 
   return (
     <header className={cn("epure-issues-feed-header w-full min-w-0", INBOX_FEED_TOOLBAR_HEADER_CLASS)}>
-      <div className={INBOX_FEED_TOOLBAR_ROW_CLASS}>
-        <div className={INBOX_FEED_TOOLBAR_MAIN_CLASS}>{filterCluster}</div>
+      <div className={INBOX_FEED_TOOLBAR_SHELL_CLASS}>
+        <div className={INBOX_FEED_TOOLBAR_ROW_CLASS}>
+          <div className={INBOX_FEED_TOOLBAR_MAIN_CLASS}>{filterCluster}</div>
 
-        <div className={INBOX_FEED_TOOLBAR_RAIL_CLASS}>
-          {isHistory ? (
-            <>
+          <div className={INBOX_FEED_TOOLBAR_RAIL_CLASS}>
+            {isHistory ? (
               <IssuesFeedFilterRowActions
+                timeWindow={timeWindow}
+                onTimeWindowChange={onTimeWindowChange}
                 issueSort={issueSort}
                 onIssueSortChange={onIssueSortChange}
                 sortAriaLabel="Sort alerts"
               />
-              {onAcknowledgeAll && unreadCount > 0 ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  disabled={acknowledgeAllBusy}
-                  className="h-7 shrink-0 gap-1 text-xs text-fg-muted hover:text-fg-primary"
-                  onClick={onAcknowledgeAll}
-                >
-                  <Icon icon={Check} size={14} aria-hidden />
-                  <span className="hidden sm:inline">Acknowledge all</span>
-                </Button>
-              ) : null}
-            </>
-          ) : null}
+            ) : null}
 
-          <div className="flex h-7 shrink-0 flex-nowrap items-center gap-1.5 border-l border-border-subtle pl-2">
-            <AlertsSectionToggle
-              value={section}
-              onChange={onSectionChange}
-              counts={sectionCounts}
-            />
-            {canManageRules && onCreateRule ? (
+            {!isHistory && canManageRules && onCreateRule ? (
               <Button
                 variant="primary"
-                size="xs"
-                className="h-7 shrink-0 gap-1 text-xs"
+                size="sm"
+                className="shrink-0 gap-1.5"
                 onClick={onCreateRule}
               >
                 <Icon icon={Plus} size={14} aria-hidden />
-                <span className="hidden sm:inline">Create rule</span>
+                Create rule
               </Button>
             ) : null}
           </div>

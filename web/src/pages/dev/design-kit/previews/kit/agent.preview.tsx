@@ -1,6 +1,6 @@
 import { AskAgentCard } from "@/components/kit/ask-agent-card";
-import { ApplyWithAiButton } from "@/ui/apply-with-ai-button";
-import { IssueAiCopilotCard } from "@/ui/issue-ai-copilot-card";
+import { ApplyWithAiButton } from "@/ui/components";
+import { IssueAiCopilotCard } from "@/ui/components";
 import {
   DESIGN_KIT_SAMPLE_EVENT,
   DESIGN_KIT_SAMPLE_ISSUE,
@@ -25,7 +25,7 @@ export default function AgentPreview() {
           />
         </MatrixCell>
       </div>
-      <PreviewRow label="Apply with AI" className="mt-3">
+      <PreviewRow label="Implement with agent" className="mt-3">
         <ApplyWithAiButton prompt="Fix null check in checkout" />
       </PreviewRow>
     </PreviewBlock>

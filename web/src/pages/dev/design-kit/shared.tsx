@@ -8,6 +8,7 @@ export function PreviewBlock({
   children,
   id,
   states,
+  controls,
 }: {
   id: string;
   title: string;
@@ -15,12 +16,15 @@ export function PreviewBlock({
   children: React.ReactNode;
   /** Optional chips: mock · empty · busy · error */
   states?: readonly string[];
+  /** Optional interactive playground toolbar */
+  controls?: React.ReactNode;
 }) {
   const chrome = usePreviewChrome();
 
   if (!chrome) {
     return (
-      <div id={id} data-design-kit-block={id} className="w-full min-w-0">
+      <div id={id} data-design-kit-block={id} className="w-full min-w-0 space-y-3">
+        {controls}
         {children}
       </div>
     );
@@ -48,6 +52,7 @@ export function PreviewBlock({
           <p className="mt-1 text-[11px] leading-relaxed text-fg-muted">{description}</p>
         ) : null}
       </header>
+      {controls}
       {children}
     </section>
   );

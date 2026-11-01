@@ -1,27 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
 import { Navigate, useParams } from "react-router-dom";
 import { setupNeedsWizard } from "../../lib/api";
 import { projectPath } from "../../lib/paths";
 import { cn } from "../../lib/cn";
 import { useIssuesLayoutMode } from "../../lib/style-theme";
 import { useAppContext } from "../../shell/app-context";
-import { ActionButton } from "../../ui/action-button";
-import { BreadcrumbTimeline } from "../../ui/breadcrumb-timeline";
-import { ErrorState, ForbiddenState } from "../../ui/error-state";
-import { IssueDetailOverlay } from "../../ui/issue-detail-overlay";
+import { BreadcrumbTimeline, ProjectPageTitle } from "@/ui/block";
+import { ErrorState, ForbiddenState } from "@/ui/components";
+import { IssueDetailOverlay } from "@/ui/block";
 import {
-  DETAIL_INLINE_ACTION_CLASS,
   IssueDetailTabs,
   type IssueDetailTab,
-} from "../../ui/issue-detail-tabs";
-import { IssueOverviewPanel } from "../../ui/issue-overview-panel";
-import { IssueMorePanel } from "../../ui/issue-more-panel";
-import { KeyboardHintsFooter } from "../../ui/keyboard-hints-footer";
-import { SetupWaitingBanner, TestDataBanner } from "../../ui/setup-status-banner";
-import { IssueRowSkeleton } from "../../ui/skeleton";
-import { StackTracePanel } from "../../ui/stack-trace-panel";
-import { useToast } from "../../ui/toast-provider";
+} from "@/ui/block";
+import { IssueOverviewPanel } from "@/ui/block";
+import { IssueMorePanel } from "@/ui/block";
+import { SetupWaitingBanner, TestDataBanner } from "@/ui/components";
+import { IssueRowSkeleton } from "@/ui/block";
+import { StackTracePanel } from "@/ui/block";
+import { useToast } from "@/ui/components";
+import { CopyForAgentsButton } from "@/components/kit/copy-for-agents-button";
 import { BulkDeleteDialog } from "./bulk-delete-dialog";
 import { ResolveWithAiDialog } from "./resolve-with-ai-dialog";
 import { downloadIssuesCsv } from "./export-csv";
@@ -371,46 +368,31 @@ export function IssuesPage() {
       <IssueDetailTabs
         tab={detailTab}
         onTabChange={setDetailTab}
-        onClose={handleCloseDetail}
-        showBackLink={!isOverlayLayout}
         issue={selectedIssue}
         issueTitle={selectedIssue.title ?? "Untitled issue"}
         statusBadges={<IssueStateBadge issue={selectedIssue} />}
-        onPrevious={() => handleMoveSelection("up")}
-        onNext={() => handleMoveSelection("down")}
-        hasPrevious={issues.findIndex((issue) => issue.id === selectedIssue.id) > 0}
-        hasNext={(() => {
-          const index = issues.findIndex((issue) => issue.id === selectedIssue.id);
-          return index >= 0 && index < issues.length - 1;
-        })()}
         timeline={timeline}
         timelineLoading={timelineLoading}
         timelineWindow={timelineWindow}
         onTimelineWindowChange={setTimelineWindow}
         actions={
-          <>
-            <ActionButton
-              variant="ghost"
-              size="sm"
-              className={DETAIL_INLINE_ACTION_CLASS}
-              disabled={actionsDisabled}
-              tooltip="Copy a diagnostic brief for your coding agent (C)"
-              onClick={handleExport}
-            >
-              <Sparkles className="size-4" />
-              <span>Copy for agent</span>
-            </ActionButton>
-            <IssueStateActions
-              issue={selectedIssue}
-              disabled={actionsDisabled}
-              pending={pendingIds.has(selectedIssue.id)}
-              onResolve={handleResolve}
-              onReopen={handleReopen}
-              onIgnore={handleIgnore}
-              onSnooze={handleSnooze}
-              onUnsnooze={(id) => void handleUnsnooze(id)}
-            />
-          </>
+          <IssueStateActions
+            issue={selectedIssue}
+            disabled={actionsDisabled}
+            pending={pendingIds.has(selectedIssue.id)}
+            afterResolve={
+              <CopyForAgentsButton
+                disabled={actionsDisabled}
+                title="Copy a diagnostic brief for your coding agent (C)"
+                onClick={handleExport}
+              />
+            }
+            onResolve={handleResolve}
+            onReopen={handleReopen}
+            onIgnore={handleIgnore}
+            onSnooze={handleSnooze}
+            onUnsnooze={(id) => void handleUnsnooze(id)}
+          />
         }
         overview={
           <IssueOverviewPanel
@@ -482,7 +464,7 @@ export function IssuesPage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-canvas">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-canvas">
       {showTestDataBanner && scopedProjectId ? (
         <TestDataBanner projectId={scopedProjectId} />
       ) : null}
@@ -490,54 +472,59 @@ export function IssuesPage() {
         <SetupWaitingBanner projectId={scopedProjectId} />
       ) : null}
 
-      <IssuesFeedHeader
-        query={query}
-        onQueryChange={setQuery}
-        onApply={() => void loadIssues(query, timeWindow, issueSort)}
-        timeWindow={timeWindow}
-        onTimeWindowChange={setTimeWindow}
-        issueSort={issueSort}
-        onIssueSortChange={setIssueSort}
-        filterInputRef={filterInputRef}
-        issueCount={issues.length}
-        loading={loading}
-        tourAutoStartReady={issues.length > 0 && !loading}
-        stats={headlineStats}
-        statsLoading={statsLoading}
-        onFilterToken={applyFilter}
-        selectedCount={selectedIds.size}
-        onExportCsv={handleExportCsv}
-      />
+      <div className="epure-page-gutter-x shrink-0 pt-4 pb-1">
+        <ProjectPageTitle title="Issues" />
+      </div>
+
+      <div className="sticky top-0 z-20 bg-canvas">
+        <IssuesFeedHeader
+          query={query}
+          onQueryChange={setQuery}
+          onApply={() => void loadIssues(query, timeWindow, issueSort)}
+          timeWindow={timeWindow}
+          onTimeWindowChange={setTimeWindow}
+          issueSort={issueSort}
+          onIssueSortChange={setIssueSort}
+          filterInputRef={filterInputRef}
+          issueCount={issues.length}
+          loading={loading}
+          tourAutoStartReady={issues.length > 0 && !loading}
+          stats={headlineStats}
+          statsLoading={statsLoading}
+          onFilterToken={applyFilter}
+          selectedCount={selectedIds.size}
+          onExportCsv={handleExportCsv}
+        />
+      </div>
 
       <div
         className={cn(
-          "epure-issues-layout relative flex min-h-0 flex-1 overflow-hidden",
-          !isOverlayLayout && "lg:flex-row",
+          "epure-issues-layout relative flex w-full",
+          !isOverlayLayout && selectedIssue && "lg:flex-row",
           issues.length === 0 && !loading && "epure-issues-layout--empty",
         )}
       >
         <aside
           className={cn(
-            "epure-issues-layout__list flex min-h-0 flex-col overflow-hidden bg-canvas epure-page-gutter-x pt-3 md:pt-4",
-            issues.length === 0 && !loading ? "w-full shrink-0 grow-0" : "min-h-0 flex-1",
+            "epure-issues-layout__list flex w-full flex-col bg-canvas epure-page-gutter-x pt-3 pb-4 md:pt-4",
             isOverlayLayout
-              ? "min-w-0 flex-1"
+              ? "min-w-0"
               : layoutMode === "split-narrow"
-                ? "w-full shrink-0 border-r border-border lg:w-issue-list"
-                : "w-full shrink-0 border-r border-border lg:w-issue-list",
+                ? "shrink-0 border-r border-border lg:w-issue-list"
+                : "shrink-0 border-r border-border lg:w-issue-list",
             selectedIssue && (isOverlayLayout ? "hidden lg:flex" : "max-lg:hidden"),
           )}
         >
           {loading ? (
-            <div className="mb-3 flex min-h-0 min-w-0 w-full flex-1 flex-col rounded-lg border border-border bg-surface-1 shadow-xs overflow-hidden">
-              <div className="epure-issue-list flex min-h-0 flex-1 flex-col overflow-auto">
+            <div className="mb-3 w-full min-w-0 rounded-lg border border-border bg-surface-1 shadow-xs">
+              <div className="epure-issue-list flex flex-col">
                 {Array.from({ length: 8 }).map((_, index) => (
                   <IssueRowSkeleton key={index} />
                 ))}
               </div>
             </div>
           ) : loadError ? (
-            <div className="flex flex-1 items-center justify-center p-6">
+            <div className="flex items-center justify-center p-6">
               <ErrorState
                 title="Could not load issues"
                 description={loadError}
@@ -548,7 +535,7 @@ export function IssuesPage() {
               />
             </div>
           ) : (
-            <div className="mb-3 flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded-lg border border-border bg-surface-1 shadow-xs">
+            <div className="mb-3 w-full min-w-0 rounded-lg border border-border bg-surface-1 shadow-xs">
               <IssueList
                 embedded
                 canMerge={canMerge}
@@ -599,9 +586,6 @@ export function IssuesPage() {
               />
             </div>
           )}
-          <div className="flex shrink-0 justify-end py-1">
-            <KeyboardHintsFooter />
-          </div>
         </aside>
 
         {isOverlayLayout ? (
@@ -620,7 +604,7 @@ export function IssuesPage() {
           </IssueDetailOverlay>
         ) : selectedIssue ? (
           <aside
-            className="epure-issues-layout__detail flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-canvas"
+            className="epure-issues-layout__detail sticky top-0 flex h-full min-h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden self-start bg-canvas"
             aria-label="Issue detail"
           >
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

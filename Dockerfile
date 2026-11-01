@@ -2,6 +2,8 @@
 # compiled on native GHA runners and packed with Dockerfile.runtime.
 FROM node:22-bookworm AS web-build
 
+WORKDIR /app
+COPY packages /app/packages
 WORKDIR /app/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci

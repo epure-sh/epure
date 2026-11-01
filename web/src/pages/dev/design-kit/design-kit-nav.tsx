@@ -4,14 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
+  DESIGN_KIT_BLOCK_FAMILIES,
+  DESIGN_KIT_BLOCK_META,
+  DESIGN_KIT_BLOCK_MODULES,
+  DESIGN_KIT_COMPONENT_FAMILIES,
+  DESIGN_KIT_COMPONENT_META,
+  DESIGN_KIT_COMPONENT_MODULES,
   DESIGN_KIT_FOUNDATION_PAGES,
-  DESIGN_KIT_KIT_FAMILIES,
-  DESIGN_KIT_KIT_META,
-  DESIGN_KIT_KIT_MODULES,
   DESIGN_KIT_PRIMITIVE_FAMILIES,
   DESIGN_KIT_PRIMITIVE_META,
   DESIGN_KIT_PRIMITIVE_MODULES,
-  kitByFamily,
+  blocksByFamily,
+  componentsByFamily,
   primitivesByFamily,
 } from "./registry";
 
@@ -114,10 +118,21 @@ export function DesignKitNav({
     ),
   })).filter((g) => g.modules.length > 0);
 
-  const kitGroups = DESIGN_KIT_KIT_FAMILIES.map((family) => ({
+  const componentGroups = DESIGN_KIT_COMPONENT_FAMILIES.map((family) => ({
     family,
-    modules: kitByFamily()[family].filter((mod) => {
-      const meta = DESIGN_KIT_KIT_META[mod];
+    modules: componentsByFamily()[family].filter((mod) => {
+      const meta = DESIGN_KIT_COMPONENT_META[mod];
+      return match(
+        mod,
+        `${family} ${meta.description} ${(meta.absorbs ?? []).join(" ")}`,
+      );
+    }),
+  })).filter((g) => g.modules.length > 0);
+
+  const blockGroups = DESIGN_KIT_BLOCK_FAMILIES.map((family) => ({
+    family,
+    modules: blocksByFamily()[family].filter((mod) => {
+      const meta = DESIGN_KIT_BLOCK_META[mod];
       return match(
         mod,
         `${family} ${meta.description} ${(meta.absorbs ?? []).join(" ")}`,
@@ -234,10 +249,32 @@ export function DesignKitNav({
           </div>
         ) : null}
 
-        {kitGroups.length > 0 ? (
+        {componentGroups.length > 0 ? (
           <div className="space-y-0.5 border-t border-border-subtle pt-1">
-            <GroupLabel>Kit</GroupLabel>
-            {kitGroups.map(({ family, modules }) => (
+            <GroupLabel>Components</GroupLabel>
+            {componentGroups.map(({ family, modules }) => (
+              <div key={family} className="space-y-0.5">
+                <FamilyLabel>{family}</FamilyLabel>
+                {modules.map((mod) => (
+                  <NavLink
+                    key={mod}
+                    href={`#${mod}`}
+                    label={mod}
+                    mono
+                    depth={1}
+                    active={active === mod}
+                    onNavigate={handleSelect}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {blockGroups.length > 0 ? (
+          <div className="space-y-0.5 border-t border-border-subtle pt-1">
+            <GroupLabel>Blocks</GroupLabel>
+            {blockGroups.map(({ family, modules }) => (
               <div key={family} className="space-y-0.5">
                 <FamilyLabel>{family}</FamilyLabel>
                 {modules.map((mod) => (
@@ -259,7 +296,8 @@ export function DesignKitNav({
         {!q ? (
           <p className="border-t border-border-subtle px-2 pt-2 pb-1 text-[10px] leading-snug text-fg-muted">
             {DESIGN_KIT_PRIMITIVE_MODULES.length} primitives ·{" "}
-            {DESIGN_KIT_KIT_MODULES.length} kit ·{" "}
+            {DESIGN_KIT_COMPONENT_MODULES.length} components ·{" "}
+            {DESIGN_KIT_BLOCK_MODULES.length} blocks ·{" "}
             <kbd className="font-mono">/</kbd> filter ·{" "}
             <kbd className="font-mono">⌘K</kbd> jump
           </p>

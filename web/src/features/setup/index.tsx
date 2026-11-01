@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { PageShell } from "@/components/kit/page-shell";
+import { PageShell, ProjectPageTitle } from "@/ui/block";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
@@ -20,12 +20,12 @@ import {
   type SetupPlatformId,
 } from "@/lib/setup-platform-snippets";
 import { buildSetupAiPrompt, type SetupPath } from "@/lib/setup-ai-prompt";
-import { SetupConnectPanel } from "@/ui/setup-connect-panel";
-import { SetupPlatformMark } from "@/ui/setup-platform-mark";
-import { SetupDocsLink } from "@/ui/setup-docs-link";
-import { CopyButton } from "@/ui/copy-button";
-import { ApplyWithAiButton } from "@/ui/apply-with-ai-button";
-import { StepIndicator, type StepIndicatorItem } from "@/ui/step-indicator";
+import { SetupConnectPanel } from "@/ui/block";
+import { SetupPlatformMark } from "@/ui/components";
+import { SetupDocsLink } from "@/ui/components";
+import { CopyButton } from "@/ui/components";
+import { ApplyWithAiButton } from "@/ui/components";
+import { StepIndicator, type StepIndicatorItem } from "@/ui/components";
 
 const SETUP_PLATFORMS: SetupPlatformId[] = [
   "nextjs",
@@ -231,15 +231,12 @@ export function SetupPage() {
   return (
     <PageShell density="full-bleed">
       <div className="mx-auto flex w-full max-w-2xl min-h-0 flex-1 flex-col gap-2.5 epure-page-gutter-x py-3">
-        {/* Compact Header Bar */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle/60 pb-2">
-          <div className="flex items-center gap-2.5">
-            <span className="font-semibold text-sm text-fg-primary tracking-ui">
-              {activeProject?.name ?? "Project"} Setup
-            </span>
+          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <ProjectPageTitle title="Setup" className="w-auto flex-1" />
             <span
               className={cn(
-                "inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono text-[11px] font-medium",
+                "inline-flex shrink-0 items-center gap-1 rounded px-2 py-0.5 font-mono text-[11px] font-medium",
                 firstEventReceived
                   ? "bg-healthy/10 text-healthy"
                   : "bg-surface-2 text-fg-muted",
@@ -340,7 +337,7 @@ export function SetupPage() {
           />
           <div className="flex items-center gap-2">
             <span className="font-mono text-[11px] text-fg-muted">Agent MCP:</span>
-            <CopyButton value={mcpJson} label="Copy MCP config" className="h-7 px-2.5 font-mono text-xs" />
+            <CopyButton value={mcpJson} label="Copy for agent" className="h-7 px-2.5 font-mono text-xs" />
           </div>
         </div>
       </div>

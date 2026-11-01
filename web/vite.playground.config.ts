@@ -97,8 +97,9 @@ export default defineConfig({
     port: 5173,
     open: "/",
     fs: {
-      // Orbit package source only — never serve its nested node_modules via /@fs
-      allow: [rootDir, path.join(orbitPackageRoot, "src")],
+      // Orbit is linked as file:../packages/orbit — Vite must serve its src and
+      // nested deps (@radix-ui/*, framer-motion) that resolve under the package.
+      allow: [rootDir, orbitPackageRoot],
     },
   },
   /**

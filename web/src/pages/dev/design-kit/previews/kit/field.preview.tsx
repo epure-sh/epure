@@ -1,6 +1,6 @@
 import { Input } from "@/components/ui/input";
-import { Field } from "@/ui/field";
-import { Kbd } from "@/ui/kbd";
+import { Field } from "@/ui/components";
+import { Kbd } from "@/ui/primitives";
 import { PreviewBlock, MatrixCell, PreviewRow } from "../../shared";
 
 export default function FieldPreview() {

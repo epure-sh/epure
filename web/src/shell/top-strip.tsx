@@ -11,8 +11,8 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useThemeMode } from "../lib/style-theme";
-import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
+import { Badge } from "@/ui/primitives";
+import { Button } from "@/ui/primitives";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,7 +20,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
+} from "@/ui/primitives";
 import {
   getNavigationContext,
   isProjectRoute,

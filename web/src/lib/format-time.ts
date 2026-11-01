@@ -1,7 +1,7 @@
 export function formatRelativeTime(iso: string, now = Date.now()): string {
   const timestamp = new Date(iso).getTime();
   if (Number.isNaN(timestamp)) {
-    return "—";
+    return "-";
   }
 
   const diffSec = Math.max(0, Math.floor((now - timestamp) / 1000));
@@ -34,7 +34,7 @@ export function formatRelativeTime(iso: string, now = Date.now()): string {
 export function formatRelativeTimeLong(iso: string, now = Date.now()): string {
   const timestamp = new Date(iso).getTime();
   if (Number.isNaN(timestamp)) {
-    return "—";
+    return "-";
   }
 
   const diffSec = Math.max(0, Math.floor((now - timestamp) / 1000));
@@ -67,7 +67,7 @@ export function formatRelativeTimeLong(iso: string, now = Date.now()): string {
 export function formatAge(iso: string, now = Date.now()): string {
   const timestamp = new Date(iso).getTime();
   if (Number.isNaN(timestamp)) {
-    return "—";
+    return "-";
   }
 
   const diffSec = Math.max(0, Math.floor((now - timestamp) / 1000));

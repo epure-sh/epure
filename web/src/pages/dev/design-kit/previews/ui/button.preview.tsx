@@ -1,5 +1,9 @@
 import { Button } from "@polar-sh/orbit/Button";
 import { Settings2 } from "@polar-sh/orbit/icons";
+import {
+  ComponentPlaygroundControls,
+  useInteractiveButtonPlayground,
+} from "../../component-playground-controls";
 import { PreviewBlock, PreviewRow, MatrixCell } from "../../shared";
 
 const variants = [
@@ -14,12 +18,29 @@ const sizes = ["sm", "default", "lg", "icon"] as const;
 
 /** Polar Orbit Button — not the Epure façade. */
 export default function ButtonPreview() {
+  const playground = useInteractiveButtonPlayground();
+
   return (
     <PreviewBlock
       id="button"
       title="Button"
-      description="Polar Orbit Button — variants, sizes, loading."
+      description="Polar Orbit Button — variants, sizes, loading, interactive controls."
     >
+      <ComponentPlaygroundControls
+        axes={playground.axes}
+        flags={playground.flags}
+        showDepressionProbe
+      />
+      <PreviewRow label="Live">
+        <Button
+          variant={playground.error ? "destructive" : (playground.variant as (typeof variants)[number])}
+          size={playground.size as "sm" | "default" | "lg"}
+          loading={playground.loading}
+          disabled={playground.disabled}
+        >
+          {playground.error ? "Error State" : playground.loading ? "Working…" : "Interactive"}
+        </Button>
+      </PreviewRow>
       <PreviewRow label="Variant">
         {variants.map((v) => (
           <Button key={v} variant={v} size="sm">

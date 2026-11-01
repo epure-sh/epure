@@ -13,6 +13,7 @@ import {
 } from "@polar-sh/orbit/Select";
 import { Box } from "@polar-sh/orbit/Box";
 import { cn } from "@/lib/utils";
+import { MENU_ITEM_RADIUS_FORCE, MENU_SURFACE_PADDED_CHILD } from "@/lib/menu-chrome";
 
 const selectClosers = new Set<() => void>();
 
@@ -153,6 +154,7 @@ export function SelectTrigger({
         size === "sm" ? "h-8 min-h-8 px-3 text-xs" : "h-10 min-h-10 px-3 text-sm",
         // Orbit defaults to [&>span]:line-clamp-1 — keep full label visible.
         "w-fit max-w-none [&>span]:line-clamp-none [&>span]:overflow-visible [&>span]:whitespace-nowrap",
+        "focus:border-accent focus:ring-0 focus:ring-offset-0 focus-visible:border-accent focus-visible:ring-0 data-[state=open]:border-accent data-[state=open]:ring-0 dark:focus:border-accent dark:data-[state=open]:border-accent",
         className,
       )}
       {...props}
@@ -173,7 +175,8 @@ export function SelectContent({
       data-slot="select-content"
       position={position}
       // Above issue-detail overlay (z-70) + select backdrop (z-75).
-      className={cn("z-[80]", className)}
+      // Match DropdownMenu card chrome (Orbit defaults rounded-xl / border-none).
+      className={cn("z-[80]", MENU_SURFACE_PADDED_CHILD, className)}
       {...props}
     >
       {children}
@@ -190,7 +193,9 @@ export function SelectItem({
     <OrbitSelectItem
       data-slot="select-item"
       className={cn(
-        "text-sm hover:!bg-surface-2 hover:!text-fg-primary focus:!bg-surface-2 focus:!text-fg-primary data-[highlighted]:!bg-surface-2 data-[highlighted]:!text-fg-primary",
+        // Force radius: Orbit SelectItem twMerges `rounded-lg` after className.
+        MENU_ITEM_RADIUS_FORCE,
+        "text-xs hover:!bg-surface-2 hover:!text-fg-primary focus:!bg-surface-2 focus:!text-fg-primary data-[highlighted]:!bg-surface-2 data-[highlighted]:!text-fg-primary",
         className,
       )}
       {...props}

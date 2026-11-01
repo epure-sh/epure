@@ -1,8 +1,40 @@
-/* Hatch only: dotted wash for the pipeline canvas (not expressible as Box tokens). */
+/* Dot-grid canvas wash — not expressible as Box tokens. */
 [data-slot="alert-execution-pipeline"] {
+  background-color: var(--surface-2);
   background-image: radial-gradient(
-    color-mix(in srgb, var(--border-subtle) 80%, transparent) 1px,
+    color-mix(in srgb, var(--border-subtle) 90%, transparent) 1px,
     transparent 1px
   );
-  background-size: 12px 12px;
+  background-size: 14px 14px;
+  border-radius: var(--radius-md); /* 12px — matches detail panel */
 }
+
+/* Source group: border only, no fill — trigger + conditions. */
+[data-slot="alert-pipeline-source-group"] {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.375rem; /* 6px */
+}
+
+[data-slot="alert-pipeline-node"] {
+  background-color: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.375rem; /* 6px — less rounded */
+}
+
+[data-slot="alert-pipeline-edge"] {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-slot="alert-pipeline-edge"][data-tone="muted"] {
+  stroke: color-mix(in srgb, var(--fg-muted) 40%, transparent);
+  stroke-width: 1.5;
+}
+
+[data-slot="alert-pipeline-edge"][data-tone="active"] {
+  stroke: var(--success);
+  stroke-width: 2;
+}
+

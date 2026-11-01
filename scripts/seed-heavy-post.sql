@@ -208,6 +208,69 @@ WHERE i.unique_user_count >= 20
   )
 LIMIT 5;
 
+INSERT INTO alerts (org_id, project_id, issue_id, kind, fired_at, payload_json)
+SELECT
+    i.org_id,
+    i.project_id,
+    i.id,
+    'regression',
+    i.last_seen_at - interval '3 hours',
+    jsonb_build_object(
+        'title', i.title,
+        'resolved_in_release', COALESCE(i.resolved_in_release, i.release)
+    )
+FROM issues i
+WHERE i.status = 'regression'
+  AND i.merge_parent_id IS NULL
+  AND NOT EXISTS (
+      SELECT 1 FROM alerts a
+      WHERE a.issue_id = i.id AND a.kind = 'regression'
+  )
+LIMIT 5;
+
+INSERT INTO alerts (org_id, project_id, issue_id, kind, fired_at, payload_json)
+SELECT
+    i.org_id,
+    i.project_id,
+    i.id,
+    'new_issue',
+    i.first_seen_at + interval '5 minutes',
+    jsonb_build_object('title', i.title)
+FROM issues i
+WHERE i.project_id IN (
+        '550e8400-e29b-41d4-a716-446655440000',
+        '660e8400-e29b-41d4-a716-446655440001'
+    )
+  AND i.merge_parent_id IS NULL
+  AND i.status = 'unresolved'
+  AND NOT EXISTS (
+      SELECT 1 FROM alerts a
+      WHERE a.issue_id = i.id AND a.kind = 'new_issue'
+  )
+ORDER BY i.last_seen_at DESC
+LIMIT 8;
+
+INSERT INTO alerts (org_id, project_id, issue_id, kind, fired_at, payload_json)
+SELECT
+    i.org_id,
+    i.project_id,
+    i.id,
+    'noise_spike',
+    now() - interval '2 days',
+    jsonb_build_object(
+        'title', 'ResizeObserver',
+        'filtered', 180
+    )
+FROM issues i
+WHERE i.project_id = '550e8400-e29b-41d4-a716-446655440000'
+  AND i.merge_parent_id IS NULL
+  AND i.title ILIKE '%ResizeObserver%'
+  AND NOT EXISTS (
+      SELECT 1 FROM alerts a
+      WHERE a.project_id = i.project_id AND a.kind = 'noise_spike'
+  )
+LIMIT 1;
+
 -- User feedback on high-traffic checkout/payment issues.
 DELETE FROM user_feedback
 WHERE project_id IN (

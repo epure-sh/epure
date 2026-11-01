@@ -336,6 +336,7 @@ export interface AlertChannelConfig {
   destination_preview?: string;
   secret_prefix?: string;
   recipients?: string[];
+  channel?: string;
   /** Public chat id only — bot_token is never returned. */
   chat_id?: string;
 }
@@ -436,6 +437,26 @@ export async function setAlertChannelEnabled(
   return apiFetch<AlertChannelRow>(`/api/v1/alert-channels/${id}`, {
     method: "PATCH",
     body: JSON.stringify({ is_enabled }),
+  });
+}
+
+export async function patchAlertChannel(
+  id: string,
+  input: {
+    is_enabled?: boolean;
+    label?: string;
+    project_id?: string;
+    config?: {
+      url?: string;
+      recipients?: string[];
+      bot_token?: string;
+      chat_id?: string;
+    };
+  },
+): Promise<AlertChannelRow> {
+  return apiFetch<AlertChannelRow>(`/api/v1/alert-channels/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
   });
 }
 

@@ -1,5 +1,5 @@
 import { type FormEvent, type ReactNode, useState } from "react";
-import { Button } from "../../ui/button";
+import { Button } from "@/ui/primitives";
 import {
   Dialog,
   DialogContent,
@@ -7,9 +7,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../../ui/dialog";
-import { Field } from "../../ui/field";
-import { Input } from "../../ui/input";
+} from "@/ui/primitives";
+import { Field } from "@/ui/components";
+import { Input } from "@/ui/primitives";
 import { cn } from "../../lib/cn";
 import { SectionCard } from "@/components/kit/section-card";
 

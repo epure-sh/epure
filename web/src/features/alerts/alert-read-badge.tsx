@@ -1,6 +1,6 @@
 import type { AlertRow } from "../../lib/api";
 import { Badge } from "@/components/ui/badge";
-import type { BadgeVariant } from "@/ui/badge";
+import type { BadgeVariant } from "@/ui/primitives";
 import { getAlertReadState, getAlertReadStateLabel } from "./alert-utils";
 
 function variantForRead(state: ReturnType<typeof getAlertReadState>): BadgeVariant {

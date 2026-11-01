@@ -1,20 +1,39 @@
+# Build outputs & dependencies
 target/
 web/dist/
 web/dist-playground/
 web/node_modules/
-.env
-.env.dev
-.env.production
-.env.test
-.cursor/
+packages/*/node_modules/
+packages/orbit/node_modules/
+tools/*/node_modules/
+test-results/
+playwright-report/
 
-# Maintainer-only (not part of the public OSS tree)
+# Environment configs & secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# IDEs & Editor configurations
+.cursor/
+.claude/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Agent workspace, temporary run artifacts & local AI agent caches
+.agents/
+.agent/
+skills-lock.json
+*.local
+
+# Maintainer-only docs & specs (not part of the public OSS tree)
 launch-docs/
 .specify/
 PUBLISH.md
 PROMPT_GITHUB_LAUNCH.md
-test-results/
-playwright-report/
-
-packages/*/node_modules/
-packages/orbit/node_modules/
+SEO-GEO-SPEC.md

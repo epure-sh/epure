@@ -47,7 +47,7 @@ import {
   CommandList,
   CommandSeparator,
   CommandShortcut,
-} from "../ui/command";
+} from "@/ui/components";
 
 const FOCUS_QUERY_EVENT = "epure:focus-query";
 const OPEN_COMMAND_PALETTE_EVENT = "epure:open-command-palette";
@@ -323,7 +323,7 @@ export function CommandPalette() {
                         onSelect={() => run(() => triage.handlers.exportSelected())}
                       >
                         <FileDown className="h-4 w-4 text-ink-muted" />
-                        Copy for AI
+                        Copy for agent
                         <CommandShortcut>⌘⇧C</CommandShortcut>
                       </CommandItem>
                       <CommandItem

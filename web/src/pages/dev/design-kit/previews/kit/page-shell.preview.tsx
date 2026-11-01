@@ -1,4 +1,4 @@
-import { PageShell } from "@/components/kit/page-shell";
+import { PageShell } from "@/ui/block";
 import { PreviewBlock } from "../../shared";
 
 export default function PageShellPreview() {

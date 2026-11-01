@@ -35,15 +35,15 @@ import {
   workspacePath,
   workspaceSettingsPath,
 } from "../lib/paths";
-import { ProjectSettingsSidebarItem } from "../ui/settings-nav";
-import { WorkspaceSettingsSidebarItem } from "../ui/workspace-settings-nav";
+import { ProjectSettingsSidebarItem } from "@/ui/block";
+import { WorkspaceSettingsSidebarItem } from "@/ui/block";
 import {
   EPURE_CHANGELOG_URL,
   EPURE_DOCS_QUICKSTART_URL,
   EPURE_DOCS_URL,
 } from "../lib/docs-url";
-import { EpureBrandMark } from "../ui/logo";
-import { Button } from "../ui/button";
+import { EpureBrandMark } from "@/ui/primitives";
+import { Button } from "@/ui/primitives";
 import { buildProjectPathWithFeedQuery } from "../features/issues/project-feed-query-store";
 import { useAppContext } from "./app-context";
 import { dispatchOpenCommandPalette } from "./command-palette";
@@ -54,10 +54,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
+} from "@/ui/primitives";
 import { useLogout } from "../lib/use-logout";
 import { NavCountPastille } from "@/components/kit/nav-count-pastille";
-import { Badge } from "../ui/badge";
+import { Badge } from "@/ui/primitives";
 import { useProjectNavCounts } from "./use-project-nav-counts";
 
 export interface AppSidebarProps {

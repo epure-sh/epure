@@ -23,6 +23,8 @@ export interface IssuesFeedQueryPanelProps {
   issueSort: IssueSortValue;
   onIssueSortChange: (value: IssueSortValue) => void;
   stats?: HeadlineStats | null;
+  /** Issues currently loaded for the active filter view. */
+  viewCount?: number;
   trailing?: ReactNode;
   /** Extra controls after search (rules status, etc.) — left cluster only. */
   inlineTrailing?: ReactNode;
@@ -47,6 +49,7 @@ export function IssuesFeedQueryPanel({
   issueSort,
   onIssueSortChange,
   stats,
+  viewCount,
   trailing,
   inlineTrailing,
   headerActions,
@@ -100,9 +103,8 @@ export function IssuesFeedQueryPanel({
       <IssuesFeedFilterChips
         query={query}
         onQueryChange={onQueryChange}
-        timeWindow={timeWindow}
-        onTimeWindowChange={onTimeWindowChange}
         stats={stats}
+        viewCount={viewCount}
         unresolvedLabel={unresolvedLabel}
         extraChips={extraFilterChips}
       />
@@ -115,7 +117,7 @@ export function IssuesFeedQueryPanel({
         searchInputRef={filterInputRef}
         placeholder={searchPlaceholder}
         ariaLabel={searchAriaLabel}
-        className="h-7 min-w-[min(100%,10rem)] max-w-sm flex-1 basis-[10rem]"
+        className="min-h-8 min-w-[min(100%,10rem)] max-w-md flex-1 basis-[10rem]"
       />
 
       {inlineTrailing}
@@ -142,6 +144,8 @@ export function IssuesFeedQueryPanel({
 
       <div className={INBOX_FEED_TOOLBAR_RAIL_CLASS}>
         <IssuesFeedFilterRowActions
+          timeWindow={timeWindow}
+          onTimeWindowChange={onTimeWindowChange}
           issueSort={issueSort}
           onIssueSortChange={onIssueSortChange}
           trailing={trailing}

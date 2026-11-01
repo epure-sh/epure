@@ -1,11 +1,11 @@
-import { Button } from "../../ui/button";
+import { Button } from "@/ui/primitives";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "../../ui/dialog";
+} from "@/ui/primitives";
 
 export interface DeleteProjectsDialogProps {
   projectNames: string[];

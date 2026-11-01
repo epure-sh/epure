@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { Skeleton } from "../ui/skeleton";
+import { Skeleton } from "@/ui/primitives";
 
 type AuthStatus = "loading" | "authed" | "guest";
 

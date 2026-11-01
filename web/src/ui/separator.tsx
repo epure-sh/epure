@@ -1,1 +1,1 @@
-export { Separator } from "@/components/ui/separator";
+export * from "./primitives/elements/separator";

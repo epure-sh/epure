@@ -14,19 +14,14 @@ test.describe("Playground smoke", () => {
     await expect(detail.getByRole("button", { name: "Snooze", exact: true })).toBeVisible();
   });
 
-  test("Design kit alerts section renders", async ({ page }) => {
-    await page.goto("/__design");
-    await expect(page.getByRole("heading", { name: "Alerts patterns" })).toBeVisible({
+  test("Design kit three-tier catalog anchors are present on canvas", async ({ page }) => {
+    await page.goto("/__design?view=canvas");
+    await expect(page.getByText("Epure Design System").first()).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.getByText("Payment guard — production").first()).toBeVisible();
-  });
-
-  test("Design kit catalogs ui, kit, and feature-ui anchors", async ({ page }) => {
-    await page.goto("/__design");
-    await expect(page.getByRole("heading", { name: "Feature UI (`src/ui`)" })).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(page.getByText("02 Primitives", { exact: true })).toBeVisible();
+    await expect(page.getByText("03 Components", { exact: true })).toBeVisible();
+    await expect(page.getByText("04 Blocks", { exact: true })).toBeVisible();
     await expect(page.locator("#button")).toBeVisible();
     await expect(page.locator("#page-shell")).toBeVisible();
     await expect(page.locator("#issue-row")).toBeVisible();

@@ -2,12 +2,17 @@ import * as React from "react";
 import { Box } from "@polar-sh/orbit/Box";
 import { Text } from "@polar-sh/orbit/Text";
 import {
-  DESIGN_KIT_KIT_META,
-  DESIGN_KIT_KIT_MODULES,
+  DESIGN_KIT_BLOCK_META,
+  DESIGN_KIT_BLOCK_MODULES,
+  DESIGN_KIT_COMPONENT_META,
+  DESIGN_KIT_COMPONENT_MODULES,
   DESIGN_KIT_PRIMITIVE_META,
   DESIGN_KIT_PRIMITIVE_MODULES,
+  previewStemForBlock,
+  previewStemForComponent,
   previewStemForPrimitive,
-  type DesignKitKitModule,
+  type DesignKitBlockModule,
+  type DesignKitComponentModule,
   type DesignKitPrimitiveModule,
 } from "./registry";
 import { DocsExample, DocsPageHeader, DocsSection } from "./docs";
@@ -164,17 +169,20 @@ export function DocsEntry({
     );
   }
 
-  if (DESIGN_KIT_KIT_MODULES.includes(active as DesignKitKitModule)) {
-    const mod = active as DesignKitKitModule;
-    const Preview = resolvePreview(kitPreviewModules, mod);
-    const meta = DESIGN_KIT_KIT_META[mod];
+  if (
+    DESIGN_KIT_COMPONENT_MODULES.includes(active as DesignKitComponentModule)
+  ) {
+    const mod = active as DesignKitComponentModule;
+    const stem = previewStemForComponent(mod);
+    const Preview = resolvePreview(kitPreviewModules, stem);
+    const meta = DESIGN_KIT_COMPONENT_META[mod];
     if (!Preview) {
       return <DocsPageHeader title={mod} description="Missing preview file." />;
     }
     return (
       <ModuleExamplePage
         id={mod}
-        eyebrow="Kit"
+        eyebrow="Component"
         title={mod}
         description={meta.description}
         importPath={meta.importPath}
@@ -184,34 +192,47 @@ export function DocsEntry({
     );
   }
 
-  // Legacy hash redirects for retired kit leaves → canonical family
-  const kitRedirect = Object.entries(DESIGN_KIT_KIT_META).find(([, meta]) =>
+  if (DESIGN_KIT_BLOCK_MODULES.includes(active as DesignKitBlockModule)) {
+    const mod = active as DesignKitBlockModule;
+    const stem = previewStemForBlock(mod);
+    const Preview = resolvePreview(kitPreviewModules, stem);
+    const meta = DESIGN_KIT_BLOCK_META[mod];
+    if (!Preview) {
+      return <DocsPageHeader title={mod} description="Missing preview file." />;
+    }
+    return (
+      <ModuleExamplePage
+        id={mod}
+        eyebrow="Block"
+        title={mod}
+        description={meta.description}
+        importPath={meta.importPath}
+        absorbs={meta.absorbs}
+        Preview={Preview}
+      />
+    );
+  }
+
+  // Legacy hash redirects for absorbed leaves → canonical family
+  const componentRedirect = Object.entries(DESIGN_KIT_COMPONENT_META).find(
+    ([, meta]) => meta.absorbs?.includes(active),
+  );
+  if (componentRedirect) {
+    const [mod] = componentRedirect;
+    return <DocsEntry active={mod} onSelect={_onSelect} />;
+  }
+
+  const blockRedirect = Object.entries(DESIGN_KIT_BLOCK_META).find(([, meta]) =>
     meta.absorbs?.includes(active),
   );
-  if (kitRedirect) {
-    const [mod] = kitRedirect;
-    const Preview = resolvePreview(kitPreviewModules, mod);
-    const meta = DESIGN_KIT_KIT_META[mod as DesignKitKitModule];
-    if (Preview) {
-      return (
-        <ModuleExamplePage
-          id={mod}
-          eyebrow="Kit"
-          title={mod}
-          description={meta.description}
-          importPath={meta.importPath}
-          absorbs={meta.absorbs}
-          Preview={Preview}
-        />
-      );
-    }
+  if (blockRedirect) {
+    const [mod] = blockRedirect;
+    return <DocsEntry active={mod} onSelect={_onSelect} />;
   }
 
   // Retired primitives
   if (active === "badge") {
-    return (
-      <DocsEntry active="pill" onSelect={_onSelect} />
-    );
+    return <DocsEntry active="pill" onSelect={_onSelect} />;
   }
   if (active === "dialog") {
     return <DocsEntry active="modal" onSelect={_onSelect} />;

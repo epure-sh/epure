@@ -16,12 +16,18 @@ import {
 
 const CATALOG = buildCatalogIndex();
 
-const KIND_ORDER: CatalogEntry["kind"][] = ["foundation", "primitive", "kit"];
+const KIND_ORDER: CatalogEntry["kind"][] = [
+  "foundation",
+  "primitive",
+  "component",
+  "block",
+];
 
 const KIND_LABEL: Record<CatalogEntry["kind"], string> = {
   foundation: "Foundations",
   primitive: "Primitives",
-  kit: "Kit",
+  component: "Components",
+  block: "Blocks",
 };
 
 export function DesignKitSearch({
@@ -52,7 +58,7 @@ export function DesignKitSearch({
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
       <CommandInput
-        placeholder="Jump to foundations, primitive, kit…"
+        placeholder="Jump to foundations, primitive, component, block…"
         value={query}
         onValueChange={setQuery}
       />

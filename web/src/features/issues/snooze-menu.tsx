@@ -10,8 +10,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../../ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip";
+} from "@/ui/primitives";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/primitives";
 import { canSnoozeIssue } from "./issue-triage-utils";
 
 interface SnoozeMenuProps {

@@ -1,5 +1,5 @@
 import { PolarCard } from "@/components/kit/polar-card";
-import { Skeleton } from "@/ui/skeleton";
+import { Skeleton } from "@/ui/primitives";
 
 export function AlertCardSkeleton() {
   return (

@@ -2,12 +2,17 @@ import { useRef } from "react";
 import { Box } from "@polar-sh/orbit/Box";
 import { Text } from "@polar-sh/orbit/Text";
 import type { AlertRow } from "../../lib/api";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PolarCard } from "@/components/kit/polar-card";
 import { InboxUnreadRail, inboxRowDataAttrs } from "@/components/kit/inbox-read-cue";
 import { cn } from "../../lib/cn";
 import { formatRelativeTime } from "@/lib/format-time";
-import { getAlertListRuleName } from "./alert-utils";
+import {
+  getAlertKindBadgeLabel,
+  getAlertKindBadgeVariant,
+} from "./alert-kind-visual";
+import { getAlertListRuleName, getAlertPayload } from "./alert-utils";
 
 export interface AlertListRowProps {
   alert: AlertRow;
@@ -15,7 +20,7 @@ export interface AlertListRowProps {
   /** Inbox unread (view state), not API resolved. */
   unread?: boolean;
   bulkSelected?: boolean;
-  /** When any alert is selected, show checkboxes on every row (Issues feed parity). */
+  /** @deprecated Checkboxes are always visible. */
   selectionActive?: boolean;
   /** @deprecated Table embed — card list is default. */
   layout?: "feed" | "embedded";
@@ -28,7 +33,6 @@ export function AlertListRow({
   bulkSelected = false,
   detailActive = false,
   unread = false,
-  selectionActive = false,
   onBulkSelectChange,
   onActivate,
 }: AlertListRowProps) {
@@ -37,8 +41,15 @@ export function AlertListRow({
   }
 
   const ruleName = getAlertListRuleName(alert);
-  const firedAt = alert.fired_at ? formatRelativeTime(alert.fired_at) : "—";
+  const firedAt = alert.fired_at ? formatRelativeTime(alert.fired_at) : "-";
   const shiftKeyRef = useRef(false);
+  const payload = getAlertPayload(alert);
+  const kindForBadge =
+    alert.kind === "custom" && typeof payload.rule_kind === "string"
+      ? payload.rule_kind
+      : alert.kind;
+  const kindLabel = getAlertKindBadgeLabel(kindForBadge);
+  const kindVariant = getAlertKindBadgeVariant(kindForBadge);
 
   /** Active detail row: accent outline only, no hover lift. */
   const cardVariant = detailActive
@@ -93,12 +104,6 @@ export function AlertListRow({
                   <Checkbox
                     checked={bulkSelected}
                     aria-label={bulkSelected ? "Deselect alert" : "Select alert"}
-                    className={cn(
-                      "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-                      bulkSelected || selectionActive
-                        ? "pointer-events-auto opacity-100"
-                        : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
-                    )}
                     onPointerDown={(event) => {
                       shiftKeyRef.current = event.shiftKey;
                     }}
@@ -112,16 +117,25 @@ export function AlertListRow({
               )}
 
               <Box alignItems="center" columnGap="s" minWidth={0} flex={1}>
-                <Box minWidth={0} flex={1}>
-                  <Text
-                    as="p"
-                    variant={unread ? "title" : "default"}
-                    color={unread ? "default" : "muted"}
-                    truncate
+                <Box alignItems="center" columnGap="s" minWidth={0} flex={1}>
+                  <p
+                    className={cn(
+                      "min-w-0 truncate text-base leading-snug tracking-ui",
+                      unread
+                        ? "font-semibold text-accent"
+                        : "font-medium text-accent/80",
+                    )}
                   >
                     {ruleName}
                     {unread ? <span className="sr-only"> (unread)</span> : null}
-                  </Text>
+                  </p>
+                  <Badge
+                    variant={kindVariant}
+                    size="sm"
+                    className="shrink-0"
+                  >
+                    {kindLabel}
+                  </Badge>
                 </Box>
                 <time dateTime={alert.fired_at ?? undefined} className="shrink-0">
                   <Text as="span" variant="caption" color="muted" tabularNums>

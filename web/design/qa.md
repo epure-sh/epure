@@ -17,7 +17,9 @@ Ship a product UI slice only if all pass:
 - [ ] Header on paper with 8% hairline; rail flat `--bg-subtle` with 2px inset accent (no gradient / 3px pill bar)
 - [ ] Chrome titles 14–15px; list titles 13–14px; no display sizes in-app
 - [ ] Tabular counts use slashed-zero (`font-mono-slash` or equivalent)
-- [ ] Empty states: quiet type + one next action — **no** dashed frame, mascot, confetti, or celebratory copy
+- [ ] Empty states: quiet type + one next action; **no** dashed frame, mascot, confetti, or hype
+- [ ] Empty copy feels calm (first-run / search / zero) and never blames the user; include a clear next step when one exists
+- [ ] **No em dashes (—)** in product UI copy
 - [ ] Borders = 1px hairlines; **no** box-shadow on cards, popovers, dialogs, or dropdowns
 - [ ] Focus = 1px accent border — no glow ring or focus shadow
 - [ ] Dark mode on existing Epure dark tokens — not pure black swap (dark `--signal` still aliases `--accent`)

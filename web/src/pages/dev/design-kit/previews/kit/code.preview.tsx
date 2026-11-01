@@ -1,8 +1,8 @@
 import { CodeFrame } from "@/components/kit/code-frame";
-import { CodeBlock } from "@/ui/code-block";
-import { CopyDsnBlock } from "@/ui/copy-dsn-block";
-import { SdkSnippetBlock } from "@/ui/sdk-snippet-block";
-import { SourceCodeBlock } from "@/ui/source-code-block";
+import { CodeBlock } from "@/ui/components";
+import { CopyDsnBlock } from "@/ui/components";
+import { SdkSnippetBlock } from "@/ui/components";
+import { SourceCodeBlock } from "@/ui/components";
 import { PreviewBlock, MatrixCell } from "../../shared";
 
 const DEMO_DSN = "https://public@localhost:8080/550e8400-e29b-41d4-a716-446655440000";

@@ -4,17 +4,23 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import {
+  DESIGN_KIT_BLOCK_FAMILIES,
+  DESIGN_KIT_BLOCK_META,
+  DESIGN_KIT_BLOCK_MODULES,
+  DESIGN_KIT_COMPONENT_FAMILIES,
+  DESIGN_KIT_COMPONENT_META,
+  DESIGN_KIT_COMPONENT_MODULES,
   DESIGN_KIT_FOUNDATION_PAGES,
-  DESIGN_KIT_KIT_FAMILIES,
-  DESIGN_KIT_KIT_META,
-  DESIGN_KIT_KIT_MODULES,
   DESIGN_KIT_PRIMITIVE_FAMILIES,
   DESIGN_KIT_PRIMITIVE_META,
   DESIGN_KIT_PRIMITIVE_MODULES,
   DESIGN_KIT_RETIRED_KIT_LEAVES,
   DESIGN_KIT_RETIRED_PRIMITIVES,
   DESIGN_KIT_SECTION_GROUPS,
-  kitByFamily,
+  blocksByFamily,
+  componentsByFamily,
+  previewStemForBlock,
+  previewStemForComponent,
   previewStemForPrimitive,
   primitivesByFamily,
 } from "./registry";
@@ -30,11 +36,12 @@ function previewStems(dir: string): string[] {
     .sort();
 }
 
-test("sidebar groups are Foundations · Primitives · Kit only", () => {
+test("sidebar groups are Foundations · Primitives · Components · Blocks", () => {
   assert.deepEqual([...DESIGN_KIT_SECTION_GROUPS], [
     "Foundations",
     "Primitives",
-    "Kit",
+    "Components",
+    "Blocks",
   ]);
 });
 
@@ -80,29 +87,52 @@ test("every primitive rail leaf has meta, family, and a preview file", () => {
   }
 });
 
-test("every kit rail leaf has meta, family, and a preview file", () => {
+test("every component rail leaf has meta, family, and a preview file", () => {
   const kitPreviews = previewStems(kitPreviewDir);
   const seen = new Set<string>();
 
-  for (const mod of DESIGN_KIT_KIT_MODULES) {
-    assert.ok(!seen.has(mod), `Duplicate kit: ${mod}`);
+  for (const mod of DESIGN_KIT_COMPONENT_MODULES) {
+    assert.ok(!seen.has(mod), `Duplicate component: ${mod}`);
     seen.add(mod);
-    const meta = DESIGN_KIT_KIT_META[mod];
-    assert.ok(meta, `Missing DESIGN_KIT_KIT_META.${mod}`);
+    const meta = DESIGN_KIT_COMPONENT_META[mod];
+    assert.ok(meta, `Missing DESIGN_KIT_COMPONENT_META.${mod}`);
     assert.ok(
-      (DESIGN_KIT_KIT_FAMILIES as readonly string[]).includes(meta.family),
-      `Unknown kit family ${meta.family} on ${mod}`,
+      (DESIGN_KIT_COMPONENT_FAMILIES as readonly string[]).includes(meta.family),
+      `Unknown component family ${meta.family} on ${mod}`,
     );
+    const stem = previewStemForComponent(mod);
     assert.ok(
-      kitPreviews.includes(mod),
-      `Missing previews/kit/${mod}.preview.tsx`,
+      kitPreviews.includes(stem),
+      `Missing previews/kit/${stem}.preview.tsx for component ${mod}`,
+    );
+  }
+});
+
+test("every block rail leaf has meta, family, and a preview file", () => {
+  const kitPreviews = previewStems(kitPreviewDir);
+  const seen = new Set<string>();
+
+  for (const mod of DESIGN_KIT_BLOCK_MODULES) {
+    assert.ok(!seen.has(mod), `Duplicate block: ${mod}`);
+    seen.add(mod);
+    const meta = DESIGN_KIT_BLOCK_META[mod];
+    assert.ok(meta, `Missing DESIGN_KIT_BLOCK_META.${mod}`);
+    assert.ok(
+      (DESIGN_KIT_BLOCK_FAMILIES as readonly string[]).includes(meta.family),
+      `Unknown block family ${meta.family} on ${mod}`,
+    );
+    const stem = previewStemForBlock(mod);
+    assert.ok(
+      kitPreviews.includes(stem),
+      `Missing previews/kit/${stem}.preview.tsx for block ${mod}`,
     );
   }
 });
 
 test("retired names are not rail leaves", () => {
   const primitiveSet = new Set<string>(DESIGN_KIT_PRIMITIVE_MODULES);
-  const kitSet = new Set<string>(DESIGN_KIT_KIT_MODULES);
+  const componentSet = new Set<string>(DESIGN_KIT_COMPONENT_MODULES);
+  const blockSet = new Set<string>(DESIGN_KIT_BLOCK_MODULES);
 
   for (const name of DESIGN_KIT_RETIRED_PRIMITIVES) {
     assert.ok(
@@ -112,30 +142,53 @@ test("retired names are not rail leaves", () => {
   }
   for (const name of DESIGN_KIT_RETIRED_KIT_LEAVES) {
     assert.ok(
-      !kitSet.has(name),
+      !componentSet.has(name) && !blockSet.has(name),
       `Retired kit leaf ${name} must not be a rail leaf`,
     );
   }
 });
 
-test("primitives and kit group helpers cover every module", () => {
+test("primitives, components, and blocks group helpers cover every module", () => {
   const p = primitivesByFamily();
-  const k = kitByFamily();
+  const c = componentsByFamily();
+  const b = blocksByFamily();
   assert.equal(
     Object.values(p).flat().length,
     DESIGN_KIT_PRIMITIVE_MODULES.length,
   );
-  assert.equal(Object.values(k).flat().length, DESIGN_KIT_KIT_MODULES.length);
+  assert.equal(
+    Object.values(c).flat().length,
+    DESIGN_KIT_COMPONENT_MODULES.length,
+  );
+  assert.equal(Object.values(b).flat().length, DESIGN_KIT_BLOCK_MODULES.length);
 });
 
-test("kit absorbs lists do not collide with rail ids", () => {
-  const kitSet = new Set<string>(DESIGN_KIT_KIT_MODULES);
-  for (const mod of DESIGN_KIT_KIT_MODULES) {
-    for (const absorbed of DESIGN_KIT_KIT_META[mod].absorbs ?? []) {
+test("component and block absorbs lists do not collide with rail ids", () => {
+  const rail = new Set<string>([
+    ...DESIGN_KIT_COMPONENT_MODULES,
+    ...DESIGN_KIT_BLOCK_MODULES,
+  ]);
+  for (const mod of DESIGN_KIT_COMPONENT_MODULES) {
+    for (const absorbed of DESIGN_KIT_COMPONENT_META[mod].absorbs ?? []) {
       assert.ok(
-        !kitSet.has(absorbed) || absorbed === mod,
-        `Absorbed name ${absorbed} collides with kit rail leaf`,
+        !rail.has(absorbed) || absorbed === mod,
+        `Absorbed name ${absorbed} collides with rail leaf`,
       );
     }
   }
+  for (const mod of DESIGN_KIT_BLOCK_MODULES) {
+    for (const absorbed of DESIGN_KIT_BLOCK_META[mod].absorbs ?? []) {
+      assert.ok(
+        !rail.has(absorbed) || absorbed === mod,
+        `Absorbed name ${absorbed} collides with rail leaf`,
+      );
+    }
+  }
+});
+
+test("component and block rails do not share module ids", () => {
+  const overlap = DESIGN_KIT_COMPONENT_MODULES.filter((mod) =>
+    (DESIGN_KIT_BLOCK_MODULES as readonly string[]).includes(mod),
+  );
+  assert.deepEqual(overlap, []);
 });

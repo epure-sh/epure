@@ -25,16 +25,24 @@ import {
   alerts,
   buildEvents,
   buildIssues,
+  buildMergedChildIssues,
   dsnKeys,
+  ingestOutcomesByProject,
   invitations,
+  ISSUE_MERGE_LINKS,
   me,
   members,
+  noisePolicies,
+  ORG_ID,
+  PROJECT_API,
+  PROJECT_WEB,
   projects,
   releases,
   setupProgress,
   setupProgressPending,
   webhooks,
 } from "./fixtures/seed";
+import type { NoisePolicy } from "../src/lib/api";
 
 type MockIssue = IssueSummary & { merge_parent_id?: string };
 
@@ -112,7 +120,7 @@ function mockCheckIns(
     id: `${monitorId}_ci_${index}`,
     monitor_id: monitorId,
     project_id: projectId,
-    org_id: "org",
+    org_id: ORG_ID,
     check_in_id: `chk_${index}`,
     status: row.status,
     duration_ms: row.duration_ms,
@@ -124,45 +132,56 @@ function mockCheckIns(
   }));
 }
 
+function monitorRow(
+  partial: Omit<MonitorItem, "org_id" | "created_at" | "updated_at" | "failure_issue_threshold"> & {
+    failure_issue_threshold?: number;
+    recent_check_ins?: MonitorItem["recent_check_ins"];
+  },
+): MonitorItem {
+  const now = new Date().toISOString();
+  return {
+    org_id: ORG_ID,
+    failure_issue_threshold: 1,
+    created_at: now,
+    updated_at: now,
+    ...partial,
+  };
+}
+
 const INITIAL_MOCK_MONITORS: MonitorItem[] = [
-  {
+  monitorRow({
     id: "mon_nightly",
-    org_id: "org",
-    project_id: projects[0]?.id ?? "acme-web",
+    project_id: PROJECT_WEB,
     slug: "nightly-backup",
     name: "Nightly Stripe Payouts",
     schedule: "0 2 * * *",
     schedule_type: "crontab",
-    timezone: "Europe/Paris",
-    status: "ok" as const,
-    last_check_in_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+    timezone: "UTC",
+    status: "ok",
+    last_check_in_at: new Date(Date.now() - 90 * 60_000).toISOString(),
     last_duration_ms: 1240,
-    next_check_in_at: new Date(Date.now() + 23 * 3600_000).toISOString(),
+    next_check_in_at: new Date(Date.now() + 22 * 3600_000).toISOString(),
     environment: "production",
     checkin_margin_mins: 5,
     max_runtime_mins: 30,
-    failure_issue_threshold: 1,
     paused: false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    recent_check_ins: mockCheckIns("mon_nightly", projects[0]?.id ?? "acme-web", [
+    recent_check_ins: mockCheckIns("mon_nightly", PROJECT_WEB, [
       { status: "ok", duration_ms: 1100, hoursAgo: 72 },
       { status: "ok", duration_ms: 1400, hoursAgo: 48 },
       { status: "error", duration_ms: 4100, hoursAgo: 24 },
       { status: "ok", duration_ms: 1240, hoursAgo: 1 },
     ]),
-  },
-  {
+  }),
+  monitorRow({
     id: "mon_billing",
-    org_id: "org",
-    project_id: projects[0]?.id ?? "acme-web",
+    project_id: PROJECT_WEB,
     slug: "billing-sync",
     name: "Billing Sync",
     schedule: "every 15 minute",
     schedule_type: "interval",
     timezone: "UTC",
-    status: "missed" as const,
-    last_check_in_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    status: "missed",
+    last_check_in_at: new Date(Date.now() - 3 * 3600_000).toISOString(),
     last_duration_ms: 820,
     next_check_in_at: new Date(Date.now() - 10 * 60_000).toISOString(),
     environment: "production",
@@ -170,14 +189,137 @@ const INITIAL_MOCK_MONITORS: MonitorItem[] = [
     max_runtime_mins: 15,
     failure_issue_threshold: 2,
     paused: false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    recent_check_ins: mockCheckIns("mon_billing", projects[0]?.id ?? "acme-web", [
+    recent_check_ins: mockCheckIns("mon_billing", PROJECT_WEB, [
       { status: "ok", duration_ms: 700, hoursAgo: 4 },
       { status: "ok", duration_ms: 820, hoursAgo: 3.5 },
       { status: "missed", duration_ms: 0, hoursAgo: 3 },
     ]),
-  },
+  }),
+  monitorRow({
+    id: "mon_stripe_reconcile",
+    project_id: PROJECT_WEB,
+    slug: "stripe-reconcile",
+    name: "Stripe reconcile",
+    schedule: "0 3 * * *",
+    schedule_type: "crontab",
+    timezone: "UTC",
+    status: "error",
+    last_check_in_at: new Date(Date.now() - 20 * 3600_000).toISOString(),
+    last_duration_ms: 0,
+    next_check_in_at: new Date(Date.now() + 4 * 3600_000).toISOString(),
+    environment: "production",
+    checkin_margin_mins: 10,
+    max_runtime_mins: 60,
+    paused: false,
+    recent_check_ins: mockCheckIns("mon_stripe_reconcile", PROJECT_WEB, [
+      { status: "ok", duration_ms: 12000, hoursAgo: 48 },
+      { status: "error", duration_ms: 0, hoursAgo: 20 },
+    ]),
+  }),
+  monitorRow({
+    id: "mon_session_gc",
+    project_id: PROJECT_WEB,
+    slug: "session-gc",
+    name: "Session garbage collect",
+    schedule: "*/15 * * * *",
+    schedule_type: "crontab",
+    timezone: "UTC",
+    status: "in_progress",
+    last_check_in_at: new Date(Date.now() - 2 * 60_000).toISOString(),
+    last_duration_ms: null,
+    next_check_in_at: new Date(Date.now() + 13 * 60_000).toISOString(),
+    environment: "production",
+    checkin_margin_mins: 5,
+    max_runtime_mins: 10,
+    paused: false,
+    recent_check_ins: mockCheckIns("mon_session_gc", PROJECT_WEB, [
+      { status: "ok", duration_ms: 900, hoursAgo: 1 },
+      { status: "in_progress", duration_ms: 0, hoursAgo: 0.03 },
+    ]),
+  }),
+  monitorRow({
+    id: "mon_staging_warmup",
+    project_id: PROJECT_WEB,
+    slug: "staging-warmup",
+    name: "Staging warmup",
+    schedule: "0 9 * * 1-5",
+    schedule_type: "crontab",
+    timezone: "UTC",
+    status: "ok",
+    last_check_in_at: new Date(Date.now() - 24 * 3600_000).toISOString(),
+    last_duration_ms: 8000,
+    next_check_in_at: null,
+    environment: "staging",
+    checkin_margin_mins: 5,
+    max_runtime_mins: 15,
+    paused: true,
+    recent_check_ins: mockCheckIns("mon_staging_warmup", PROJECT_WEB, [
+      { status: "ok", duration_ms: 8000, hoursAgo: 24 },
+    ]),
+  }),
+  monitorRow({
+    id: "mon_cdn_purge",
+    project_id: PROJECT_WEB,
+    slug: "cdn-purge-audit",
+    name: "CDN purge audit",
+    schedule: "0 */12 * * *",
+    schedule_type: "crontab",
+    timezone: "UTC",
+    status: "timeout",
+    last_check_in_at: new Date(Date.now() - 12 * 3600_000).toISOString(),
+    last_duration_ms: 1_900_000,
+    next_check_in_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+    environment: "production",
+    checkin_margin_mins: 5,
+    max_runtime_mins: 20,
+    paused: false,
+    recent_check_ins: mockCheckIns("mon_cdn_purge", PROJECT_WEB, [
+      { status: "ok", duration_ms: 40000, hoursAgo: 36 },
+      { status: "timeout", duration_ms: 1_900_000, hoursAgo: 12 },
+    ]),
+  }),
+  monitorRow({
+    id: "mon_orders_outbox",
+    project_id: PROJECT_API,
+    slug: "orders-outbox-drain",
+    name: "Orders outbox drain",
+    schedule: "every 5 minutes",
+    schedule_type: "interval",
+    timezone: "UTC",
+    status: "ok",
+    last_check_in_at: new Date(Date.now() - 4 * 60_000).toISOString(),
+    last_duration_ms: 1200,
+    next_check_in_at: new Date(Date.now() + 60_000).toISOString(),
+    environment: "production",
+    checkin_margin_mins: 2,
+    max_runtime_mins: 5,
+    paused: false,
+    recent_check_ins: mockCheckIns("mon_orders_outbox", PROJECT_API, [
+      { status: "ok", duration_ms: 1100, hoursAgo: 1 },
+      { status: "ok", duration_ms: 1200, hoursAgo: 0.08 },
+    ]),
+  }),
+  monitorRow({
+    id: "mon_inventory_sync",
+    project_id: PROJECT_API,
+    slug: "inventory-sync",
+    name: "Inventory sync",
+    schedule: "0 * * * *",
+    schedule_type: "crontab",
+    timezone: "UTC",
+    status: "missed",
+    last_check_in_at: new Date(Date.now() - 2 * 3600_000).toISOString(),
+    last_duration_ms: 60000,
+    next_check_in_at: new Date(Date.now() - 10 * 60_000).toISOString(),
+    environment: "production",
+    checkin_margin_mins: 5,
+    max_runtime_mins: 30,
+    paused: false,
+    recent_check_ins: mockCheckIns("mon_inventory_sync", PROJECT_API, [
+      { status: "ok", duration_ms: 55000, hoursAgo: 4 },
+      { status: "missed", duration_ms: 0, hoursAgo: 2 },
+    ]),
+  }),
 ];
 
 let mockMonitors: MonitorItem[] = clone(INITIAL_MOCK_MONITORS);
@@ -185,6 +327,7 @@ let teamMembers: MemberRow[] = clone(members);
 let teamInvitations: InvitationRow[] = clone(invitations);
 let mockProjects: ProjectRow[] = clone(projects);
 let mockDsnKeys: DsnKeyRow[] = clone(dsnKeys);
+let mockNoisePolicies: Record<string, NoisePolicy> = clone(noisePolicies);
 let setupByProject = new Map<string, SetupProgress>();
 
 function blankSetup(projectId: string): SetupProgress {
@@ -223,15 +366,24 @@ function getSetup(projectId: string): SetupProgress {
 }
 
 function createStore(): MockStore {
+  const mergeParents = new Map<string, string[]>();
+  for (const link of ISSUE_MERGE_LINKS) {
+    const existing = mergeParents.get(link.parentId) ?? [];
+    mergeParents.set(link.parentId, [...existing, link.childId]);
+  }
+  const childIssues = buildMergedChildIssues().map((issue) => ({
+    ...issue,
+    merge_parent_id: issue.merge_parent_id,
+  }));
   return {
-    issues: clone(buildIssues()),
+    issues: [...clone(buildIssues()), ...clone(childIssues)],
     events: clone(buildEvents()),
     setup: clone(setupProgress),
     webhooks: clone(webhooks),
     alerts: clone(alerts),
     alertRules: clone(alertRules),
     alertChannels: clone(alertChannels),
-    mergeParents: new Map(),
+    mergeParents,
   };
 }
 
@@ -245,6 +397,7 @@ function resetStore(): void {
   setupByProject.set(setupProgress.project_id, clone(setupProgress));
   setupByProject.set(setupProgressPending.project_id, clone(setupProgressPending));
   mockMonitors = clone(INITIAL_MOCK_MONITORS);
+  mockNoisePolicies = clone(noisePolicies);
 }
 
 function issueById(id: string): MockIssue | undefined {
@@ -860,6 +1013,30 @@ function handleGet(path: string, url: URL): Response {
     });
   }
 
+  const noisePolicyMatch = path.match(/^\/api\/v1\/projects\/([^/]+)\/noise-policy$/);
+  if (noisePolicyMatch) {
+    const projectId = noisePolicyMatch[1];
+    return jsonResponse(
+      mockNoisePolicies[projectId] ?? {
+        extensions: false,
+        crawlers: false,
+        localhost: false,
+        legacy_browsers: false,
+        resize_observer: false,
+        chunk_load: false,
+        message_patterns: [],
+      },
+    );
+  }
+
+  const ingestOutcomesMatch = path.match(/^\/api\/v1\/projects\/([^/]+)\/ingest-outcomes$/);
+  if (ingestOutcomesMatch) {
+    const projectId = ingestOutcomesMatch[1];
+    return jsonResponse(
+      ingestOutcomesByProject[projectId] ?? { window: "1h", reasons: [] },
+    );
+  }
+
   if (path === "/api/v1/monitors") {
     const projectId = url.searchParams.get("project_id") ?? "";
     return jsonResponse({
@@ -974,6 +1151,27 @@ async function handlePatch(path: string, init: RequestInit): Promise<Response> {
     }
     if (typeof body.label === "string" && body.label.trim()) {
       channel.label = body.label.trim();
+    }
+    if (typeof body.project_id === "string" && body.project_id.trim()) {
+      channel.project_id = body.project_id.trim();
+    }
+    if (body.config && typeof body.config === "object") {
+      const next = { ...(channel.config ?? {}) };
+      if (typeof body.config.url === "string" && body.config.url.trim()) {
+        const url = body.config.url.trim();
+        next.destination_preview = url.replace(/^(https?:\/\/[^/?#]+).*/i, "$1/…");
+      }
+      if (Array.isArray(body.config.recipients)) {
+        next.recipients = body.config.recipients
+          .filter((email: unknown): email is string => typeof email === "string")
+          .map((email: string) => email.trim().toLowerCase())
+          .filter(Boolean);
+      }
+      if (typeof body.config.chat_id === "string" && body.config.chat_id.trim()) {
+        next.chat_id = body.config.chat_id.trim();
+        next.destination_preview = next.chat_id;
+      }
+      channel.config = next;
     }
     return jsonResponse(channel);
   }
@@ -1146,6 +1344,27 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
       store.setup.complete = true;
     }
     return jsonResponse({ event_id: crypto.randomUUID(), accepted: true }, 202);
+  }
+
+  const noisePreviewMatch = path.match(/^\/api\/v1\/projects\/([^/]+)\/noise-policy\/preview$/);
+  if (noisePreviewMatch) {
+    const sample = String(body.sample ?? "");
+    const policy = mockNoisePolicies[noisePreviewMatch[1]];
+    if (policy?.resize_observer && /ResizeObserver/i.test(sample)) {
+      return jsonResponse({
+        suppressed: true,
+        rule: "resize_observer",
+        detail: "Matched ResizeObserver noise preset",
+      });
+    }
+    if (policy?.message_patterns?.some((pattern) => sample.includes(pattern))) {
+      return jsonResponse({
+        suppressed: true,
+        rule: "message_pattern",
+        detail: "Matched custom message pattern",
+      });
+    }
+    return jsonResponse({ suppressed: false, rule: null, detail: null });
   }
 
   const snoozeMatch = path.match(/^\/api\/v1\/issues\/([^/]+)\/snooze$/);
@@ -1408,6 +1627,15 @@ async function handlePost(path: string, init: RequestInit, url: URL): Promise<Re
 
   const revokeRoute = path.match(/^\/api\/v1\/dsn-keys\/([^/]+)\/revoke$/);
   if (revokeRoute) {
+    const id = revokeRoute[1];
+    const now = new Date().toISOString();
+    let found = false;
+    mockDsnKeys = mockDsnKeys.map((row) => {
+      if (row.id !== id) return row;
+      found = true;
+      return { ...row, revoked_at: row.revoked_at ?? now };
+    });
+    if (!found) return jsonResponse({ error: "not found" }, 404);
     return jsonResponse({ revoked: true });
   }
 
@@ -1592,10 +1820,35 @@ async function mockFetch(
   if (method === "POST") {
     return handlePost(url.pathname, init ?? {}, url);
   }
+  if (method === "PUT") {
+    return handlePut(url.pathname, init ?? {});
+  }
   if (method === "DELETE") {
     return handleDelete(url.pathname, init ?? {});
   }
 
+  return jsonResponse({ error: "method not allowed" }, 405);
+}
+
+async function handlePut(path: string, init: RequestInit): Promise<Response> {
+  const body = init.body ? JSON.parse(String(init.body)) : {};
+  const noisePolicyMatch = path.match(/^\/api\/v1\/projects\/([^/]+)\/noise-policy$/);
+  if (noisePolicyMatch) {
+    const projectId = noisePolicyMatch[1];
+    const next: NoisePolicy = {
+      extensions: Boolean(body.extensions),
+      crawlers: Boolean(body.crawlers),
+      localhost: Boolean(body.localhost),
+      legacy_browsers: Boolean(body.legacy_browsers),
+      resize_observer: Boolean(body.resize_observer),
+      chunk_load: Boolean(body.chunk_load),
+      message_patterns: Array.isArray(body.message_patterns)
+        ? body.message_patterns.map(String)
+        : [],
+    };
+    mockNoisePolicies[projectId] = next;
+    return jsonResponse(next);
+  }
   return jsonResponse({ error: "method not allowed" }, 405);
 }
 

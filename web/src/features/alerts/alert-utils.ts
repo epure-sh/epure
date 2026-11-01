@@ -65,8 +65,8 @@ export const ALERT_VIEW_MODES: {
   },
   {
     value: "unread",
-    label: "Unresolved",
-    description: "Alerts waiting for review",
+    label: "Needs action",
+    description: "Unread alerts waiting for review",
   },
   {
     value: "resolved",
@@ -75,8 +75,8 @@ export const ALERT_VIEW_MODES: {
   },
   {
     value: "ignored",
-    label: "Snoozed",
-    description: "Snoozed for this issue. No repeat notifications.",
+    label: "Ignored",
+    description: "Ignored for this issue. No repeat notifications.",
   },
 ];
 
@@ -754,7 +754,7 @@ export interface AlertTimestampPrecise {
 export function formatAlertTimestampPrecise(iso: string, nowMs: number = Date.now()): AlertTimestampPrecise {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) {
-    return { absolute: iso, relative: "—", isoSubline: null };
+    return { absolute: iso, relative: "-", isoSubline: null };
   }
   const hasMs = isoTimestampHasSubsecondPrecision(iso);
   const absolute = date.toLocaleString(undefined, {
@@ -1204,7 +1204,7 @@ export function getAlertTriggerExplanation(alert?: AlertRow | null): string {
 export function getAlertOpenDurationLabel(alert: AlertRow, nowMs: number = Date.now()): string {
   const firedMs = new Date(alert.fired_at).getTime();
   if (!Number.isFinite(firedMs)) {
-    return "—";
+    return "-";
   }
   const minutes = Math.max(1, Math.round((nowMs - firedMs) / 60_000));
   if (minutes < 60) {
@@ -1621,11 +1621,11 @@ export function getAlertReadState(alert?: AlertRow | null): AlertReadState {
 export function getAlertReadStateLabel(alert?: AlertRow | null): string {
   switch (getAlertReadState(alert)) {
     case "unread":
-      return "Unread";
+      return "Needs action";
     case "read":
       return "Resolved";
     case "muted":
-      return "Snoozed";
+      return "Ignored";
   }
 }
 
@@ -1804,13 +1804,12 @@ export function getAlertSignalState(alert: AlertRow, nowMs: number = Date.now())
 export function getAlertSignalStateLabel(state: AlertSignalState): string {
   switch (state) {
     case "firing":
-      return "Firing";
     case "fired":
-      return "Fired";
+      return "Needs action";
     case "acknowledged":
       return "Resolved";
     case "muted":
-      return "Snoozed";
+      return "Ignored";
   }
 }
 
@@ -1932,11 +1931,11 @@ function getAlertDayGroupKey(firedAt?: string | null): string {
 
 export function formatAlertListTime(iso?: string | null, now = Date.now()): string {
   if (!iso) {
-    return "—";
+    return "-";
   }
   const timestamp = new Date(iso).getTime();
   if (Number.isNaN(timestamp)) {
-    return "—";
+    return "-";
   }
 
   const todayStart = startOfLocalDay(now);

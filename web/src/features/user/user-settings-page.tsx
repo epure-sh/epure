@@ -2,7 +2,7 @@ import { Key, Laptop, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 import { cn } from "../../lib/cn";
 import { userSettingsPath } from "../../lib/paths";
-import { RouteErrorBoundary } from "../../ui/route-error-boundary";
+import { RouteErrorBoundary } from "@/ui/block";
 import { AgentTokensTab } from "../org/account/agent-tokens-tab";
 import { ConnectedAppsTab } from "../org/account/connected-apps-tab";
 import { GeneralTab } from "../org/account/general-tab";

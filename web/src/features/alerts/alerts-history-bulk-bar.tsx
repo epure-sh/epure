@@ -1,7 +1,7 @@
 import { BellOff, BellRing, Check, Eye, RotateCcw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { ActionButton } from "@/ui/action-button";
+import { ActionButton } from "@/ui/components";
 import { cn } from "@/lib/utils";
 import type { BulkAlertAvailability } from "./alert-bulk-utils";
 
@@ -95,11 +95,11 @@ export function AlertsHistoryBulkBar({
             variant="ghost"
             size="sm"
             disabled={busy}
-            tooltip={busyTip ?? "Snooze"}
+            tooltip={busyTip ?? "Ignore"}
             onClick={onSnooze}
           >
             <BellOff className="size-3.5" aria-hidden />
-            <span>Snooze</span>
+            <span>Ignore</span>
           </ActionButton>
         ) : null}
 
@@ -108,11 +108,11 @@ export function AlertsHistoryBulkBar({
             variant="ghost"
             size="sm"
             disabled={busy}
-            tooltip={busyTip ?? "Unsnooze"}
+            tooltip={busyTip ?? "Unignore"}
             onClick={onUnsnooze}
           >
             <BellRing className="size-3.5" aria-hidden />
-            <span>Unsnooze</span>
+            <span>Unignore</span>
           </ActionButton>
         ) : null}
 

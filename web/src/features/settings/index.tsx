@@ -1,8 +1,7 @@
 import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { projectAlertRulesPath, projectPath, projectSettingsPath } from "../../lib/paths";
-import { NotFoundState } from "../../ui/error-state";
-import { PageShell } from "@/components/kit/page-shell";
-import { RouteErrorBoundary } from "../../ui/route-error-boundary";
+import { NotFoundState } from "@/ui/components";
+import { PageShell, ProjectPageTitle, RouteErrorBoundary } from "@/ui/block";
 import { DsnKeysSettings } from "./dsn-keys";
 import { ProjectGeneralSettings } from "./project-general";
 import { ProjectPrivacySettings } from "./project-privacy";
@@ -13,6 +12,9 @@ export function SettingsPage() {
 
   return (
     <PageShell density="full-bleed">
+      <div className="epure-page-gutter-x shrink-0 pt-4 pb-1">
+        <ProjectPageTitle title="Settings" />
+      </div>
       <div className="min-h-0 flex-1 overflow-auto epure-page-gutter-x py-5">
         <RouteErrorBoundary title="Settings crashed" backHref={projectId ? projectPath(projectId, "issues") : "/"}>
           <Routes>

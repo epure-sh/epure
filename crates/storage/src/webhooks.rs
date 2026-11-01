@@ -199,6 +199,52 @@ pub async fn rotate_signing_secret(
     }))
 }
 
+pub async fn update_webhook_url(
+    pool: &PgPool,
+    org_id: Uuid,
+    webhook_id: Uuid,
+    url: &str,
+) -> Result<Option<WebhookRow>, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let row = sqlx::query_as::<_, WebhookRow>(
+        r#"
+        UPDATE webhooks
+        SET url = $2
+        WHERE id = $1
+        RETURNING id, project_id, url, format, events, secret_prefix, created_at
+        "#,
+    )
+    .bind(webhook_id)
+    .bind(url)
+    .fetch_optional(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
+pub async fn update_webhook_project(
+    pool: &PgPool,
+    org_id: Uuid,
+    webhook_id: Uuid,
+    project_id: Uuid,
+) -> Result<Option<WebhookRow>, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let row = sqlx::query_as::<_, WebhookRow>(
+        r#"
+        UPDATE webhooks
+        SET project_id = $2
+        WHERE id = $1
+        RETURNING id, project_id, url, format, events, secret_prefix, created_at
+        "#,
+    )
+    .bind(webhook_id)
+    .bind(project_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
 pub async fn update_events(
     pool: &PgPool,
     org_id: Uuid,

@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
-import { ErrorState, NotFoundState } from "../ui/error-state";
-import { RouteErrorBoundary } from "../ui/route-error-boundary";
-import { Skeleton } from "../ui/skeleton";
+import { ErrorState, NotFoundState } from "@/ui/components";
+import { RouteErrorBoundary } from "@/ui/block";
+import { Skeleton } from "@/ui/primitives";
 import { useAppContext } from "./app-context";
 
 /** Syncs URL `:projectId` into app context; guards invalid project ids and resolves slugs. */
@@ -75,9 +75,11 @@ export function ProjectScope() {
   }
 
   return (
-    <div className="h-full min-h-0">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <RouteErrorBoundary title="Project page crashed" backHref="/">
-        <Outlet />
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <Outlet />
+        </div>
       </RouteErrorBoundary>
     </div>
   );

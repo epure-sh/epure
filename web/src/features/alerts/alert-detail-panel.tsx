@@ -1,26 +1,19 @@
 import type { ReactNode } from "react";
-import {
-  BellOff,
-  BellRing,
-  Check,
-  Pencil,
-  RotateCcw,
-  Sparkles,
-} from "lucide-react";
+import { BellOff, BellRing, Check, Pencil, RotateCcw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Box } from "@polar-sh/orbit/Box";
 import { Text } from "@polar-sh/orbit/Text";
 import type { AlertRow } from "../../lib/api";
 import { projectIssuePath } from "../../lib/paths";
 import { cn } from "../../lib/cn";
-import { ActionButton } from "@/ui/action-button";
+import { ActionButton, Card } from "@/ui/components";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Icon, ArrowSquareOut, CaretLeft, Bell } from "@/components/ui/icon";
-import { DETAIL_INLINE_ACTION_CLASS } from "@/ui/issue-detail-tabs";
 import { toast } from "@/components/ui/sonner";
 import { copyAlertExport } from "./export-markdown";
-import { Card } from "@/ui/card";
 import { AlertExecutionPipeline } from "@/components/kit/alert-execution-pipeline";
+import { CopyForAgentsButton } from "@/components/kit/copy-for-agents-button";
 import {
   Table,
   TableBody,
@@ -168,7 +161,7 @@ export function AlertDetailPanel({
     return (
       <div
         className={cn(
-          "flex min-h-0 flex-1 flex-col items-center justify-center bg-surface-1 p-8 text-center",
+          "flex min-h-0 flex-1 flex-col items-center justify-center rounded-lg bg-surface-1 p-8 text-center",
           className,
         )}
       >
@@ -194,16 +187,16 @@ export function AlertDetailPanel({
           <span className="text-fg-muted/40">·</span>
           <span className="flex items-center gap-1">
             <kbd className="rounded border border-border-subtle bg-surface-1 px-1.5 py-0.5 font-medium text-fg-secondary">
-              E
+              C
             </kbd>
-            <span className="ml-0.5 text-fg-muted">Resolve</span>
+            <span className="ml-0.5 text-fg-muted">Copy for agent</span>
           </span>
           <span className="text-fg-muted/40">·</span>
           <span className="flex items-center gap-1">
             <kbd className="rounded border border-border-subtle bg-surface-1 px-1.5 py-0.5 font-medium text-fg-secondary">
               M
             </kbd>
-            <span className="ml-0.5 text-fg-muted">Snooze</span>
+            <span className="ml-0.5 text-fg-muted">Ignore</span>
           </span>
         </div>
       </div>
@@ -219,11 +212,9 @@ export function AlertDetailPanel({
   const metricBlocks = getAlertMetricBlocks(alert);
   const relatedIssues = getAlertRelatedIssueRows(alert);
   const payloadOptions = getAlertPayloadOptions(alert);
-  const showCopy = alertActionEnabled(payloadOptions, "action:fix");
+  const showCopy = alertActionEnabled(payloadOptions, "action:copy");
   const showResolve = alertActionEnabled(payloadOptions, "action:resolve");
   const showMute = alertActionEnabled(payloadOptions, "action:mute");
-  const showOpenIssue = alertActionEnabled(payloadOptions, "action:view");
-  const environment = typeof payload.environment === "string" ? payload.environment : null;
   const kindChip =
     structured?.kindChip ||
     getAlertKindChipLabel(
@@ -231,152 +222,30 @@ export function AlertDetailPanel({
         ? payload.rule_kind
         : alert.kind,
     );
-  const primaryIssueId = relatedIssues[0]?.issueId ?? alert.issue_id ?? null;
+  const showEditRule = Boolean(canManageRules && editableRuleId && onEditRule);
 
   return (
     <div
       className={cn(
-        "@container @container/detail flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-1",
+        "@container @container/detail flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg bg-surface-1",
         className,
       )}
     >
-      <header className="shrink-0 border-b border-border-subtle bg-surface-1">
-        <div className="flex min-w-0 items-center justify-between gap-2 px-4 py-2 sm:px-6">
-          <div className="flex shrink-0 items-center gap-2 text-xs text-fg-muted font-mono">
-            {onBackToList ? (
-              <ActionButton
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-7 lg:hidden mr-1 shrink-0"
-                tooltip="Back to alerts"
-                aria-label="Back to alerts"
-                onClick={onBackToList}
-              >
-                <Icon icon={CaretLeft} size={14} aria-hidden />
-              </ActionButton>
-            ) : null}
-            <span className="text-fg-muted font-mono text-xs shrink-0">Signal</span>
-            {environment ? (
-              <>
-                <span className="text-fg-muted/40 shrink-0">/</span>
-                <Badge variant="env" size="compact" className="font-mono shrink-0">
-                  {environment}
-                </Badge>
-              </>
-            ) : null}
-          </div>
-
-          <div className="ml-auto flex shrink-0 items-center gap-1.5">
-            {showOpenIssue && primaryIssueId ? (
-              <ActionButton
-                variant="ghost"
-                size="sm"
-                className={cn(DETAIL_INLINE_ACTION_CLASS, "px-2 @2xl:px-2.5")}
-                tooltip="Open issue"
-                aria-label="Open issue"
-                asChild
-              >
-                <Link to={projectIssuePath(pid, primaryIssueId)}>
-                  <Icon icon={ArrowSquareOut} size={14} aria-hidden />
-                  <span className="hidden @2xl:inline">Open issue</span>
-                </Link>
-              </ActionButton>
-            ) : null}
-
-            {showCopy ? (
-              <ActionButton
-                variant="ghost"
-                size="sm"
-                className={cn(DETAIL_INLINE_ACTION_CLASS, "px-2 @2xl:px-2.5")}
-                disabled={busy}
-                tooltip="Copy a diagnostic brief for your coding agent (C)"
-                aria-label="Copy a diagnostic brief for your coding agent (C)"
-                onClick={() => {
-                  void copyAlertExport(alert, pid).then(() => toast("Copied alert brief for AI"));
-                }}
-              >
-                <Sparkles className="size-3.5" aria-hidden />
-                <span className="hidden @2xl:inline">Copy for agent</span>
-              </ActionButton>
-            ) : null}
-
-            {showResolve && lifecycle === "active" ? (
-              <ActionButton
-                variant="primary"
-                size="sm"
-                className={DETAIL_INLINE_ACTION_CLASS}
-                disabled={busy}
-                tooltip="Resolve (E)"
-                aria-label="Resolve"
-                onClick={onAcknowledge}
-              >
-                <Check className="size-3.5" aria-hidden />
-                <span>Resolve</span>
-              </ActionButton>
-            ) : null}
-
-            {lifecycle === "acknowledged" ? (
-              <ActionButton
-                variant="ghost"
-                size="sm"
-                className={DETAIL_INLINE_ACTION_CLASS}
-                disabled={busy}
-                tooltip="Mark unread"
-                aria-label="Mark unread"
-                onClick={onReopen}
-              >
-                <RotateCcw className="size-3.5" aria-hidden />
-                <span>Mark unread</span>
-              </ActionButton>
-            ) : null}
-
-            {showMute && lifecycle !== "muted" ? (
-              <ActionButton
-                variant="ghost"
-                size="icon"
-                className={DETAIL_INLINE_ACTION_CLASS}
-                disabled={busy}
-                tooltip="Snooze (M)"
-                aria-label="Snooze"
-                onClick={onMute}
-              >
-                <BellOff className="size-3.5" aria-hidden />
-              </ActionButton>
-            ) : null}
-
-            {showMute && lifecycle === "muted" ? (
-              <ActionButton
-                variant="ghost"
-                size="icon"
-                className={DETAIL_INLINE_ACTION_CLASS}
-                disabled={busy}
-                tooltip="Unsnooze (M)"
-                aria-label="Unsnooze"
-                onClick={onUnmute}
-              >
-                <BellRing className="size-3.5" aria-hidden />
-              </ActionButton>
-            ) : null}
-
-            {canManageRules && editableRuleId && onEditRule ? (
-              <ActionButton
-                type="button"
-                variant="ghost"
-                size="icon"
-                className={DETAIL_INLINE_ACTION_CLASS}
-                disabled={busy}
-                tooltip="Edit rule"
-                aria-label="Edit rule"
-                onClick={() => onEditRule(editableRuleId)}
-              >
-                <Pencil className="size-3.5" aria-hidden />
-              </ActionButton>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5 px-6 pb-5 pt-3">
+      <header className="shrink-0 rounded-t-lg border-b border-border-subtle bg-surface-1">
+        <div className="flex flex-wrap items-center gap-2.5 px-4 py-4 sm:px-6">
+          {onBackToList ? (
+            <ActionButton
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-7 shrink-0 lg:hidden"
+              tooltip="Back to alerts"
+              aria-label="Back to alerts"
+              onClick={onBackToList}
+            >
+              <Icon icon={CaretLeft} size={14} aria-hidden />
+            </ActionButton>
+          ) : null}
           <h2 className="min-w-0 break-words text-xl font-semibold leading-snug tracking-ui text-fg-primary md:text-2xl">
             {alertTitle}
           </h2>
@@ -390,70 +259,74 @@ export function AlertDetailPanel({
 
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-5 sm:p-6">
         {/*
-          Top band: left column = metrics grid + crash|request row;
-          right column = pipeline stretched to that full left height.
-          Below: full-width stack, then context grid + related issues.
+          Pipeline canvas first — full width, fixed band height (~former side column).
+          Everything else stacks underneath in reading order.
         */}
-        <div className="grid w-full min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] lg:items-stretch">
-          <div className="flex min-w-0 flex-col gap-3">
-            {metricBlocks.length > 0 ? (
-              <Box
-                data-slot="alert-metrics-grid"
-                borderRadius="s"
-                borderWidth={1}
-                borderStyle="solid"
-                borderColor="border-primary"
-                backgroundColor="background-primary"
-                overflow="hidden"
-                width="100%"
-              >
-                <Box
-                  display="grid"
-                  gridTemplateColumns={metricBlocks.length === 1 ? "1fr" : "1fr 1fr"}
-                  width="100%"
-                >
-                  {metricBlocks.map((cell, index) => {
-                    const cols = metricBlocks.length === 1 ? 1 : 2;
-                    const row = Math.floor(index / cols);
-                    const rows = Math.ceil(metricBlocks.length / cols);
-                    const showRight =
-                      cols === 2 && index % 2 === 0 && index + 1 < metricBlocks.length;
-                    const showBottom = row < rows - 1;
-                    return (
-                      <Box
-                        key={cell.key}
-                        paddingHorizontal="s"
-                        paddingVertical="s"
-                        flexDirection="column"
-                        rowGap="xs"
-                        justifyContent="between"
-                        minHeight={64}
-                        textAlign="left"
-                        backgroundColor="background-primary"
-                        borderRightWidth={showRight ? 1 : 0}
-                        borderBottomWidth={showBottom ? 1 : 0}
-                        borderStyle="solid"
-                        borderColor="border-primary"
-                      >
-                        <Text variant="caption" color="muted">
-                          {cell.label}
-                        </Text>
-                        <span className="truncate text-sm font-semibold tabular-nums tracking-tight text-fg-primary">
-                          {cell.value}
-                        </span>
-                        {cell.meta}
-                      </Box>
-                    );
-                  })}
-                </Box>
-              </Box>
-            ) : null}
-
-            <AlertDetailCrashRequestRow alert={alert} />
-          </div>
-
+        <div className="w-full min-w-0 shrink-0">
           <AlertExecutionPipeline alert={alert} webhookCount={webhookCount} />
         </div>
+
+        {metricBlocks.length > 0 ? (
+          <Box
+            data-slot="alert-metrics-grid"
+            borderRadius="s"
+            borderWidth={1}
+            borderStyle="solid"
+            borderColor="border-primary"
+            backgroundColor="background-primary"
+            overflow="hidden"
+            width="100%"
+            flexShrink={0}
+          >
+            <Box
+              display="grid"
+              gridTemplateColumns={
+                metricBlocks.length === 1
+                  ? "1fr"
+                  : metricBlocks.length === 2
+                    ? "1fr 1fr"
+                    : "repeat(2, minmax(0, 1fr))"
+              }
+              width="100%"
+            >
+              {metricBlocks.map((cell, index) => {
+                const cols = metricBlocks.length === 1 ? 1 : 2;
+                const row = Math.floor(index / cols);
+                const rows = Math.ceil(metricBlocks.length / cols);
+                const showRight =
+                  cols === 2 && index % 2 === 0 && index + 1 < metricBlocks.length;
+                const showBottom = row < rows - 1;
+                return (
+                  <Box
+                    key={cell.key}
+                    paddingHorizontal="s"
+                    paddingVertical="s"
+                    flexDirection="column"
+                    rowGap="xs"
+                    justifyContent="between"
+                    minHeight={64}
+                    textAlign="left"
+                    backgroundColor="background-primary"
+                    borderRightWidth={showRight ? 1 : 0}
+                    borderBottomWidth={showBottom ? 1 : 0}
+                    borderStyle="solid"
+                    borderColor="border-primary"
+                  >
+                    <Text variant="caption" color="muted">
+                      {cell.label}
+                    </Text>
+                    <span className="truncate text-sm font-semibold tabular-nums tracking-tight text-fg-primary">
+                      {cell.value}
+                    </span>
+                    {cell.meta}
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
+        ) : null}
+
+        <AlertDetailCrashRequestRow alert={alert} />
 
         <AlertDetailStackBlock alert={alert} />
 
@@ -491,13 +364,13 @@ export function AlertDetailPanel({
                     className="border-transparent hover:bg-surface-2/35"
                   >
                     <TableCell className="min-w-[10rem] whitespace-normal break-words px-3.5 py-2.5 text-xs text-fg-primary">
-                      {row.title ?? "—"}
+                      {row.title ?? "-"}
                     </TableCell>
                     <TableCell className="px-3 py-2.5 text-right font-mono text-xs tabular-nums text-fg-secondary">
-                      {row.events !== null ? row.events.toLocaleString() : "—"}
+                      {row.events !== null ? row.events.toLocaleString() : "-"}
                     </TableCell>
                     <TableCell className="px-3 py-2.5 text-right font-mono text-xs tabular-nums text-fg-secondary">
-                      {row.users !== null ? row.users.toLocaleString() : "—"}
+                      {row.users !== null ? row.users.toLocaleString() : "-"}
                     </TableCell>
                     <TableCell className="px-2 py-2.5 text-right">
                       <ActionButton
@@ -520,6 +393,87 @@ export function AlertDetailPanel({
           </Card>
         ) : null}
       </div>
+      <footer className="flex shrink-0 items-center justify-start gap-2 rounded-b-lg border-t border-border-subtle bg-surface-1 px-4 py-3 sm:px-6">
+        {showResolve && lifecycle === "active" ? (
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            className="h-8 gap-1.5 rounded-full"
+            disabled={busy}
+            aria-label="Resolve (E)"
+            onClick={onAcknowledge}
+          >
+            <Check className="size-3.5" aria-hidden />
+            <span>Resolve</span>
+          </Button>
+        ) : null}
+        {lifecycle === "acknowledged" ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 rounded-full border-border"
+            disabled={busy}
+            aria-label="Unresolve"
+            onClick={onReopen}
+          >
+            <RotateCcw className="size-3.5" aria-hidden />
+            <span>Unresolve</span>
+          </Button>
+        ) : null}
+        {showCopy ? (
+          <CopyForAgentsButton
+            disabled={busy}
+            title="Copy a diagnostic brief for your coding agent (C)"
+            onClick={() => {
+              void copyAlertExport(alert, pid).then(() => toast("Copied alert brief for AI"));
+            }}
+          />
+        ) : null}
+        {showMute && lifecycle !== "muted" ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 rounded-full"
+            disabled={busy}
+            aria-label="Ignore (M)"
+            onClick={onMute}
+          >
+            <BellOff className="size-3.5" aria-hidden />
+            <span>Ignore</span>
+          </Button>
+        ) : null}
+        {showMute && lifecycle === "muted" ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 rounded-full"
+            disabled={busy}
+            aria-label="Unignore (M)"
+            onClick={onUnmute}
+          >
+            <BellRing className="size-3.5" aria-hidden />
+            <span>Unignore</span>
+          </Button>
+        ) : null}
+        {showEditRule ? (
+          <ActionButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-8 shrink-0 rounded-full"
+            disabled={busy}
+            tooltip="Edit rule"
+            aria-label="Edit rule"
+            onClick={() => onEditRule?.(editableRuleId!)}
+          >
+            <Pencil className="size-3.5" aria-hidden />
+          </ActionButton>
+        ) : null}
+      </footer>
     </div>
   );
 }

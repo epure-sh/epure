@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/sonner";
+import { toastWithUndo } from "@/lib/toast-undo";
 import {
   AlertConditionFields,
   type AlertFirstSeenFilter,
@@ -38,6 +39,7 @@ import {
 } from "./alert-template-picker";
 import type { RuleKind } from "./alert-template-picker.types";
 import { AlertWizardRail, WizardStepBadge } from "./alert-wizard-rail";
+import { ApplyWithAiButton } from "@/ui/components";
 import {
   createAlertRule,
   deleteAlertRule,
@@ -367,6 +369,7 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
     setBusy(true);
     try {
       if (editing) {
+        const previous = editing;
         const updated = await updateAlertRule(editing.id, {
           name: trimmed,
           environment: environment.trim() || null,
@@ -374,7 +377,15 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
           filters_json,
         });
         setRules((rows) => rows.map((row) => (row.id === updated.id ? updated : row)));
-        toast.success("Alert updated");
+        toastWithUndo("Alert updated", async () => {
+          const restored = await updateAlertRule(previous.id, {
+            name: previous.name,
+            environment: previous.environment,
+            threshold: previous.threshold,
+            filters_json: previous.filters_json ?? {},
+          });
+          setRules((rows) => rows.map((row) => (row.id === restored.id ? restored : row)));
+        });
       } else {
         const created = await createAlertRule({
           project_id: projectId,
@@ -386,7 +397,13 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
           enabled: true,
         });
         setRules((rows) => [...rows, created]);
-        toast.success("Rule saved. Notifications use subscribed project webhooks.");
+        toastWithUndo(
+          "Rule saved. Notifications use subscribed project webhooks.",
+          async () => {
+            await deleteAlertRule(created.id);
+            setRules((rows) => rows.filter((row) => row.id !== created.id));
+          },
+        );
       }
       closeWizard();
     } catch {
@@ -401,6 +418,12 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
     setRules((rows) => rows.map((row) => (row.id === rule.id ? { ...row, enabled: next } : row)));
     try {
       await updateAlertRule(rule.id, { enabled: next });
+      toastWithUndo(next ? "Rule enabled" : "Rule paused", async () => {
+        setRules((rows) =>
+          rows.map((row) => (row.id === rule.id ? { ...row, enabled: !next } : row)),
+        );
+        await updateAlertRule(rule.id, { enabled: !next });
+      });
     } catch {
       setRules((rows) => rows.map((row) => (row.id === rule.id ? rule : row)));
       toast.error("Could not update the alert");
@@ -420,7 +443,10 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
         enabled: rule.enabled,
       });
       setRules((rows) => [...rows, created]);
-      toast.success("Rule duplicated");
+      toastWithUndo("Rule duplicated", async () => {
+        await deleteAlertRule(created.id);
+        setRules((rows) => rows.filter((row) => row.id !== created.id));
+      });
     } catch {
       toast.error("Could not duplicate the rule");
     } finally {
@@ -432,7 +458,18 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
     setRules((rows) => rows.filter((row) => row.id !== rule.id));
     try {
       await deleteAlertRule(rule.id);
-      toast.success("Rule deleted");
+      toastWithUndo("Rule deleted", async () => {
+        const restored = await createAlertRule({
+          project_id: projectId,
+          name: rule.name,
+          kind: rule.kind,
+          environment: rule.environment,
+          threshold: rule.threshold,
+          filters_json: rule.filters_json ?? {},
+          enabled: rule.enabled,
+        });
+        setRules((rows) => [...rows, restored]);
+      });
     } catch {
       setRules((rows) => [...rows, rule]);
       toast.error("Could not delete the rule");
@@ -449,7 +486,14 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
       setRules((rows) => rows.map((row) => (ids.includes(row.id) ? { ...row, enabled } : row)));
       try {
         await Promise.all(ids.map((id) => updateAlertRule(id, { enabled })));
-        toast.success(enabled ? "Rules enabled" : "Rules paused");
+        toastWithUndo(enabled ? "Rules enabled" : "Rules paused", async () => {
+          setRules(previous);
+          await Promise.all(
+            previous
+              .filter((row) => ids.includes(row.id))
+              .map((row) => updateAlertRule(row.id, { enabled: row.enabled })),
+          );
+        });
       } catch {
         setRules(previous);
         toast.error("Could not update rules");
@@ -470,7 +514,25 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
       setRules((rows) => rows.filter((row) => !ids.includes(row.id)));
       try {
         await Promise.all(ids.map((id) => deleteAlertRule(id)));
-        toast.success(`Deleted ${ids.length} rule${ids.length === 1 ? "" : "s"}`);
+        toastWithUndo(
+          `Deleted ${ids.length} rule${ids.length === 1 ? "" : "s"}`,
+          async () => {
+            const restored = await Promise.all(
+              removed.map((rule) =>
+                createAlertRule({
+                  project_id: projectId,
+                  name: rule.name,
+                  kind: rule.kind,
+                  environment: rule.environment,
+                  threshold: rule.threshold,
+                  filters_json: rule.filters_json ?? {},
+                  enabled: rule.enabled,
+                }),
+              ),
+            );
+            setRules((rows) => [...rows, ...restored]);
+          },
+        );
       } catch {
         setRules((rows) => [...rows, ...removed]);
         toast.error("Could not delete rules");
@@ -478,7 +540,7 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
         setBusy(false);
       }
     },
-    [rules],
+    [projectId, rules],
   );
 
   const visibleCustom = useMemo(() => {
@@ -633,7 +695,7 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
               });
               const lastIso =
                 lastTriggered[rule.id] ?? lastTriggered[rule.kind] ?? ruleLastTriggeredDemo(rule.id);
-              const lastLabel = lastIso ? formatRelativeTime(lastIso) : "—";
+              const lastLabel = lastIso ? formatRelativeTime(lastIso) : "-";
               return (
                 <li key={rule.id}>
                   <AlertRuleListRow
@@ -763,7 +825,7 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
             {!editing ? (
               <DialogDescription className="leading-snug">
                 {step === 1
-                  ? "Pick a starter pattern—thresholds and scope are prefilled; you can edit everything on the next step."
+                  ? "Pick a starter pattern. thresholds and scope are prefilled; you can edit everything on the next step."
                   : step === 2
                     ? "Define evaluation criteria, scope filters, and frequency."
                     : "Select notification destinations and review before arming."}
@@ -847,31 +909,49 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
             ) : (
               <span />
             )}
-            {editing ? (
-              step < 3 ? (
-                <Button variant="primary" size="sm" onClick={() => setStep(3)}>
+            <div className="flex items-center gap-2">
+              <ApplyWithAiButton
+                prompt={[
+                  "I'm creating an Epure alert rule. Help me pick a starter template and thresholds.",
+                  "",
+                  `Current template: ${template?.title ?? templateId}`,
+                  `Kind: ${kind}`,
+                  environment.trim() ? `Environment: ${environment.trim()}` : null,
+                  "",
+                  "Suggest the best template id and any scope/threshold edits for production error triage.",
+                ]
+                  .filter(Boolean)
+                  .join("\n")}
+                label={editing || step > 1 ? "Implement with agent" : "Ask agent"}
+                size="sm"
+                variant="secondary"
+              />
+              {editing ? (
+                step < 3 ? (
+                  <Button variant="primary" size="sm" onClick={() => setStep(3)}>
+                    Next
+                    <Icon icon={ArrowRight} size={14} aria-hidden />
+                  </Button>
+                ) : (
+                  <Button variant="primary" size="sm" disabled={busy} onClick={() => void save()}>
+                    {busy ? "Saving…" : "Save"}
+                  </Button>
+                )
+              ) : step < 3 ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => (step === 1 ? advanceFromTemplateStep() : setStep(3))}
+                >
                   Next
                   <Icon icon={ArrowRight} size={14} aria-hidden />
                 </Button>
               ) : (
                 <Button variant="primary" size="sm" disabled={busy} onClick={() => void save()}>
-                  {busy ? "Saving…" : "Save"}
+                  {busy ? "Creating…" : "Create"}
                 </Button>
-              )
-            ) : step < 3 ? (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => (step === 1 ? advanceFromTemplateStep() : setStep(3))}
-              >
-                Next
-                <Icon icon={ArrowRight} size={14} aria-hidden />
-              </Button>
-            ) : (
-              <Button variant="primary" size="sm" disabled={busy} onClick={() => void save()}>
-                {busy ? "Creating…" : "Create"}
-              </Button>
-            )}
+              )}
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

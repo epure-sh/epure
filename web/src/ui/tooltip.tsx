@@ -1,6 +1,1 @@
-export {
-  TooltipProvider,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip";
+export * from "./primitives/elements/tooltip";

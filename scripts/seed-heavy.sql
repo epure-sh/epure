@@ -106,3 +106,259 @@ VALUES (
     now() + interval '7 days'
 )
 ON CONFLICT (id) DO NOTHING;
+
+-- Cron monitors (aligned with register bootstrap + playground labels)
+INSERT INTO monitors (
+    id, project_id, org_id, slug, name, schedule, schedule_type, status,
+    last_check_in_at, last_duration_ms, environment, timezone,
+    checkin_margin_mins, max_runtime_mins, paused, next_check_in_at
+)
+VALUES
+    (
+        'a1000001-0000-4000-8000-000000000201',
+        '550e8400-e29b-41d4-a716-446655440000',
+        '11111111-1111-1111-1111-111111111111',
+        'nightly-backup', 'Nightly Stripe Payouts', '0 2 * * *', 'crontab', 'ok',
+        now() - interval '90 minutes', 1240, 'production', 'UTC',
+        5, 30, false, now() + interval '22 hours'
+    ),
+    (
+        'a1000001-0000-4000-8000-000000000202',
+        '550e8400-e29b-41d4-a716-446655440000',
+        '11111111-1111-1111-1111-111111111111',
+        'billing-sync', 'Billing Sync', 'every 15 minute', 'interval', 'missed',
+        now() - interval '3 hours', 820, 'production', 'UTC',
+        5, 15, false, now() - interval '10 minutes'
+    ),
+    (
+        'a1000001-0000-4000-8000-000000000203',
+        '550e8400-e29b-41d4-a716-446655440000',
+        '11111111-1111-1111-1111-111111111111',
+        'stripe-reconcile', 'Stripe reconcile', '0 3 * * *', 'crontab', 'error',
+        now() - interval '20 hours', 0, 'production', 'UTC',
+        10, 60, false, now() + interval '4 hours'
+    ),
+    (
+        'a1000001-0000-4000-8000-000000000204',
+        '550e8400-e29b-41d4-a716-446655440000',
+        '11111111-1111-1111-1111-111111111111',
+        'session-gc', 'Session garbage collect', '*/15 * * * *', 'crontab', 'in_progress',
+        now() - interval '2 minutes', NULL, 'production', 'UTC',
+        5, 10, false, now() + interval '13 minutes'
+    ),
+    (
+        'a1000001-0000-4000-8000-000000000205',
+        '550e8400-e29b-41d4-a716-446655440000',
+        '11111111-1111-1111-1111-111111111111',
+        'staging-warmup', 'Staging warmup', '0 9 * * 1-5', 'crontab', 'ok',
+        now() - interval '1 day', 8000, 'staging', 'UTC',
+        5, 15, true, NULL
+    ),
+    (
+        'a1000001-0000-4000-8000-000000000206',
+        '550e8400-e29b-41d4-a716-446655440000',
+        '11111111-1111-1111-1111-111111111111',
+        'cdn-purge-audit', 'CDN purge audit', '0 */12 * * *', 'crontab', 'timeout',
+        now() - interval '12 hours', 1900000, 'production', 'UTC',
+        5, 20, false, now() + interval '30 minutes'
+    ),
+    (
+        'a1000001-0000-4000-8000-000000000207',
+        '660e8400-e29b-41d4-a716-446655440001',
+        '11111111-1111-1111-1111-111111111111',
+        'orders-outbox-drain', 'Orders outbox drain', 'every 5 minutes', 'interval', 'ok',
+        now() - interval '4 minutes', 1200, 'production', 'UTC',
+        2, 5, false, now() + interval '1 minutes'
+    ),
+    (
+        'a1000001-0000-4000-8000-000000000208',
+        '660e8400-e29b-41d4-a716-446655440001',
+        '11111111-1111-1111-1111-111111111111',
+        'inventory-sync', 'Inventory sync', '0 * * * *', 'crontab', 'missed',
+        now() - interval '2 hours', 60000, 'production', 'UTC',
+        5, 30, false, now() - interval '10 minutes'
+    )
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    schedule = EXCLUDED.schedule,
+    schedule_type = EXCLUDED.schedule_type,
+    status = EXCLUDED.status,
+    last_check_in_at = EXCLUDED.last_check_in_at,
+    last_duration_ms = EXCLUDED.last_duration_ms,
+    environment = EXCLUDED.environment,
+    paused = EXCLUDED.paused,
+    next_check_in_at = EXCLUDED.next_check_in_at,
+    updated_at = now();
+
+DELETE FROM monitor_check_ins
+WHERE monitor_id IN (
+    SELECT id FROM monitors
+    WHERE project_id IN (
+        '550e8400-e29b-41d4-a716-446655440000',
+        '660e8400-e29b-41d4-a716-446655440001'
+    )
+);
+
+INSERT INTO monitor_check_ins (monitor_id, project_id, org_id, check_in_id, status, duration_ms, environment, created_at)
+SELECT
+    m.id,
+    m.project_id,
+    m.org_id,
+    'seed-ci-' || m.slug || '-' || g::text,
+    CASE WHEN g = 1 THEN 'ok' ELSE m.status END,
+    COALESCE(m.last_duration_ms, 1000),
+    m.environment,
+    now() - (g || ' hours')::interval
+FROM monitors m
+CROSS JOIN generate_series(1, 3) g
+WHERE m.project_id IN (
+    '550e8400-e29b-41d4-a716-446655440000',
+    '660e8400-e29b-41d4-a716-446655440001'
+);
+
+-- Alert channels + rules
+INSERT INTO alert_channels (id, org_id, project_id, provider, label, config, is_enabled)
+VALUES
+    (
+        'a1000001-0000-4000-8000-000000000301',
+        '11111111-1111-1111-1111-111111111111',
+        '550e8400-e29b-41d4-a716-446655440000',
+        'slack',
+        'Eng on-call',
+        '{"webhook_url":"https://hooks.slack.com/services/T000/B000/XXXX","channel":"#eng-oncall"}'::jsonb,
+        true
+    ),
+    (
+        'a1000001-0000-4000-8000-000000000302',
+        '11111111-1111-1111-1111-111111111111',
+        '550e8400-e29b-41d4-a716-446655440000',
+        'discord',
+        'Product alerts',
+        '{"webhook_url":"https://discord.com/api/webhooks/000/demo"}'::jsonb,
+        true
+    ),
+    (
+        'a1000001-0000-4000-8000-000000000303',
+        '11111111-1111-1111-1111-111111111111',
+        '660e8400-e29b-41d4-a716-446655440001',
+        'webhook',
+        'Pager relay',
+        '{"url":"https://hooks.acme-corp.com/epure"}'::jsonb,
+        true
+    )
+ON CONFLICT (id) DO UPDATE SET
+    label = EXCLUDED.label,
+    config = EXCLUDED.config,
+    is_enabled = EXCLUDED.is_enabled;
+
+INSERT INTO alert_rules (
+    id, org_id, project_id, name, enabled, kind, environment, threshold,
+    triggers, condition_match, conditions, channel_ids, cooldown_mins
+)
+VALUES
+    (
+        'a1000001-0000-4000-8000-000000000401',
+        '11111111-1111-1111-1111-111111111111',
+        '550e8400-e29b-41d4-a716-446655440000',
+        'New production errors', true, 'issue_created', 'production', NULL,
+        '[{"type":"issue_new"}]'::jsonb, 'all', '[]'::jsonb,
+        ARRAY['a1000001-0000-4000-8000-000000000301'::uuid], 30
+    ),
+    (
+        'a1000001-0000-4000-8000-000000000402',
+        '11111111-1111-1111-1111-111111111111',
+        '550e8400-e29b-41d4-a716-446655440000',
+        'Production regressions', true, 'regression', 'production', NULL,
+        '[{"type":"issue_new"}]'::jsonb, 'all',
+        '[{"field":"came_back","op":"is","value":"yes"}]'::jsonb,
+        ARRAY[
+            'a1000001-0000-4000-8000-000000000301'::uuid,
+            'a1000001-0000-4000-8000-000000000302'::uuid
+        ],
+        60
+    ),
+    (
+        'a1000001-0000-4000-8000-000000000403',
+        '11111111-1111-1111-1111-111111111111',
+        '550e8400-e29b-41d4-a716-446655440000',
+        'Production error spike', true, 'velocity_spike', 'production', 5,
+        '[{"type":"event_frequency"}]'::jsonb, 'all', '[]'::jsonb,
+        ARRAY['a1000001-0000-4000-8000-000000000301'::uuid], 30
+    ),
+    (
+        'a1000001-0000-4000-8000-000000000404',
+        '11111111-1111-1111-1111-111111111111',
+        '550e8400-e29b-41d4-a716-446655440000',
+        'New staging errors', false, 'issue_created', 'staging', NULL,
+        '[{"type":"issue_new"}]'::jsonb, 'all', '[]'::jsonb,
+        ARRAY['a1000001-0000-4000-8000-000000000302'::uuid], 120
+    ),
+    (
+        'a1000001-0000-4000-8000-000000000405',
+        '11111111-1111-1111-1111-111111111111',
+        '660e8400-e29b-41d4-a716-446655440001',
+        'New production errors', true, 'issue_created', 'production', NULL,
+        '[{"type":"issue_new"}]'::jsonb, 'all', '[]'::jsonb,
+        ARRAY['a1000001-0000-4000-8000-000000000303'::uuid], 30
+    )
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    enabled = EXCLUDED.enabled,
+    kind = EXCLUDED.kind,
+    environment = EXCLUDED.environment,
+    threshold = EXCLUDED.threshold,
+    channel_ids = EXCLUDED.channel_ids,
+    cooldown_mins = EXCLUDED.cooldown_mins;
+
+-- Noise policy + sample ingest outcomes
+INSERT INTO project_noise_policies (
+    project_id, org_id, extensions, crawlers, localhost, legacy_browsers,
+    resize_observer, chunk_load, message_patterns, updated_at
+)
+VALUES
+    (
+        '550e8400-e29b-41d4-a716-446655440000',
+        '11111111-1111-1111-1111-111111111111',
+        true, true, true, false, true, false,
+        '["ResizeObserver loop"]'::jsonb,
+        now()
+    ),
+    (
+        '660e8400-e29b-41d4-a716-446655440001',
+        '11111111-1111-1111-1111-111111111111',
+        false, false, false, false, false, false,
+        '[]'::jsonb,
+        now()
+    )
+ON CONFLICT (project_id) DO UPDATE SET
+    extensions = EXCLUDED.extensions,
+    crawlers = EXCLUDED.crawlers,
+    localhost = EXCLUDED.localhost,
+    resize_observer = EXCLUDED.resize_observer,
+    message_patterns = EXCLUDED.message_patterns,
+    updated_at = now();
+
+INSERT INTO ingest_outcomes (project_id, org_id, window_start, reason, count)
+VALUES
+    (
+        '550e8400-e29b-41d4-a716-446655440000',
+        '11111111-1111-1111-1111-111111111111',
+        date_trunc('hour', now()) - interval '1 hour',
+        'noise_resize_observer',
+        42
+    ),
+    (
+        '550e8400-e29b-41d4-a716-446655440000',
+        '11111111-1111-1111-1111-111111111111',
+        date_trunc('hour', now()) - interval '2 hours',
+        'noise_crawler',
+        11
+    ),
+    (
+        '550e8400-e29b-41d4-a716-446655440000',
+        '11111111-1111-1111-1111-111111111111',
+        date_trunc('hour', now()) - interval '3 hours',
+        'accepted',
+        180
+    )
+ON CONFLICT (project_id, window_start, reason) DO UPDATE SET count = EXCLUDED.count;

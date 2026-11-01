@@ -1,7 +1,7 @@
 // src/components/kit/ask-agent-card.tsx
 import * as React from "react";
-import { Button } from "@/components/ui/button";
-import { Sparkle, ArrowSquareOut, Check } from "@/components/ui/icon";
+import { Sparkle, ArrowSquareOut } from "@/components/ui/icon";
+import { CopyForAgentsButton } from "@/components/kit/copy-for-agents-button";
 import { cn } from "@/lib/utils";
 
 export interface AskAgentCardProps {
@@ -20,7 +20,7 @@ export function AskAgentCard({
   onAskAgent,
   docsUrl = "https://docs.epure.ai",
   title = "Copy a prompt for your AI agent",
-  description = "Pastes issue context into the clipboard for Cursor, Claude, or similar — Epure does not run an LLM here.",
+  description = "Pastes issue context into the clipboard for Cursor, Claude, or similar. Epure does not run an LLM here.",
   compact = false,
   className,
 }: AskAgentCardProps) {
@@ -58,14 +58,12 @@ export function AskAgentCard({
             <p className="truncate text-2xs text-fg-muted">{description}</p>
           ) : null}
         </div>
-        <Button variant="primary" size="xs" className="shrink-0" onClick={handleCopyOrAsk}>
-          {copied ? (
-            <Check className="size-3" weight="bold" />
-          ) : (
-            <Sparkle className="size-3" weight="fill" />
-          )}
-          {copied ? "Copied" : "Ask Agent"}
-        </Button>
+        <CopyForAgentsButton
+          copied={copied}
+          label="Ask agent"
+          className="h-7 shrink-0 px-2.5 text-xs"
+          onClick={handleCopyOrAsk}
+        />
       </div>
     );
   }
@@ -101,18 +99,7 @@ export function AskAgentCard({
       <p className="text-xs text-fg-muted leading-relaxed">{description}</p>
 
       <div className="flex items-center gap-2 pt-1">
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={handleCopyOrAsk}
-        >
-          {copied ? (
-            <Check className="size-3.5" weight="bold" />
-          ) : (
-            <Sparkle className="size-3.5" weight="fill" />
-          )}
-          <span>{copied ? "Prompt Copied" : "Ask Agent"}</span>
-        </Button>
+        <CopyForAgentsButton copied={copied} label="Ask agent" onClick={handleCopyOrAsk} />
       </div>
     </div>
   );

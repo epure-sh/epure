@@ -1,5 +1,5 @@
 import { NavCountPastille } from "@/components/kit/nav-count-pastille";
-import { LogoNavButton } from "@/ui/logo";
+import { LogoNavButton } from "@/ui/primitives";
 import { PreviewBlock, MatrixCell, PreviewRow } from "../../shared";
 
 export default function NavPreview() {

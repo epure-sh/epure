@@ -1,1 +1,1 @@
-export { Button, buttonVariants, type ButtonProps } from "@/components/ui/button";
+export * from "./primitives/elements/button";

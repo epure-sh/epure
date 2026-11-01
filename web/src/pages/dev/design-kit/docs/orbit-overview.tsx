@@ -1,7 +1,8 @@
 import { Box } from "@polar-sh/orbit/Box";
 import { Text } from "@polar-sh/orbit/Text";
 import {
-  DESIGN_KIT_KIT_MODULES,
+  DESIGN_KIT_BLOCK_MODULES,
+  DESIGN_KIT_COMPONENT_MODULES,
   DESIGN_KIT_UI_MODULES,
   DESIGN_KIT_UI_META,
 } from "../registry";
@@ -162,7 +163,7 @@ export function OrbitOverviewPage({ onSelect }: { onSelect: (id: string) => void
 
       <DocsSection
         title="Components"
-        description={`${DESIGN_KIT_UI_MODULES.length} UI · ${DESIGN_KIT_KIT_MODULES.length} kit. Open a sidebar leaf for preview + import path.`}
+        description={`${DESIGN_KIT_UI_MODULES.length} primitives · ${DESIGN_KIT_COMPONENT_MODULES.length} components · ${DESIGN_KIT_BLOCK_MODULES.length} blocks. Open a sidebar leaf for preview + import path.`}
       >
         <Box
           display="grid"

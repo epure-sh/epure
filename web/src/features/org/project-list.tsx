@@ -22,9 +22,9 @@ import {
   PolarCardOpenHint,
   PolarCardTitle,
 } from "@/components/kit/polar-card";
-import { Badge } from "../../ui/badge";
-import { Button } from "../../ui/button";
-import { Checkbox } from "../../ui/checkbox";
+import { Badge } from "@/ui/primitives";
+import { Button } from "@/ui/primitives";
+import { Checkbox } from "@/ui/primitives";
 import {
   Dialog,
   DialogContent,
@@ -32,19 +32,20 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../../ui/dialog";
+} from "@/ui/primitives";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../../ui/dropdown-menu";
-import { Input } from "../../ui/input";
-import { OccurrenceLineChart } from "../../ui/occurrence-line-chart";
+} from "@/ui/primitives";
+import { Input } from "@/ui/primitives";
+import { OccurrenceLineChart } from "@/ui/block";
 import { useAppContext } from "../../shell/app-context";
-import { useToast } from "../../ui/toast-provider";
+import { useToast } from "@/ui/components";
 import { DeleteProjectsDialog } from "./delete-projects-dialog";
+import { isDemoProject } from "../../lib/demo-utils";
 import { loadHiddenProjectIds, toggleHiddenProjectId } from "./hidden-projects";
 
 export interface ProjectListProps {
@@ -245,7 +246,12 @@ export const PROJECT_GALLERY_GRID_COLUMNS = {
 
 function ProjectGallery({ children }: { children: ReactNode }) {
   return (
-    <Grid templateColumns={PROJECT_GALLERY_GRID_COLUMNS} gap="l" width="100%">
+    <Grid
+      templateColumns={PROJECT_GALLERY_GRID_COLUMNS}
+      gap="l"
+      width="100%"
+      data-tour="projects-gallery"
+    >
       {children}
     </Grid>
   );
@@ -284,6 +290,11 @@ export function ProjectList({
     }
     return [...visible, ...hidden];
   }, [projects, hiddenIds]);
+
+  const tourSampleProjectId = useMemo(() => {
+    const demo = orderedProjects.find((project) => isDemoProject(project));
+    return demo?.id ?? orderedProjects[0]?.id ?? null;
+  }, [orderedProjects]);
 
   const handleToggleHide = useCallback((project: ProjectRow) => {
     setHiddenIds(toggleHiddenProjectId(project.id));
@@ -425,6 +436,9 @@ export function ProjectList({
                 interactive
                 role="link"
                 tabIndex={0}
+                data-tour={
+                  project.id === tourSampleProjectId ? "project-card-sample" : undefined
+                }
                 onClick={(event) => {
                   if (
                     (event.target as HTMLElement).closest(

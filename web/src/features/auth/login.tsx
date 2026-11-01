@@ -10,11 +10,11 @@ import {
 import { apiErrorMessage } from "../../lib/api-error";
 import { isCloudSocialSignInVisible } from "../../lib/deployment";
 import { HTTP_SESSION_COOKIE_MESSAGE, httpSecureCookieTrap } from "../../lib/session-cookie";
-import { Button } from "../../ui/button";
-import { Card } from "../../ui/card";
-import { Field } from "../../ui/field";
-import { Input } from "../../ui/input";
-import { EpureBrandMark } from "../../ui/logo";
+import { Button } from "@/ui/primitives";
+import { Card } from "@/ui/components";
+import { Field } from "@/ui/components";
+import { Input } from "@/ui/primitives";
+import { EpureBrandMark } from "@/ui/primitives";
 
 function GitHubIcon({ className }: { className?: string }) {
   return (
@@ -168,7 +168,7 @@ export function LoginPage() {
       ? "Accept your workspace invite, then continue with GitHub or Google."
       : "Create an account or sign in with the invited email."
     : passwordEnabled && !socialEnabled
-      ? "Self-hosted — sign in with email and password."
+      ? "Self-hosted. Sign in with email and password."
       : passwordEnabled && socialEnabled
         ? "Sign in with email or continue with a social provider."
         : "Sign in with GitHub or Google.";

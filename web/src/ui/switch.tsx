@@ -1,1 +1,1 @@
-export { Switch, type SwitchProps } from "@/components/ui/switch";
+export * from "./primitives/elements/switch";

@@ -1,1 +1,1 @@
-export { Checkbox, type CheckboxProps } from "@/components/ui/checkbox";
+export * from "./primitives/elements/checkbox";

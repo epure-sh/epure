@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  memo,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +31,6 @@ import {
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
@@ -88,7 +93,7 @@ export interface MonitorRowProps {
 }
 
 function formatDuration(ms: number | null): string {
-  if (ms == null) return "—";
+  if (ms == null) return "-";
   if (ms < 1000) return `${Math.round(ms)}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
 }
@@ -105,9 +110,12 @@ const STATUS_LABEL: Record<MonitorRowStatus, string> = {
 export function MonitorStatusIcon({
   status,
   paused,
+  tip = true,
 }: {
   status: MonitorRowStatus;
   paused?: boolean;
+  /** Dense tables skip tooltips (app already wraps TooltipProvider). */
+  tip?: boolean;
 }) {
   const resolved: MonitorRowStatus = paused || status === "paused" ? "paused" : status;
   const label = STATUS_LABEL[resolved];
@@ -125,17 +133,19 @@ export function MonitorStatusIcon({
     icon = <Warning size={16} weight="fill" className="text-regression" />;
   }
 
+  const mark = (
+    <span className="inline-flex size-5 items-center justify-center" aria-label={label}>
+      {icon}
+    </span>
+  );
+
+  if (!tip) return mark;
+
   return (
-    <TooltipProvider delayDuration={200}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="inline-flex size-5 items-center justify-center" aria-label={label}>
-            {icon}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side="top">{label}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>{mark}</TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -167,7 +177,7 @@ function formatPreciseTimestamp(iso: string): string {
 }
 
 function formatDurationMs(ms: number | null): string {
-  if (ms == null) return "—";
+  if (ms == null) return "-";
   if (ms < 1000) return `${Math.round(ms)}ms`;
   return `${ms.toFixed(0)}ms`;
 }
@@ -177,9 +187,14 @@ function ExpandedDetail({ monitor }: { monitor: MonitorRowData }) {
   const [checkIns, setCheckIns] = useState<MonitorCheckIn[]>([]);
   const [sortKey, setSortKey] = useState<LogSortKey>("created_at");
   const [sortDesc, setSortDesc] = useState(true);
+  // Defer recharts until after the expand paint so the row opens instantly.
+  const [chartReady, setChartReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    const paint = requestAnimationFrame(() => {
+      if (!cancelled) setChartReady(true);
+    });
     setLoading(true);
     void fetchMonitorDetails(monitor.id)
       .then((res) => {
@@ -193,6 +208,7 @@ function ExpandedDetail({ monitor }: { monitor: MonitorRowData }) {
       });
     return () => {
       cancelled = true;
+      cancelAnimationFrame(paint);
     };
   }, [monitor.id]);
 
@@ -201,6 +217,7 @@ function ExpandedDetail({ monitor }: { monitor: MonitorRowData }) {
       [...checkIns]
         .slice()
         .reverse()
+        .slice(-50)
         .map((c) => ({
           time: new Date(c.created_at).toLocaleString(undefined, {
             month: "short",
@@ -269,7 +286,9 @@ function ExpandedDetail({ monitor }: { monitor: MonitorRowData }) {
             <p className="font-mono text-2xs text-fg-muted">ms</p>
           </div>
           <div className="px-1.5 py-2">
-            {chartPoints.length > 1 ? (
+            {!chartReady || loading ? (
+              <p className="px-2 py-8 text-center text-xs text-fg-muted">Loading trend…</p>
+            ) : chartPoints.length > 1 ? (
               <TelemetryChart
                 data={chartPoints}
                 height={120}
@@ -280,7 +299,7 @@ function ExpandedDetail({ monitor }: { monitor: MonitorRowData }) {
               />
             ) : (
               <p className="px-2 py-8 text-center text-xs text-fg-muted">
-                {loading ? "Loading trend…" : "Not enough runs for a trend yet."}
+                Not enough runs for a trend yet.
               </p>
             )}
           </div>
@@ -345,7 +364,10 @@ function ExpandedDetail({ monitor }: { monitor: MonitorRowData }) {
                     >
                       <TableCell className="h-7 px-2 py-0">
                         <div className="flex min-w-0 items-center gap-1.5">
-                          <MonitorStatusIcon status={ci.status as MonitorRowStatus} />
+                          <MonitorStatusIcon
+                            tip={false}
+                            status={ci.status as MonitorRowStatus}
+                          />
                           <span className="truncate text-2xs capitalize text-fg-secondary">
                             {ci.status.replace("_", " ")}
                           </span>
@@ -369,7 +391,7 @@ function ExpandedDetail({ monitor }: { monitor: MonitorRowData }) {
   );
 }
 
-export function MonitorRow({
+export const MonitorRow = memo(function MonitorRow({
   monitor,
   expanded,
   onToggle,
@@ -394,7 +416,7 @@ export function MonitorRow({
         }
       }}
       className={cn(
-        "w-full cursor-pointer transition-colors duration-200",
+        "w-full cursor-pointer transition-colors duration-75",
         !expanded && "hover:bg-state-hover",
       )}
     >
@@ -491,7 +513,7 @@ export function MonitorRow({
       {expanded ? <ExpandedDetail monitor={monitor} /> : null}
     </div>
   );
-}
+});
 
 export function MonitorTable({ children }: { children: ReactNode }) {
   return (

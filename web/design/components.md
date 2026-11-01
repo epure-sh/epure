@@ -49,8 +49,11 @@ No full-row unread wash; selected detail still uses `--accent-muted` only.
 
 ## Badges / FilterChip
 
-- Badges: `rounded-md` · `text-xs` (pills only for avatars / true capsules)
-- Chips: **5–6px** radius · `text-xs` · `h-7` · key:value, not 9999px pills
+- Badges: **`rounded-full`** (same as buttons) · `text-xs` · Orbit Pill
+- Chips: **`rounded-full`** (same as buttons) · `text-xs` · `h-8`
+- Selected: accent border + `bg-accent-muted` · idle: `border-border-subtle` + muted text
+- **Feed toolbar:** wrap in `INBOX_FEED_TOOLBAR_SHELL_CLASS` (bordered `bg-surface-1` box). Came-back / escalating / snooze live in the search omnibar only — no icon toggles in the chip row.
+- **Omnibar chips:** never duplicate Unresolved/Resolved (status badges own those). Show 2 chips inline, collapse the rest into `+N` (menu to remove). No `/` shortcut glyph in the field.
 - **Nav count pastille** (`NavCountPastille`): `h-4` · `rounded-sm` (6px) · mono `text-[10px]` tabular · neutral surface chip or accent wash for unread; sidebar Issues (unresolved) + Alerts (unread)
 
 ## Alert list row
@@ -97,7 +100,10 @@ No display / marketing sizes in-app.
 
 ## Empty / Toast
 
-- Empty: quiet type + one next action · no dashed frame · `py-10` standalone / inset inside tables
+- Empty: quiet type + **one** next action · no dashed frame · soft icon well · warm copy (never blame the user)
+- Tones: `first-run` (invite to start) · `calm` (good zero) · `search` (filters missed) · `blocked` (permission)
+- Layout: `stack` (centered panel) · `inset` (inside list/card)
+- Optional `hint` for reassurance (“still here / change anytime”)
 - Toast: `rounded-md` · compact `px-3 py-2`
 
 ## Shell

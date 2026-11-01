@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   fetchAlertRules,
@@ -13,16 +13,17 @@ import { projectPath } from "../../lib/paths";
 import { isDemoProject } from "../../lib/demo-utils";
 import { useAppContext } from "../../shell/app-context";
 import { Button } from "@/components/ui/button";
-import { Empty } from "@/ui/empty";
-import { FeedListBody, StackedCardList } from "@/ui/feed-list-shell";
+import { Empty } from "@/ui/components";
+import { FeedListBody, StackedCardList } from "@/ui/block";
 import { AlertsDayGroup } from "./alerts-day-group";
 import { bulkAlertAvailability } from "./alert-bulk-utils";
 import { AlertsHistoryBulkBar } from "./alerts-history-bulk-bar";
 import { useAlertReadState } from "./use-alert-read-state";
 import { INBOX_FEED_BODY_PAD_CLASS } from "@/components/kit/inbox-read-cue";
-import { PageShell } from "@/components/kit/page-shell";
+import { PageShell, ProjectPageTitle } from "@/ui/block";
 import { AlertCardSkeleton } from "./alert-card-skeleton";
 import { toast } from "@/components/ui/sonner";
+import { toastWithUndo } from "@/lib/toast-undo";
 import { AlertDetailPanel } from "./alert-detail-panel";
 import { useAlertExportHotkey } from "./export-markdown";
 import { AlertListRow } from "./alert-row";
@@ -36,7 +37,6 @@ import {
   type HistoryRuleFocus,
   filterAlerts,
   filterAlertsByIssuesQuery,
-  getAlertSeverityForAlert,
   groupAlertsByDay,
   isAlertUnread,
   issueSortToAlertSort,
@@ -48,7 +48,7 @@ import {
 } from "./alert-utils";
 import { parseQuery, resetQuery, type TimeWindowValue } from "../issues/query-utils";
 import { useProjectFeedQuery } from "../issues/use-project-feed-query";
-import type { AlertsSection } from "./alerts-section-toggle";
+import { AlertsSectionToggle, type AlertsSection } from "./alerts-section-toggle";
 import { AlertsToolbar, type RulesStatusFilter } from "./alerts-toolbar";
 import type { RuleDestinationKind } from "./alert-rules-display";
 import { cn } from "../../lib/cn";
@@ -89,8 +89,10 @@ export function AlertsPage() {
   const [createRuleOpen, setCreateRuleOpen] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [rulesVersion, setRulesVersion] = useState(0);
-  const [highSeverityOnly, setHighSeverityOnly] = useState(false);
-  const [acknowledgeAllBusy, setAcknowledgeAllBusy] = useState(false);
+  /** Keep each section alive after first open so Inbox ↔ Rules does not remount. */
+  const [historyMounted, setHistoryMounted] = useState(() => section !== "configure");
+  const [rulesMounted, setRulesMounted] = useState(() => section === "configure");
+  const [, startSectionTransition] = useTransition();
   const alertListRef = useRef<HTMLDivElement>(null);
 
   const safeProjects = Array.isArray(projects) ? projects : [];
@@ -104,8 +106,13 @@ export function AlertsPage() {
   }, [routeProjectId, projectId, safeProjects]);
 
   const activeProjectId = activeProject?.id ?? null;
-  const { isUnread: isAlertInboxUnread, markRead: markAlertRead, markReadMany } =
-    useAlertReadState(activeProjectId);
+  const {
+    isUnread: isAlertInboxUnread,
+    markRead: markAlertRead,
+    markReadMany,
+    readMap: alertReadMap,
+    restoreReadMap: restoreAlertReadMap,
+  } = useAlertReadState(activeProjectId);
   const {
     query,
     setQuery: persistFeedQuery,
@@ -262,21 +269,13 @@ export function AlertsPage() {
     };
   }, [activeProjectId, environment, headlineStats, historyUnreadCount, timeScopedAlerts]);
 
-  const highSeverityCount = useMemo(
-    () => timeScopedAlerts.filter((row) => getAlertSeverityForAlert(row) === "danger").length,
-    [timeScopedAlerts],
-  );
-
   const filteredAlerts = useMemo(() => {
     let rows = filterAlertsByIssuesQuery(timeScopedAlerts, query);
     if (historyRuleFocus) {
       rows = rows.filter((row) => alertMatchesHistoryRuleFocus(row, historyRuleFocus));
     }
-    if (highSeverityOnly) {
-      rows = rows.filter((row) => getAlertSeverityForAlert(row) === "danger");
-    }
     return sortAlerts(rows, issueSortToAlertSort(issueSort));
-  }, [timeScopedAlerts, query, issueSort, historyRuleFocus, highSeverityOnly]);
+  }, [timeScopedAlerts, query, issueSort, historyRuleFocus]);
 
   const focusedAlert = useMemo(
     () => filteredAlerts.find((row) => row.id === focusedId) ?? null,
@@ -387,7 +386,11 @@ export function AlertsPage() {
   };
 
   const applyAlertPatch = useCallback(
-    async (alertId: string, patch: { read?: boolean; ignored?: boolean }) => {
+    async (
+      alertId: string,
+      patch: { read?: boolean; ignored?: boolean },
+      options: { silent?: boolean } = {},
+    ) => {
       const targetAlert = alerts.find((a) => a.id === alertId);
       const previousState = targetAlert
         ? { read: Boolean(targetAlert.read_at), ignored: Boolean(targetAlert.ignored) }
@@ -423,30 +426,29 @@ export function AlertsPage() {
           );
         }
 
-        const undoAction = previousState
-          ? {
-              label: "Undo",
-              onClick: () => {
-                void applyAlertPatch(alertId, previousState);
-              },
-            }
-          : undefined;
-
-        if (patch.ignored === true) {
-          toast("Alert snoozed", {
-            description: "Will not notify again for this issue.",
-            action: undoAction,
-          });
-        } else if (patch.ignored === false) {
-          toast("Alert unsnoozed", { action: undoAction });
-        } else if (patch.read === true) {
-          toast("Alert resolved", { action: undoAction });
-        } else if (patch.read === false) {
-          toast("Alert marked unread", { action: undoAction });
+        if (!options.silent && previousState) {
+          const undo = () => {
+            void applyAlertPatch(alertId, previousState, { silent: true });
+          };
+          if (patch.ignored === true) {
+            toastWithUndo("Alert snoozed", undo, {
+              description: "Will not notify again for this issue.",
+              method: toast,
+            });
+          } else if (patch.ignored === false) {
+            toastWithUndo("Alert unsnoozed", undo, { method: toast });
+          } else if (patch.read === true) {
+            toastWithUndo("Alert resolved", undo, { method: toast });
+          } else if (patch.read === false) {
+            toastWithUndo("Alert marked unread", undo, { method: toast });
+          }
         }
       } catch {
         setAlerts(previous);
-        toast.error("Failed to update alert");
+        if (!options.silent) {
+          toast.error("Failed to update alert");
+        }
+        throw new Error("Failed to update alert");
       } finally {
         setBusyId(null);
       }
@@ -458,32 +460,96 @@ export function AlertsPage() {
     async (patch: { read?: boolean; ignored?: boolean }) => {
       const ids = [...selectedAlertIds];
       if (ids.length === 0) return;
+      const snapshots = ids
+        .map((id) => {
+          const row = alerts.find((item) => item.id === id);
+          return row
+            ? {
+                id,
+                previous: {
+                  read: Boolean(row.read_at),
+                  ignored: Boolean(row.ignored),
+                },
+              }
+            : null;
+        })
+        .filter((entry): entry is { id: string; previous: { read: boolean; ignored: boolean } } =>
+          Boolean(entry),
+        );
       setBulkBusy(true);
       try {
-        await Promise.all(ids.map((id) => applyAlertPatch(id, patch)));
+        await Promise.all(ids.map((id) => applyAlertPatch(id, patch, { silent: true })));
         setSelectedAlertIds(new Set());
+        const message =
+          patch.ignored === true
+            ? `Snoozed ${ids.length} alert${ids.length === 1 ? "" : "s"}`
+            : patch.ignored === false
+              ? `Unsnoozed ${ids.length} alert${ids.length === 1 ? "" : "s"}`
+              : patch.read === true
+                ? `Resolved ${ids.length} alert${ids.length === 1 ? "" : "s"}`
+                : patch.read === false
+                  ? `Reopened ${ids.length} alert${ids.length === 1 ? "" : "s"}`
+                  : `Updated ${ids.length} alerts`;
+        toastWithUndo(
+          message,
+          async () => {
+            await Promise.all(
+              snapshots.map((entry) =>
+                applyAlertPatch(entry.id, entry.previous, { silent: true }),
+              ),
+            );
+          },
+          { method: toast },
+        );
+      } catch {
+        toast.error("Failed to update alerts");
       } finally {
         setBulkBusy(false);
       }
     },
-    [applyAlertPatch, selectedAlertIds],
+    [alerts, applyAlertPatch, selectedAlertIds],
   );
 
-  const handleAcknowledgeAll = useCallback(async () => {
-    const unread = timeScopedAlerts.filter((row) => isAlertUnread(row));
-    if (unread.length === 0) {
-      return;
-    }
-    setAcknowledgeAllBusy(true);
-    try {
-      await Promise.all(unread.map((row) => applyAlertPatch(row.id, { read: true })));
-      toast(`Acknowledged ${unread.length} alert${unread.length === 1 ? "" : "s"}`);
-    } catch {
-      toast.error("Failed to acknowledge alerts");
-    } finally {
-      setAcknowledgeAllBusy(false);
-    }
-  }, [applyAlertPatch, timeScopedAlerts]);
+  const handleSectionChange = useCallback(
+    (next: AlertsSection) => {
+      // Paint the tab + panel immediately; defer router + secondary state.
+      setSection(next);
+      if (next === "configure") {
+        setRulesMounted(true);
+      } else {
+        setHistoryMounted(true);
+      }
+      startSectionTransition(() => {
+        if (next === "configure") {
+          setHistoryRuleFocus(null);
+        } else {
+          setActiveRuleId(null);
+        }
+        setSearchParams(
+          (prev) => {
+            const params = new URLSearchParams(prev);
+            if (next === "configure") {
+              params.set("section", "configure");
+            } else {
+              params.delete("section");
+            }
+            return params;
+          },
+          { replace: true },
+        );
+      });
+    },
+    [setSearchParams, startSectionTransition],
+  );
+
+  const rulesLastTriggered = useMemo(
+    () => buildLastTriggeredByKind(safeAlerts),
+    [safeAlerts],
+  );
+  const rulesFiredCounts = useMemo(
+    () => buildRuleFiredCounts(safeAlerts),
+    [safeAlerts],
+  );
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -578,6 +644,23 @@ export function AlertsPage() {
 
   return (
     <PageShell density="full-bleed">
+      <div className="epure-page-gutter-x shrink-0 pt-4 pb-1">
+        <ProjectPageTitle
+          title="Alerts"
+          trailing={
+            activeProjectId ? (
+              <AlertsSectionToggle
+                value={section}
+                onChange={handleSectionChange}
+                counts={{
+                  rules: ruleCount,
+                  history: historyUnreadCount,
+                }}
+              />
+            ) : null
+          }
+        />
+      </div>
       {projectsLoading ? (
         <FeedListBody>
           <StackedCardList>
@@ -594,30 +677,6 @@ export function AlertsPage() {
         <>
           <AlertsToolbar
             section={section}
-            onSectionChange={(next) => {
-              setSection(next);
-              setSearchParams(
-                (prev) => {
-                  const params = new URLSearchParams(prev);
-                  if (next === "configure") {
-                    params.set("section", "configure");
-                  } else {
-                    params.delete("section");
-                  }
-                  return params;
-                },
-                { replace: true },
-              );
-              if (next === "configure") {
-                setHistoryRuleFocus(null);
-              } else {
-                setActiveRuleId(null);
-              }
-            }}
-            sectionCounts={{
-              rules: ruleCount,
-              history: historyUnreadCount,
-            }}
             canManageRules={canManageWebhooks}
             onCreateRule={canManageWebhooks ? openCreateRule : undefined}
             query={query}
@@ -637,11 +696,6 @@ export function AlertsPage() {
             headlineStats={alertFilterStats}
             historyRuleName={historyRuleName}
             onHistoryRuleNameClear={() => setHistoryRuleFocus(null)}
-            highSeverityOnly={highSeverityOnly}
-            onHighSeverityOnlyChange={setHighSeverityOnly}
-            highSeverityCount={highSeverityCount}
-            onAcknowledgeAll={() => void handleAcknowledgeAll()}
-            acknowledgeAllBusy={acknowledgeAllBusy}
           />
 
           <CreateAlertRuleDialog
@@ -655,28 +709,42 @@ export function AlertsPage() {
             onCreated={() => setRulesVersion((value) => value + 1)}
           />
 
-          {section === "configure" ? (
-            <div className={cn("flex min-h-0 flex-1 flex-col overflow-auto py-4", INBOX_FEED_BODY_PAD_CLASS)}>
-                <AlertRulesManager
-                  ref={rulesManagerRef}
-                  projectId={activeProjectId}
-                  projectSlug={projectSlug}
-                  canManage={canManageWebhooks}
-                  query={rulesSearch}
-                  statusFilter={rulesStatusFilter}
-                  destinationFilter={rulesDestinationFilter}
-                  activeRuleId={activeRuleId}
-                  onActiveRuleIdChange={setActiveRuleId}
-                  onEditRule={(rule) => openEditRuleById(rule.id)}
-                  lastTriggered={buildLastTriggeredByKind(safeAlerts)}
-                  firedCounts={buildRuleFiredCounts(safeAlerts)}
-                />
+          {rulesMounted ? (
+            <div
+              hidden={section !== "configure"}
+              aria-hidden={section !== "configure"}
+              className={cn(
+                "flex min-h-0 flex-1 flex-col overflow-auto py-4",
+                INBOX_FEED_BODY_PAD_CLASS,
+                section !== "configure" && "pointer-events-none",
+              )}
+            >
+              <AlertRulesManager
+                ref={rulesManagerRef}
+                projectId={activeProjectId}
+                projectSlug={projectSlug}
+                canManage={canManageWebhooks}
+                query={rulesSearch}
+                statusFilter={rulesStatusFilter}
+                destinationFilter={rulesDestinationFilter}
+                activeRuleId={activeRuleId}
+                onActiveRuleIdChange={setActiveRuleId}
+                onEditRule={(rule) => openEditRuleById(rule.id)}
+                lastTriggered={rulesLastTriggered}
+                firedCounts={rulesFiredCounts}
+              />
             </div>
           ) : null}
 
-          {section === "history" ? (
-          <>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {historyMounted ? (
+          <div
+            hidden={section !== "history"}
+            aria-hidden={section !== "history"}
+            className={cn(
+              "flex min-h-0 flex-1 flex-col overflow-hidden",
+              section !== "history" && "pointer-events-none",
+            )}
+          >
 
           <AlertsHistoryBulkBar
             selectedCount={selectedAlertIds.size}
@@ -700,6 +768,8 @@ export function AlertsPage() {
             onClear={() => setSelectedAlertIds(new Set())}
             onResolve={() => void applyBulkPatch({ read: true })}
             onMarkRead={() => {
+              const snapshot = { ...alertReadMap };
+              const count = selectedAlertIds.size;
               markReadMany(
                 [...selectedAlertIds].map((alertId) => {
                   const row = alerts.find((item) => item.id === alertId);
@@ -709,8 +779,10 @@ export function AlertsPage() {
                   };
                 }),
               );
-              toast(
-                `Marked ${selectedAlertIds.size} alert${selectedAlertIds.size === 1 ? "" : "s"} as read`,
+              toastWithUndo(
+                `Marked ${count} alert${count === 1 ? "" : "s"} as read`,
+                () => restoreAlertReadMap(snapshot),
+                { method: toast },
               );
               setSelectedAlertIds(new Set());
             }}
@@ -758,8 +830,8 @@ export function AlertsPage() {
               </div>
             ) : !hasAnyAlerts ? (
               <Empty
-                title="No signals yet"
-                description="Alerts fire when event velocity spikes, a resolved exception comes back, or volume thresholds are crossed."
+                title="All quiet. That's good"
+                description="Alerts appear when velocity spikes, a resolved exception comes back, or a threshold is crossed. Nothing here means nothing urgent."
               >
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <Button
@@ -866,12 +938,12 @@ export function AlertsPage() {
           <aside
             aria-label="Alert detail"
             className={cn(
-              "hidden min-h-0 min-w-0 flex flex-1 flex-col overflow-hidden border-t border-border-subtle bg-surface-1 lg:flex lg:min-w-0 lg:flex-1 lg:border-l lg:border-t-0 lg:border-border-subtle",
+              "hidden min-h-0 min-w-0 flex flex-1 flex-col overflow-hidden bg-bg-subtle p-3 pr-[var(--epure-page-gutter)] max-lg:border-t max-lg:border-border-subtle lg:flex lg:min-w-0 lg:flex-1 lg:border-l lg:border-border-subtle lg:pl-3 lg:pt-3 lg:pb-3",
               focusedId && "max-lg:flex",
             )}
           >
             <AlertDetailPanel
-              className="min-h-0 flex-1"
+              className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border-subtle bg-surface-1 shadow-xs"
               alert={focusedAlert}
               projectId={activeProjectId ?? ""}
               webhookCount={webhookCount}
@@ -899,7 +971,6 @@ export function AlertsPage() {
           </aside>
           </div>
           </div>
-          </>
           ) : null}
         </>
       )}

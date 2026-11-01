@@ -12,10 +12,10 @@ import type { TimelineBucket } from "../../../lib/api";
 import { deploymentLabel, isCloudDeployment } from "../../../lib/deployment";
 import { formatCompactCount } from "../../../lib/format-count";
 import { useAppContext } from "../../../shell/app-context";
-import { Badge } from "../../../ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../ui/card";
-import { OccurrenceLineChart } from "../../../ui/occurrence-line-chart";
-import { Skeleton } from "../../../ui/skeleton";
+import { Badge } from "@/ui/primitives";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/components";
+import { OccurrenceLineChart } from "@/ui/block";
+import { Skeleton } from "@/ui/primitives";
 import { Progress } from "@/components/ui/progress";
 import {
   Table,
@@ -445,7 +445,7 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
                               className="w-20"
                             />
                           ) : (
-                            <span className="text-2xs text-fg-muted">—</span>
+                            <span className="text-2xs text-fg-muted">-</span>
                           )}
                         </TableCell>
                         <TableCell className="font-mono text-xs tabular-nums">
@@ -489,24 +489,24 @@ export function OrgUsageSettings({ window, onSummaryChange }: OrgUsageSettingsPr
           <CardContent className="space-y-4 text-sm text-fg-muted">
             <ul className="space-y-2">
               <li>
-                <span className="font-medium text-fg-primary">Events ingested</span> — every accepted error
+                <span className="font-medium text-fg-primary">Events ingested</span>: every accepted error
                 envelope written to Postgres, including duplicates across issues.
               </li>
               <li>
-                <span className="font-medium text-fg-primary">Unique users</span> — distinct user keys per
+                <span className="font-medium text-fg-primary">Unique users</span>: distinct user keys per
                 issue; org totals sum issue-level counts and may overcount the same user across
                 issues.
               </li>
               <li>
-                <span className="font-medium text-fg-primary">Storage</span> — estimated from stored event
+                <span className="font-medium text-fg-primary">Storage</span>: estimated from stored event
                 payloads and metadata until exact byte metering ships.
               </li>
               <li>
-                <span className="font-medium text-fg-primary">Retention</span> — per-project TTL in days;
+                <span className="font-medium text-fg-primary">Retention</span>: per-project TTL in days;
                 older monthly partitions are dropped automatically.
               </li>
               <li>
-                <span className="font-medium text-fg-primary">Ingest cap</span> — hourly spike valve per
+                <span className="font-medium text-fg-primary">Ingest cap</span>: hourly spike valve per
                 project; events above the cap are rejected with 429.
               </li>
             </ul>

@@ -2,13 +2,11 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { Box } from "@polar-sh/orbit/Box";
 import { Grid, GridItem } from "@polar-sh/orbit";
 import { Text } from "@polar-sh/orbit/Text";
-import { PageShell } from "@/components/kit/page-shell";
+import { PageShell } from "@/ui/block";
 import { EmptyState } from "@/components/kit/empty-state";
 import {
   PolarCard,
   PolarCardDescription,
-  PolarCardHeader,
-  PolarCardTitle,
 } from "@/components/kit/polar-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,12 +19,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Check,
-  Copy,
   DiscordLogo,
   DotsThree,
   EnvelopeSimple,
   Icon,
+  Pause,
+  PencilSimple,
+  Play,
   Plus,
+  Rocket,
   SlackLogo,
   TelegramLogo,
   Trash,
@@ -37,13 +38,13 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
 import { PROJECT_GALLERY_GRID_COLUMNS } from "@/features/org/project-list";
 import { CreateOutputChannelDialog } from "@/features/org/create-output-channel-dialog";
-import { copyText } from "@/lib/copy-text";
+import { EditOutputChannelDialog } from "@/features/org/edit-output-channel-dialog";
 import {
   apiErrorStatus,
   deleteAlertChannel,
   fetchAlertChannels,
   fetchProjects,
-  rotateWebhookSecret,
+  setAlertChannelEnabled,
   testAlertChannel,
   type AlertChannelRow,
   type ProjectRow,
@@ -93,11 +94,13 @@ function providerIcon(provider: string) {
   }
 }
 
-function channelStatus(channel: AlertChannelRow): "connected" | "needs_verify" | "failing" {
+function channelStatus(
+  channel: AlertChannelRow,
+): "connected" | "paused" | "needs_verify" | "failing" {
+  if (!channel.is_enabled) return "paused";
   if (channel.last_test_status === "fail" || channel.last_error) return "failing";
-  if (channel.is_enabled && channel.last_test_status === "ok") return "connected";
-  if (!channel.is_enabled || channel.last_test_status !== "ok") return "needs_verify";
-  return "connected";
+  if (channel.last_test_status === "ok") return "connected";
+  return "needs_verify";
 }
 
 function formatTestDate(iso: string): string {
@@ -123,6 +126,7 @@ export function OrgChannelsPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<AlertChannelRow | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -191,7 +195,7 @@ export function OrgChannelsPage() {
     } catch (err) {
       toast.error(
         apiErrorStatus(err) === 429
-          ? "Too many tests — try again in an hour"
+          ? "Too many tests. Try again in an hour"
           : "Test delivery failed",
       );
     } finally {
@@ -200,11 +204,14 @@ export function OrgChannelsPage() {
   }
 
   async function handleDelete(channel: AlertChannelRow) {
+    if (!window.confirm(`Delete “${channel.label}”? Alert rules using it will stop delivering.`)) {
+      return;
+    }
     setBusyId(channel.id);
     try {
       await deleteAlertChannel(channel.id);
       setChannels((current) => current.filter((row) => row.id !== channel.id));
-      toast.success("Channel removed");
+      toast("Channel removed", { description: "Permanent. Recreate from Channels" });
     } catch {
       toast.error("Could not delete channel");
     } finally {
@@ -212,23 +219,17 @@ export function OrgChannelsPage() {
     }
   }
 
-  async function handleRotate(channel: AlertChannelRow) {
-    const webhookId = channel.config?.webhook_id;
-    if (!webhookId) return;
+  async function handleToggleEnabled(channel: AlertChannelRow) {
+    const next = !channel.is_enabled;
     setBusyId(channel.id);
     try {
-      const rotated = await rotateWebhookSecret(webhookId);
-      if (rotated.signing_secret) {
-        const ok = await copyText(rotated.signing_secret);
-        toast[ok ? "success" : "error"](
-          ok ? "New signing secret copied" : "Secret rotated — copy failed",
-        );
-      } else {
-        toast.success("Signing secret rotated");
-      }
-      await refresh();
+      const updated = await setAlertChannelEnabled(channel.id, next);
+      setChannels((current) =>
+        current.map((row) => (row.id === updated.id ? { ...row, ...updated } : row)),
+      );
+      toast.success(next ? "Channel resumed" : "Channel paused");
     } catch {
-      toast.error("Could not rotate secret");
+      toast.error(next ? "Could not resume channel" : "Could not pause channel");
     } finally {
       setBusyId(null);
     }
@@ -296,58 +297,71 @@ export function OrgChannelsPage() {
             ))}
           </ChannelGallery>
         ) : filtered.length === 0 ? (
-          <EmptyState
-            title="No output channels"
-            description="Connect Slack, Discord, email, or a signed webhook so alert rules can deliver."
-          />
+          searchQuery.trim() ? (
+            <EmptyState
+              tone="search"
+              title="Nothing matches that filter"
+              description="Try another name, provider, or project, or clear the filter to see every channel."
+              actionLabel="Clear filter"
+              onAction={() => setSearchQuery("")}
+              hint="Filters never delete channels. They're still here."
+            />
+          ) : (
+            <EmptyState
+              tone="first-run"
+              title="Ready when you are"
+              description="Connect Slack, Discord, email, or a webhook so alert rules can reach your team."
+              hint="One channel is enough to start. You can add more later."
+              actionLabel={canManage ? "Create output channel" : undefined}
+              onAction={canManage ? () => setCreateOpen(true) : undefined}
+            />
+          )
         ) : (
           <ChannelGallery>
             {filtered.map((channel) => {
               const status = channelStatus(channel);
               const project = projectById.get(channel.project_id);
               const Glyph = providerIcon(channel.provider);
-              const webhookLinked = Boolean(channel.config?.webhook_id);
               const testOk = channel.last_test_status === "ok";
               const testFail =
                 channel.last_test_status === "fail" || Boolean(channel.last_error);
               return (
-                <PolarCard key={channel.id} variant="interactive" padding="m">
-                  <Box flexDirection="column" gap="s" width="100%">
-                    <PolarCardHeader>
-                      <Box alignItems="start" columnGap="s" minWidth={0} flex={1}>
-                        <span className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-2">
-                          <Icon icon={Glyph} size={28} />
-                        </span>
-                        <Box flexDirection="column" minWidth={0} gap="xs" alignItems="start">
-                          <PolarCardTitle>{channel.label}</PolarCardTitle>
-                          <Badge
-                            variant={
-                              status === "connected"
-                                ? "healthy"
-                                : status === "failing"
-                                  ? "error"
-                                  : "neutral"
-                            }
-                            size="compact"
-                          >
-                            {status === "connected"
-                              ? "Connected"
-                              : status === "failing"
-                                ? "Failing"
-                                : "Needs verify"}
-                          </Badge>
-                          <PolarCardDescription>
-                            {channel.provider}
-                            {project ? ` · ${project.slug || project.name}` : ""}
-                          </PolarCardDescription>
-                        </Box>
-                      </Box>
+                <PolarCard key={channel.id} variant="interactive" padding="l">
+                  <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-3">
+                    <span className="flex size-9 shrink-0 items-center justify-center text-fg-primary">
+                      <Icon icon={Glyph} size={26} />
+                    </span>
+                    <Box flexDirection="column" minWidth={0} gap="xs" alignItems="start">
+                      <Text as="h3" variant="label">
+                        {channel.label}
+                      </Text>
+                      <Badge
+                        variant={
+                          status === "connected"
+                            ? "healthy"
+                            : status === "failing"
+                              ? "error"
+                              : "neutral"
+                        }
+                        size="compact"
+                      >
+                        {status === "connected"
+                          ? "Connected"
+                          : status === "failing"
+                            ? "Failing"
+                            : status === "paused"
+                              ? "Paused"
+                              : "Needs verify"}
+                      </Badge>
+                    </Box>
+                    <div className="justify-self-end self-start">
                       {canManage ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
                               variant="ghost"
                               size="icon-xs"
+                              className="size-7"
                               aria-label={`Actions for ${channel.label}`}
                               disabled={busyId === channel.id}
                             >
@@ -355,15 +369,18 @@ export function OrgChannelsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setEditing(channel)}>
+                              <Icon icon={PencilSimple} size={14} />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => void handleToggleEnabled(channel)}>
+                              <Icon icon={channel.is_enabled ? Pause : Play} size={14} />
+                              {channel.is_enabled ? "Pause" : "Resume"}
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => void handleTest(channel)}>
+                              <Icon icon={Rocket} size={14} />
                               {testingId === channel.id ? "Testing…" : "Send test"}
                             </DropdownMenuItem>
-                            {webhookLinked ? (
-                              <DropdownMenuItem onClick={() => void handleRotate(channel)}>
-                                <Icon icon={Copy} size={14} />
-                                Rotate secret
-                              </DropdownMenuItem>
-                            ) : null}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-danger"
@@ -375,9 +392,15 @@ export function OrgChannelsPage() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       ) : null}
-                    </PolarCardHeader>
+                    </div>
 
-                    <Box alignItems="center" columnGap="xs" width="100%">
+                    <div className="col-start-1 col-span-2 min-w-0 self-end">
+                      <PolarCardDescription>
+                        {channel.provider}
+                        {project ? ` · ${project.slug || project.name}` : ""}
+                      </PolarCardDescription>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1 justify-self-end self-end whitespace-nowrap">
                       {channel.last_tested_at ? (
                         <>
                           <Icon
@@ -401,8 +424,8 @@ export function OrgChannelsPage() {
                           Not tested
                         </Text>
                       )}
-                    </Box>
-                  </Box>
+                    </div>
+                  </div>
                 </PolarCard>
               );
             })}
@@ -420,6 +443,19 @@ export function OrgChannelsPage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         onCreated={() => void refresh()}
+      />
+
+      <EditOutputChannelDialog
+        channel={editing}
+        open={editing !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+        }}
+        onSaved={(updated) => {
+          setChannels((current) =>
+            current.map((row) => (row.id === updated.id ? { ...row, ...updated } : row)),
+          );
+        }}
       />
     </PageShell>
   );

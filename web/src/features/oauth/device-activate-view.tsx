@@ -7,8 +7,8 @@ import {
   type DeviceVerifyResponse,
   type OAuthInfoOrg,
 } from "../../lib/api";
-import { Button } from "../../ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../ui/card";
+import { Button } from "@/ui/primitives";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/ui/components";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -17,8 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EpureBrandMark } from "../../ui/logo";
-import { Badge } from "../../ui/badge";
+import { EpureBrandMark } from "@/ui/primitives";
+import { Badge } from "@/ui/primitives";
 import { AlertTriangle, CheckCircle2, Terminal } from "lucide-react";
 
 export function DeviceActivateView() {

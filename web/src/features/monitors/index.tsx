@@ -9,7 +9,7 @@ import {
 import { draftToSchedule } from "@/components/kit/create-monitor";
 import { Button } from "@/components/ui/button";
 import { Plus, MagnifyingGlass } from "@/components/ui/icon";
-import { Empty } from "../../ui/empty";
+import { Empty } from "@/ui/components";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -25,10 +25,9 @@ import {
   type MonitorItem,
 } from "@/lib/api";
 import { useAppContext } from "../../shell/app-context";
-import { useToast } from "../../ui/toast-provider";
-import { CardRowSkeleton } from "../../ui/skeleton";
-import { FeedListBody } from "../../ui/feed-list-shell";
-import { SimpleFeedHeader } from "../../ui/simple-feed-header";
+import { useToast } from "@/ui/components";
+import { toastWithUndo } from "@/lib/toast-undo";
+import { CardRowSkeleton, FeedListBody, ProjectPageTitle } from "@/ui/block";
 import { CreateMonitorDialog } from "./create-monitor-dialog";
 import { EditMonitorDialog } from "./edit-monitor-dialog";
 import {
@@ -196,10 +195,18 @@ export function MonitorsPage() {
   }, []);
 
   const handlePause = async (monitor: MonitorItem) => {
+    const previousPaused = monitor.paused;
     try {
       const updated = await updateMonitor(monitor.id, { paused: !monitor.paused });
       upsertLocal({ ...monitor, ...updated, recent_check_ins: monitor.recent_check_ins });
-      toast(updated.paused ? `Paused ${monitor.slug}` : `Resumed ${monitor.slug}`);
+      toastWithUndo(
+        updated.paused ? `Paused ${monitor.slug}` : `Resumed ${monitor.slug}`,
+        async () => {
+          const restored = await updateMonitor(monitor.id, { paused: previousPaused });
+          upsertLocal({ ...monitor, ...restored, recent_check_ins: monitor.recent_check_ins });
+        },
+        { method: toast },
+      );
     } catch (err) {
       toast(err instanceof Error ? err.message : "Failed to update monitor");
     }
@@ -211,7 +218,7 @@ export function MonitorsPage() {
       await deleteMonitor(monitor.id);
       setMonitors((prev) => prev.filter((m) => m.id !== monitor.id));
       if (expandedId === monitor.id) setExpandedId(null);
-      toast(`Deleted ${monitor.slug}`);
+      toast(`Deleted ${monitor.slug}`, { description: "Permanent. Can't undo" });
     } catch (err) {
       toast(err instanceof Error ? err.message : "Failed to delete monitor");
     }
@@ -265,21 +272,24 @@ export function MonitorsPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <SimpleFeedHeader
-        actions={
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => setCreateOpen(true)}
-            disabled={!activeProjectId}
-          >
-            <Plus size={14} weight="bold" />
-            New monitor
-          </Button>
-        }
-      />
+      <div className="epure-page-gutter-x shrink-0 pt-4 pb-1">
+        <ProjectPageTitle
+          title="Cron Monitors"
+          trailing={
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setCreateOpen(true)}
+              disabled={!activeProjectId}
+            >
+              <Plus size={14} weight="bold" />
+              New monitor
+            </Button>
+          }
+        />
+      </div>
 
       <FeedListBody>
         <div className="flex flex-col gap-3 py-3">
@@ -338,8 +348,8 @@ export function MonitorsPage() {
           ) : filtered.length === 0 ? (
             monitors.length === 0 ? (
               <Empty
-                title="No cron monitors yet"
-                description="Create a monitor, paste the snippet into your job, and Epure will listen for the first check-in."
+                title="Ready for your first monitor"
+                description="Create one, paste the snippet into your job, and Epure listens for the first check-in. Missed runs show up here, not in your inbox panic."
                 action={
                   <Button
                     type="button"
@@ -356,8 +366,8 @@ export function MonitorsPage() {
             ) : (
               <Empty
                 variant="search"
-                title="No monitors match"
-                description="Try another filter or clear search."
+                title="Nothing matches those filters"
+                description="Try another filter or clear search. Your monitors are still here."
                 action={
                   <Button
                     type="button"

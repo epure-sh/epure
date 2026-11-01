@@ -103,12 +103,11 @@ body {
   contain: layout style paint;
 }
 
-/* Keyboard j/k focus cue — inset shadow only (zero layout shift). */
-.epure-feed-row[data-focused="true"] {
+/* Keyboard j/k / open-row cue — background only (no accent left bar). */
+.epure-feed-row[data-focused="true"],
+.epure-feed-row[data-detail-active="true"] {
   background-color: var(--state-selected);
-  box-shadow:
-    inset 2px 0 0 0 var(--accent),
-    inset 0 0 0 1px var(--border-strong);
+  box-shadow: none;
 }
 
 /* Specular Rim Lighting & Card Depth */
@@ -261,15 +260,22 @@ body:has(.epure-popover-content[data-state="open"])::before {
   background-color: var(--surface);
 }
 
-/* Product tour — dim page; popover stays on top (driver.js) */
+/* Product tour — cutout flush to component; soft edge, no hard ring / no oversized glow */
 body.driver-active .driver-overlay {
   pointer-events: auto;
 }
 
 body.driver-active .driver-active-element {
-  border-radius: var(--radius-sm, 6px);
-  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
-  outline-offset: 2px;
+  outline: none !important;
+  /* Match the real component radius (set by syncStageToElement) */
+  border-radius: var(--epure-tour-radius, inherit) !important;
+  /* Soft faded rim that stays on the element edge — not an expanded halo */
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent),
+    0 0 18px 2px color-mix(in srgb, var(--accent) 10%, transparent);
+  z-index: 1000000001;
+  position: relative;
 }
 
 .driver-popover.epure-tour-popover {

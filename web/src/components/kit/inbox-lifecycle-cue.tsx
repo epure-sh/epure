@@ -5,7 +5,23 @@ import {
   type InboxLifecycleKind,
 } from "@/lib/inbox-lifecycle";
 import type { AlertRow, IssueSummary } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+
+function lifecycleBadgeVariant(
+  kind: InboxLifecycleKind,
+): "warning" | "info" | "healthy" | "neutral" {
+  switch (kind) {
+    case "came_back":
+      return "warning";
+    case "snoozed":
+      return "info";
+    case "resolved":
+      return "healthy";
+    default:
+      return "neutral";
+  }
+}
 
 export function InboxLifecycleCue({
   kinds,
@@ -19,15 +35,21 @@ export function InboxLifecycleCue({
   }
 
   return (
-    <p
-      className={cn(
-        "mt-0.5 truncate font-mono text-[10px] uppercase tracking-wide text-fg-muted",
-        className,
-      )}
+    <div
+      className={cn("flex min-w-0 flex-wrap items-center gap-1", className)}
       aria-label={kinds.map(inboxLifecycleLabel).join(", ")}
     >
-      {kinds.map(inboxLifecycleLabel).join(" · ")}
-    </p>
+      {kinds.map((kind) => (
+        <Badge
+          key={kind}
+          variant={lifecycleBadgeVariant(kind)}
+          size="compact"
+          className="shrink-0 font-medium"
+        >
+          {inboxLifecycleLabel(kind)}
+        </Badge>
+      ))}
+    </div>
   );
 }
 

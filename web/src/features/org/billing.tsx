@@ -1,23 +1,31 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { PageShell } from "@/components/kit/page-shell";
-import { SectionCard } from "@/components/kit/section-card";
-import { AskAgentCard } from "@/components/kit/ask-agent-card";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Box } from "@polar-sh/orbit/Box";
+import { Text } from "@polar-sh/orbit/Text";
+import { PageShell } from "@/ui/block";
 import { EmptyState } from "@/components/kit/empty-state";
-import { TelemetryChart } from "@/components/kit/telemetry-chart";
-import { UsageMeterCard } from "@/components/kit/usage-meter-card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
+import {
+  ChartBar,
+  Check,
+  CircleNotch,
+  Copy,
+  CreditCard,
+  Icon,
+} from "@/components/ui/icon";
+import { TelemetryChart } from "@/components/kit/telemetry-chart";
+import { copyText } from "@/lib/copy-text";
+import { formatCompactCount } from "@/lib/format-count";
 import { useAppContext } from "@/shell/app-context";
 import {
   createBillingPortalSession,
@@ -27,7 +35,6 @@ import {
   type BillingStatus,
 } from "@/lib/api";
 import { isCloudDeployment } from "@/lib/deployment";
-import { Check, CreditCard, Loader2, Receipt, Zap } from "lucide-react";
 import { CLOUD_PLANS, type PlanDefinition } from "./billing-data";
 import {
   bucketsToTelemetry,
@@ -36,8 +43,19 @@ import {
   planForBillingStatus,
   type ProjectEventUsage,
 } from "./project-usage";
+import {
+  USAGE_TIME_WINDOWS,
+  type UsageTimeWindow,
+} from "./settings/usage-utils";
 
-function subscriptionBadgeVariant(status: string): "healthy" | "info" | "regression" | "neutral" {
+function subscriptionLabel(status: string): string {
+  if (!status || status === "none") return "No subscription";
+  return status.replace(/_/g, " ");
+}
+
+function subscriptionBadgeVariant(
+  status: string,
+): "healthy" | "info" | "regression" | "neutral" {
   switch (status) {
     case "active":
       return "healthy";
@@ -53,28 +71,63 @@ function subscriptionBadgeVariant(status: string): "healthy" | "info" | "regress
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
+  return new Date(iso).toLocaleDateString([], {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function meterTone(used: number, limit: number): "ok" | "warn" | "danger" {
+  if (limit <= 0) return "ok";
+  const ratio = used / limit;
+  if (ratio >= 0.95) return "danger";
+  if (ratio >= 0.8) return "warn";
+  return "ok";
+}
+
+function Metric({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-lg border border-border-subtle bg-surface-1 px-4 py-3">
+      <p className="font-mono text-xl font-semibold tabular-nums text-fg-primary">{value}</p>
+      <p className="mt-0.5 text-xs text-fg-muted">{label}</p>
+      {hint ? <p className="mt-0.5 text-2xs text-fg-muted">{hint}</p> : null}
+    </div>
+  );
 }
 
 export function BillingPage() {
+  const navigate = useNavigate();
   const { currentOrg, projects, user } = useAppContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [billingLoading, setBillingLoading] = useState(true);
   const [usage, setUsage] = useState<ProjectEventUsage[]>([]);
   const [usageLoading, setUsageLoading] = useState(true);
+  const [timeWindow, setTimeWindow] = useState<UsageTimeWindow>("30d");
   const [loadingPortal, setLoadingPortal] = useState(false);
   const [upgradingPlanId, setUpgradingPlanId] = useState<string | null>(null);
 
   const isOwner = user?.role === "owner";
   const cloud = isCloudDeployment();
   const checkoutId = searchParams.get("checkout_id");
-  const safeProjects = useMemo(() => (Array.isArray(projects) ? projects : []), [projects]);
+  const orgName = currentOrg?.name ?? user?.org_name ?? "Workspace";
+  const safeProjects = useMemo(
+    () => (Array.isArray(projects) ? projects : []),
+    [projects],
+  );
 
   const loadBilling = useCallback(async () => {
     setBillingLoading(true);
     let status: BillingStatus | null = null;
-    // Checkout sync / Polar status only exist on cloud; OSS soft-nulls.
     if (cloud && checkoutId) {
       status = await syncCheckout(checkoutId).catch(() => null);
       setSearchParams(
@@ -100,7 +153,7 @@ export function BillingPage() {
   useEffect(() => {
     let cancelled = false;
     setUsageLoading(true);
-    void loadProjectEventUsage(safeProjects, "30d")
+    void loadProjectEventUsage(safeProjects, timeWindow)
       .then((rows) => {
         if (!cancelled) setUsage(rows);
       })
@@ -110,14 +163,75 @@ export function BillingPage() {
     return () => {
       cancelled = true;
     };
-  }, [safeProjects]);
+  }, [safeProjects, timeWindow]);
 
   const plan = planForBillingStatus(billingStatus);
   const eventLimit = monthlyEventLimit(billingStatus, plan);
-  const billableEvents = usage.filter((row) => !row.isDemo).reduce((sum, row) => sum + row.events, 0);
-  const demoEvents = usage.filter((row) => row.isDemo).reduce((sum, row) => sum + row.events, 0);
-  const trialEndsAt = billingStatus?.canary_expires_at ?? null;
-  const maxProjects = billingStatus?.max_projects ?? 0;
+  const billableEvents = usage
+    .filter((row) => !row.isDemo)
+    .reduce((sum, row) => sum + row.events, 0);
+  const demoEvents = usage
+    .filter((row) => row.isDemo)
+    .reduce((sum, row) => sum + row.events, 0);
+  const totalEvents = billableEvents + demoEvents;
+  /** Self-host has no invoice — show all events. Cloud meters billable only. */
+  const displayEvents = cloud ? billableEvents : totalEvents;
+  const unresolvedTotal = usage.reduce(
+    (sum, row) => sum + (row.stats?.unresolved ?? 0),
+    0,
+  );
+  const projectCount = usage.length;
+  const windowLabel =
+    USAGE_TIME_WINDOWS.find((option) => option.value === timeWindow)?.label ??
+    "Last 30 days";
+  const tone = eventLimit ? meterTone(billableEvents, eventLimit) : "ok";
+  const meterPercent =
+    eventLimit && eventLimit > 0
+      ? Math.min(100, Math.round((billableEvents / eventLimit) * 100))
+      : 0;
+
+  const summaryText = useMemo(() => {
+    const lines = [
+      `Epure usage · ${orgName}`,
+      cloud
+        ? `${windowLabel}: ${billableEvents.toLocaleString()} billable events` +
+          (demoEvents > 0 ? ` (${demoEvents.toLocaleString()} demo excluded)` : "")
+        : `${windowLabel}: ${totalEvents.toLocaleString()} events`,
+      `Projects: ${projectCount} · Unresolved: ${unresolvedTotal}`,
+    ];
+    if (cloud && plan) {
+      lines.push(
+        `Plan: ${plan.name} · ${subscriptionLabel(billingStatus?.subscription_status ?? "")}`,
+      );
+      if (eventLimit) {
+        lines.push(
+          `Quota: ${billableEvents.toLocaleString()} / ${eventLimit.toLocaleString()}`,
+        );
+      }
+    } else {
+      lines.push("Deployment: self-hosted (not metered)");
+    }
+    for (const row of usage) {
+      lines.push(
+        `- ${row.project.name}: ${row.events.toLocaleString()} events` +
+          (row.isDemo ? " (demo)" : ""),
+      );
+    }
+    return lines.join("\n");
+  }, [
+    billableEvents,
+    billingStatus?.subscription_status,
+    cloud,
+    demoEvents,
+    eventLimit,
+    orgName,
+    plan,
+    projectCount,
+    totalEvents,
+    unresolvedTotal,
+    usage,
+    windowLabel,
+  ]);
 
   const handleOpenPortal = async () => {
     if (!cloud) {
@@ -168,238 +282,362 @@ export function BillingPage() {
     }
   };
 
+  async function handleCopySummary() {
+    if (!summaryText || usageLoading) return;
+    const ok = await copyText(summaryText);
+    if (ok) toast.success("Usage summary copied");
+    else toast.error("Could not copy");
+  }
+
   return (
     <PageShell density="standard">
-      <div className="mx-auto w-full max-w-6xl space-y-6 p-6">
-        {isOwner && billingStatus?.subscription_id ? (
-          <div className="flex justify-end">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void handleOpenPortal()}
-              disabled={loadingPortal}
-            >
-              {loadingPortal ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <Receipt className="size-3.5" />
-              )}
-              <span>Manage Invoices</span>
-            </Button>
+      <Box flexDirection="column" gap="l" width="100%" padding="l">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <Text as="h2" variant="heading-xs">
+              Usage & Billing
+            </Text>
+            {!billingLoading && !cloud ? (
+              <Badge variant="neutral" size="compact">
+                Self-hosted
+              </Badge>
+            ) : null}
+            {!billingLoading && cloud && plan ? (
+              <Badge
+                variant={subscriptionBadgeVariant(
+                  billingStatus?.subscription_status ?? "",
+                )}
+                size="compact"
+              >
+                {plan.name}
+              </Badge>
+            ) : null}
           </div>
-        ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={timeWindow}
+              onValueChange={(value) => setTimeWindow(value as UsageTimeWindow)}
+            >
+              <SelectTrigger aria-label="Time range" className="h-7 w-[8.5rem] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {USAGE_TIME_WINDOWS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={usageLoading || !summaryText}
+              onClick={() => void handleCopySummary()}
+            >
+              <Icon icon={Copy} size={14} />
+              Copy
+            </Button>
+            {cloud && isOwner && billingStatus?.subscription_id ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={loadingPortal}
+                onClick={() => void handleOpenPortal()}
+              >
+                {loadingPortal ? (
+                  <Icon icon={CircleNotch} size={14} className="animate-spin" />
+                ) : (
+                  <Icon icon={CreditCard} size={14} />
+                )}
+                Manage billing
+              </Button>
+            ) : null}
+          </div>
+        </div>
+
+        <p className="max-w-2xl text-xs text-fg-muted">
+          {cloud
+            ? `Plan, quota, and event volume for ${orgName}.`
+            : `Event volume for ${orgName}. Self-hosted instances are not metered. No subscription or invoice.`}
+        </p>
+
+        {/* Plan / deployment status */}
         {billingLoading ? (
           <div className="flex items-center gap-2 text-xs text-fg-muted">
-            <Loader2 className="size-3.5 animate-spin" />
-            <span>Loading billing status…</span>
+            <Icon icon={CircleNotch} size={14} className="animate-spin" />
+            Loading…
           </div>
-        ) : !billingStatus ? (
-          cloud ? (
-            <EmptyState
-              title="Billing status unavailable"
-              description="We could not load your subscription. Event usage below is still live."
-              actionLabel="Retry"
-              onAction={() => void loadBilling()}
-            />
-          ) : (
-            <SectionCard
-              title="Self-hosted"
-              description="This instance is not metered. There is no subscription, quota, or invoice."
-            >
-              <p className="text-xs text-fg-muted">
-                Event volume per project is shown below for capacity planning.
+        ) : cloud && !billingStatus ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface-1 px-4 py-3">
+            <div>
+              <p className="text-xs font-medium text-fg-primary">Billing unavailable</p>
+              <p className="text-2xs text-fg-muted">
+                Could not load subscription. Usage below is still live.
               </p>
-            </SectionCard>
-          )
-        ) : (
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-            <div className="flex flex-col justify-between rounded-panel border border-border-subtle bg-surface-1 p-5 shadow-tactile lg:col-span-5">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex size-7 items-center justify-center rounded-md border border-accent/20 bg-accent/15 text-accent">
-                      <Zap className="size-4" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-fg-primary">
-                        {plan?.name ?? billingStatus.plan_tier}
-                      </h3>
-                      {currentOrg?.name ? (
-                        <p className="text-[11px] text-fg-muted">{currentOrg.name}</p>
-                      ) : null}
-                    </div>
-                  </div>
-                  <Badge variant={subscriptionBadgeVariant(billingStatus.subscription_status)} size="sm">
-                    {billingStatus.subscription_status || "No subscription"}
+            </div>
+            <Button type="button" variant="ghost" size="sm" onClick={() => void loadBilling()}>
+              Retry
+            </Button>
+          </div>
+        ) : cloud && billingStatus ? (
+          <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface-1">
+            <div className="flex flex-wrap items-start justify-between gap-4 px-4 py-4">
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-fg-primary">
+                    {plan?.name ?? billingStatus.plan_tier}
+                  </p>
+                  <Badge
+                    variant={subscriptionBadgeVariant(billingStatus.subscription_status)}
+                    size="compact"
+                  >
+                    {subscriptionLabel(billingStatus.subscription_status)}
                   </Badge>
                 </div>
-
-                {plan?.price ? (
-                  <div className="flex items-baseline gap-1.5 font-mono">
-                    <span className="text-3xl font-semibold tabular-nums text-fg-primary">
-                      {plan.priceMonthly ?? plan.price}
-                    </span>
-                    {plan.period ? (
-                      <span className="font-sans text-xs font-normal text-fg-muted">{plan.period}</span>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <div className="space-y-1 text-xs text-fg-muted">
-                  {trialEndsAt ? (
-                    <p>
-                      Trial {new Date(trialEndsAt).getTime() <= Date.now() ? "ended" : "ends"}{" "}
-                      <span className="font-medium tabular-nums text-fg-secondary">{formatDate(trialEndsAt)}</span>
-                    </p>
-                  ) : null}
-                  <p>
-                    Projects:{" "}
-                    <span className="font-medium tabular-nums text-fg-secondary">
-                      {billingStatus.project_count}
-                      {maxProjects > 0 ? ` / ${maxProjects}` : " (unlimited)"}
+                {plan?.priceAnnual || plan?.priceMonthly ? (
+                  <p className="font-mono text-2xl font-semibold tabular-nums text-fg-primary">
+                    {plan.priceAnnual ?? plan.priceMonthly}
+                    <span className="ml-1 font-sans text-xs font-normal text-fg-muted">
+                      / mo · billed annually
                     </span>
                   </p>
-                </div>
-
-                {plan ? (
-                  <div className="space-y-2 border-t border-border-subtle/80 pt-3 text-xs text-fg-secondary">
-                    {plan.features.slice(0, 4).map((feature) => (
-                      <div key={feature} className="flex items-center gap-2">
-                        <Check className="size-3.5 shrink-0 stroke-[2.5] text-healthy" />
-                        <span>{feature}</span>
-                      </div>
-                    ))}
-                  </div>
                 ) : null}
+                <p className="text-2xs text-fg-muted">
+                  {billingStatus.canary_expires_at ? (
+                    <>
+                      Trial{" "}
+                      {new Date(billingStatus.canary_expires_at).getTime() <= Date.now()
+                        ? "ended"
+                        : "ends"}{" "}
+                      {formatDate(billingStatus.canary_expires_at)}
+                      {" · "}
+                    </>
+                  ) : null}
+                  Projects{" "}
+                  <span className="tabular-nums text-fg-secondary">
+                    {billingStatus.project_count}
+                    {billingStatus.max_projects > 0
+                      ? ` / ${billingStatus.max_projects}`
+                      : " · unlimited"}
+                  </span>
+                </p>
               </div>
-
-              {isOwner && billingStatus.subscription_id ? (
-                <div className="mt-5 border-t border-border-subtle pt-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void handleOpenPortal()}
-                    disabled={loadingPortal}
-                  >
-                    <CreditCard className="size-3.5" />
-                    <span>Manage Plan & Payment</span>
-                  </Button>
-                </div>
+              {plan ? (
+                <ul className="grid gap-1.5 text-xs text-fg-secondary sm:max-w-xs">
+                  {plan.features.slice(0, 4).map((feature) => (
+                    <li key={feature} className="flex items-start gap-1.5">
+                      <Icon icon={Check} size={12} className="mt-0.5 shrink-0 text-healthy" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
               ) : null}
             </div>
-
-            <div className="flex flex-col gap-3 lg:col-span-7">
-              {eventLimit ? (
-                <UsageMeterCard label="Billable events (last 30 days)" used={billableEvents} limit={eventLimit} />
-              ) : (
-                <div className="rounded-panel border border-border-subtle bg-surface-1 p-4 text-xs text-fg-muted shadow-tactile">
-                  <span className="font-mono text-2xl font-semibold tabular-nums text-fg-primary">
-                    {billableEvents.toLocaleString()}
-                  </span>{" "}
-                  billable events in the last 30 days · no monthly cap on this plan
+            {eventLimit ? (
+              <div className="space-y-2 border-t border-border-subtle px-4 py-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-xs font-medium text-fg-primary">
+                    Billable events · {windowLabel.toLowerCase()}
+                  </p>
+                  <p className="font-mono text-xs tabular-nums text-fg-muted">
+                    {billableEvents.toLocaleString()} / {eventLimit.toLocaleString()}
+                    <span className="ml-2 text-fg-secondary">{meterPercent}%</span>
+                  </p>
                 </div>
-              )}
-              <p className="text-[11px] text-fg-muted">
-                Counted from stored events over a rolling 30-day window
-                {usageLoading ? " (loading…)" : ""}.
+                <Progress
+                  value={meterPercent}
+                  className="h-1.5"
+                  indicatorClassName={
+                    tone === "danger"
+                      ? "bg-semantic-danger"
+                      : tone === "warn"
+                        ? "bg-semantic-warning"
+                        : "bg-accent"
+                  }
+                />
                 {demoEvents > 0 ? (
-                  <>
-                    {" "}
-                    Demo projects (
-                    <span className="tabular-nums">{demoEvents.toLocaleString()}</span> events) are excluded.
-                  </>
+                  <p className="text-2xs text-fg-muted">
+                    Demo projects excluded (
+                    <span className="tabular-nums">{demoEvents.toLocaleString()}</span> events).
+                  </p>
                 ) : null}
+              </div>
+            ) : (
+              <div className="border-t border-border-subtle px-4 py-3 text-xs text-fg-muted">
+                <span className="font-mono text-lg font-semibold tabular-nums text-fg-primary">
+                  {formatCompactCount(billableEvents)}
+                </span>{" "}
+                billable events · no monthly cap on this plan
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border-subtle bg-surface-1 px-4 py-3">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-2 text-fg-muted">
+              <Icon icon={ChartBar} size={16} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-fg-primary">Self-hosted · not metered</p>
+              <p className="text-2xs text-fg-muted">
+                Volume below is for capacity planning. No subscription, quota, or invoice.
               </p>
             </div>
           </div>
         )}
 
-        <SectionCard
-          title="Per-project event volume (last 30 days)"
-          description="Demo projects are excluded from billable volume."
-          contentClassName="p-0"
-        >
+        {/* Snapshot metrics */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {usageLoading ? (
-            <div className="flex items-center gap-2 p-4 text-xs text-fg-muted">
-              <Loader2 className="size-3.5 animate-spin" />
-              <span>Loading project usage…</span>
+            Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={index}
+                className="h-[4.5rem] animate-pulse rounded-lg border border-border-subtle bg-surface-2/60"
+              />
+            ))
+          ) : (
+            <>
+              <Metric
+                label={cloud ? "Billable events" : "Events"}
+                value={formatCompactCount(displayEvents)}
+                hint={windowLabel}
+              />
+              <Metric
+                label="Projects"
+                value={String(projectCount)}
+                hint={
+                  demoEvents > 0
+                    ? `${usage.filter((r) => r.isDemo).length} demo`
+                    : undefined
+                }
+              />
+              <Metric label="Unresolved" value={formatCompactCount(unresolvedTotal)} />
+              <Metric
+                label={eventLimit ? "Quota used" : "Metering"}
+                value={eventLimit ? `${meterPercent}%` : "Off"}
+                hint={
+                  eventLimit
+                    ? `${formatCompactCount(eventLimit)} / mo`
+                    : "Self-hosted"
+                }
+              />
+            </>
+          )}
+        </div>
+
+        {/* Per-project list */}
+        <div className="w-full overflow-hidden rounded-lg border border-border-subtle bg-surface-1">
+          <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-2.5">
+            <p className="text-xs font-medium text-fg-primary">Projects</p>
+            <p className="text-2xs text-fg-muted">
+              {usageLoading
+                ? "Loading…"
+                : `${projectCount} project${projectCount === 1 ? "" : "s"} · ${windowLabel.toLowerCase()}`}
+            </p>
+          </div>
+
+          {usageLoading ? (
+            <div className="space-y-0 divide-y divide-border-subtle">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="h-3 w-36 animate-pulse rounded bg-surface-2" />
+                    <div className="h-2.5 w-24 animate-pulse rounded bg-surface-2" />
+                  </div>
+                  <div className="h-6 w-20 animate-pulse rounded bg-surface-2" />
+                </div>
+              ))}
             </div>
           ) : usage.length === 0 ? (
-            <p className="p-4 text-xs text-fg-muted">No projects yet.</p>
+            <EmptyState
+              layout="inset"
+              tone="first-run"
+              title="No projects yet"
+              description="Create a project to start collecting events. Usage will show up here as soon as they land."
+              hint="Self-hosted or Cloud: volume always stays visible for planning."
+              actionLabel="Go to projects"
+              onAction={() => navigate("/")}
+            />
           ) : (
-            <Table>
-              <TableHeader className="bg-surface-2/40 text-[11px] font-semibold text-fg-muted">
-                <TableRow>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Classification</TableHead>
-                  <TableHead className="text-right">30d events</TableHead>
-                  <TableHead className="text-center">30d trend</TableHead>
-                  <TableHead className="text-right">Unresolved</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="divide-y divide-border-subtle/80 font-mono">
-                {usage.map((row) => (
-                  <TableRow key={row.project.id}>
-                    <TableCell>
-                      <div className="font-sans font-medium text-fg-primary">{row.project.name}</div>
-                      <div className="font-mono text-[10px] text-fg-muted">
-                        {row.project.slug ?? row.project.id.slice(0, 8)}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-sans">
+            <ul className="divide-y divide-border-subtle">
+              {usage.map((row) => (
+                <li
+                  key={row.project.id}
+                  className="flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                      <p className="truncate text-xs font-medium text-fg-primary">
+                        {row.project.name}
+                      </p>
                       {row.isDemo ? (
-                        <Badge variant="neutral" size="sm">Demo (excluded)</Badge>
-                      ) : (
-                        <Badge variant="healthy" size="sm">Billable</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-medium tabular-nums text-fg-primary">
-                      {row.stats ? row.events.toLocaleString() : "—"}
-                    </TableCell>
-                    <TableCell>
-                      {row.buckets.some((bucket) => bucket.count > 0) ? (
-                        <TelemetryChart
-                          data={bucketsToTelemetry(row.buckets)}
-                          height={24}
-                          showAxes={false}
-                          color={row.isDemo ? "info" : "primary"}
-                          className="mx-auto w-24"
-                        />
-                      ) : (
-                        <div className="text-center text-[11px] text-fg-muted">—</div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-fg-secondary">
-                      {row.stats ? row.stats.unresolved.toLocaleString() : "—"}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-              <TableFooter className="text-xs font-semibold">
-                <TableRow>
-                  <TableCell className="font-sans text-fg-primary" colSpan={2}>
-                    Total billable (excluding demos)
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums text-fg-primary">
-                    {billableEvents.toLocaleString()}
-                  </TableCell>
-                  <TableCell colSpan={2} />
-                </TableRow>
-              </TableFooter>
-            </Table>
-          )}
-        </SectionCard>
+                        <Badge variant="neutral" size="compact">
+                          Demo
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <p className="truncate font-mono text-2xs text-fg-muted">
+                      {row.project.slug ?? row.project.id.slice(0, 8)}
+                    </p>
+                  </div>
 
-        {cloud ? (
-          <div className="space-y-4 pt-2">
-            <div>
-              <h3 className="text-sm font-semibold text-fg-primary">Available Epure Cloud tiers</h3>
-              <p className="text-xs text-fg-muted">
-                Scale to higher volumes or self-host freely with Apache 2.0 license.
+                  <div className="hidden w-24 shrink-0 sm:block">
+                    {row.buckets.some((bucket) => bucket.count > 0) ? (
+                      <TelemetryChart
+                        data={bucketsToTelemetry(row.buckets)}
+                        height={22}
+                        showAxes={false}
+                        color={row.isDemo ? "info" : "primary"}
+                        className="w-full"
+                      />
+                    ) : (
+                      <span className="text-2xs text-fg-muted">-</span>
+                    )}
+                  </div>
+
+                  <div className="flex shrink-0 items-baseline gap-4 text-right">
+                    <div>
+                      <p className="font-mono text-xs font-medium tabular-nums text-fg-primary">
+                        {row.stats ? formatCompactCount(row.events) : "-"}
+                      </p>
+                      <p className="text-2xs text-fg-muted">events</p>
+                    </div>
+                    <div className="w-12">
+                      <p className="font-mono text-xs tabular-nums text-fg-secondary">
+                        {row.stats ? formatCompactCount(row.stats.unresolved) : "-"}
+                      </p>
+                      <p className="text-2xs text-fg-muted">open</p>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {!usageLoading && usage.length > 0 ? (
+            <div className="flex items-center justify-between gap-3 border-t border-border-subtle bg-surface-2/40 px-4 py-2.5">
+              <p className="text-2xs text-fg-muted">
+                {cloud ? "Billable total (demos excluded)" : "Total events"}
+              </p>
+              <p className="font-mono text-xs font-semibold tabular-nums text-fg-primary">
+                {(cloud ? billableEvents : totalEvents).toLocaleString()}
               </p>
             </div>
+          ) : null}
+        </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {/* Cloud plans. secondary */}
+        {cloud ? (
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs font-medium text-fg-primary">Cloud plans</p>
+              <p className="text-2xs text-fg-muted">
+                Flat monthly price. Zero automatic overages.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {CLOUD_PLANS.map((tier) => {
                 const isCurrent = plan?.id === tier.id;
                 return (
@@ -407,57 +645,58 @@ export function BillingPage() {
                     key={tier.id}
                     className={
                       isCurrent
-                        ? "flex flex-col justify-between rounded-panel border border-accent/40 bg-accent/5 p-5 shadow-tactile"
-                        : "flex flex-col justify-between rounded-panel border border-border-subtle bg-surface-1 p-5 transition-colors hover:border-border-strong"
+                        ? "flex flex-col rounded-lg border border-accent/40 bg-accent/5 p-4"
+                        : "flex flex-col rounded-lg border border-border-subtle bg-surface-1 p-4"
                     }
                   >
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-base font-semibold text-fg-primary">{tier.name}</h4>
-                        {isCurrent ? (
-                          <Badge variant="healthy" size="sm">Current plan</Badge>
-                        ) : tier.comingSoon ? (
-                          <Badge variant="neutral" size="sm">Coming soon</Badge>
-                        ) : null}
-                      </div>
-
-                      <div className="mt-3 flex items-baseline gap-1 font-mono">
-                        <span className="text-2xl font-bold tabular-nums text-fg-primary">
-                          {tier.priceAnnual ?? tier.price}
-                        </span>
-                        <span className="font-sans text-xs font-normal text-fg-muted">
-                          / mo (billed annually)
-                        </span>
-                      </div>
-
-                      <p className="mt-2 text-xs leading-relaxed text-fg-muted">{tier.description}</p>
-
-                      <div className="mt-4 space-y-2 border-t border-border-subtle/80 pt-3 text-xs text-fg-secondary">
-                        {tier.features.slice(0, 5).map((feature) => (
-                          <div key={feature} className="flex items-center gap-2">
-                            <Check className="size-3.5 shrink-0 stroke-[2.5] text-healthy" />
-                            <span>{feature}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="mt-5 border-t border-border-subtle pt-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-fg-primary">{tier.name}</p>
                       {isCurrent ? (
-                        <Button variant="outline" size="sm" disabled>
-                          Active plan
+                        <Badge variant="healthy" size="compact">
+                          Current
+                        </Badge>
+                      ) : tier.comingSoon ? (
+                        <Badge variant="neutral" size="compact">
+                          Soon
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <p className="mt-2 font-mono text-xl font-semibold tabular-nums text-fg-primary">
+                      {tier.priceAnnual ?? tier.price}
+                      <span className="ml-1 font-sans text-xs font-normal text-fg-muted">
+                        / mo · annual
+                      </span>
+                    </p>
+                    <p className="mt-1 text-2xs leading-relaxed text-fg-muted">
+                      {tier.description}
+                    </p>
+                    <ul className="mt-3 space-y-1.5 border-t border-border-subtle pt-3 text-xs text-fg-secondary">
+                      {tier.features.slice(0, 4).map((feature) => (
+                        <li key={feature} className="flex items-start gap-1.5">
+                          <Icon icon={Check} size={12} className="mt-0.5 shrink-0 text-healthy" />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-4">
+                      {isCurrent ? (
+                        <Button type="button" variant="outline" size="sm" disabled>
+                          Active
                         </Button>
                       ) : (
                         <Button
+                          type="button"
                           variant="primary"
                           size="sm"
-                          disabled={upgradingPlanId === tier.id || !isOwner || tier.comingSoon}
+                          disabled={
+                            upgradingPlanId === tier.id || !isOwner || Boolean(tier.comingSoon)
+                          }
                           onClick={() => void handleSelectPlan(tier)}
                         >
                           {upgradingPlanId === tier.id ? (
-                            <Loader2 className="size-3.5 animate-spin" />
+                            <Icon icon={CircleNotch} size={14} className="animate-spin" />
                           ) : (
-                            `Switch to ${tier.name}`
+                            `Switch to ${tier.name.replace(/^Cloud /, "")}`
                           )}
                         </Button>
                       )}
@@ -468,13 +707,7 @@ export function BillingPage() {
             </div>
           </div>
         ) : null}
-
-        <AskAgentCard
-          title="Optimize event ingestion"
-          description="Have questions about which error fingerprints are consuming your monthly quota? Ask your AI coding agent to inspect high-frequency call sites and recommend rate dampening or ignore rules."
-          promptText="Analyze our Epure event ingestion and identify top high-frequency error traces that should be muted, grouped, or rate-limited."
-        />
-      </div>
+      </Box>
     </PageShell>
   );
 }

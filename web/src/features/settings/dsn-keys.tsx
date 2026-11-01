@@ -12,13 +12,13 @@ import {
 } from "../../lib/api";
 import { formatRelativeTime } from "../../lib/format-time";
 import { useAppContext } from "../../shell/app-context";
-import { Badge } from "../../ui/badge";
-import { Button } from "../../ui/button";
-import { CopyButton } from "../../ui/copy-button";
-import { CopyDsnBlock } from "../../ui/copy-dsn-block";
-import { Input } from "../../ui/input";
-import { useToast } from "../../ui/toast-provider";
+import { Badge } from "@/ui/primitives";
+import { Button } from "@/ui/primitives";
+import { ApiKeyField, useToast } from "@/ui/components";
+import { Input } from "@/ui/primitives";
+import { EmptyState } from "@/components/kit/empty-state";
 import { SectionCard } from "@/components/kit/section-card";
+import { Key } from "@/components/ui/icon";
 import {
   InfoCallout,
   MemberAccessNotice,
@@ -34,6 +34,7 @@ export function DsnKeysSettings() {
   const [keyLabel, setKeyLabel] = useState("default");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const safeProjects = Array.isArray(projects) ? projects : [];
@@ -72,7 +73,7 @@ export function DsnKeysSettings() {
       const created = await createDsnKey(activeProjectId, keyLabel.trim() || "default");
       setRevealed(created);
       await loadKeys();
-      toast("Key created — copy now");
+      toast("Key created. Copy it now");
     } catch {
       toast("Create failed");
     } finally {
@@ -93,7 +94,7 @@ export function DsnKeysSettings() {
       const created = await rotateDsnKeys(activeProjectId, keyLabel.trim() || "rotated");
       setRevealed(created);
       await loadKeys();
-      toast("Rotated — update SDK");
+      toast("Rotated. Update your SDK");
     } catch {
       toast("Rotate failed");
     } finally {
@@ -102,10 +103,15 @@ export function DsnKeysSettings() {
   }
 
   async function handleRevoke(id: string) {
-    if (!window.confirm("Revoke this key?")) return;
+    if (!window.confirm("Revoke this key? SDKs using it will stop ingesting.")) return;
     setBusy(true);
+    setRevokingId(id);
     try {
       await revokeDsnKey(id);
+      const revokedAt = new Date().toISOString();
+      setKeys((prev) =>
+        prev.map((row) => (row.id === id ? { ...row, revoked_at: row.revoked_at ?? revokedAt } : row)),
+      );
       if (revealed?.id === id) setRevealed(null);
       await loadKeys();
       toast("Revoked");
@@ -113,6 +119,7 @@ export function DsnKeysSettings() {
       toast("Revoke failed");
     } finally {
       setBusy(false);
+      setRevokingId(null);
     }
   }
 
@@ -152,7 +159,8 @@ export function DsnKeysSettings() {
     <SettingsStack>
       <SectionCard
         title="Client keys"
-        description="DSN for SDK ingest. Inbound only."
+        description="Paste the DSN into your SDK. Rotate if a key leaks."
+        contentClassName="w-full min-w-0"
         headerActions={
           <div className="flex items-center gap-1.5">
             <Input
@@ -160,93 +168,116 @@ export function DsnKeysSettings() {
               onChange={(event) => setKeyLabel(event.target.value)}
               placeholder="label"
               maxLength={64}
-              className="h-7 w-24 text-2xs"
+              className="h-7 w-28 text-2xs"
               aria-label="Key label"
             />
-            <Button size="sm" disabled={busy} onClick={() => void handleCreate()}>
+            <Button
+              type="button"
+              size="sm"
+              className="h-7"
+              disabled={busy}
+              onClick={() => void handleCreate()}
+            >
               Create
             </Button>
-            <Button variant="secondary" size="sm" disabled={busy} onClick={() => void handleRotate()}>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-7"
+              disabled={busy}
+              onClick={() => void handleRotate()}
+            >
               Rotate
             </Button>
           </div>
         }
       >
-        <div className="space-y-3">
+        <div className="flex w-full min-w-0 flex-col gap-5">
           {revealed && dsnSegment ? (
-            <div className="space-y-2 rounded-md border border-border-subtle bg-surface-2/50 p-2.5">
-              <p className="text-2xs font-medium text-fg-primary">
-                New key — secret shown once
+            <div className="w-full min-w-0 space-y-3 rounded-md border border-warning/40 bg-warning/5 p-3">
+              <p className="text-xs font-medium text-fg-primary">
+                New key. Copy it now. The secret is shown once.
               </p>
-              <CopyDsnBlock
-                compact
-                dsn={formatDsn(revealed.public_key, dsnSegment)}
+              <ApiKeyField
+                value={formatDsn(revealed.public_key, dsnSegment)}
                 label="DSN"
                 hint={null}
+                masked={false}
+                revealAllowed
               />
-              <div className="flex items-center gap-2">
-                <Input
-                  readOnly
-                  value={revealed.secret_key}
-                  className="h-8 min-w-0 flex-1 font-mono text-2xs"
-                  aria-label="Secret key"
-                  onFocus={(event) => event.currentTarget.select()}
-                />
-                <CopyButton value={revealed.secret_key} label="Secret" />
-              </div>
+              <ApiKeyField
+                value={revealed.secret_key}
+                label="Secret"
+                hint={null}
+                masked={false}
+                revealAllowed
+              />
             </div>
           ) : activeDsn ? (
-            <CopyDsnBlock compact dsn={activeDsn} label="Active DSN" hint={null} />
+            <ApiKeyField value={activeDsn} label="DSN" hint={null} masked revealAllowed />
           ) : (
             <p className="text-xs text-fg-muted">No active key. Create one to connect an SDK.</p>
           )}
 
-          <div className="w-full overflow-hidden rounded-md border border-border-subtle">
+          <div className="w-full min-w-0 overflow-hidden rounded-md border border-border-subtle">
+            <div className="border-b border-border-subtle bg-surface-1 px-3 py-2">
+              <p className="text-xs font-medium text-fg-primary">Keys</p>
+            </div>
             {loading ? (
-              <p className="px-3 py-2 text-2xs text-fg-muted">Loading…</p>
+              <p className="px-3 py-2.5 text-2xs text-fg-muted">Loading…</p>
             ) : keys.length === 0 ? (
-              <p className="px-3 py-2 text-2xs text-fg-muted">No keys yet.</p>
+              <EmptyState
+                layout="inset"
+                tone="first-run"
+                icon={Key}
+                title="No client keys yet"
+                description="Create a key when you're ready to connect an SDK. The DSN appears once. Store it somewhere safe."
+                hint="You can rotate or revoke keys anytime without losing issues."
+              />
             ) : (
               <ul className="w-full divide-y divide-border-subtle">
-                {keys.map((key) => (
-                  <li
-                    key={key.id}
-                    className="flex w-full min-h-9 items-center justify-between gap-2 px-2.5 py-1.5"
-                  >
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
-                      <span className="truncate font-mono text-2xs text-fg-primary">
-                        {key.public_key.slice(0, 12)}…
-                      </span>
-                      <Badge
-                        variant={key.revoked_at ? "secondary" : "env"}
-                        size="compact"
-                        className="shrink-0"
-                      >
-                        {key.revoked_at ? "Revoked" : "Active"}
-                      </Badge>
-                      <span className="truncate text-2xs text-fg-muted">
-                        {key.label ?? "—"} · {formatRelativeTime(key.created_at)}
-                      </span>
-                    </div>
-                    {!key.revoked_at ? (
-                      <div className="flex shrink-0 items-center gap-1">
-                        <CopyButton
-                          value={dsnSegment ? formatDsn(key.public_key, dsnSegment) : ""}
-                          label="DSN"
-                        />
+                {keys.map((key) => {
+                  const active = !key.revoked_at;
+                  return (
+                    <li
+                      key={key.id}
+                      className="flex w-full min-h-9 min-w-0 items-center justify-between gap-2 px-3 py-1.5"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span
+                            className={
+                              active
+                                ? "truncate text-xs font-medium text-fg-primary"
+                                : "truncate text-xs font-medium text-fg-muted"
+                            }
+                          >
+                            {key.label ?? "Untitled"}
+                          </span>
+                          <Badge variant={active ? "env" : "secondary"} size="compact">
+                            {active ? "Active" : "Revoked"}
+                          </Badge>
+                        </div>
+                        <p className="truncate text-2xs text-fg-muted">
+                          {key.public_key.slice(0, 12)}… · {formatRelativeTime(key.created_at)}
+                        </p>
+                      </div>
+                      {active ? (
                         <Button
+                          type="button"
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2 text-2xs text-semantic-danger"
+                          className="h-7 shrink-0 text-2xs text-semantic-danger"
                           disabled={busy}
                           onClick={() => void handleRevoke(key.id)}
                         >
-                          Revoke
+                          {revokingId === key.id ? "…" : "Revoke"}
                         </Button>
-                      </div>
-                    ) : null}
-                  </li>
-                ))}
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

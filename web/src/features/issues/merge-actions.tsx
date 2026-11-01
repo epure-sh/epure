@@ -1,5 +1,5 @@
 import type { IssueSummary } from "../../lib/api";
-import { ActionButton } from "../../ui/action-button";
+import { ActionButton } from "@/ui/components";
 
 export interface MergeActionsProps {
   selectedIds: Set<string>;

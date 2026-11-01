@@ -196,7 +196,7 @@ export function getAlertPayloadContext(alert?: AlertRow | null): AlertPayloadCon
 /** Header action visibility — missing options map keeps legacy “show all”. */
 export function alertActionEnabled(
   options: AlertPayloadOptions,
-  actionId: "action:view" | "action:fix" | "action:resolve" | "action:mute",
+  actionId: "action:view" | "action:fix" | "action:resolve" | "action:mute" | "action:copy",
 ): boolean {
   if (Object.keys(options).length === 0) {
     return true;

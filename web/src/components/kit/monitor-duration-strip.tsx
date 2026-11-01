@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
@@ -28,7 +27,7 @@ export interface MonitorDurationStripProps {
 }
 
 function formatDuration(ms: number | null): string {
-  if (ms == null) return "—";
+  if (ms == null) return "-";
   if (ms < 1000) return `${Math.round(ms)}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
 }
@@ -117,49 +116,47 @@ export function MonitorDurationStrip({
   );
 
   return (
-    <TooltipProvider delayDuration={120}>
-      <div data-slot="monitor-duration-strip" className={cn("min-w-0", className)}>
-        <div
-          className="flex h-4 flex-wrap content-center items-center gap-0.5"
-          role="img"
-          aria-label={`Last ${days} days · ${recent.length} check-ins`}
-        >
-          {recent.length === 0 ? (
-            <span className="text-2xs text-fg-muted">No runs</span>
-          ) : (
-            recent.map((run) => (
-              <Tooltip key={run.id}>
-                <TooltipTrigger asChild>
-                  <span
-                    className={cn(
-                      "inline-block size-2 shrink-0 rounded-[2px]",
-                      dotClass(run.status, run.duration_ms, stats.avg),
-                    )}
-                    aria-label={`${run.status} ${formatDuration(run.duration_ms)}`}
-                  />
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-xs text-xs">
-                  <div className="font-mono text-2xs text-fg-muted">
-                    {run.created_at ? formatRelativeTime(run.created_at) : "—"}
-                  </div>
-                  <div className="mt-0.5 text-fg-primary">
-                    {run.status}
-                    {run.duration_ms != null ? ` · ${formatDuration(run.duration_ms)}` : ""}
-                    {stats.avg != null && run.status === "ok" && run.duration_ms != null
-                      ? ` · ${((run.duration_ms / stats.avg) * 100).toFixed(0)}% of avg`
-                      : ""}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            ))
-          )}
-        </div>
-        {showAvgPercent ? (
-          <p className="mt-0.5 font-mono-slash text-2xs tabular-nums text-fg-muted">
-            avg {stats.uptime.toFixed(0)}%
-          </p>
-        ) : null}
+    <div data-slot="monitor-duration-strip" className={cn("min-w-0", className)}>
+      <div
+        className="flex h-4 flex-wrap content-center items-center gap-0.5"
+        role="img"
+        aria-label={`Last ${days} days · ${recent.length} check-ins`}
+      >
+        {recent.length === 0 ? (
+          <span className="text-2xs text-fg-muted">No runs</span>
+        ) : (
+          recent.map((run) => (
+            <Tooltip key={run.id}>
+              <TooltipTrigger asChild>
+                <span
+                  className={cn(
+                    "inline-block size-2 shrink-0 rounded-[2px]",
+                    dotClass(run.status, run.duration_ms, stats.avg),
+                  )}
+                  aria-label={`${run.status} ${formatDuration(run.duration_ms)}`}
+                />
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs text-xs">
+                <div className="font-mono text-2xs text-fg-muted">
+                  {run.created_at ? formatRelativeTime(run.created_at) : "-"}
+                </div>
+                <div className="mt-0.5 text-fg-primary">
+                  {run.status}
+                  {run.duration_ms != null ? ` · ${formatDuration(run.duration_ms)}` : ""}
+                  {stats.avg != null && run.status === "ok" && run.duration_ms != null
+                    ? ` · ${((run.duration_ms / stats.avg) * 100).toFixed(0)}% of avg`
+                    : ""}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          ))
+        )}
       </div>
-    </TooltipProvider>
+      {showAvgPercent ? (
+        <p className="mt-0.5 font-mono-slash text-2xs tabular-nums text-fg-muted">
+          avg {stats.uptime.toFixed(0)}%
+        </p>
+      ) : null}
+    </div>
   );
 }

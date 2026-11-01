@@ -84,7 +84,7 @@ export function ruleDurationLabel(rule: AlertRuleRow): string {
     (typeof rule.filters_json?.cooldown_minutes === "number" && rule.filters_json.cooldown_minutes > 0
       ? rule.filters_json.cooldown_minutes
       : null);
-  if (mins == null) return "—";
+  if (mins == null) return "-";
   if (mins < 60) return `${mins} min`;
   if (mins === 60) return "1 hour";
   if (mins % 1440 === 0) {

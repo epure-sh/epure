@@ -429,19 +429,14 @@ export interface QueryChip {
   plain?: boolean;
 }
 
+/**
+ * Structured filters for the search omnibar.
+ * Primary lifecycle (`is:unresolved` / `is:resolved`) is omitted — those live on the status badges.
+ */
 export function extractChips(query: string): QueryChip[] {
   const parsed = parseQuery(query);
   const chips: QueryChip[] = [];
 
-  if (parsed.lifecycle) {
-    const token = `is:${parsed.lifecycle}`;
-    chips.push({
-      key: "lifecycle",
-      label: getFilterPresetLabel(token),
-      token,
-      plain: true,
-    });
-  }
   if (parsed.viewModifier) {
     const token = `is:${parsed.viewModifier}`;
     chips.push({

@@ -1,15 +1,15 @@
 /**
  * Optional print blocks on alert detail — gated by create-rule payload checkboxes.
  *
- * Layout helpers:
- * - Crash site + Request → top band beside the pipeline
- * - Stack → full-width hero under that band
+ * Layout helpers (under the full-width pipeline canvas):
+ * - Crash site + Request → side-by-side row under metrics
+ * - Stack → full-width block
  * - Remaining context → grid below the stack
  */
 import type { ReactNode } from "react";
 import { SectionCard } from "@/components/kit/section-card";
 import { Badge } from "@/components/ui/badge";
-import { SourceCodeBlock } from "@/ui/source-code-block";
+import { SourceCodeBlock } from "@/ui/components";
 import type { AlertRow } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import {
@@ -158,7 +158,7 @@ function requestVisible(options: AlertPayloadOptions, ctx: AlertPayloadContext):
   return Boolean(method || url);
 }
 
-/** Crash site + Request side-by-side under the metrics grid. */
+/** Crash site + Request side-by-side under metrics (below the pipeline canvas). */
 export function AlertDetailCrashRequestRow({
   alert,
   className,
@@ -181,7 +181,7 @@ export function AlertDetailCrashRequestRow({
   );
 }
 
-/** Full-width stack under the metrics/pipeline band. */
+/** Full-width stack under metrics / crash-request. */
 export function AlertDetailStackBlock({
   alert,
   className,
@@ -316,7 +316,7 @@ export function AlertDetailContextGrid({
                   </span>
                 ) : null}
                 <span className="min-w-0 text-xs leading-snug text-fg-primary">
-                  {crumb.message ?? "—"}
+                  {crumb.message ?? "-"}
                 </span>
               </div>
             </li>

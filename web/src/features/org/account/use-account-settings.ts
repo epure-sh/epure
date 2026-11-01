@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "../../../ui/toast-provider";
+import { useToast } from "@/ui/components";
 import {
   apiErrorStatus,
   changePassword,

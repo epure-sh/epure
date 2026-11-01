@@ -1,65 +1,26 @@
 import { type FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
-import { exportAccount } from "../../../lib/api";
-import type { AccountSettingsContext } from "./use-account-settings";
-import { isCloudDeployment, isGoogleSignInVisible } from "../../../lib/deployment";
-import { Badge } from "../../../ui/badge";
-import { Button } from "../../../ui/button";
+import { exportAccount } from "@/lib/api";
+import { isCloudDeployment, isGoogleSignInVisible } from "@/lib/deployment";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../../../ui/dialog";
-import { Field } from "../../../ui/field";
-import { Input } from "../../../ui/input";
-import { cn } from "../../../lib/cn";
-import { SectionCard } from "@/components/kit/section-card";
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import type { AccountSettingsContext } from "./use-account-settings";
 import {
-  InfoCallout,
-  SettingsSkeleton,
-  SettingsStack,
-} from "../../settings/shared";
-
-function SettingsRow({
-  title,
-  description,
-  badge,
-  action,
-  danger = false,
-}: {
-  title: string;
-  description: string;
-  badge?: React.ReactNode;
-  action: React.ReactNode;
-  danger?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex w-full min-h-10 flex-wrap items-center justify-between gap-3 px-3 py-2",
-        danger && "bg-semantic-danger/5",
-      )}
-    >
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <p
-            className={cn(
-              "text-xs font-medium",
-              danger ? "text-semantic-danger" : "text-fg-primary",
-            )}
-          >
-            {title}
-          </p>
-          {badge}
-        </div>
-        <p className="mt-0.5 text-2xs text-fg-muted">{description}</p>
-      </div>
-      <div className="shrink-0">{action}</div>
-    </div>
-  );
-}
+  SettingsPage,
+  SettingsPageHeader,
+  SettingsPanel,
+  SettingsRow,
+  SettingsSkeletonRows,
+  StatusBadge,
+} from "./settings-chrome";
 
 export function SecurityTab({ settings }: { settings: AccountSettingsContext }) {
   const { profile, authConfig, logout, savePassword, removeAccount } = settings;
@@ -83,20 +44,23 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
 
   if (settings.loading) {
     return (
-      <SettingsStack>
-        <SettingsSkeleton />
-      </SettingsStack>
+      <SettingsPage>
+        <SettingsPageHeader title="Security" description="Loading…" />
+        <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface-1">
+          <SettingsSkeletonRows count={4} />
+        </div>
+      </SettingsPage>
     );
   }
 
   if (!profile) {
     return (
-      <SettingsStack>
-        <InfoCallout variant="warning">Could not load account.</InfoCallout>
-        <Button variant="secondary" size="sm" onClick={() => void settings.load()}>
+      <SettingsPage>
+        <SettingsPageHeader title="Security" description="Could not load account." />
+        <Button type="button" variant="secondary" size="sm" onClick={() => void settings.load()}>
           Retry
         </Button>
-      </SettingsStack>
+      </SettingsPage>
     );
   }
 
@@ -143,24 +107,30 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
   }
 
   return (
-    <SettingsStack>
-      <SectionCard title="Security" description="Sign-in, session, and account data." flush>
-        <div className="w-full divide-y divide-border-subtle">
+    <SettingsPage>
+      <SettingsPageHeader
+        title="Security"
+        description="Sign-in methods, this browser session, and account data."
+      />
+
+      <SettingsPanel flush>
+        <div className="divide-y divide-border-subtle">
           {passwordAuthEnabled ? (
             <SettingsRow
               title="Password"
               description={
                 profile.has_password
                   ? "Email and password sign-in enabled."
-                  : "No password set."
+                  : "No password set for email sign-in."
               }
-              badge={
-                <Badge variant="env" size="compact">
-                  {profile.has_password ? "On" : "Off"}
-                </Badge>
-              }
+              badge={<StatusBadge on={profile.has_password} />}
               action={
-                <Button variant="secondary" size="sm" className="h-7" onClick={() => setPasswordOpen(true)}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setPasswordOpen(true)}
+                >
                   {profile.has_password ? "Change" : "Set"}
                 </Button>
               }
@@ -170,17 +140,13 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
           {googleEnabled ? (
             <SettingsRow
               title="Google"
-              description={profile.google_linked ? "Linked." : "Not connected."}
-              badge={
-                <Badge variant="env" size="compact">
-                  {profile.google_linked ? "On" : "Off"}
-                </Badge>
-              }
+              description={profile.google_linked ? "Linked to this account." : "Not connected."}
+              badge={<StatusBadge on={Boolean(profile.google_linked)} />}
               action={
                 profile.google_linked ? (
-                  <span className="text-2xs text-fg-muted">—</span>
+                  <span className="text-2xs text-fg-muted">-</span>
                 ) : (
-                  <Button variant="secondary" size="sm" className="h-7" asChild>
+                  <Button type="button" variant="secondary" size="sm" asChild>
                     <a href="/api/v1/auth/google">Connect</a>
                   </Button>
                 )
@@ -191,17 +157,13 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
           {githubEnabled ? (
             <SettingsRow
               title="GitHub"
-              description={profile.github_linked ? "Linked." : "Not connected."}
-              badge={
-                <Badge variant="env" size="compact">
-                  {profile.github_linked ? "On" : "Off"}
-                </Badge>
-              }
+              description={profile.github_linked ? "Linked to this account." : "Not connected."}
+              badge={<StatusBadge on={Boolean(profile.github_linked)} />}
               action={
                 profile.github_linked ? (
-                  <span className="text-2xs text-fg-muted">—</span>
+                  <span className="text-2xs text-fg-muted">-</span>
                 ) : (
-                  <Button variant="secondary" size="sm" className="h-7" asChild>
+                  <Button type="button" variant="secondary" size="sm" asChild>
                     <a href="/api/v1/auth/github">Connect</a>
                   </Button>
                 )
@@ -213,7 +175,7 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
             title="Session"
             description="Signed in on this browser."
             action={
-              <Button variant="secondary" size="sm" className="h-7" onClick={() => void logout()}>
+              <Button type="button" variant="secondary" size="sm" onClick={() => void logout()}>
                 Log out
               </Button>
             }
@@ -221,12 +183,12 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
 
           <SettingsRow
             title="Export data"
-            description={exportError ?? "Profile and memberships. No secrets."}
+            description={exportError ?? "Download profile and memberships as JSON. No secrets."}
             action={
               <Button
+                type="button"
                 variant="secondary"
                 size="sm"
-                className="h-7"
                 onClick={() => {
                   setExportError(null);
                   void exportAccount()
@@ -251,35 +213,41 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
 
           <SettingsRow
             title="Privacy"
-            description="What this instance stores."
+            description="What this instance stores about you and your events."
             action={
-              <Button variant="secondary" size="sm" className="h-7" asChild>
+              <Button type="button" variant="secondary" size="sm" asChild>
                 <Link to="/privacy">Open</Link>
               </Button>
             }
           />
-
-          <SettingsRow
-            title="Delete account"
-            description="Permanent. Transfer ownership first if you're the only owner."
-            danger
-            action={
-              <Button variant="danger" size="sm" className="h-7" onClick={() => setDeleteOpen(true)}>
-                Delete
-              </Button>
-            }
-          />
         </div>
-      </SectionCard>
+      </SettingsPanel>
+
+      <SettingsPanel
+        title="Danger zone"
+        description="Permanent. Transfer ownership first if you are the only owner."
+        danger
+        flush
+      >
+        <SettingsRow
+          title="Delete account"
+          description="Removes your user and memberships. Cannot be undone."
+          danger
+          action={
+            <Button type="button" variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>
+              Delete
+            </Button>
+          }
+        />
+      </SettingsPanel>
 
       <p className="text-2xs text-fg-muted">
         {isCloudDeployment() ? (
           <>
-            Need help with SSO? Contact{" "}
+            Need SSO help?{" "}
             <a href="mailto:support@epure.sh" className="underline underline-offset-2">
               support@epure.sh
             </a>
-            .
           </>
         ) : (
           <>
@@ -297,13 +265,16 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
             <DialogTitle>{profile.has_password ? "Change password" : "Set password"}</DialogTitle>
             <DialogDescription>
               {profile.has_password
-                ? "Enter your current password and choose a new one."
-                : "Choose a password for email sign-in."}
+                ? "Enter your current password and choose a new one (12+ characters)."
+                : "Choose a password for email sign-in (12+ characters)."}
             </DialogDescription>
           </DialogHeader>
           <form className="space-y-3" onSubmit={(event) => void handlePasswordSubmit(event)}>
             {profile.has_password ? (
-              <Field label="Current password" htmlFor="current-password" className="gap-1.5">
+              <div className="space-y-1.5">
+                <label htmlFor="current-password" className="text-2xs font-medium text-fg-muted">
+                  Current password
+                </label>
                 <Input
                   id="current-password"
                   type="password"
@@ -312,10 +283,13 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
                   onChange={(event) => setCurrentPassword(event.target.value)}
                   className="h-8 text-xs"
                 />
-              </Field>
+              </div>
             ) : null}
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Field label="New password" htmlFor="new-password" className="gap-1.5">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label htmlFor="new-password" className="text-2xs font-medium text-fg-muted">
+                  New password
+                </label>
                 <Input
                   id="new-password"
                   type="password"
@@ -324,8 +298,11 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
                   onChange={(event) => setNewPassword(event.target.value)}
                   className="h-8 text-xs"
                 />
-              </Field>
-              <Field label="Confirm" htmlFor="confirm-password" className="gap-1.5">
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="confirm-password" className="text-2xs font-medium text-fg-muted">
+                  Confirm
+                </label>
                 <Input
                   id="confirm-password"
                   type="password"
@@ -334,17 +311,17 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
                   onChange={(event) => setConfirmPassword(event.target.value)}
                   className="h-8 text-xs"
                 />
-              </Field>
+              </div>
             </div>
             {passwordError ? <p className="text-xs text-semantic-danger">{passwordError}</p> : null}
-            <div className="flex justify-end gap-2">
+            <DialogFooter>
               <Button type="button" variant="ghost" size="sm" onClick={() => setPasswordOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" variant="secondary" size="sm" disabled={passwordBusy}>
+              <Button type="submit" variant="primary" size="sm" disabled={passwordBusy}>
                 {profile.has_password ? "Update" : "Set"}
               </Button>
-            </div>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -356,7 +333,10 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
             <DialogDescription>Type your email to confirm. This cannot be undone.</DialogDescription>
           </DialogHeader>
           <form className="space-y-3" onSubmit={(event) => void handleDeleteAccount(event)}>
-            <Field label="Confirm email" htmlFor="delete-email" className="gap-1.5">
+            <div className="space-y-1.5">
+              <label htmlFor="delete-email" className="text-2xs font-medium text-fg-muted">
+                Confirm email
+              </label>
               <Input
                 id="delete-email"
                 type="email"
@@ -366,9 +346,12 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
                 onChange={(event) => setDeleteEmail(event.target.value)}
                 className="h-8 text-xs"
               />
-            </Field>
+            </div>
             {profile.has_password ? (
-              <Field label="Password" htmlFor="delete-password" className="gap-1.5">
+              <div className="space-y-1.5">
+                <label htmlFor="delete-password" className="text-2xs font-medium text-fg-muted">
+                  Password
+                </label>
                 <Input
                   id="delete-password"
                   type="password"
@@ -377,20 +360,20 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
                   onChange={(event) => setDeletePassword(event.target.value)}
                   className="h-8 text-xs"
                 />
-              </Field>
+              </div>
             ) : null}
             {deleteError ? <p className="text-xs text-semantic-danger">{deleteError}</p> : null}
-            <div className="flex justify-end gap-2">
+            <DialogFooter>
               <Button type="button" variant="ghost" size="sm" onClick={() => setDeleteOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" variant="danger" size="sm" disabled={deleteBusy}>
                 Delete
               </Button>
-            </div>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-    </SettingsStack>
+    </SettingsPage>
   );
 }

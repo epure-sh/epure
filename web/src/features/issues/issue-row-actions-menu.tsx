@@ -11,12 +11,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Archive,
   Bell,
   Check,
   Clock,
   DotsThree,
   Eye,
+  EyeSlash,
   Icon,
   ArrowCounterClockwise,
   Sparkle,
@@ -169,7 +169,7 @@ export function IssueRowActionsMenu({
 
         {showIgnore ? (
           <DropdownMenuItem disabled={busy} onSelect={() => onIgnore(ids)}>
-            <Icon icon={Archive} size={14} className="mr-2" />
+            <Icon icon={EyeSlash} size={14} className="mr-2" />
             {bulk ? "Ignore selected" : "Ignore"}
           </DropdownMenuItem>
         ) : null}

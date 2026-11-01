@@ -2,9 +2,11 @@
  * Flat search index for sidebar filter + ⌘K jump.
  */
 import {
+  DESIGN_KIT_BLOCK_META,
+  DESIGN_KIT_BLOCK_MODULES,
+  DESIGN_KIT_COMPONENT_META,
+  DESIGN_KIT_COMPONENT_MODULES,
   DESIGN_KIT_FOUNDATION_PAGES,
-  DESIGN_KIT_KIT_META,
-  DESIGN_KIT_KIT_MODULES,
   DESIGN_KIT_PRIMITIVE_META,
   DESIGN_KIT_PRIMITIVE_MODULES,
 } from "./registry";
@@ -13,7 +15,7 @@ export type CatalogEntry = {
   id: string;
   label: string;
   group: string;
-  kind: "foundation" | "primitive" | "kit";
+  kind: "foundation" | "primitive" | "component" | "block";
   keywords: string;
 };
 
@@ -41,14 +43,25 @@ export function buildCatalogIndex(): CatalogEntry[] {
     });
   }
 
-  for (const mod of DESIGN_KIT_KIT_MODULES) {
-    const meta = DESIGN_KIT_KIT_META[mod];
+  for (const mod of DESIGN_KIT_COMPONENT_MODULES) {
+    const meta = DESIGN_KIT_COMPONENT_META[mod];
     entries.push({
       id: mod,
       label: mod,
       group: meta.family,
-      kind: "kit",
-      keywords: `kit ${meta.family} ${meta.description} ${(meta.absorbs ?? []).join(" ")}`,
+      kind: "component",
+      keywords: `component ${meta.family} ${meta.description} ${(meta.absorbs ?? []).join(" ")}`,
+    });
+  }
+
+  for (const mod of DESIGN_KIT_BLOCK_MODULES) {
+    const meta = DESIGN_KIT_BLOCK_META[mod];
+    entries.push({
+      id: mod,
+      label: mod,
+      group: meta.family,
+      kind: "block",
+      keywords: `block ${meta.family} ${meta.description} ${(meta.absorbs ?? []).join(" ")}`,
     });
   }
 

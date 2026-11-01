@@ -206,3 +206,12 @@ export function persistAlertInboxRead(
   saveInboxReadMap(projectId, next);
   return next;
 }
+
+/** Restore a previous inbox read map snapshot (used by Undo on mark-read). */
+export function persistInboxReadSnapshot(
+  projectId: string,
+  snapshot: InboxReadMap,
+): InboxReadMap {
+  saveInboxReadMap(projectId, snapshot);
+  return snapshot;
+}

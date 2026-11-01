@@ -1,6 +1,5 @@
 import { EmptyState } from "@/components/kit/empty-state";
-import { Button } from "@/components/ui/button";
-import { CircleNotch } from "@/components/ui/icon";
+import { MagnifyingGlass, UserPlus } from "@/components/ui/icon";
 import { PreviewBlock, PreviewRow, MatrixCell } from "../../shared";
 
 export default function EmptyStatePreview() {
@@ -8,40 +7,61 @@ export default function EmptyStatePreview() {
     <PreviewBlock
       id="empty-state"
       title="EmptyState"
-      description="Quiet · with CTA · loading adjacent — every feed/detail empty path"
+      description="Emotional empties: calm tone, one next step, no dashed circus"
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <MatrixCell label="Quiet (no action)">
-          <EmptyState title="No issues" description="Inbox is clear for this window." />
-        </MatrixCell>
-        <MatrixCell label="With CTA">
+        <MatrixCell label="First-run">
           <EmptyState
-            title="No matches"
-            description="Try clearing filters or widening the time range."
+            tone="first-run"
+            title="Ready when you are"
+            description="Connect a channel so alert rules can reach your team."
+            hint="One is enough to start. You can add more later."
+            actionLabel="Create channel"
+            onAction={() => undefined}
+          />
+        </MatrixCell>
+        <MatrixCell label="Calm / zero">
+          <EmptyState
+            tone="calm"
+            title="Caught up"
+            description="Nothing needs review in this window. Enjoy the quiet."
+            hint="New signals will show up here as they fire."
+          />
+        </MatrixCell>
+        <MatrixCell label="Search miss">
+          <EmptyState
+            tone="search"
+            icon={MagnifyingGlass}
+            title="Nothing matches that filter"
+            description="Try another query, or clear filters. Nothing was deleted."
             actionLabel="Clear filters"
             onAction={() => undefined}
           />
         </MatrixCell>
-        <MatrixCell label="First-run">
+        <MatrixCell label="Blocked">
           <EmptyState
-            title="Connect a project"
-            description="Ship your first event to see triage here."
-            actionLabel="View setup"
+            tone="blocked"
+            title="Needs an admin"
+            description="Managing this needs an owner or admin. Ask a teammate when you can."
+            actionLabel="Back"
             onAction={() => undefined}
+            actionVariant="secondary"
           />
         </MatrixCell>
-        <MatrixCell label="Busy (skeleton stand-in)">
-          <div className="flex min-h-[160px] flex-col items-center justify-center gap-2 rounded-panel border border-dashed border-border-subtle p-4 text-fg-muted">
-            <CircleNotch className="size-5 animate-spin" weight="bold" />
-            <p className="font-mono text-[10px] uppercase tracking-wide">Loading…</p>
-            <Button variant="ghost" size="xs" disabled>
-              Waiting
-            </Button>
-          </div>
-        </MatrixCell>
       </div>
-      <PreviewRow label="Compact strip" className="mt-3">
-        <EmptyState title="Nothing here" description="Empty row substitute" />
+      <PreviewRow label="Inset (inside list/card)" className="mt-3">
+        <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface-1">
+          <EmptyState
+            layout="inset"
+            tone="first-run"
+            icon={UserPlus}
+            title="Just you for now"
+            description="Invite a teammate when you're ready to triage together."
+            hint="You can change roles anytime."
+            actionLabel="Invite teammate"
+            onAction={() => undefined}
+          />
+        </div>
       </PreviewRow>
     </PreviewBlock>
   );

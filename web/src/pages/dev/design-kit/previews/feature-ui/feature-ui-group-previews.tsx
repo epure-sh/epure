@@ -1,74 +1,74 @@
 import * as React from "react";
-import { Button } from "@/ui/button";
+import { Button } from "@/ui/primitives";
 import { setupPlatformById } from "@/lib/setup-platform-snippets";
-import { ActionButton } from "@/ui/action-button";
-import { ApplyWithAiButton } from "@/ui/apply-with-ai-button";
-import { Badge } from "@/ui/badge";
-import { BreadcrumbTimeline } from "@/ui/breadcrumb-timeline";
-import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card";
-import { CodeBlock } from "@/ui/code-block";
-import { CopyButton } from "@/ui/copy-button";
-import { CopyDsnBlock } from "@/ui/copy-dsn-block";
-import { DualSendingCard } from "@/ui/dual-sending-card";
-import { Empty } from "@/ui/empty";
-import { ErrorState } from "@/ui/error-state";
-import { FairUseBanner } from "@/ui/fair-use-banner";
-import { FeedListBody, StackedCardList } from "@/ui/feed-list-shell";
-import { Field } from "@/ui/field";
+import { ActionButton } from "@/ui/components";
+import { ApplyWithAiButton } from "@/ui/components";
+import { Badge } from "@/ui/primitives";
+import { BreadcrumbTimeline } from "@/ui/block";
+import { Card, CardContent, CardHeader, CardTitle } from "@/ui/components";
+import { CodeBlock } from "@/ui/components";
+import { CopyButton } from "@/ui/components";
+import { CopyDsnBlock } from "@/ui/components";
+import { DualSendingCard } from "@/ui/block";
+import { Empty } from "@/ui/components";
+import { ErrorState } from "@/ui/components";
+import { FairUseBanner } from "@/ui/components";
+import { FeedListBody, StackedCardList } from "@/ui/block";
+import { Field } from "@/ui/components";
 import { Input } from "@/components/ui/input";
-import { FilterChip } from "@/ui/filter-chip";
-import { FilterPanel } from "@/ui/filter-panel";
-import { IssueAiCopilotCard } from "@/ui/issue-ai-copilot-card";
-import { IssueContextFields } from "@/ui/issue-context-fields";
-import { IssueContextSnapshot } from "@/ui/issue-context-snapshot";
-import { IssueDetailOverlay } from "@/ui/issue-detail-overlay";
-import { IssueDetailTabs } from "@/ui/issue-detail-tabs";
-import { IssueFeedRow } from "@/ui/issue-feed-row";
+import { FilterChip } from "@/ui/components";
+import { FilterPanel } from "@/ui/block";
+import { IssueAiCopilotCard } from "@/ui/components";
+import { IssueContextFields } from "@/ui/block";
+import { IssueContextSnapshot } from "@/ui/block";
+import { IssueDetailOverlay } from "@/ui/block";
+import { IssueDetailTabs } from "@/ui/block";
+import { IssueFeedRow } from "@/ui/block";
 import {
   IssueImpactLine,
   IssueImpactMetrics,
   IssueOccurrenceTrend,
-} from "@/ui/issue-impact-strip";
-import { IssueOccurrenceTimeline } from "@/ui/issue-occurrence-timeline";
-import { IssueOccurrencesTable } from "@/ui/issue-occurrences-table";
-import { IssueOverviewPanel } from "@/ui/issue-overview-panel";
-import { IssuePriorityBadge } from "@/ui/issue-priority";
-import { IssueRecentOccurrences } from "@/ui/issue-recent-occurrences";
-import { IssueRow } from "@/ui/issue-row";
-import { IssuesContextStrip } from "@/ui/issues-context-strip";
-import { IssuesHomeHint } from "@/ui/issues-home-hint";
-import { Kbd } from "@/ui/kbd";
-import { KeyboardHintsFooter } from "@/ui/keyboard-hints-footer";
-import { ListRow } from "@/ui/list-row";
-import { LogoNavButton } from "@/ui/logo";
-import { MorePanel } from "@/ui/more-panel";
-import { OccurrenceLineChart } from "@/ui/occurrence-line-chart";
-import { OccurrencePicker } from "@/ui/occurrence-picker";
-import { PageChrome } from "@/ui/page-chrome";
-import { PageHeader } from "@/ui/page-header";
-import { RegressionStrip } from "@/ui/regression-strip";
-import { RouteErrorBoundary } from "@/ui/route-error-boundary";
-import { SdkSnippetBlock } from "@/ui/sdk-snippet-block";
-import { Section, SectionHeader } from "@/ui/section";
-import { SettingsNav } from "@/ui/settings-nav";
-import { SetupChecklist } from "@/ui/setup-checklist";
-import { SetupConnectGuide } from "@/ui/setup-connect-guide";
-import { SetupConnectPanel } from "@/ui/setup-connect-panel";
-import { SetupDocsLink } from "@/ui/setup-docs-link";
-import { SetupPlatformMark } from "@/ui/setup-platform-mark";
-import { SetupWaitingBanner } from "@/ui/setup-status-banner";
-import { SetupWaitingPanel } from "@/ui/setup-waiting-panel";
-import { SharedProjectBadge } from "@/ui/shared-project-badge";
-import { SimpleFeedHeader } from "@/ui/simple-feed-header";
-import { IssueRowSkeleton, Skeleton } from "@/ui/skeleton";
-import { SourceCodeBlock } from "@/ui/source-code-block";
-import { Sparkline } from "@/ui/sparkline";
-import { StackTracePanel } from "@/ui/stack-trace-panel";
-import { StatBar } from "@/ui/stat-bar";
-import { StepIndicator } from "@/ui/step-indicator";
-import { Toast } from "@/ui/toast";
-import { ToastProvider } from "@/ui/toast-provider";
-import { WorkspaceSettingsNav } from "@/ui/workspace-settings-nav";
+} from "@/ui/block";
+import { IssueOccurrenceTimeline } from "@/ui/block";
+import { IssueOccurrencesTable } from "@/ui/block";
+import { IssueOverviewPanel } from "@/ui/block";
+import { IssuePriorityBadge } from "@/ui/components";
+import { IssueRecentOccurrences } from "@/ui/block";
+import { IssueRow } from "@/ui/block";
+import { IssuesContextStrip } from "@/ui/components";
+import { IssuesHomeHint } from "@/ui/components";
+import { Kbd } from "@/ui/primitives";
+import { KeyboardHintsFooter } from "@/ui/components";
+import { ListRow } from "@/ui/components";
+import { LogoNavButton } from "@/ui/primitives";
+import { MorePanel } from "@/ui/block";
+import { OccurrenceLineChart } from "@/ui/block";
+import { OccurrencePicker } from "@/ui/components";
+import { PageChrome } from "@/ui/block";
+import { PageHeader } from "@/ui/block";
+import { RegressionStrip } from "@/ui/components";
+import { RouteErrorBoundary } from "@/ui/block";
+import { SdkSnippetBlock } from "@/ui/components";
+import { Section, SectionHeader } from "@/ui/components";
+import { SettingsNav } from "@/ui/block";
+import { SetupChecklist } from "@/ui/block";
+import { SetupConnectGuide } from "@/ui/block";
+import { SetupConnectPanel } from "@/ui/block";
+import { SetupDocsLink } from "@/ui/components";
+import { SetupPlatformMark } from "@/ui/components";
+import { SetupWaitingBanner } from "@/ui/components";
+import { SetupWaitingPanel } from "@/ui/block";
+import { SharedProjectBadge } from "@/ui/components";
+import { SimpleFeedHeader } from "@/ui/block";
+import { IssueRowSkeleton, Skeleton } from "@/ui";
+import { SourceCodeBlock } from "@/ui/components";
+import { Sparkline } from "@/ui/components";
+import { StackTracePanel } from "@/ui/block";
+import { StatBar } from "@/ui/components";
+import { StepIndicator } from "@/ui/components";
+import { Toast } from "@/ui/components";
+import { ToastProvider } from "@/ui/components";
+import { WorkspaceSettingsNav } from "@/ui/block";
 import {
   DESIGN_KIT_SAMPLE_EVENT,
   DESIGN_KIT_SAMPLE_ISSUE,
@@ -78,7 +78,7 @@ import {
   DESIGN_KIT_SAMPLE_TAGS,
   DESIGN_KIT_SAMPLE_TIMELINE,
 } from "../../fixtures/sample-issue-detail";
-import type { TimelineWindowValue } from "@/ui/issue-occurrence-timeline";
+import type { TimelineWindowValue } from "@/ui/block";
 import { PreviewBlock } from "../../shared";
 
 const DEMO_DSN = "https://public@localhost:8080/550e8400-e29b-41d4-a716-446655440000";
@@ -157,7 +157,7 @@ function LayoutPreviews() {
         </Card>
       </ModulePreview>
       <ModulePreview id="empty" title="empty">
-        <Empty title="No signals" description="Quiet empty — no dashed frame." />
+        <Empty title="No signals" description="Quiet empty. No dashed frame." />
       </ModulePreview>
       <ModulePreview id="list-row" title="list-row">
         <ListRow variant="flat" className="flex-col gap-0.5 px-3 py-2">
@@ -499,7 +499,7 @@ function FeedbackPreviews() {
         <ErrorState title="Failed to load" description="Retry or contact support." onRetry={() => undefined} />
       </ModulePreview>
       <ModulePreview id="fair-use-banner" title="fair-use-banner">
-        <FairUseBanner message="Approaching fair-use sampling — counts remain exact." />
+        <FairUseBanner message="Approaching fair-use sampling. Counts remain exact." />
       </ModulePreview>
       <ModulePreview id="route-error-boundary" title="route-error-boundary">
         <RouteErrorBoundary title="Route error" backHref="/">
@@ -507,7 +507,7 @@ function FeedbackPreviews() {
         </RouteErrorBoundary>
       </ModulePreview>
       <ModulePreview id="toast" title="toast">
-        <Toast message="Alert resolved — marked as read." />
+        <Toast message="Alert resolved. Marked as read." />
       </ModulePreview>
       <ModulePreview id="toast-provider" title="toast-provider">
         <ToastProvider>

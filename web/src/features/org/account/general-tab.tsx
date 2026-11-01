@@ -1,44 +1,51 @@
 import { type FormEvent, useEffect, useState } from "react";
+import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useAppContext } from "@/shell/app-context";
 import type { AccountSettingsContext } from "./use-account-settings";
-import { Badge } from "../../../ui/badge";
-import { Button } from "../../../ui/button";
-import { Field } from "../../../ui/field";
-import { Input } from "../../../ui/input";
-import { SectionCard } from "@/components/kit/section-card";
 import {
-  InfoCallout,
-  SettingsSkeleton,
-  SettingsStack,
-} from "../../settings/shared";
+  SettingsPage,
+  SettingsPageHeader,
+  SettingsPanel,
+  SettingsSkeletonRows,
+} from "./settings-chrome";
 
 export function GeneralTab({ settings }: { settings: AccountSettingsContext }) {
+  const { currentOrg } = useAppContext();
   const { profile, saveDisplayName } = settings;
   const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const orgName = currentOrg?.name ?? profile?.org_name ?? "Workspace";
 
   useEffect(() => {
     setDisplayName(profile?.display_name ?? "");
   }, [profile?.display_name]);
 
   const dirty = displayName.trim() !== (profile?.display_name?.trim() ?? "");
+  const previewName = displayName.trim() || profile?.email?.split("@")[0] || "You";
 
   if (settings.loading) {
     return (
-      <SettingsStack>
-        <SettingsSkeleton />
-      </SettingsStack>
+      <SettingsPage>
+        <SettingsPageHeader title="Profile" description="Loading…" />
+        <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface-1">
+          <SettingsSkeletonRows count={2} />
+        </div>
+      </SettingsPage>
     );
   }
 
   if (!profile) {
     return (
-      <SettingsStack>
-        <InfoCallout variant="warning">Could not load profile.</InfoCallout>
-        <Button variant="secondary" size="sm" onClick={() => void settings.load()}>
+      <SettingsPage>
+        <SettingsPageHeader title="Profile" description="Could not load your profile." />
+        <Button type="button" variant="secondary" size="sm" onClick={() => void settings.load()}>
           Retry
         </Button>
-      </SettingsStack>
+      </SettingsPage>
     );
   }
 
@@ -56,58 +63,79 @@ export function GeneralTab({ settings }: { settings: AccountSettingsContext }) {
   }
 
   return (
-    <SettingsStack>
+    <SettingsPage>
+      <SettingsPageHeader
+        title="Profile"
+        description={
+          <>
+            How you appear in <span className="font-medium text-fg-primary">{orgName}</span>.
+          </>
+        }
+        badge={
+          <Badge variant="neutral" size="compact" className="capitalize">
+            {profile.role ?? "member"}
+          </Badge>
+        }
+      />
+
       <form onSubmit={(event) => void handleSubmit(event)}>
-        <SectionCard
-          title="Profile"
-          description="How you appear in this workspace."
+        <SettingsPanel
+          title="Your account"
+          description="Display name is visible to teammates. Email and role are fixed here."
           footer={
             <div className="flex w-full items-center justify-between gap-2">
               <span className="text-2xs text-fg-muted">
-                {dirty ? "Unsaved changes" : "Up to date"}
+                {error ? (
+                  <span className="text-semantic-danger">{error}</span>
+                ) : dirty ? (
+                  "Unsaved changes"
+                ) : (
+                  "Up to date"
+                )}
               </span>
-              <Button type="submit" variant="secondary" size="sm" disabled={busy || !dirty}>
-                Save
+              <Button type="submit" variant="primary" size="sm" disabled={busy || !dirty}>
+                {busy ? "Saving…" : "Save"}
               </Button>
             </div>
           }
         >
-          <div className="space-y-3">
-            <Field
-              label="Display name"
-              htmlFor="display-name"
-              error={error ?? undefined}
-              className="gap-1.5"
-            >
-              <Input
-                id="display-name"
-                type="text"
-                autoComplete="name"
-                placeholder={profile.email.split("@")[0] ?? "Your name"}
-                value={displayName}
-                onChange={(event) => setDisplayName(event.target.value)}
-                maxLength={64}
-                className="h-8 text-xs"
-              />
-            </Field>
-
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="rounded-md border border-border-subtle px-2.5 py-2">
-                <p className="text-2xs text-fg-muted">Email</p>
-                <p className="mt-0.5 truncate text-xs text-fg-primary">{profile.email}</p>
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+            <Avatar name={previewName} className="size-12 shrink-0 text-sm" />
+            <div className="min-w-0 flex-1 space-y-4">
+              <div className="space-y-1.5">
+                <label htmlFor="display-name" className="text-2xs font-medium text-fg-muted">
+                  Display name
+                </label>
+                <Input
+                  id="display-name"
+                  type="text"
+                  autoComplete="name"
+                  placeholder={profile.email.split("@")[0] ?? "Your name"}
+                  value={displayName}
+                  onChange={(event) => setDisplayName(event.target.value)}
+                  maxLength={64}
+                  className="h-8 max-w-md text-xs"
+                />
               </div>
-              <div className="rounded-md border border-border-subtle px-2.5 py-2">
-                <p className="text-2xs text-fg-muted">Role</p>
-                <div className="mt-0.5">
-                  <Badge variant="env" size="compact" className="capitalize">
-                    {profile.role ?? "member"}
-                  </Badge>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-md border border-border-subtle px-3 py-2.5">
+                  <p className="text-2xs text-fg-muted">Email</p>
+                  <p className="mt-0.5 truncate text-xs text-fg-primary">{profile.email}</p>
+                </div>
+                <div className="rounded-md border border-border-subtle px-3 py-2.5">
+                  <p className="text-2xs text-fg-muted">Role in {orgName}</p>
+                  <div className="mt-1">
+                    <Badge variant="neutral" size="compact" className="capitalize">
+                      {profile.role ?? "member"}
+                    </Badge>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </SectionCard>
+        </SettingsPanel>
       </form>
-    </SettingsStack>
+    </SettingsPage>
   );
 }

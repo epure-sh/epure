@@ -1,12 +1,24 @@
 /**
- * AlertExecutionPipeline — fixed vertical Trigger → Conditions → Channels.
- * Static layout + simple SVG curves. No pan, zoom, or drag.
- * Orbit zone: Box/Text only for layout; SVG hosts keep connector geometry.
+ * AlertExecutionPipeline — node canvas:
+ * source group (real trigger + conditions) → one fan-out to each channel.
  */
-import type { ReactNode } from "react";
-import { Box } from "@polar-sh/orbit/Box";
-import { Text } from "@polar-sh/orbit/Text";
-import { Icon, Check, EnvelopeSimple, Hash, Radio as RadioIcon, WebhooksLogo, Bell } from "@/components/ui/icon";
+import { useMemo, type ReactNode } from "react";
+import {
+  Icon,
+  type IconType,
+  Bell,
+  Check,
+  EnvelopeSimple,
+  Flame,
+  Hash,
+  Radio as RadioIcon,
+  SlackLogo,
+  SlidersHorizontal,
+  TrendUp,
+  Users,
+  Warning,
+  WebhooksLogo,
+} from "@/components/ui/icon";
 import type { AlertRow } from "@/lib/api";
 import {
   getAlertDispatchAuditRows,
@@ -25,6 +37,7 @@ import {
   type AlertCondition,
   type AlertTrigger,
 } from "@/components/kit/create-alert-rule-model";
+import { cn } from "@/lib/cn";
 import "./alert-execution-pipeline.css";
 
 export interface AlertExecutionPipelineProps {
@@ -32,241 +45,164 @@ export interface AlertExecutionPipelineProps {
   webhookCount?: number | null;
 }
 
-const EDGE = "color-mix(in srgb, var(--fg-muted) 48%, transparent)";
+type PipelineNode = {
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: IconType;
+  tone: "trigger" | "condition" | "channel";
+  ok?: boolean;
+};
 
-function smoothV(x0: number, y0: number, x1: number, y1: number): string {
-  const dy = Math.max((y1 - y0) * 0.5, 10);
-  return `M ${x0} ${y0} C ${x0} ${y0 + dy}, ${x1} ${y1 - dy}, ${x1} ${y1}`;
-}
-
-function StageHeader({
-  label,
-  tone = "muted",
-}: {
-  label: string;
-  tone?: "muted" | "ok" | "hot";
-}) {
-  const dotBg =
-    tone === "ok"
-      ? "background-success"
-      : tone === "hot"
-        ? "background-danger"
-        : "background-secondary";
-  return (
-    <Box alignItems="center" columnGap="xs" marginBottom="xs">
-      <Box
-        width={6}
-        height={6}
-        flexShrink={0}
-        borderRadius="full"
-        backgroundColor={dotBg}
-        aria-hidden
-      />
-      <Text as="p" variant="caption" color="muted" monospace>
-        {label}
-      </Text>
-    </Box>
-  );
-}
-
-function StageCard({ children }: { children: ReactNode }) {
-  return (
-    <Box
-      flexDirection="column"
-      rowGap="xs"
-      minWidth={0}
-      borderRadius="s"
-      borderWidth={1}
-      borderStyle="solid"
-      borderColor="border-primary"
-      backgroundColor="background-card"
-      padding="s"
-    >
-      {children}
-    </Box>
-  );
-}
-
-function MonoPill({ children }: { children: ReactNode }) {
-  return (
-    <Box
-      as="span"
-      display="inline-flex"
-      maxWidth="100%"
-      borderRadius="s"
-      borderWidth={1}
-      borderStyle="solid"
-      borderColor="border-primary"
-      backgroundColor="background-secondary"
-      paddingHorizontal="xs"
-      paddingVertical="none"
-    >
-      <Text as="span" variant="caption" monospace tabularNums truncate>
-        {children}
-      </Text>
-    </Box>
-  );
-}
-
-function triggerMetricLine(
+/** Title = real trigger kind; subtitle = live reading + threshold. */
+function triggerCopy(
   alert: AlertRow,
   trigger: AlertTrigger,
-): { primary: string; threshold: string | null } {
+): { title: string; subtitle: string } {
+  const title = TRIGGER_LABEL[trigger.type];
   const payload = alert.payload_json ?? {};
-  const { events } = getAlertImpactMetrics(alert);
+  const { events, users } = getAlertImpactMetrics(alert);
   const current =
-    typeof payload.current_window === "number" ? payload.current_window : events;
+    typeof payload.current_window === "number" ? payload.current_window : null;
 
   if (trigger.type === "issue_new") {
-    return { primary: TRIGGER_LABEL.issue_new, threshold: null };
+    return {
+      title,
+      subtitle: "Fires on the first event of a new issue",
+    };
   }
 
-  const windows = trigger.type === "users_affected" ? USER_WINDOWS : COUNT_WINDOWS;
+  if (trigger.type === "issue_count") {
+    const windowText =
+      COUNT_WINDOWS.find((item) => item.id === trigger.window)?.label ?? trigger.window;
+    const live = current ?? events;
+    const liveText =
+      live !== null ? `${live.toLocaleString()} events in ${windowText}` : `Window ${windowText}`;
+    return {
+      title,
+      subtitle: `${liveText} · ${COMPARE_LABEL[trigger.op]} ${trigger.threshold}`,
+    };
+  }
+
   const windowText =
-    windows.find((item) => item.id === trigger.window)?.label ?? trigger.window;
-  const live =
-    current !== null
-      ? `${current.toLocaleString()} in ${windowText}`
-      : `${TRIGGER_LABEL[trigger.type]} in ${windowText}`;
-  const threshold = `Threshold ${COMPARE_LABEL[trigger.op]} ${trigger.threshold}`;
-  return { primary: live, threshold };
+    USER_WINDOWS.find((item) => item.id === trigger.window)?.label ?? trigger.window;
+  const live = users;
+  const liveText =
+    live !== null ? `${live.toLocaleString()} users · ${windowText}` : `Window ${windowText}`;
+  return {
+    title,
+    subtitle: `${liveText} · ${COMPARE_LABEL[trigger.op]} ${trigger.threshold}`,
+  };
 }
 
-function conditionText(condition: AlertCondition): string {
+function conditionCopy(condition: AlertCondition): { title: string; subtitle: string } {
   const hideValue = condition.op === "exists" || condition.op === "is_not_null";
   const op = OP_LABEL[condition.op] ?? condition.op;
-  if (hideValue) {
-    return `${fieldLabel(condition.field)} ${op}`;
-  }
-  return `${fieldLabel(condition.field)} ${op} ${condition.value || "—"}`;
+  return {
+    title: fieldLabel(condition.field),
+    subtitle: hideValue ? op : `${op} ${condition.value || "-"}`,
+  };
 }
 
-function channelGlyph(channel: string) {
+function channelGlyph(channel: string): IconType {
   const key = channel.toLowerCase();
-  if (key.includes("slack")) return Hash;
+  if (key.includes("slack")) return SlackLogo;
   if (key.includes("discord") || key.includes("telegram")) return RadioIcon;
   if (key.includes("email") || key.includes("mail")) return EnvelopeSimple;
+  if (key.includes("pager") || key.includes("incident")) return Flame;
   if (key.includes("feed") || key.includes("alert")) return Bell;
+  if (key.includes("hash") || key.includes("#")) return Hash;
   return WebhooksLogo;
 }
 
-/** Plain vertical connector. */
-function VBridge() {
+function triggerGlyph(trigger: AlertTrigger): IconType {
+  if (trigger.type === "users_affected") return Users;
+  if (trigger.type === "issue_new") return Bell;
+  if (trigger.type === "issue_count") return TrendUp;
+  return Warning;
+}
+
+function NodeCard({ node }: { node: PipelineNode }) {
   return (
-    <Box
-      width="100%"
-      height={24}
-      alignItems="center"
-      justifyContent="center"
-      aria-hidden
+    <div
+      data-slot="alert-pipeline-node"
+      data-tone={node.tone}
+      className={cn(
+        "flex w-full min-w-0 items-center gap-2.5 px-3",
+        node.tone === "channel" ? "py-2.5" : "py-2",
+      )}
     >
-      <svg
-        viewBox="0 0 2 24"
-        width={1}
-        height={24}
-        style={{ overflow: "visible" }}
-        fill="none"
+      <span
+        className={cn(
+          "flex size-8 shrink-0 items-center justify-center rounded-md",
+          node.tone === "trigger" && "bg-semantic-danger/10 text-semantic-danger",
+          node.tone === "condition" && "bg-surface-2 text-fg-secondary",
+          node.tone === "channel" &&
+            (node.ok === false
+              ? "bg-semantic-danger/10 text-semantic-danger"
+              : "bg-surface-2 text-fg-secondary"),
+        )}
+        aria-hidden
       >
-        <path
-          d={smoothV(1, 0, 1, 24)}
-          stroke={EDGE}
-          strokeWidth="1.25"
-          strokeLinecap="round"
+        <Icon
+          icon={node.icon}
+          size={15}
+          weight={node.tone === "condition" ? "bold" : "regular"}
         />
-      </svg>
-    </Box>
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold leading-tight tracking-ui text-fg-primary">
+          {node.title}
+        </p>
+        <p className="mt-0.5 truncate text-xs leading-snug text-fg-muted">{node.subtitle}</p>
+      </div>
+      {node.tone === "condition" ? (
+        <span className="shrink-0 text-semantic-success" aria-hidden>
+          <Icon icon={Check} size={13} weight="bold" />
+        </span>
+      ) : null}
+    </div>
   );
 }
 
-/** Soft fan into a horizontal destination row. */
-function FanDown({ count }: { count: number }) {
-  const n = Math.max(count, 1);
-  const width = 160;
-  const height = 24;
-  const midX = width / 2;
-  const xs = Array.from({ length: n }, (_, i) =>
-    n === 1 ? midX : 20 + (i * (width - 40)) / Math.max(n - 1, 1),
-  );
-
+function ColumnLabel({ children }: { children: ReactNode }) {
   return (
-    <Box
-      width="100%"
-      height={24}
-      alignItems="center"
-      justifyContent="center"
+    <p className="mb-2 px-0.5 font-mono text-[10px] font-medium uppercase tracking-wide text-fg-muted">
+      {children}
+    </p>
+  );
+}
+
+/** One exit from the source group, fanning to every channel card. */
+function FanEdges({
+  count,
+  tones,
+}: {
+  count: number;
+  tones: Array<"active" | "muted">;
+}) {
+  const n = Math.max(count, 1);
+  return (
+    <svg
+      className="absolute inset-0 h-full w-full overflow-visible"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
       aria-hidden
     >
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        width="100%"
-        height={24}
-        style={{ maxWidth: "14rem", overflow: "visible" }}
-        fill="none"
-        preserveAspectRatio="none"
-      >
-        <path
-          d={`M ${midX} 0 L ${midX} 8`}
-          stroke={EDGE}
-          strokeWidth="1.25"
-          strokeLinecap="round"
-        />
-        {xs.map((x, i) => (
+      {Array.from({ length: n }, (_, i) => {
+        const y1 = n === 1 ? 50 : ((i + 0.5) / n) * 100;
+        const dx = 42;
+        return (
           <path
             key={i}
-            d={smoothV(midX, 8, x, height)}
-            stroke={EDGE}
-            strokeWidth="1.25"
-            strokeLinecap="round"
+            data-slot="alert-pipeline-edge"
+            data-tone={tones[i] ?? "active"}
+            vectorEffect="non-scaling-stroke"
+            d={`M 0 50 C ${dx} 50, ${100 - dx} ${y1}, 100 ${y1}`}
           />
-        ))}
-      </svg>
-    </Box>
-  );
-}
-
-function DestinationCard({ row }: { row: AlertDispatchAuditRow }) {
-  const Glyph = channelGlyph(row.channel);
-  return (
-    <Box
-      flex={1}
-      flexBasis={0}
-      minWidth={0}
-      alignItems="center"
-      columnGap="xs"
-      borderRadius="s"
-      borderWidth={1}
-      borderStyle="solid"
-      borderColor="border-primary"
-      backgroundColor="background-card"
-      paddingHorizontal="s"
-      paddingVertical="xs"
-    >
-      <Box
-        width={6}
-        height={6}
-        flexShrink={0}
-        borderRadius="full"
-        backgroundColor={row.statusOk ? "background-success" : "background-danger"}
-        aria-hidden
-      />
-      <Box flexShrink={0} color="text-secondary">
-        <Icon icon={Glyph} size={11} aria-hidden />
-      </Box>
-      <Box flexDirection="column" minWidth={0} rowGap="none">
-        <Text as="p" variant="caption" truncate>
-          {row.channel}
-        </Text>
-        <Text
-          as="p"
-          variant="caption"
-          color={row.statusOk ? "muted" : "danger"}
-          monospace
-          truncate
-        >
-          {row.target} · {row.status}
-        </Text>
-      </Box>
-    </Box>
+        );
+      })}
+    </svg>
   );
 }
 
@@ -278,139 +214,118 @@ export function AlertExecutionPipeline({
   const trigger = draft.triggers[0] ?? ({ type: "issue_new" } as AlertTrigger);
   const conditions = draft.conditions;
   const ruleName = getAlertListRuleName(alert);
-  const metric = triggerMetricLine(alert, trigger);
-  const channels = getAlertDispatchAuditRows(alert, webhookCount).slice(0, 6);
-  const channelRows =
-    channels.length > 0
-      ? channels
-      : [
-          {
-            id: "feed",
-            channel: "Alerts feed",
-            target: "In-app",
-            status: "Recorded",
-            statusOk: true,
-            timeLabel: "",
-          } satisfies AlertDispatchAuditRow,
-        ];
-
   const matchAll = draft.match !== "any";
-  const gateLabel = matchAll ? "All matched" : "Any matched";
-  const payload = alert.payload_json ?? {};
-  const cooldown =
-    typeof payload.cooldown_minutes === "number" ? payload.cooldown_minutes : null;
-  const duplicatesBlocked =
-    typeof payload.duplicates_blocked === "number" ? payload.duplicates_blocked : null;
+
+  const channelRows = useMemo<AlertDispatchAuditRow[]>(() => {
+    const channels = getAlertDispatchAuditRows(alert, webhookCount).slice(0, 5);
+    if (channels.length > 0) return channels;
+    return [
+      {
+        id: "feed",
+        channel: "Alerts feed",
+        target: "In-app",
+        status: "Recorded",
+        statusOk: true,
+        timeLabel: "",
+      },
+    ];
+  }, [alert, webhookCount]);
+
+  const sourceNodes = useMemo<PipelineNode[]>(() => {
+    const trig = triggerCopy(alert, trigger);
+    const nodes: PipelineNode[] = [
+      {
+        id: "trigger",
+        title: trig.title,
+        subtitle: trig.subtitle,
+        icon: triggerGlyph(trigger),
+        tone: "trigger",
+      },
+    ];
+    if (conditions.length === 0) {
+      nodes.push({
+        id: "condition-none",
+        title: "No filters",
+        subtitle: matchAll ? "Always matched" : "Any matched",
+        icon: SlidersHorizontal,
+        tone: "condition",
+      });
+    } else {
+      conditions.forEach((condition, index) => {
+        const copy = conditionCopy(condition);
+        nodes.push({
+          id: `condition-${index}`,
+          title: copy.title,
+          subtitle: copy.subtitle,
+          icon: SlidersHorizontal,
+          tone: "condition",
+        });
+      });
+    }
+    return nodes;
+  }, [alert, trigger, conditions, matchAll]);
+
+  const destNodes = useMemo<PipelineNode[]>(
+    () =>
+      channelRows.map((row) => ({
+        id: row.id,
+        title: row.channel,
+        subtitle: `${row.target} · ${row.status}`,
+        icon: channelGlyph(row.channel),
+        tone: "channel" as const,
+        ok: row.statusOk,
+      })),
+    [channelRows],
+  );
+
+  const edgeTones = destNodes.map((node) =>
+    node.ok === false ? ("muted" as const) : ("active" as const),
+  );
 
   return (
-    <Box
-      as="section"
+    <section
       data-slot="alert-execution-pipeline"
-      flexDirection="column"
-      height="100%"
-      width="100%"
-      minWidth={0}
-      overflow="hidden"
-      borderRadius="s"
-      borderWidth={1}
-      borderStyle="solid"
-      borderColor="border-primary"
-      backgroundColor="background-secondary"
       aria-label="Pipeline"
+      className="flex w-full min-w-0 flex-col overflow-hidden rounded-md border border-border-subtle"
     >
-      <Box
-        as="header"
-        flexShrink={0}
-        borderBottomWidth={1}
-        borderStyle="solid"
-        borderColor="border-primary"
-        backgroundColor="background-card"
-        paddingHorizontal="m"
-        paddingVertical="s"
-      >
-        <Text as="h3" variant="label">
-          Pipeline
-        </Text>
-      </Box>
+      <header className="flex shrink-0 items-center justify-between border-b border-border-subtle bg-surface-1 px-4 py-2.5">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold tracking-ui text-fg-primary">Pipeline</h3>
+          <p className="mt-0.5 truncate text-xs text-fg-muted">{ruleName}</p>
+        </div>
+        <p className="shrink-0 font-mono text-[10px] tabular-nums text-fg-muted">
+          {destNodes.length} channel{destNodes.length === 1 ? "" : "s"}
+        </p>
+      </header>
 
-      <Box
-        flex={1}
-        flexDirection="column"
-        alignItems="stretch"
-        justifyContent="between"
-        rowGap="s"
-        paddingHorizontal="s"
-        paddingVertical="m"
-      >
-        <Box minWidth={0}>
-          <StageHeader label="Triggered" tone="hot" />
-          <StageCard>
-            <Text as="p" variant="caption">
-              {ruleName}
-            </Text>
-            <Box flexWrap="wrap" columnGap="xs" rowGap="xs">
-              <MonoPill>{metric.primary}</MonoPill>
-              {metric.threshold ? <MonoPill>{metric.threshold}</MonoPill> : null}
-            </Box>
-          </StageCard>
-        </Box>
+      <div data-slot="alert-pipeline-canvas" className="relative overflow-hidden">
+        <div className="grid grid-cols-1 gap-6 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(4.5rem,6rem)_minmax(0,1fr)] sm:items-stretch sm:gap-x-0 sm:p-5">
+          <div className="flex min-w-0 flex-col justify-center">
+            <ColumnLabel>Trigger & conditions</ColumnLabel>
+            <div
+              data-slot="alert-pipeline-source-group"
+              className="flex flex-col gap-2 p-2"
+            >
+              {sourceNodes.map((node) => (
+                <NodeCard key={node.id} node={node} />
+              ))}
+            </div>
+          </div>
 
-        <VBridge />
+          <div className="relative hidden self-stretch sm:block" aria-hidden>
+            <FanEdges count={destNodes.length} tones={edgeTones} />
+          </div>
 
-        <Box minWidth={0}>
-          <StageHeader label={gateLabel} tone="ok" />
-          <Box flexDirection="column" rowGap="xs">
-            {conditions.length > 0 ? (
-              conditions.map((condition, index) => (
-                <Box
-                  key={`${condition.field}-${index}`}
-                  minWidth={0}
-                  alignItems="start"
-                  columnGap="xs"
-                  borderRadius="s"
-                  borderWidth={1}
-                  borderStyle="solid"
-                  borderColor="border-primary"
-                  backgroundColor="background-card"
-                  paddingHorizontal="s"
-                  paddingVertical="xs"
-                >
-                  <Box flexShrink={0} marginTop="xs" color="text-success">
-                    <Icon icon={Check} size={12} weight="bold" aria-hidden />
-                  </Box>
-                  <Text as="span" variant="caption" monospace>
-                    {conditionText(condition)}
-                  </Text>
-                </Box>
-              ))
-            ) : (
-              <StageCard>
-                <Text as="p" variant="caption" color="muted">
-                  No filters
-                </Text>
-              </StageCard>
-            )}
-            {cooldown !== null || duplicatesBlocked !== null ? (
-              <Text as="p" variant="caption" color="muted" monospace>
-                {cooldown !== null ? `${cooldown}m cooldown` : null}
-                {cooldown !== null && duplicatesBlocked !== null ? " · " : null}
-                {duplicatesBlocked !== null ? `${duplicatesBlocked} suppressed` : null}
-              </Text>
-            ) : null}
-          </Box>
-        </Box>
-
-        <FanDown count={channelRows.length} />
-
-        <Box minWidth={0}>
-          <StageHeader label={`Sent to (${channelRows.length})`} tone="ok" />
-          <Box minWidth={0} alignItems="stretch" columnGap="xs" flexWrap="nowrap">
-            {channelRows.map((row) => (
-              <DestinationCard key={row.id} row={row} />
-            ))}
-          </Box>
-        </Box>
-      </Box>
-    </Box>
+          <div className="flex min-w-0 flex-col justify-center">
+            <ColumnLabel>Output channels</ColumnLabel>
+            <div className="flex flex-col gap-2.5">
+              {destNodes.map((node) => (
+                <NodeCard key={node.id} node={node} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

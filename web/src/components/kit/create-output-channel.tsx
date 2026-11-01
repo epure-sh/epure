@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/cn";
+import { ApplyWithAiButton } from "@/ui/components";
 import {
   CHANNEL_PROVIDERS,
   canAdvanceOutputChannel,
@@ -29,6 +30,31 @@ import {
   type OutputChannelStep,
   type ProjectChoice,
 } from "./create-output-channel-model";
+
+function buildChannelAskPrompt(draft: OutputChannelDraft): string {
+  const providers = CHANNEL_PROVIDERS.map((p) => `- ${p.label}: ${p.description}`).join("\n");
+  return [
+    "I'm creating an Epure output channel for alert delivery. Help me pick a provider and fill connection fields.",
+    "",
+    `Current: ${draft.provider ? describeOutputChannel(draft) : "no provider yet"}`,
+    "",
+    "Providers:",
+    providers,
+    "",
+    "Reply with the provider and the exact fields I should paste into the Epure create-channel wizard.",
+  ].join("\n");
+}
+
+function buildChannelImplementPrompt(draft: OutputChannelDraft): string {
+  return [
+    "Help me finish configuring this Epure output channel:",
+    "",
+    describeOutputChannel(draft),
+    `Provider: ${draft.provider ?? "unset"}`,
+    "",
+    "Do not invent secrets. Tell me which webhook URL / bot token / recipients fields to fill next.",
+  ].join("\n");
+}
 
 export interface CreateOutputChannelPanelProps {
   step: OutputChannelStep;
@@ -76,6 +102,11 @@ export function CreateOutputChannelPanel({
   onCopySecret,
 }: CreateOutputChannelPanelProps) {
   const canNext = canAdvanceOutputChannel(step, draft);
+  const agentPrompt = useMemo(
+    () => (step === 1 ? buildChannelAskPrompt(draft) : buildChannelImplementPrompt(draft)),
+    [draft, step],
+  );
+  const agentLabel = step === 1 ? "Ask agent" : "Implement with agent";
 
   return (
     <section
@@ -144,45 +175,53 @@ export function CreateOutputChannelPanel({
             Back
           </Button>
         )}
-        {step < 3 ? (
-          <Button
-            variant="primary"
+        <div className="flex items-center gap-2">
+          <ApplyWithAiButton
+            prompt={agentPrompt}
+            label={agentLabel}
             size="sm"
-            disabled={busy || !canNext}
-            onClick={() => {
-              if (step === 2 && onCreateAndVerify) {
-                onCreateAndVerify();
-                return;
-              }
-              onStep((step + 1) as OutputChannelStep);
-            }}
-          >
-            {busy && step === 2 ? "Creating…" : "Next"}
-            <Icon icon={CaretDown} size={14} className="-rotate-90" />
-          </Button>
-        ) : (
-          <div className="flex items-center gap-2">
-            {onSaveUnverified ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={busy || testBusy}
-                onClick={onSaveUnverified}
-              >
-                Save unverified
-              </Button>
-            ) : null}
+            variant="secondary"
+          />
+          {step < 3 ? (
             <Button
               variant="primary"
               size="sm"
-              disabled={busy || testBusy || !verified}
-              onClick={onFinish}
+              disabled={busy || !canNext}
+              onClick={() => {
+                if (step === 2 && onCreateAndVerify) {
+                  onCreateAndVerify();
+                  return;
+                }
+                onStep((step + 1) as OutputChannelStep);
+              }}
             >
-              <Icon icon={Check} size={14} />
-              {busy ? "Saving…" : "Finish"}
+              {busy && step === 2 ? "Creating…" : "Next"}
+              <Icon icon={CaretDown} size={14} className="-rotate-90" />
             </Button>
-          </div>
-        )}
+          ) : (
+            <>
+              {onSaveUnverified ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy || testBusy}
+                  onClick={onSaveUnverified}
+                >
+                  Save unverified
+                </Button>
+              ) : null}
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={busy || testBusy || !verified}
+                onClick={onFinish}
+              >
+                <Icon icon={Check} size={14} />
+                {busy ? "Saving…" : "Finish"}
+              </Button>
+            </>
+          )}
+        </div>
       </footer>
     </section>
   );
@@ -294,7 +333,7 @@ function ConnectStep({
       {isEmail ? (
         <Field
           label="Recipients"
-          hint="Org members only — free-typed addresses are rejected."
+          hint="Org members only. Free-typed addresses are rejected."
         >
           <div className="max-h-48 space-y-1.5 overflow-y-auto rounded-xl border border-border-subtle bg-surface-2 p-2">
             {members.length === 0 ? (
@@ -337,7 +376,7 @@ function ConnectStep({
         <>
           <Field
             label="Bot token"
-            hint="From @BotFather. Stored server-side only — never shown again after create."
+            hint="From @BotFather. Stored server-side only. Never shown again after create."
           >
             <Input
               type="password"

@@ -28,6 +28,7 @@ import {
 import { apiErrorMessage, isApiError } from "../../lib/api-error";
 import { useAppContext } from "../../shell/app-context";
 import { toast } from "@/components/ui/sonner";
+import { toastWithUndo } from "@/lib/toast-undo";
 import { ACME_SEED_ISSUES, getAcmeSeedEvent } from "./acme-seed";
 import type { DiffMode } from "./diff-panel";
 import {
@@ -46,7 +47,7 @@ import {
   type HeadlineStatsDelta,
 } from "./issue-triage-utils";
 import { inferTrendStatus } from "./issue-feed-utils";
-import { resolveIssuePriority } from "../../ui/issue-priority";
+import { resolveIssuePriority } from "@/ui/components";
 import {
   DEFAULT_ISSUE_SORT,
   applyFilterToken,
@@ -59,7 +60,7 @@ import {
 import { useIssueReadState } from "./use-issue-read-state";
 import { persistFeedQueryFromSearchParams } from "./project-feed-query-store";
 import { useProjectFeedQuery } from "./use-project-feed-query";
-import type { TimelineWindowValue } from "../../ui/issue-occurrence-timeline";
+import type { TimelineWindowValue } from "@/ui/block";
 
 export { ALL_QUERY, DEFAULT_QUERY } from "./query-utils";
 
@@ -199,7 +200,12 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
   const [serverHeadlineStats, setHeadlineStats] = useState<HeadlineStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
 
-  const { isUnread: isIssueUnread, markRead: markIssueRead } = useIssueReadState(scopedProjectId);
+  const {
+    isUnread: isIssueUnread,
+    markRead: markIssueRead,
+    readMap: issueReadMap,
+    restoreReadMap: restoreIssueReadMap,
+  } = useIssueReadState(scopedProjectId);
 
   const activeIssueId = selectedId ?? focusedId;
 
@@ -821,26 +827,20 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
       }
       const optimistic = applyIssueStatus(current, status, resolvedInRelease);
 
-      toast.success(
+      toastWithUndo(
         status === "resolved"
           ? "Issue resolved"
           : status === "ignored"
             ? "Issue ignored"
             : "Issue updated",
-        {
-          action: {
-            label: "Undo",
-            onClick: () => {
-              void runOptimistic(
-                [{ before: optimistic, after: current }],
-                async () => [
-                  await patchIssue(id, current.status, current.resolved_in_release ?? undefined),
-                ],
-                "Failed to undo",
-              );
-            },
-          },
-        },
+        () =>
+          runOptimistic(
+            [{ before: optimistic, after: current }],
+            async () => [
+              await patchIssue(id, current.status, current.resolved_in_release ?? undefined),
+            ],
+            "Failed to undo",
+          ),
       );
 
       void runOptimistic(
@@ -897,18 +897,13 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
       }
       const optimistic = applyOptimisticSnooze(current, mode);
 
-      toast.success("Issue snoozed", {
-        action: {
-          label: "Undo",
-          onClick: () => {
-            void runOptimistic(
-              [{ before: optimistic, after: current }],
-              async () => [await unsnoozeIssue(targetId)],
-              "Failed to undo snooze",
-            );
-          },
-        },
-      });
+      toastWithUndo("Issue snoozed", () =>
+        runOptimistic(
+          [{ before: optimistic, after: current }],
+          async () => [await unsnoozeIssue(targetId)],
+          "Failed to undo snooze",
+        ),
+      );
 
       await runOptimistic(
         [{ before: current, after: optimistic }],
@@ -932,18 +927,13 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
       const optimistic = applyIssueUnsnooze(current);
       const previousMode = snoozeModeFromIssue(current);
 
-      toast.success("Issue unsnoozed", {
-        action: {
-          label: "Undo",
-          onClick: () => {
-            void runOptimistic(
-              [{ before: optimistic, after: current }],
-              async () => [await snoozeIssue(targetId, previousMode)],
-              "Failed to undo",
-            );
-          },
-        },
-      });
+      toastWithUndo("Issue unsnoozed", () =>
+        runOptimistic(
+          [{ before: optimistic, after: current }],
+          async () => [await snoozeIssue(targetId, previousMode)],
+          "Failed to undo",
+        ),
+      );
 
       await runOptimistic(
         [{ before: current, after: optimistic }],
@@ -963,13 +953,28 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
         return;
       }
       setSelectedIds(new Set());
+      const changes = eligible.map((issue) => ({
+        before: issue,
+        after: applyIssueUnsnooze(issue),
+      }));
       const ok = await runOptimistic(
-        eligible.map((issue) => ({ before: issue, after: applyIssueUnsnooze(issue) })),
+        changes,
         () => Promise.all(eligible.map((issue) => unsnoozeIssue(issue.id))),
         "Failed to unsnooze",
       );
       if (ok) {
-        toast.success(eligible.length === 1 ? "Issue unsnoozed" : `Unsnoozed ${eligible.length} issues`);
+        toastWithUndo(
+          eligible.length === 1 ? "Issue unsnoozed" : `Unsnoozed ${eligible.length} issues`,
+          () =>
+            runOptimistic(
+              changes.map(({ before, after }) => ({ before: after!, after: before })),
+              () =>
+                Promise.all(
+                  eligible.map((issue) => snoozeIssue(issue.id, snoozeModeFromIssue(issue))),
+                ),
+              "Failed to undo",
+            ),
+        );
       }
     },
     [actionsDisabled, issueById, runOptimistic],
@@ -1084,16 +1089,24 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
       }
 
       setSelectedIds(new Set());
+      const changes = eligible.map((issue) => ({
+        before: issue,
+        after: applyOptimisticSnooze(issue, mode),
+      }));
       const ok = await runOptimistic(
-        eligible.map((issue) => ({ before: issue, after: applyOptimisticSnooze(issue, mode) })),
+        changes,
         () => Promise.all(eligible.map((issue) => snoozeIssue(issue.id, mode))),
         "Bulk snooze failed",
       );
       if (ok) {
-        toast(
-          eligible.length === 1
-            ? "Issue snoozed"
-            : `Snoozed ${eligible.length} issues`,
+        toastWithUndo(
+          eligible.length === 1 ? "Issue snoozed" : `Snoozed ${eligible.length} issues`,
+          () =>
+            runOptimistic(
+              changes.map(({ before, after }) => ({ before: after!, after: before })),
+              () => Promise.all(eligible.map((issue) => unsnoozeIssue(issue.id))),
+              "Failed to undo snooze",
+            ),
         );
       }
     },
@@ -1117,13 +1130,23 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
         return;
       }
       setSelectedIds(new Set());
+      const changes = eligible.map((issue) => ({
+        before: issue,
+        after: applyOptimisticSnooze(issue, mode),
+      }));
       const ok = await runOptimistic(
-        eligible.map((issue) => ({ before: issue, after: applyOptimisticSnooze(issue, mode) })),
+        changes,
         () => Promise.all(eligible.map((issue) => snoozeIssue(issue.id, mode))),
         "Bulk snooze failed",
       );
       if (ok) {
-        toast(`Snoozed ${eligible.length} issues`);
+        toastWithUndo(`Snoozed ${eligible.length} issues`, () =>
+          runOptimistic(
+            changes.map(({ before, after }) => ({ before: after!, after: before })),
+            () => Promise.all(eligible.map((issue) => unsnoozeIssue(issue.id))),
+            "Failed to undo snooze",
+          ),
+        );
       }
     },
     [actionsDisabled, handleSnooze, issueById, runOptimistic],
@@ -1170,7 +1193,34 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
           ignore: `Ignored ${ids.length} issues`,
           reopen: `Reopened ${ids.length} issues`,
         };
-        toast(options.successMessage ?? labels[action]);
+        const message = options.successMessage ?? labels[action];
+        if (action === "delete") {
+          toast(message, { description: "Permanent. Can't undo" });
+        } else {
+          toastWithUndo(message, () =>
+            runOptimistic(
+              changes
+                .filter((change): change is { before: IssueSummary; after: IssueSummary } =>
+                  Boolean(change.before && change.after),
+                )
+                .map(({ before, after }) => ({ before: after, after: before })),
+              () =>
+                Promise.all(
+                  changes
+                    .filter((change) => change.before)
+                    .map(({ before }) =>
+                      patchIssue(
+                        before!.id,
+                        before!.status,
+                        before!.resolved_in_release ?? undefined,
+                      ),
+                    ),
+                ),
+              "Failed to undo",
+            ),
+            { method: toast },
+          );
+        }
       }
       return ok;
     },
@@ -1180,25 +1230,36 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
     if (selectedIds.size === 0) {
       return;
     }
+    const snapshot = { ...issueReadMap };
+    const count = selectedIds.size;
     for (const id of selectedIds) {
       const issue = issueById.get(id);
       markIssueRead(id, issue?.last_seen_at ?? new Date().toISOString());
     }
-    toast(`Marked ${selectedIds.size} issue${selectedIds.size === 1 ? "" : "s"} as read`);
-  }, [issueById, markIssueRead, selectedIds]);
+    toastWithUndo(
+      `Marked ${count} issue${count === 1 ? "" : "s"} as read`,
+      () => restoreIssueReadMap(snapshot),
+      { method: toast },
+    );
+  }, [issueById, issueReadMap, markIssueRead, restoreIssueReadMap, selectedIds]);
 
   const handleMarkReadIds = useCallback(
     (ids: string[]) => {
       if (ids.length === 0) {
         return;
       }
+      const snapshot = { ...issueReadMap };
       for (const id of ids) {
         const issue = issueById.get(id);
         markIssueRead(id, issue?.last_seen_at ?? new Date().toISOString());
       }
-      toast(`Marked ${ids.length} issue${ids.length === 1 ? "" : "s"} as read`);
+      toastWithUndo(
+        `Marked ${ids.length} issue${ids.length === 1 ? "" : "s"} as read`,
+        () => restoreIssueReadMap(snapshot),
+        { method: toast },
+      );
     },
-    [issueById, markIssueRead],
+    [issueById, issueReadMap, markIssueRead, restoreIssueReadMap],
   );
 
   const handleClearSelection = useCallback(() => {
@@ -1232,16 +1293,25 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
     }
     setBusy(true);
     try {
-      await mergeIssues(selectedId, mergeIds);
+      const canonicalId = selectedId;
+      const merged = [...mergeIds];
+      await mergeIssues(canonicalId, merged);
       setSelectedIds(new Set());
       await loadIssues(query, timeWindow, issueSort, { background: true });
-      toast(`Merged ${mergeIds.length} issues`);
+      toastWithUndo(
+        `Merged ${merged.length} issues`,
+        async () => {
+          await splitIssues(canonicalId, merged);
+          await loadIssues(query, timeWindow, issueSort, { background: true });
+        },
+        { method: toast },
+      );
     } catch {
       toast("Merge failed");
     } finally {
       setBusy(false);
     }
-  }, [actionsDisabled, loadIssues, query, selectedId, selectedIds, timeWindow, issueSort, toast]);
+  }, [actionsDisabled, loadIssues, query, selectedId, selectedIds, timeWindow, issueSort]);
 
   const handleSplit = useCallback(
     async (splitIds: string[]) => {
@@ -1250,17 +1320,26 @@ export function useIssueTriageMachine(options: UseIssueTriageMachineOptions = {}
       }
       setBusy(true);
       try {
-        await splitIssues(selectedId, splitIds);
+        const canonicalId = selectedId;
+        const split = [...splitIds];
+        await splitIssues(canonicalId, split);
         setMergedChildren([]);
         await loadIssues(query, timeWindow, issueSort, { background: true });
-        toast(`Split ${splitIds.length} issues`);
+        toastWithUndo(
+          `Split ${split.length} issues`,
+          async () => {
+            await mergeIssues(canonicalId, split);
+            await loadIssues(query, timeWindow, issueSort, { background: true });
+          },
+          { method: toast },
+        );
       } catch {
         toast("Split failed");
       } finally {
         setBusy(false);
       }
     },
-    [actionsDisabled, loadIssues, query, selectedId, timeWindow, issueSort, toast],
+    [actionsDisabled, loadIssues, query, selectedId, timeWindow, issueSort],
   );
 
   const applyFilter = useCallback(

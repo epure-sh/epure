@@ -1,9 +1,10 @@
+import type { ReactNode } from "react";
 import { BellRing, Check, EyeOff, RotateCcw } from "lucide-react";
 import type { IssueSummary, SnoozeMode } from "../../lib/api";
-import { Badge } from "../../ui/badge";
-import { ActionButton } from "../../ui/action-button";
-import { IssuePriorityBadge } from "../../ui/issue-priority";
-import { DETAIL_INLINE_ACTION_CLASS } from "../../ui/issue-detail-tabs";
+import { Badge } from "@/ui/primitives";
+import { ActionButton } from "@/ui/components";
+import { IssuePriorityBadge } from "@/ui/components";
+import { DETAIL_INLINE_ACTION_CLASS, DETAIL_INLINE_ICON_ACTION_CLASS } from "@/ui/block";
 import { SnoozeMenu } from "./snooze-menu";
 import { issueStateBadge, issueWorkflowActions } from "./issue-triage-utils";
 
@@ -37,6 +38,7 @@ export function IssueStateActions({
   issue,
   disabled = false,
   pending = false,
+  afterResolve,
   onResolve,
   onReopen,
   onIgnore,
@@ -46,6 +48,8 @@ export function IssueStateActions({
   issue: IssueSummary;
   disabled?: boolean;
   pending?: boolean;
+  /** Slot after Resolve/Unresolve — typically Copy for agent. */
+  afterResolve?: ReactNode;
   onResolve: (id: string) => void;
   onReopen: (id: string) => void;
   onIgnore: (id: string) => void;
@@ -67,49 +71,48 @@ export function IssueStateActions({
           tooltip="Resolve (E)"
           onClick={() => onResolve(issue.id)}
         >
-          <Check className="size-4" />
+          <Check className="size-3.5" aria-hidden />
           <span>{saving ?? "Resolve"}</span>
         </ActionButton>
       ) : null}
       {actions.includes("reopen") ? (
         <ActionButton
-          variant="ghost"
+          variant="outline"
           size="sm"
-          className={DETAIL_INLINE_ACTION_CLASS}
+          className={`${DETAIL_INLINE_ACTION_CLASS} border-border`}
           disabled={disabled}
           tooltip={reopenLabel}
           onClick={() => onReopen(issue.id)}
         >
-          <RotateCcw className="size-4" />
+          <RotateCcw className="size-3.5" aria-hidden />
           <span>{saving ?? reopenLabel}</span>
         </ActionButton>
       ) : null}
+      {afterResolve}
       {actions.includes("ignore") ? (
         <ActionButton
           variant="ghost"
-          size="sm"
-          className={DETAIL_INLINE_ACTION_CLASS}
+          size="icon"
+          className={DETAIL_INLINE_ICON_ACTION_CLASS}
           tooltip="Ignore (I)"
           disabled={disabled}
           aria-label="Ignore issue"
           onClick={() => onIgnore(issue.id)}
         >
-          <EyeOff className="size-4" aria-hidden />
-          <span>Ignore</span>
+          <EyeOff className="size-3.5" aria-hidden />
         </ActionButton>
       ) : null}
       {actions.includes("unsnooze") ? (
         <ActionButton
           variant="ghost"
-          size="sm"
-          className={DETAIL_INLINE_ACTION_CLASS}
+          size="icon"
+          className={DETAIL_INLINE_ICON_ACTION_CLASS}
           tooltip="Unsnooze"
           disabled={disabled}
           aria-label="Unsnooze issue"
           onClick={() => onUnsnooze(issue.id)}
         >
-          <BellRing className="size-4" aria-hidden />
-          <span>{saving ?? "Unsnooze"}</span>
+          <BellRing className="size-3.5" aria-hidden />
         </ActionButton>
       ) : null}
       {actions.includes("snooze") ? (
@@ -117,7 +120,9 @@ export function IssueStateActions({
           issue={issue}
           disabled={disabled}
           variant="ghost"
-          className={DETAIL_INLINE_ACTION_CLASS}
+          iconOnly
+          iconSize="icon"
+          className={DETAIL_INLINE_ICON_ACTION_CLASS}
           showShortcutHint
           onSnooze={onSnooze}
         />

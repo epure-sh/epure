@@ -96,7 +96,7 @@ export function CronPulse({ monitors, viewAllHref, loading = false, className }:
                 {statusLabel(monitor.status)}
               </Badge>
               <span className="shrink-0 font-mono text-[10px] text-fg-muted tabular-nums">
-                {monitor.last_check_in_at ? formatRelativeTime(monitor.last_check_in_at) : "—"}
+                {monitor.last_check_in_at ? formatRelativeTime(monitor.last_check_in_at) : "-"}
               </span>
             </li>
           ))}

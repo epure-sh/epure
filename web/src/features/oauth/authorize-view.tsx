@@ -5,8 +5,8 @@ import {
   submitOAuthAuthorize,
   type OAuthInfoOrg,
 } from "../../lib/api";
-import { Button } from "../../ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../ui/card";
+import { Button } from "@/ui/primitives";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/ui/components";
 import {
   Select,
   SelectContent,
@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EpureBrandMark } from "../../ui/logo";
+import { EpureBrandMark } from "@/ui/primitives";
 import { Bot, Check, ShieldCheck, Terminal, AlertTriangle, ArrowRight } from "lucide-react";
 
 export function AuthorizeView() {

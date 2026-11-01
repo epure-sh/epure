@@ -1,6 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { projectIdFromPath } from "../../lib/paths";
-import { NotFoundState } from "../../ui/error-state";
+import { NotFoundState } from "@/ui/components";
 
 export function NotFoundPage() {
   const { pathname } = useLocation();

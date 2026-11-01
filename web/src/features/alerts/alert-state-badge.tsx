@@ -1,6 +1,6 @@
 import type { AlertRow } from "../../lib/api";
 import { Badge } from "@/components/ui/badge";
-import type { BadgeVariant } from "@/ui/badge";
+import type { BadgeVariant } from "@/ui/primitives";
 import { cn } from "../../lib/cn";
 import {
   getAlertOpenDurationLabel,
@@ -11,9 +11,8 @@ import {
 function variantForState(state: ReturnType<typeof getAlertSignalState>): BadgeVariant {
   switch (state) {
     case "firing":
-      return "escalating";
     case "fired":
-      return "info";
+      return "escalating";
     case "acknowledged":
       return "resolved";
     case "muted":

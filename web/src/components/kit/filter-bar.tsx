@@ -4,6 +4,7 @@ import { Box } from "@polar-sh/orbit/Box";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { FilterChip } from "@/ui/components";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +17,6 @@ import {
   MagnifyingGlass,
   Warning,
   Flame,
-  X,
   SlidersHorizontal,
   Check,
   Tag,
@@ -103,49 +103,33 @@ export function FilterBar({
         alignItems="center"
         columnGap="xs"
         rowGap="xs"
-        paddingVertical="xs">
-        <Button
-          variant={isAll ? "primary" : "outline"}
-          size="xs"
+        padding="s"
+        borderRadius="m"
+        borderWidth={1}
+        borderStyle="solid"
+        borderColor="border-primary"
+        backgroundColor="background-primary"
+      >
+        <FilterChip
+          label="All"
+          active={isAll}
           onClick={() => {
             if (onReset) onReset();
             else onSelect?.("all");
           }}
-        >
-          All
-        </Button>
+        />
 
         {options.map((option) => {
+          if (option.key === "all") return null;
           const selected = activeKey === option.key;
           return (
-            <Button
+            <FilterChip
               key={option.key}
-              variant={selected ? "secondary" : "outline"}
-              size="xs"
+              label={option.label}
+              active={selected}
+              count={option.count}
               onClick={() => onSelect?.(option.key)}
-            >
-              {option.label}
-              {typeof option.count === "number" && (
-                <Badge variant="neutral" size="compact">
-                  {option.count}
-                </Badge>
-              )}
-              {selected && (
-                <Box
-                  as="span"
-                  role="button"
-                  tabIndex={0}
-                  marginLeft="xs"
-                  color={{ base: "text-secondary", hover: "text-primary" }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelect?.("all");
-                  }}
-                >
-                  <X size={10} weight="bold" />
-                </Box>
-              )}
-            </Button>
+            />
           );
         })}
       </Box>

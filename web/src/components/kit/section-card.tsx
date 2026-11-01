@@ -76,6 +76,10 @@ export function SectionCard({
       ) : null}
 
       <Box
+        flexDirection="column"
+        alignItems="stretch"
+        width="100%"
+        minWidth={0}
         padding={flush ? undefined : "l"}
         color="text-secondary"
         // eslint-disable-next-line no-restricted-syntax -- kit API contentClassName

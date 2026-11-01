@@ -1,5 +1,5 @@
 import { TelemetryChart } from "@/components/kit/telemetry-chart";
-import { Sparkline } from "@/ui/sparkline";
+import { Sparkline } from "@/ui/components";
 import { PreviewBlock, MatrixCell } from "../../shared";
 
 const SERIES = [

@@ -3,6 +3,7 @@ import * as React from "react";
 import { Command as CommandPrimitive } from "cmdk";
 import { MagnifyingGlass } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { MENU_ITEM_RADIUS } from "@/lib/menu-chrome";
 import { Dialog, DialogContent } from "./dialog";
 
 export function Command({
@@ -124,7 +125,7 @@ export function CommandItem({
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "relative flex cursor-pointer select-none items-center rounded-xs px-2 py-1.5 text-xs text-fg-secondary outline-none transition-colors",
+        `relative flex cursor-pointer select-none items-center ${MENU_ITEM_RADIUS} px-2 py-1.5 text-xs text-fg-secondary outline-none transition-colors`,
         "data-[selected=true]:bg-surface-2 data-[selected=true]:text-fg-primary",
         "data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-40",
         className

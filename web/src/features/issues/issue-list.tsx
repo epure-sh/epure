@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { IssueSummary, ProjectRow, TimelineBucket } from "../../lib/api";
 import { cn } from "../../lib/cn";
 import { Button } from "@/components/ui/button";
-import { Empty } from "../../ui/empty";
+import { Empty } from "@/ui/components";
 import { IssueInboxLifecycleCue } from "@/components/kit/inbox-lifecycle-cue";
 import { issueInboxLifecycleKinds } from "@/lib/inbox-lifecycle";
-import { IssueRowShell } from "@/components/kit/issue-row-shell";
+import { IssueRowShell } from "@/ui/block";
 import { IssueListColumnHeader } from "./issue-list-column-header";
-import { resolveIssuePriority } from "../../ui/issue-priority";
+import { resolveIssuePriority } from "@/ui/components";
 import { IssueRowActionsMenu } from "./issue-row-actions-menu";
 import type { SnoozeMode } from "../../lib/api";
 import { formatCompactCount } from "../../lib/format-count";
@@ -325,8 +325,8 @@ export function IssueList({
     <div
       className={cn(
         "w-full",
-        embedded ? "flex min-h-0 min-w-0 flex-1 flex-col" : "mb-3",
-        !embedded && (isEmpty ? "shrink-0" : "flex min-h-0 min-w-0 flex-1 flex-col"),
+        embedded ? "min-w-0" : "mb-3",
+        !embedded && "shrink-0",
       )}
     >
       <div
@@ -334,12 +334,7 @@ export function IssueList({
         data-slot="issue-feed-list"
         className={cn(
           "epure-issue-list flex flex-col bg-surface-1",
-          embedded
-            ? "min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
-            : cn(
-                "rounded-lg border border-border shadow-xs",
-                isEmpty ? "shrink-0 overflow-hidden" : "min-h-0 flex-1 overflow-x-hidden overflow-y-auto",
-              ),
+          !embedded && "rounded-lg border border-border shadow-xs",
         )}
       >
         <IssueListColumnHeader
@@ -348,6 +343,7 @@ export function IssueList({
           selectAllIndeterminate={selectAllIndeterminate}
           onToggleSelectAll={onToggleSelectAll}
           windowLabel={windowLabel}
+          viewCount={issues.length}
           selectionActive={selectedIds.size > 0}
         />
 
@@ -405,6 +401,9 @@ export function IssueList({
                 priority={priority}
                 title={shortTitle}
                 subtitle={subtitle}
+                unhandled={Boolean(issue.is_unhandled)}
+                regression={Boolean(issue.came_back || issue.status === "regression")}
+                snoozed={Boolean(issue.snoozed || issue.status === "snoozed")}
                 lifecycle={
                   lifecycleKinds.length > 0 ? (
                     <IssueInboxLifecycleCue issue={issue} />
@@ -438,8 +437,8 @@ export function IssueList({
                     : formatCompactCount(issue.event_count)
                 }
                 usersCount={formatCompactCount(issue.unique_user_count)}
-                timeAgo={issue.last_seen_at ? formatRelativeTime(issue.last_seen_at) : "—"}
-                age={issue.first_seen_at ? formatAge(issue.first_seen_at) : "—"}
+                timeAgo={issue.last_seen_at ? formatRelativeTime(issue.last_seen_at) : "-"}
+                age={issue.first_seen_at ? formatAge(issue.first_seen_at) : "-"}
                 onClick={() => onSelect(issue.id)}
               />
             </div>

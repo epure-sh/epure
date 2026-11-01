@@ -25,22 +25,22 @@ import {
   type SetupPlatformId,
 } from "../../lib/setup-platform-snippets";
 import { useAppContext } from "../../shell/app-context";
-import { ApplyWithAiButton } from "../../ui/apply-with-ai-button";
-import { SetupPlatformMark } from "../../ui/setup-platform-mark";
-import { Button } from "../../ui/button";
-import { SetupConnectPanel } from "../../ui/setup-connect-panel";
-import { SetupDocsLink } from "../../ui/setup-docs-link";
+import { ApplyWithAiButton } from "@/ui/components";
+import { SetupPlatformMark } from "@/ui/components";
+import { Button } from "@/ui/primitives";
+import { SetupConnectPanel } from "@/ui/block";
+import { SetupDocsLink } from "@/ui/components";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "../../ui/dialog";
-import { Field } from "../../ui/field";
-import { Input } from "../../ui/input";
-import { StepIndicator } from "../../ui/step-indicator";
-import { useToast } from "../../ui/toast-provider";
+} from "@/ui/primitives";
+import { Field } from "@/ui/components";
+import { Input } from "@/ui/primitives";
+import { StepIndicator } from "@/ui/components";
+import { useToast } from "@/ui/components";
 
 type WizardStep = "name" | "path" | "language" | "connect" | "verify";
 
@@ -348,7 +348,7 @@ export function SetupWizardDialog({
   const handleOpenChange = useCallback(
     (next: boolean) => {
       if (!next && mustFinishSetup && activeProjectId && !setupComplete) {
-        toast("Finish setup — wait for the first event before leaving.");
+        toast("Finish setup. Wait for the first event before leaving.");
         return;
       }
       onOpenChange(next);
@@ -429,7 +429,7 @@ export function SetupWizardDialog({
         onEscapeKeyDown={(event) => {
           if (mustFinishSetup && activeProjectId && !setupComplete) {
             event.preventDefault();
-            toast("Finish setup — wait for the first event before leaving.");
+            toast("Finish setup. Wait for the first event before leaving.");
           }
         }}
         onPointerDownOutside={(event) => {
@@ -493,7 +493,17 @@ export function SetupWizardDialog({
                   />
                 </Field>
               </div>
-              <div className="flex justify-end border-t border-border-subtle pt-2">
+              <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-2">
+                <ApplyWithAiButton
+                  prompt={[
+                    "I'm setting up Epure error tracking for a new project.",
+                    projectName.trim() ? `Working name: ${projectName.trim()}` : "No name yet.",
+                    "Help me choose a clear project name and the right SDK path (fresh vs from Sentry).",
+                  ].join("\n")}
+                  label="Ask agent"
+                  size="sm"
+                  variant="secondary"
+                />
                 <Button
                   type="button"
                   variant="primary"
@@ -536,7 +546,7 @@ export function SetupWizardDialog({
                   <SetupDocsLink href={EPURE_DOCS_MIGRATION_URL}>From Sentry</SetupDocsLink>
                 </p>
               </div>
-              <div className="flex justify-start border-t border-border-subtle pt-2">
+              <div className="flex items-center justify-between gap-2 border-t border-border-subtle pt-2">
                 {!projectId && !initialName.trim() ? (
                   <Button type="button" variant="ghost" onClick={handleBack}>
                     Back
@@ -544,6 +554,18 @@ export function SetupWizardDialog({
                 ) : (
                   <span />
                 )}
+                <ApplyWithAiButton
+                  prompt={[
+                    "I'm onboarding to Epure. Should I start fresh or migrate from Sentry?",
+                    projectName.trim() ? `Project: ${projectName.trim()}` : null,
+                    "Explain the tradeoffs and which path to pick for a SaaS app already on Sentry SDKs.",
+                  ]
+                    .filter(Boolean)
+                    .join("\n")}
+                  label="Ask agent"
+                  size="sm"
+                  variant="secondary"
+                />
               </div>
             </div>
           ) : null}
@@ -586,10 +608,23 @@ export function SetupWizardDialog({
                   ))}
                 </div>
               </div>
-              <div className="flex shrink-0 justify-start border-t border-border-subtle pt-2">
+              <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border-subtle pt-2">
                 <Button type="button" variant="ghost" onClick={handleBack}>
                   Back
                 </Button>
+                <ApplyWithAiButton
+                  prompt={[
+                    "I'm choosing an Epure SDK platform.",
+                    projectName.trim() ? `Project: ${projectName.trim()}` : null,
+                    `Path: ${resolvedPath}`,
+                    "Recommend the best platform id from nextjs, node, react, python, go, javascript for my stack.",
+                  ]
+                    .filter(Boolean)
+                    .join("\n")}
+                  label="Ask agent"
+                  size="sm"
+                  variant="secondary"
+                />
               </div>
             </div>
           ) : null}
@@ -632,7 +667,9 @@ export function SetupWizardDialog({
                     <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
                       <ApplyWithAiButton
                         prompt={aiPromptConnect}
-                        prominence="main"
+                        label="Implement with agent"
+                        size="sm"
+                        variant="secondary"
                         onCopied={() => {
                           void markReady();
                           toast("Copied. Paste into Agent chat.");
@@ -643,8 +680,8 @@ export function SetupWizardDialog({
                       />
                       <Button
                         type="button"
-                        variant="secondary"
-                        size="lg"
+                        variant="primary"
+                        size="sm"
                         disabled={!dsn || busy}
                         onClick={handleConnectContinue}
                       >
@@ -663,7 +700,7 @@ export function SetupWizardDialog({
                 <p className="text-sm font-medium tracking-ui text-fg-primary">Listening for first error</p>
                 <p className="text-xs text-fg-muted">Trigger a test exception or wait for production traffic.</p>
                 {verifyIssueSeen ? (
-                  <p className="pt-0.5 text-xs font-medium text-primary">Live — issue received.</p>
+                  <p className="pt-0.5 text-xs font-medium text-primary">Live. Issue received.</p>
                 ) : verifyListening ? (
                   <p className="pt-0.5 text-2xs text-fg-muted">Polling issues…</p>
                 ) : null}

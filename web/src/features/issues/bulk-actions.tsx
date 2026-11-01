@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Archive, Ban, Check, Eye, RotateCcw, Sparkles } from "lucide-react";
+import { Ban, Check, Eye, RotateCcw, Sparkles } from "lucide-react";
 import type { SnoozeMode } from "../../lib/api";
 import type { BulkTriageAvailability } from "./issue-triage-utils";
 import { BulkSnoozeMenu } from "./snooze-menu";
@@ -134,7 +134,7 @@ export function BulkActions({
   return (
     <div
       className={cn(
-        "sticky top-0 z-10 shrink-0 bg-surface-1 px-3 py-1.5",
+        "sticky top-[5.5rem] z-10 shrink-0 bg-surface-1 px-3 py-1.5",
         className,
       )}
       aria-busy={busy || undefined}
@@ -190,17 +190,6 @@ export function BulkActions({
 
           {availability.snooze ? (
             <BulkSnoozeMenu disabled={busy} iconOnly onSnooze={onSnooze} />
-          ) : null}
-
-          {availability.ignore ? (
-            <BarIconButton
-              label="Archive"
-              disabled={busy}
-              tooltip={busyTip ?? "Archive"}
-              onClick={onIgnore}
-            >
-              <Archive className="size-3.5" aria-hidden />
-            </BarIconButton>
           ) : null}
 
           {availability.ignore ? (

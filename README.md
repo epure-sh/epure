@@ -13,9 +13,11 @@
 
 # Epure
 
-Self-hosted error tracking: grouped issues and stack traces, one Rust binary and PostgreSQL 16.
+Self-hosted error tracking with predictable incident economics: grouped issues and stack traces, one Rust binary and PostgreSQL 16.
 
-Keep the official Sentry SDK. Change the DSN to Epure. Docker Compose runs two containers (app + Postgres). You own backups and upgrades. Hosting the data means you are not billed per event.
+**Don’t go blind during the incident. Count 100% of the flood, pay $0 in overages.**
+
+Keep your official Sentry SDK. Change the DSN to Epure. Docker Compose runs two containers (app + Postgres). Ingestion Spike Valve absorbs deploy floods without dropping velocity counts or billing penalty overages. Available as $0 Apache 2.0 self-host or managed Cloud (Pro $29 / Scale $89 flat).
 
 | Lightweight | Keep your Sentry SDK | Built for agents |
 | :--- | :--- | :--- |
@@ -125,7 +127,7 @@ Epure does not store distributed traces, session replay, continuous profiling, g
 | **License** | Apache 2.0. No `ee/` folder | PolyForm Shield 1.0.0 | Check current Sentry license | MIT |
 | **Database** | PostgreSQL 16 | See their docs | Multiple datastores | PostgreSQL |
 
-**Project Status:** Early release. Fits homelabs, side projects, and small teams who have tested backup and upgrade paths. Expect SDK and protocol gaps; [file them](https://github.com/epure-sh/epure/issues). [Changelog](CHANGELOG.md).
+**Project Status:** Production ready for SaaS and engineering teams. Two-container Compose, PostgreSQL 16 with RLS, Spike Valve flood protection, and official Sentry SDK wire compatibility. [Changelog](CHANGELOG.md).
 
 * [Report an Issue](https://github.com/epure-sh/epure/issues)
 * [Join Discussions](https://github.com/epure-sh/epure/discussions)

@@ -1,8 +1,8 @@
 import * as React from "react";
 import { InboxLifecycleCue } from "@/components/kit/inbox-lifecycle-cue";
 import { InboxUnreadRail } from "@/components/kit/inbox-read-cue";
-import { IssueRowShell } from "@/components/kit/issue-row-shell";
-import { ListRow } from "@/ui/list-row";
+import { IssueRowShell } from "@/ui/block";
+import { ListRow } from "@/ui/components";
 import { PreviewBlock, MatrixCell } from "../../shared";
 
 export default function IssueRowPreview() {

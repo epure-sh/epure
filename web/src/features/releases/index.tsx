@@ -5,13 +5,13 @@ import { fetchReleases, type ReleaseSummary } from "../../lib/api";
 import { issuesFilterPath, projectSettingsPath } from "../../lib/paths";
 import { isDemoProject } from "../../lib/demo-utils";
 import { useAppContext } from "../../shell/app-context";
-import { Button } from "../../ui/button";
-import { Empty } from "../../ui/empty";
-import { FeedListBody, StackedCardList } from "../../ui/feed-list-shell";
-import { FeedHeaderStat, FeedHeaderStatDot, SimpleFeedHeader } from "../../ui/simple-feed-header";
-import { ListRow } from "../../ui/list-row";
-import { SdkSnippetBlock } from "../../ui/sdk-snippet-block";
-import { CardRowSkeleton } from "../../ui/skeleton";
+import { Button } from "@/ui/primitives";
+import { Empty } from "@/ui/components";
+import { FeedListBody, ProjectPageTitle, StackedCardList } from "@/ui/block";
+import { FeedHeaderStat, FeedHeaderStatDot, SimpleFeedHeader } from "@/ui/block";
+import { ListRow } from "@/ui/components";
+import { SdkSnippetBlock } from "@/ui/components";
+import { CardRowSkeleton } from "@/ui/block";
 import {
   formatReleaseDeltas,
   formatReleaseMeta,
@@ -111,6 +111,9 @@ export function ReleasesPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <div className="epure-page-gutter-x shrink-0 pt-4 pb-1">
+        <ProjectPageTitle title="Releases" />
+      </div>
       <SimpleFeedHeader
         stats={
           activeProjectId ? (

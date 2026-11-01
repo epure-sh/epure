@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchPrivacyNotice, type PrivacyNotice } from "../../lib/api";
 import { isCloudDeployment } from "../../lib/deployment";
-import { Card } from "../../ui/card";
-import { EpureBrandMark } from "../../ui/logo";
+import { Card } from "@/ui/components";
+import { EpureBrandMark } from "@/ui/primitives";
 
 export function PrivacyNoticePage() {
   const [notice, setNotice] = useState<PrivacyNotice | null>(null);

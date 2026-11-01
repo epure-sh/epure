@@ -2,10 +2,10 @@ import {
   IssueImpactLine,
   IssueImpactMetrics,
   IssueOccurrenceTrend,
-} from "@/ui/issue-impact-strip";
-import { IssueDetailTabs } from "@/ui/issue-detail-tabs";
-import { KeyboardHintsFooter } from "@/ui/keyboard-hints-footer";
-import { StatBar } from "@/ui/stat-bar";
+} from "@/ui/block";
+import { IssueDetailTabs } from "@/ui/block";
+import { KeyboardHintsFooter } from "@/ui/components";
+import { StatBar } from "@/ui/components";
 import { DESIGN_KIT_SAMPLE_ISSUE } from "../../fixtures/sample-issue";
 import { DESIGN_KIT_SAMPLE_TIMELINE } from "../../fixtures/sample-issue-detail";
 import { PreviewBlock, MatrixCell } from "../../shared";

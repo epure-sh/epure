@@ -98,7 +98,7 @@ export function CreateOutputChannelDialog({
         if (cached.length > 0) {
           setProjects(cached);
           setMembers([]);
-          setLoadError("Could not refresh projects — using cached list.");
+          setLoadError("Could not refresh projects. Using cached list.");
         } else {
           setProjects([]);
           setMembers([]);
@@ -171,7 +171,7 @@ export function CreateOutputChannelDialog({
       setVerified(false);
       setTestError(
         apiErrorStatus(err) === 429
-          ? "Too many tests — try again in an hour."
+          ? "Too many tests. Try again in an hour."
           : "Test delivery failed",
       );
     } finally {

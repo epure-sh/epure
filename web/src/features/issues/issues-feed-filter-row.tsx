@@ -1,7 +1,6 @@
-import { Clock, Flame, RotateCcw } from "lucide-react";
+import { ArrowUpDown } from "lucide-react";
 import type { ReactNode } from "react";
 import type { HeadlineStats } from "../../lib/api";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,20 +10,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { CaretDown, Check } from "@/components/ui/icon";
 import { TimeWindowSelect } from "@/components/kit/time-window-select";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip";
+import { FilterChip, KeyboardHintsFooter } from "@/ui/components";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/primitives";
 import { cn } from "@/lib/utils";
 import { useAppContext } from "../../shell/app-context";
 import {
   applyFilterToken,
   getIssueSortLabel,
-  getIssueSortShortLabel,
   ISSUE_SORT_OPTIONS,
   isAllIssuesQuery,
   parseQuery,
@@ -33,46 +25,6 @@ import {
   type IssueSortValue,
   type TimeWindowValue,
 } from "./query-utils";
-
-function FeedFilterIconButton({
-  label,
-  tooltip,
-  active,
-  activeVariant = "secondary",
-  onClick,
-  children,
-  dataTour,
-}: {
-  label: string;
-  tooltip: string;
-  active: boolean;
-  activeVariant?: "secondary" | "filterEscalating" | "filterRegression";
-  onClick: () => void;
-  children: ReactNode;
-  dataTour?: string;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          type="button"
-          variant={active ? activeVariant : "outline"}
-          size="icon"
-          className="size-7 shrink-0"
-          aria-label={label}
-          aria-pressed={active}
-          data-tour={dataTour}
-          onClick={onClick}
-        >
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="text-xs">
-        {tooltip}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
 
 export interface IssuesFeedFilterRowProps {
   query: string;
@@ -86,7 +38,13 @@ export interface IssuesFeedFilterRowProps {
   className?: string;
 }
 
-type IssuesFeedFilterCoreProps = Omit<IssuesFeedFilterRowProps, "issueSort" | "onIssueSortChange" | "trailing"> & {
+type IssuesFeedFilterCoreProps = {
+  query: string;
+  onQueryChange: (value: string) => void;
+  stats?: HeadlineStats | null;
+  /** Issues currently loaded for the active filter view. */
+  viewCount?: number;
+  className?: string;
   /** Override the unresolved chip label (Alerts inbox uses “Needs action”). */
   unresolvedLabel?: string;
   /** Extra chips after the shared status set (Alerts high-severity, etc.). */
@@ -97,9 +55,8 @@ type IssuesFeedFilterCoreProps = Omit<IssuesFeedFilterRowProps, "issueSort" | "o
 export function IssuesFeedFilterChips({
   query,
   onQueryChange,
-  timeWindow,
-  onTimeWindowChange,
   stats,
+  viewCount,
   className,
   unresolvedLabel = "Unresolved",
   extraChips,
@@ -109,9 +66,6 @@ export function IssuesFeedFilterChips({
   const parsed = parseQuery(query);
   const isUnresolvedActive = parsed.lifecycle === "unresolved";
   const isResolvedActive = parsed.lifecycle === "resolved";
-  const isRegressionActive = parsed.viewModifier === "regression";
-  const isSnoozedActive = parsed.viewModifier === "snoozed";
-  const isEscalatingActive = Boolean(parsed.escalating);
   const isAllActive = isAllIssuesQuery(query);
   const unresolvedCount = stats?.unresolved;
 
@@ -133,132 +87,132 @@ export function IssuesFeedFilterChips({
   return (
     <div
       data-slot="filter-bar-chips"
-      className={cn("flex min-w-0 shrink-0 flex-nowrap items-center gap-1.5", className)}
+      className={cn("flex min-w-0 shrink-0 flex-nowrap items-center gap-1", className)}
     >
-        <Button
-          variant={isAllActive ? "primary" : "outline"}
-          size="xs"
-          className="h-7 text-xs font-medium"
-          data-tour="issues-feed-all"
-          onClick={handleResetAll}
-        >
-          All
-        </Button>
+      <FilterChip
+        label="All"
+        active={isAllActive}
+        count={isAllActive && typeof viewCount === "number" ? viewCount : undefined}
+        data-tour="issues-feed-all"
+        onClick={handleResetAll}
+      />
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="xs" className="h-7 gap-1 text-xs font-medium">
-              <span>{envLabel}</span>
-              <CaretDown className="size-3 text-fg-muted" weight="bold" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-40">
-            <DropdownMenuItem onSelect={() => setEnvironment("production" as typeof environment)}>
-              <span>Production</span>
-              {environment === "production" ? <Check className="ml-auto size-3" weight="bold" /> : null}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setEnvironment("staging" as typeof environment)}>
-              <span>Staging</span>
-              {environment === "staging" ? <Check className="ml-auto size-3" weight="bold" /> : null}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setEnvironment("local" as typeof environment)}>
-              <span>Local / dev</span>
-              {environment === "local" ? <Check className="ml-auto size-3" weight="bold" /> : null}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            size="xs"
+            className="!h-8 !min-h-8 gap-1 px-2.5 text-xs font-normal"
+          >
+            <span>{envLabel}</span>
+            <CaretDown className="size-3 text-fg-muted" weight="bold" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-40">
+          <DropdownMenuItem onSelect={() => setEnvironment("production" as typeof environment)}>
+            <span>Production</span>
+            {environment === "production" ? <Check className="ml-auto size-3" weight="bold" /> : null}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setEnvironment("staging" as typeof environment)}>
+            <span>Staging</span>
+            {environment === "staging" ? <Check className="ml-auto size-3" weight="bold" /> : null}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setEnvironment("local" as typeof environment)}>
+            <span>Local / dev</span>
+            {environment === "local" ? <Check className="ml-auto size-3" weight="bold" /> : null}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-        <Button
-          variant={isUnresolvedActive ? "secondary" : "outline"}
-          size="xs"
-          className="h-7 gap-1 text-xs"
-          data-tour="issues-feed-unresolved"
-          onClick={handleToggleUnresolved}
-        >
-          <span>{unresolvedLabel}</span>
-          {typeof unresolvedCount === "number" ? (
-            <Badge variant="neutral" size="sm" className="h-4 px-1 text-[10px] tabular-nums">
-              {unresolvedCount}
-            </Badge>
-          ) : null}
-        </Button>
+      <FilterChip
+        label={unresolvedLabel}
+        active={isUnresolvedActive}
+        count={
+          isUnresolvedActive && typeof viewCount === "number"
+            ? viewCount
+            : typeof unresolvedCount === "number"
+              ? unresolvedCount
+              : undefined
+        }
+        data-tour="issues-feed-unresolved"
+        onClick={handleToggleUnresolved}
+      />
 
-        <Button
-          variant={isResolvedActive ? "secondary" : "outline"}
-          size="xs"
-          className="h-7 text-xs"
-          onClick={() => handleToggleToken("is:resolved")}
-        >
-          Resolved
-        </Button>
+      <FilterChip
+        label="Resolved"
+        active={isResolvedActive}
+        count={isResolvedActive && typeof viewCount === "number" ? viewCount : undefined}
+        onClick={() => handleToggleToken("is:resolved")}
+      />
 
-        <FeedFilterIconButton
-          label="Came back"
-          tooltip={
-            typeof stats?.regressions === "number" && stats.regressions > 0
-              ? `Came back · ${stats.regressions}`
-              : "Came back"
-          }
-          active={isRegressionActive}
-          activeVariant="filterRegression"
-          onClick={() => handleToggleToken("is:regression")}
-          dataTour="issues-feed-came-back"
-        >
-          <RotateCcw className="size-3.5" aria-hidden />
-        </FeedFilterIconButton>
-
-        <FeedFilterIconButton
-          label="Escalating"
-          tooltip="Escalating (3d)"
-          active={isEscalatingActive}
-          activeVariant="filterEscalating"
-          onClick={() => handleToggleToken("is:escalating")}
-        >
-          <Flame className="size-3.5" aria-hidden />
-        </FeedFilterIconButton>
-
-        <FeedFilterIconButton
-          label="Snoozed"
-          tooltip={
-            typeof stats?.snoozed === "number" && stats.snoozed > 0 ? `Snoozed · ${stats.snoozed}` : "Snoozed"
-          }
-          active={isSnoozedActive}
-          onClick={() => handleToggleToken("is:snoozed")}
-        >
-          <Clock className="size-3.5" aria-hidden />
-        </FeedFilterIconButton>
-
-        {extraChips}
-
-        <TimeWindowSelect value={timeWindow} options={TIME_WINDOW_OPTIONS} onValueChange={onTimeWindowChange} />
+      {extraChips}
     </div>
   );
 }
 
-/** Sort + trailing actions — right column in Issues feed and Alerts history. */
+/** Day range + icon-only sort + trailing — right rail in Issues feed and Alerts history. */
 export function IssuesFeedFilterRowActions({
+  timeWindow,
+  onTimeWindowChange,
   issueSort,
   onIssueSortChange,
   trailing,
   className,
   sortAriaLabel = "Sort issues",
-}: Pick<IssuesFeedFilterRowProps, "issueSort" | "onIssueSortChange" | "trailing" | "className"> & {
+}: {
+  timeWindow: TimeWindowValue;
+  onTimeWindowChange: (value: TimeWindowValue) => void;
+  issueSort: IssueSortValue;
+  onIssueSortChange: (value: IssueSortValue) => void;
+  trailing?: ReactNode;
+  className?: string;
   sortAriaLabel?: string;
 }) {
   return (
-    <div className={cn("flex shrink-0 items-center gap-2", className)}>
-      <Select value={issueSort} onValueChange={(value) => onIssueSortChange(value as IssueSortValue)}>
-        <SelectTrigger aria-label={sortAriaLabel} className="h-7 w-auto min-w-[7.5rem] text-xs">
-          <SelectValue>{getIssueSortShortLabel(issueSort)}</SelectValue>
-        </SelectTrigger>
-        <SelectContent align="end">
+    <div className={cn("flex shrink-0 items-center gap-1.5", className)}>
+      <KeyboardHintsFooter />
+
+      <TimeWindowSelect
+        value={timeWindow}
+        options={TIME_WINDOW_OPTIONS}
+        onValueChange={onTimeWindowChange}
+      />
+
+      <DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-8 shrink-0"
+                aria-label={sortAriaLabel}
+              >
+                <ArrowUpDown className="size-3.5 text-fg-muted" aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">
+            {getIssueSortLabel(issueSort)}
+          </TooltipContent>
+        </Tooltip>
+        <DropdownMenuContent align="end" className="w-44">
           {ISSUE_SORT_OPTIONS.map((option) => (
-            <SelectItem key={option.value} value={option.value} className="text-xs">
-              {getIssueSortLabel(option.value)}
-            </SelectItem>
+            <DropdownMenuItem
+              key={option.value}
+              className="text-xs"
+              onSelect={() => onIssueSortChange(option.value)}
+            >
+              <span>{getIssueSortLabel(option.value)}</span>
+              {issueSort === option.value ? (
+                <Check className="ml-auto size-3" weight="bold" />
+              ) : null}
+            </DropdownMenuItem>
           ))}
-        </SelectContent>
-      </Select>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
       {trailing}
     </div>
   );
@@ -273,24 +227,26 @@ export function IssuesFeedFilterRow({
   issueSort,
   onIssueSortChange,
   stats,
+  viewCount,
   trailing,
   className,
-}: IssuesFeedFilterRowProps) {
+}: IssuesFeedFilterRowProps & { viewCount?: number }) {
   return (
     <div
       data-slot="filter-bar"
       className={
-        className ?? "flex flex-wrap items-center justify-between gap-x-3 gap-y-2 epure-page-gutter-x py-2"
+        className ?? "flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 epure-page-gutter-x py-1.5"
       }
     >
       <IssuesFeedFilterChips
         query={query}
         onQueryChange={onQueryChange}
-        timeWindow={timeWindow}
-        onTimeWindowChange={onTimeWindowChange}
         stats={stats}
+        viewCount={viewCount}
       />
       <IssuesFeedFilterRowActions
+        timeWindow={timeWindow}
+        onTimeWindowChange={onTimeWindowChange}
         issueSort={issueSort}
         onIssueSortChange={onIssueSortChange}
         trailing={trailing}

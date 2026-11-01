@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { FilterChip } from "@/ui/filter-chip";
+import { FilterChip } from "@/ui/components";
 import {
   FILTER_HELPER_GROUPS,
   queryHasToken,

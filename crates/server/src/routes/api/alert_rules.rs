@@ -10,6 +10,7 @@ use axum::{
 use epure_auth::DashboardSession;
 use epure_storage::alert_rules::{
     self, AlertRuleFilters, CreateAlertRuleParams, CreateChannelParams, UpdateAlertRuleParams,
+    UpdateChannelParams,
 };
 use epure_storage::webhooks::{self, CreateWebhookParams};
 use serde::{Deserialize, Serialize};
@@ -251,6 +252,9 @@ struct CreateChannelBody {
 struct PatchChannelBody {
     is_enabled: Option<bool>,
     label: Option<String>,
+    project_id: Option<String>,
+    #[serde(default)]
+    config: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize)]
@@ -470,31 +474,187 @@ async fn patch_channel(
     Json(body): Json<PatchChannelBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
     require_min_role(&dashboard, Role::Admin)?;
-    let mut row = alert_rules::get_channel(&state.pools.app, dashboard.org_id, id)
+    let row = alert_rules::get_channel(&state.pools.app, dashboard.org_id, id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::NOT_FOUND)?;
 
-    if let Some(enabled) = body.is_enabled {
-        row = alert_rules::set_channel_enabled(&state.pools.app, dashboard.org_id, id, enabled)
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-            .ok_or(StatusCode::NOT_FOUND)?;
-    }
-
-    if let Some(label) = body
+    let label = body
         .label
         .as_ref()
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+
+    let project_id = if let Some(raw) = body.project_id.as_deref().map(str::trim).filter(|s| !s.is_empty())
     {
-        // Re-use set_channel_enabled path isn't enough — lightweight update via SQL in storage.
-        let _ = label;
-        let _ = &row;
-        // Label rename not required for v1 gallery; ignore if only label without helper.
+        Some(
+            epure_storage::projects::resolve_project_id(
+                &state.pools.app,
+                dashboard.org_id,
+                raw,
+            )
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+            .ok_or(StatusCode::NOT_FOUND)?,
+        )
+    } else {
+        None
+    };
+
+    let mut next_config = row.config.0.clone();
+    let mut config_changed = false;
+
+    if let Some(raw_config) = body.config.as_ref() {
+        let url = raw_config
+            .get("url")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        let recipients_raw = raw_config
+            .get("recipients")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str())
+                    .map(|s| s.trim().to_ascii_lowercase())
+                    .filter(|s| !s.is_empty())
+                    .collect::<Vec<_>>()
+            });
+        let bot_token = raw_config
+            .get("bot_token")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        let chat_id = raw_config
+            .get("chat_id")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+
+        if row.provider == "email" {
+            if let Some(recipients_raw) = recipients_raw {
+                if recipients_raw.is_empty() {
+                    return Err(StatusCode::BAD_REQUEST);
+                }
+                let members =
+                    epure_storage::members::list_members(&state.pools.app, dashboard.org_id)
+                        .await
+                        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+                let member_emails: std::collections::HashSet<String> = members
+                    .iter()
+                    .map(|m| m.email.trim().to_ascii_lowercase())
+                    .collect();
+                if recipients_raw
+                    .iter()
+                    .any(|email| !member_emails.contains(email))
+                {
+                    return Err(StatusCode::BAD_REQUEST);
+                }
+                if let Some(obj) = next_config.as_object_mut() {
+                    obj.insert(
+                        "recipients".into(),
+                        serde_json::Value::Array(
+                            recipients_raw
+                                .into_iter()
+                                .map(serde_json::Value::String)
+                                .collect(),
+                        ),
+                    );
+                    config_changed = true;
+                }
+            }
+        } else if row.provider == "telegram" {
+            if let Some(chat_id) = chat_id {
+                if !crate::lifecycle::telegram::validate_chat_id(chat_id) {
+                    return Err(StatusCode::BAD_REQUEST);
+                }
+                if let Some(obj) = next_config.as_object_mut() {
+                    obj.insert(
+                        "chat_id".into(),
+                        serde_json::Value::String(chat_id.to_string()),
+                    );
+                    obj.insert(
+                        "destination_preview".into(),
+                        serde_json::Value::String(
+                            crate::lifecycle::telegram::mask_chat_id(chat_id),
+                        ),
+                    );
+                    config_changed = true;
+                }
+            }
+            if let Some(bot_token) = bot_token {
+                if !crate::lifecycle::telegram::validate_bot_token(bot_token) {
+                    return Err(StatusCode::BAD_REQUEST);
+                }
+                if let Some(obj) = next_config.as_object_mut() {
+                    obj.insert(
+                        "bot_token".into(),
+                        serde_json::Value::String(bot_token.to_string()),
+                    );
+                    config_changed = true;
+                }
+            }
+        } else if alert_rules::webhook_format_for_provider(&row.provider).is_some() {
+            if let Some(url) = url {
+                if !webhook_dispatch::validate_webhook_url(url).await {
+                    return Err(StatusCode::BAD_REQUEST);
+                }
+                if let Some(webhook_id) = alert_rules::channel_webhook_id(&row.config.0) {
+                    webhooks::update_webhook_url(
+                        &state.pools.app,
+                        dashboard.org_id,
+                        webhook_id,
+                        url,
+                    )
+                    .await
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+                    .ok_or(StatusCode::NOT_FOUND)?;
+                }
+                if let Some(obj) = next_config.as_object_mut() {
+                    obj.insert(
+                        "destination_preview".into(),
+                        serde_json::Value::String(alert_rules::mask_destination_url(url)),
+                    );
+                    // Drop any previously stored raw url if present.
+                    obj.remove("url");
+                    config_changed = true;
+                }
+            }
+        }
     }
 
-    Ok(Json(alert_rules::channel_to_public(&row)))
+    if let Some(next_project_id) = project_id {
+        if next_project_id != row.project_id {
+            if let Some(webhook_id) = alert_rules::channel_webhook_id(&row.config.0) {
+                let _ = webhooks::update_webhook_project(
+                    &state.pools.app,
+                    dashboard.org_id,
+                    webhook_id,
+                    next_project_id,
+                )
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            }
+        }
+    }
+
+    let updated = alert_rules::update_channel(
+        &state.pools.app,
+        dashboard.org_id,
+        id,
+        UpdateChannelParams {
+            label,
+            project_id,
+            config: config_changed.then_some(next_config),
+            is_enabled: body.is_enabled,
+        },
+    )
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .ok_or(StatusCode::NOT_FOUND)?;
+
+    Ok(Json(alert_rules::channel_to_public(&updated)))
 }
 
 async fn delete_channel(

@@ -2,4 +2,5 @@
 export {
   SegmentedControl,
   type SegmentedControlProps,
-} from "@polar-sh/orbit/SegmentedControl";
+  type SegmentedControlOption,
+} from "@/ui/primitives/elements/segmented-control";

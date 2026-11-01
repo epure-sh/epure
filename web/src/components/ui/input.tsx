@@ -9,9 +9,10 @@ import { cn } from "@/lib/utils";
 const inputSizeVariants = cva("", {
   variants: {
     variant: {
-      default: "",
+      default:
+        "focus:border-accent focus:ring-0 focus-visible:border-accent focus-visible:ring-0 dark:focus:border-accent",
       ghost:
-        "border-transparent bg-transparent shadow-none focus:border-transparent focus:ring-0",
+        "border-transparent bg-transparent shadow-none focus:border-transparent focus:ring-0 focus-visible:ring-0",
     },
     size: {
       // Compact overlays on Orbit Input (default h-10 rounded-xl) — keep standard rem scale

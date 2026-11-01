@@ -1,33 +1,45 @@
 import { useCallback, useEffect, useState } from "react";
+import { EmptyState } from "@/components/kit/empty-state";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Copy, Icon, Laptop, Robot, Terminal } from "@/components/ui/icon";
+import { toast } from "@/components/ui/sonner";
 import {
   fetchConnectedApps,
   revokeConnectedApp,
   type ConnectedAppRow,
-} from "../../../lib/api";
-import { formatRelativeTime } from "../../../lib/format-time";
-import { isCloudDeployment } from "../../../lib/deployment";
-import { Badge } from "../../../ui/badge";
-import { Button } from "../../../ui/button";
-import { useToast } from "../../../ui/toast-provider";
-import { Bot, Laptop, Terminal } from "lucide-react";
-import { SectionCard } from "@/components/kit/section-card";
-import { SettingsSkeleton, SettingsStack } from "../../settings/shared";
+} from "@/lib/api";
+import { copyText } from "@/lib/copy-text";
+import { isCloudDeployment } from "@/lib/deployment";
+import { formatRelativeTime } from "@/lib/format-time";
+import {
+  SettingsPage,
+  SettingsPageHeader,
+  SettingsPanel,
+  SettingsSkeletonRows,
+  StatusBadge,
+} from "./settings-chrome";
 
-function getClientIcon(clientId: string) {
+function clientIcon(clientId: string) {
   const id = clientId.toLowerCase();
   if (id.includes("cli")) return Terminal;
-  if (id.includes("mcp") || id.includes("agent") || id.includes("cursor") || id.includes("claude")) {
-    return Bot;
+  if (
+    id.includes("mcp") ||
+    id.includes("agent") ||
+    id.includes("cursor") ||
+    id.includes("claude")
+  ) {
+    return Robot;
   }
   return Laptop;
 }
 
 export function ConnectedAppsTab() {
-  const { toast } = useToast();
   const [apps, setApps] = useState<ConnectedAppRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [mcpEnabled, setMcpEnabled] = useState(false);
+  const mcpUrl = `${window.location.origin}/mcp`;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -43,11 +55,11 @@ export function ConnectedAppsTab() {
         setMcpEnabled(authConfig.mcp_enabled);
       }
     } catch {
-      toast("Failed to load connected apps");
+      toast.error("Failed to load connected apps");
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -57,78 +69,113 @@ export function ConnectedAppsTab() {
     setRevokingId(id);
     try {
       await revokeConnectedApp(id);
-      setApps((prev) => prev.filter((a) => a.id !== id));
-      toast(`Revoked ${name}`);
+      setApps((prev) => prev.filter((app) => app.id !== id));
+      toast.success(`Revoked ${name}`);
     } catch {
-      toast("Revoke failed");
+      toast.error("Revoke failed");
     } finally {
       setRevokingId(null);
     }
   }
 
+  async function handleCopyMcp() {
+    const ok = await copyText(mcpUrl);
+    if (ok) toast.success("MCP URL copied");
+    else toast.error("Could not copy");
+  }
+
   const mcpActive = mcpEnabled || isCloudDeployment();
 
   return (
-    <SettingsStack>
-      <SectionCard
-        title="MCP"
-        description="Cursor / Claude Code endpoint."
-        headerActions={
-          <Badge variant={mcpActive ? "env" : "secondary"} size="compact">
-            {mcpActive ? "On" : "Off"}
-          </Badge>
+    <SettingsPage>
+      <SettingsPageHeader
+        title="Connected apps"
+        description="MCP endpoint and OAuth sessions from CLI and editors."
+        badge={
+          !loading ? (
+            <Badge variant="neutral" size="compact">
+              {apps.length} session{apps.length === 1 ? "" : "s"}
+            </Badge>
+          ) : null
         }
+      />
+
+      <SettingsPanel
+        title="MCP"
+        description="Cursor / Claude Code endpoint for this instance."
+        actions={<StatusBadge on={mcpActive} />}
       >
         {mcpActive ? (
-          <code className="block w-full truncate rounded-md border border-border-subtle bg-surface-2/50 px-2.5 py-1.5 font-mono text-2xs text-fg-primary">
-            {window.location.origin}/mcp
-          </code>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="min-w-0 flex-1 truncate rounded-md border border-border-subtle bg-surface-2/50 px-2.5 py-1.5 font-mono text-2xs text-fg-primary">
+              {mcpUrl}
+            </code>
+            <Button type="button" variant="secondary" size="sm" onClick={() => void handleCopyMcp()}>
+              <Icon icon={Copy} size={14} />
+              Copy
+            </Button>
+          </div>
         ) : (
           <p className="text-xs text-fg-muted">
-            Set <span className="font-mono text-fg-primary">EPURE_MCP_ENABLED=true</span> to enable.
+            Set <span className="font-mono text-fg-primary">EPURE_MCP_ENABLED=true</span> on the
+            host to enable.
           </p>
         )}
-      </SectionCard>
+      </SettingsPanel>
 
-      <SectionCard title="Sessions" description="OAuth CLI and app authorizations." flush>
+      <SettingsPanel
+        title="Sessions"
+        description="Authorized CLI and app connections."
+        flush
+      >
         {loading ? (
-          <SettingsSkeleton />
+          <SettingsSkeletonRows count={2} />
         ) : apps.length === 0 ? (
-          <p className="px-3 py-3 text-xs text-fg-muted">
-            None yet. Run <span className="font-mono">epure login</span> in a terminal.
-          </p>
+          <EmptyState
+            layout="inset"
+            tone="first-run"
+            icon={Laptop}
+            title="No connected apps yet"
+            description="When you run epure login or connect an editor, the OAuth session shows up here."
+            hint="You can revoke any session the moment you stop trusting it."
+          />
         ) : (
-          <ul className="w-full divide-y divide-border-subtle">
+          <ul className="divide-y divide-border-subtle">
             {apps.map((app) => {
-              const Icon = getClientIcon(app.client_id);
+              const glyph = clientIcon(app.client_id);
               return (
                 <li
                   key={app.id}
-                  className="flex w-full min-h-10 items-center justify-between gap-3 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
                 >
-                  <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                    <Icon size={13} className="shrink-0 text-fg-muted" strokeWidth={1.8} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="truncate text-xs font-medium text-fg-primary">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-2 text-fg-muted">
+                      <Icon icon={glyph} size={14} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <p className="truncate text-xs font-medium text-fg-primary">
                           {app.client_name || app.client_id}
-                        </span>
+                        </p>
                         {app.scopes.slice(0, 2).map((scope) => (
-                          <Badge key={scope} variant="secondary" size="compact">
+                          <Badge key={scope} variant="neutral" size="compact">
                             {scope}
                           </Badge>
                         ))}
                       </div>
-                      <p className="truncate text-2xs text-fg-muted">
+                      <p className="mt-0.5 truncate text-2xs text-fg-muted">
                         {formatRelativeTime(app.created_at)}
-                        {app.last_used_at ? ` · active ${formatRelativeTime(app.last_used_at)}` : ""}
+                        {app.last_used_at
+                          ? ` · active ${formatRelativeTime(app.last_used_at)}`
+                          : ""}
                       </p>
                     </div>
                   </div>
                   <Button
+                    type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-7 shrink-0 text-2xs text-semantic-danger"
+                    className="text-danger"
                     disabled={revokingId === app.id}
                     onClick={() => void handleRevoke(app.id, app.client_name || app.client_id)}
                   >
@@ -139,7 +186,7 @@ export function ConnectedAppsTab() {
             })}
           </ul>
         )}
-      </SectionCard>
-    </SettingsStack>
+      </SettingsPanel>
+    </SettingsPage>
   );
 }

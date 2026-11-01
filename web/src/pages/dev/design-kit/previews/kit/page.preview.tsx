@@ -1,7 +1,7 @@
-import { PageShell } from "@/components/kit/page-shell";
+import { PageShell } from "@/ui/block";
 import { Button } from "@/components/ui/button";
-import { PageChrome } from "@/ui/page-chrome";
-import { SimpleFeedHeader } from "@/ui/simple-feed-header";
+import { PageChrome } from "@/ui/block";
+import { SimpleFeedHeader } from "@/ui/block";
 import { PreviewBlock, MatrixCell } from "../../shared";
 
 export default function PagePreview() {
@@ -13,7 +13,11 @@ export default function PagePreview() {
     >
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <MatrixCell label="Shell · standard">
-          <div className="h-28 overflow-hidden rounded-control border border-border-subtle">
+          <div
+            id="page-shell"
+            data-design-kit-block="page-shell"
+            className="h-28 overflow-hidden rounded-control border border-border-subtle"
+          >
             <PageShell title="Nested shell" description="standard density">
               <p className="text-xs text-fg-muted">Gutter + centered column</p>
             </PageShell>

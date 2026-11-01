@@ -20,7 +20,7 @@ import {
 import { humanizeSchedule, parseStoredSchedule } from "./schedule";
 
 function formatDuration(ms: number | null): string {
-  if (ms == null) return "—";
+  if (ms == null) return "-";
   if (ms < 1000) return `${Math.round(ms)}ms`;
   return `${(ms / 1000).toFixed(2)}s`;
 }
@@ -118,7 +118,7 @@ export function MonitorDetailSheet({
               {schedule ? humanizeSchedule(schedule) : "Heartbeat / on-demand"}
             </p>
             <p className="font-mono text-2xs text-fg-muted">
-              {monitor.schedule || "—"}
+              {monitor.schedule || "-"}
               {monitor.timezone ? ` · ${monitor.timezone}` : ""}
             </p>
             <div className="flex flex-wrap gap-1.5 pt-1">

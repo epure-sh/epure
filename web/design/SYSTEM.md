@@ -57,7 +57,8 @@ Collapsing `--signal` onto `--accent` must **not** make unread look like selecte
 - Header sits on paper with 8% hairline — not a floating white bar
 - Rail: flat `--bg-subtle`, 1px `border-r`, ~8px active item, 2px inset accent. No gradient, no 3px pill bar
 - Ghost buttons: text or faint wash, **no bordered-ghost army**. Secondary = indigo wash, not a second outline
-- Empty: quiet type + one next action — no dashed circus
+- Empty: quiet type + one next action; no dashed circus; warm copy that never blames; soft icon well
+- Copy: **never use em dashes (—)** in product UI. Prefer a period, comma, colon, or middle dot (·).
 - Type: IBM Plex Sans; 14–15px chrome titles; 13–14px list titles; mono for IDs/counts. No display sizes in-app
 - Kit before feature CSS
 - Do not import or vendor marketing `marketing.css`

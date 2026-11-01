@@ -32,12 +32,9 @@ describe("query-utils pre-filters & parsing", () => {
 
   it("extracts chips for search omnibar visualization", () => {
     const chips = extractChips("is:unresolved level:fatal env:production user.email:@");
-    assert.equal(chips.length, 4);
-
-    const statusChip = chips.find((c) => c.key === "lifecycle");
-    assert.ok(statusChip);
-    assert.equal(statusChip?.label, "Unresolved");
-    assert.equal(statusChip?.plain, true);
+    // Lifecycle stays on status badges — not duplicated in the omnibar.
+    assert.equal(chips.length, 3);
+    assert.equal(chips.find((c) => c.key === "lifecycle"), undefined);
 
     const levelChip = chips.find((c) => c.key === "level");
     assert.ok(levelChip);

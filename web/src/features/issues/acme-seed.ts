@@ -113,7 +113,7 @@ export const ACME_SEED_ISSUES: IssueSummary[] = [
     org_id: ACME_ORG_ID,
     project_id: ACME_PROJECT_ID,
     fingerprint: "fp_hydration_mismatch_server_client",
-    title: "HydrationError: Text content did not match server-rendered HTML at <UserProfile>",
+    title: "Error: Hydration failed: text content did not match server HTML",
     status: "resolved",
     level: "warning",
     environment: "staging",
@@ -139,7 +139,7 @@ export const ACME_SEED_ISSUES: IssueSummary[] = [
     org_id: ACME_ORG_ID,
     project_id: ACME_PROJECT_ID,
     fingerprint: "fp_cors_preflight_rejected_staging",
-    title: "NetworkError: Cross-Origin Request Blocked by preflight failure for /api/v2/telemetry",
+    title: "TypeError: Failed to fetch (CORS blocked)",
     status: "unresolved",
     level: "error",
     environment: "staging",
@@ -165,7 +165,7 @@ export const ACME_SEED_ISSUES: IssueSummary[] = [
     org_id: ACME_ORG_ID,
     project_id: ACME_PROJECT_ID,
     fingerprint: "fp_openai_rate_limit_429",
-    title: "RateLimitExceeded: OpenAI API 429 Too Many Requests for model gpt-4o-mini",
+    title: "Error: Too many requests: rate limit exceeded",
     status: "unresolved",
     level: "error",
     environment: "production",
@@ -243,7 +243,7 @@ export const ACME_SEED_ISSUES: IssueSummary[] = [
     org_id: ACME_ORG_ID,
     project_id: ACME_PROJECT_ID,
     fingerprint: "fp_chunk_load_failed_billing_drawer",
-    title: "ChunkLoadError: Loading chunk 884 failed (/assets/billing-drawer-B_TYUkTI.js)",
+    title: "ChunkLoadError: Loading chunk 14 failed",
     status: "resolved",
     level: "error",
     environment: "production",
@@ -671,7 +671,7 @@ const ACME_SEED_EVENTS: Record<string, EventDetail> = {
     user_id: "usr_qa_jane",
     user_email: "jane.qa@acmecorp.com",
     payload_json: {
-      message: "HydrationError: Text content did not match server-rendered HTML at <UserProfile>",
+      message: "Error: Hydration failed: text content did not match server HTML",
     },
     stack_frames: [
       {
@@ -724,7 +724,7 @@ const ACME_SEED_EVENTS: Record<string, EventDetail> = {
         },
         {
           category: "error",
-          message: "HydrationError: Text content did not match server-rendered HTML at <UserProfile>",
+          message: "Error: Hydration failed: text content did not match server HTML",
           level: "error",
           timestamp: Math.floor((Date.now() - 360 * 60 * 1000) / 1000),
         },
@@ -745,7 +745,7 @@ const ACME_SEED_EVENTS: Record<string, EventDetail> = {
     user_id: "usr_dev_tim",
     user_email: "tim@acmecorp.com",
     payload_json: {
-      message: "NetworkError: Cross-Origin Request Blocked by preflight failure for /api/v2/telemetry",
+      message: "TypeError: Failed to fetch (CORS blocked)",
     },
     stack_frames: [
       {
@@ -799,7 +799,7 @@ const ACME_SEED_EVENTS: Record<string, EventDetail> = {
         },
         {
           category: "error",
-          message: "NetworkError: Cross-Origin Request Blocked by preflight failure for /api/v2/telemetry",
+          message: "TypeError: Failed to fetch (CORS blocked)",
           level: "error",
           timestamp: Math.floor((Date.now() - 15 * 60 * 1000) / 1000),
         },
@@ -820,7 +820,7 @@ const ACME_SEED_EVENTS: Record<string, EventDetail> = {
     user_id: "usr_ai_pipeline",
     user_email: "ai@acmecorp.com",
     payload_json: {
-      message: "RateLimitExceeded: OpenAI API 429 Too Many Requests for model gpt-4o-mini",
+      message: "Error: Too many requests: rate limit exceeded",
       quota_type: "tokens_per_minute",
     },
     stack_frames: [
@@ -875,7 +875,7 @@ const ACME_SEED_EVENTS: Record<string, EventDetail> = {
         },
         {
           category: "error",
-          message: "RateLimitExceeded: OpenAI API 429 Too Many Requests for model gpt-4o-mini",
+          message: "Error: Too many requests: rate limit exceeded",
           level: "error",
           timestamp: Math.floor((Date.now() - 8 * 60 * 1000) / 1000),
         },
@@ -1044,7 +1044,7 @@ const ACME_SEED_EVENTS: Record<string, EventDetail> = {
     user_id: "usr_customer_34",
     user_email: "finance@customer.com",
     payload_json: {
-      message: "ChunkLoadError: Loading chunk 884 failed (/assets/billing-drawer-B_TYUkTI.js)",
+      message: "ChunkLoadError: Loading chunk 14 failed",
     },
     stack_frames: [
       {
@@ -1097,7 +1097,7 @@ const ACME_SEED_EVENTS: Record<string, EventDetail> = {
         },
         {
           category: "error",
-          message: "ChunkLoadError: Loading chunk 884 failed (/assets/billing-drawer-B_TYUkTI.js)",
+          message: "ChunkLoadError: Loading chunk 14 failed",
           level: "error",
           timestamp: Math.floor((Date.now() - 48 * 3600 * 1000) / 1000),
         },

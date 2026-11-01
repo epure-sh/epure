@@ -6,13 +6,15 @@ import { cn } from "@/lib/utils";
  * Unread clears on open/detail; “Mark read” sets the same viewed timestamp in local state.
  */
 
+/** Left rail = unread only (read rows have no rail). Uses danger red for clear inbox signal. */
 export function InboxUnreadRail({ unread }: { unread: boolean }) {
   if (!unread) {
     return null;
   }
   return (
     <span
-      className="inbox-unread-rail pointer-events-none absolute bottom-2 left-0 top-2 w-[2px] rounded-r-sm bg-accent"
+      data-slot="unread-rail"
+      className="inbox-unread-rail pointer-events-none absolute bottom-2 left-0 top-2 w-[2px] rounded-r-sm bg-escalating"
       title="Unread"
       aria-hidden
     />
@@ -50,25 +52,29 @@ export function inboxRowDataAttrs(unread: boolean) {
   return unread ? ({ "data-inbox-unread": true } as const) : ({ "data-inbox-read": true } as const);
 }
 
-/** Fixed single-line feed toolbar (Issues + Alerts History/Rules). Controls stay h-7. */
+/** Feed toolbar outer pad (Issues + Alerts). Boxed surface lives in `INBOX_FEED_TOOLBAR_SHELL_CLASS`. */
 export const INBOX_FEED_TOOLBAR_HEADER_CLASS =
-  "flex h-16 shrink-0 items-center border-b border-border bg-bg-subtle epure-page-gutter-x select-none";
+  "flex shrink-0 items-center epure-page-gutter-x py-2 select-none";
+
+/** Bordered surface wrapping the filter/search row. */
+export const INBOX_FEED_TOOLBAR_SHELL_CLASS =
+  "flex min-h-0 w-full min-w-0 items-center rounded-md border border-border bg-surface-1 px-2 py-1.5";
 
 /** Body below inbox feed toolbar — same horizontal inset as `INBOX_FEED_TOOLBAR_HEADER_CLASS`. */
 export const INBOX_FEED_BODY_PAD_CLASS = "epure-page-gutter-x";
 
 export const INBOX_FEED_TOOLBAR_ROW_CLASS =
-  "flex h-full min-h-0 w-full min-w-0 flex-nowrap items-center gap-x-2";
+  "flex min-h-0 w-full min-w-0 flex-nowrap items-center gap-x-1.5";
 
 export const INBOX_FEED_TOOLBAR_MAIN_CLASS =
-  "flex min-h-0 min-w-0 flex-1 flex-nowrap items-center gap-x-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+  "flex min-h-0 min-w-0 flex-1 flex-nowrap items-center gap-x-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 /** Rules tab filter row — one line, shrink search; no horizontal scroll. */
 export const ALERTS_RULES_TOOLBAR_MAIN_CLASS =
-  "flex min-h-0 min-w-0 flex-1 flex-nowrap items-center gap-x-2";
+  "flex min-h-0 min-w-0 flex-1 flex-nowrap items-center gap-x-1";
 
 export const INBOX_FEED_TOOLBAR_RAIL_CLASS =
-  "ml-auto flex shrink-0 flex-nowrap items-center gap-2";
+  "ml-auto flex shrink-0 flex-nowrap items-center gap-1.5";
 
 /** @deprecated Alerts history uses `ISSUE_FEED_ROW_HEIGHT_CLASS` via `AlertRowShell`. */
 export const ALERT_FEED_ROW_HEIGHT_CLASS =

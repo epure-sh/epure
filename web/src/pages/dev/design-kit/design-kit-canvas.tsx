@@ -26,6 +26,8 @@ const PAN_EXCLUDED = [
   "[role='menu']",
   "[role='listbox']",
   "[role='tab']",
+  "[role='toolbar']",
+  "[role='switch']",
 ];
 
 /** Labeled Figma-style tile on the infinite board (one component / district). */

@@ -1,21 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import type { EventDetail } from "../../lib/api";
 import { fetchEvents } from "../../lib/api";
-import { ActionButton } from "../../ui/action-button";
-import { Button } from "../../ui/button";
-import { RouteErrorBoundary } from "../../ui/route-error-boundary";
+import { ActionButton } from "@/ui/components";
+import { Button } from "@/ui/primitives";
+import { RouteErrorBoundary } from "@/ui/block";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../ui/select";
+} from "@/ui/primitives";
 import { diffEvents } from "./diff-utils";
 
 function formatOccurrenceLabel(event?: EventDetail | null): string {
   if (!event) {
-    return "—";
+    return "-";
   }
   const when = event.occurred_at ? new Date(event.occurred_at).toLocaleString() : "Unknown date";
   const release = event.release ? ` · ${event.release}` : "";
@@ -50,11 +50,11 @@ function DiffTable({
     <div className="epure-card overflow-hidden rounded-lg border border-border">
       <div className="grid grid-cols-1 border-b border-border bg-bg-subtle sm:grid-cols-2">
         <div className="border-b border-border px-4 py-2.5 sm:border-b-0 sm:border-r">
-          <p className="epure-label text-xs font-medium text-ink-muted">A — Before</p>
+          <p className="epure-label text-xs font-medium text-ink-muted">A: Before</p>
           <p className="mt-0.5 font-mono text-xs text-ink">{leftLabel}</p>
         </div>
         <div className="px-4 py-2.5">
-          <p className="epure-label text-xs font-medium text-ink-muted">B — After</p>
+          <p className="epure-label text-xs font-medium text-ink-muted">B: After</p>
           <p className="mt-0.5 font-mono text-xs text-ink">{rightLabel}</p>
         </div>
       </div>
@@ -69,10 +69,10 @@ function DiffTable({
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2">
               <p className="border-b border-border px-4 py-2 font-mono text-xs break-all text-semantic-danger sm:border-b-0 sm:border-r">
-                {row.left || "—"}
+                {row.left || "-"}
               </p>
               <p className="px-4 py-2 font-mono text-xs break-all text-semantic-success">
-                {row.right || "—"}
+                {row.right || "-"}
               </p>
             </div>
           </div>
@@ -222,7 +222,7 @@ export function DiffPanel({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="epure-inset-well rounded-lg border border-border bg-bg-subtle p-3">
             <p className="epure-label mb-2 text-xs font-medium text-ink-muted">
-              A — Baseline occurrence
+              A: Baseline occurrence
             </p>
             <p className="font-mono text-xs text-ink">
               {leftEvent ? formatOccurrenceLabel(leftEvent) : "No occurrence selected"}
@@ -230,7 +230,7 @@ export function DiffPanel({
           </div>
           <div className="epure-inset-well rounded-lg border border-border p-3">
             <p className="epure-label mb-2 text-xs font-medium text-ink-muted">
-              B — Compare with
+              B: Compare with
             </p>
             {compareCandidates.length === 0 ? (
               <p className="text-xs text-ink-muted">Need another occurrence to compare.</p>
@@ -264,7 +264,7 @@ export function DiffPanel({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="epure-inset-well rounded-lg border border-border p-3">
               <p className="epure-label mb-2 text-xs font-medium text-ink-muted">
-                A — Earlier release
+                A: Earlier release
               </p>
               <Select
                 value={leftRelease || undefined}
@@ -284,7 +284,7 @@ export function DiffPanel({
             </div>
             <div className="epure-inset-well rounded-lg border border-border p-3">
               <p className="epure-label mb-2 text-xs font-medium text-ink-muted">
-                B — Later release
+                B: Later release
               </p>
               <Select
                 value={rightRelease || undefined}

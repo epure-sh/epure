@@ -100,3 +100,44 @@ export const alertKindIconColorClass: Record<AlertKindVisualTone, string> = {
   danger: "text-semantic-danger",
   neutral: "text-fg-muted",
 };
+
+/** Short list badges — scan-friendly vs full chip labels. */
+const ALERT_KIND_BADGE_LABELS: Record<string, string> = {
+  velocity_spike: "Events",
+  event_milestone: "Events",
+  users_affected: "Users",
+  new_issue: "New",
+  regression: "Regression",
+  ingest_cap_hit: "Cap",
+  noise_spike: "Noise",
+  custom: "Custom",
+};
+
+export function getAlertKindBadgeLabel(kind?: string | null): string {
+  const key = normalizeAlertKind(kind);
+  return ALERT_KIND_BADGE_LABELS[key] ?? (key === "unknown" ? "Alert" : key.replace(/_/g, " "));
+}
+
+export function getAlertKindBadgeVariant(
+  kind?: string | null,
+): "warning" | "error" | "info" | "regression" | "neutral" {
+  const key = normalizeAlertKind(kind);
+  const tone = getAlertKindVisualTone(kind);
+  if (key === "regression") {
+    return "regression";
+  }
+  if (key === "new_issue") {
+    return "info";
+  }
+  if (tone === "danger") {
+    return "error";
+  }
+  if (tone === "warning") {
+    return "warning";
+  }
+  if (tone === "accent") {
+    // Orbit Pill has no indigo; blue reads as “signal” on the list.
+    return "info";
+  }
+  return "neutral";
+}

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { IssueRowShell } from "@/components/kit/issue-row-shell";
+import { IssueRowShell } from "@/ui/block";
 import { PreviewBlock } from "../../shared";
 
 export default function IssueRowShellPreview() {

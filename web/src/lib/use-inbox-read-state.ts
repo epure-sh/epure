@@ -5,6 +5,7 @@ import {
   isIssueInboxUnread,
   loadInboxReadMap,
   persistAlertInboxRead,
+  persistInboxReadSnapshot,
   persistIssueInboxRead,
   type InboxReadMap,
 } from "./inbox-read-state";
@@ -105,6 +106,16 @@ export function useInboxReadState(projectId: string | null | undefined) {
     [projectId],
   );
 
+  const restoreReadMap = useCallback(
+    (snapshot: InboxReadMap) => {
+      if (!projectId) {
+        return;
+      }
+      setReadMap(persistInboxReadSnapshot(projectId, snapshot));
+    },
+    [projectId],
+  );
+
   return {
     readMap,
     isIssueUnread,
@@ -113,5 +124,6 @@ export function useInboxReadState(projectId: string | null | undefined) {
     markAlertRead,
     markReadMany,
     markIssueReadMany,
+    restoreReadMap,
   };
 }

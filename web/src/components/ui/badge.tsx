@@ -79,7 +79,10 @@ export function Badge({
   const s = size ?? "sm";
 
   return (
-    <Pill color={PILL_COLOR[v]} className={cn(SIZE_CLASS[s], className)}>
+    <Pill
+      color={PILL_COLOR[v]}
+      className={cn(SIZE_CLASS[s], "!rounded-full", className)}
+    >
       {children}
     </Pill>
   );

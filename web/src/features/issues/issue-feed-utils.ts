@@ -1,5 +1,5 @@
 import type { IssueSummary, TimelineBucket } from "../../lib/api";
-import type { TrendStatus } from "../../ui/sparkline";
+import type { TrendStatus } from "@/ui/components";
 
 // Keep in sync with crates/storage/src/events.rs LIST_TREND_* (30d × daily).
 export const LIST_TREND_BUCKET_COUNT = 30;

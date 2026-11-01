@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/cn";
+import { ApplyWithAiButton } from "@/ui/components";
 import {
   ALERT_RULE_TEMPLATES,
   COMPARE_LABEL,
@@ -61,6 +62,34 @@ import {
   type PayloadChoice,
   type TriggerType,
 } from "./create-alert-rule-model";
+
+function buildAlertAskPrompt(draft: AlertRuleDraft): string {
+  const templates = ALERT_RULE_TEMPLATES.map((t) => `- ${t.title}: ${t.detail}`).join("\n");
+  return [
+    "I'm creating an Epure alert rule. Help me pick a template and refine trigger, conditions, cooldown, and delivery.",
+    "",
+    `Current: ${draft.name || "untitled"} · ${describeRule(draft)}`,
+    `Template id: ${draft.templateId ?? "none"}`,
+    "",
+    "Templates:",
+    templates,
+    "- Start blank: build from scratch",
+    "",
+    "Reply with the template to use and any trigger/condition edits.",
+  ].join("\n");
+}
+
+function buildAlertImplementPrompt(draft: AlertRuleDraft): string {
+  return [
+    "Implement / refine this Epure alert rule in my project:",
+    "",
+    `Name: ${draft.name || "untitled"}`,
+    `Summary: ${describeRule(draft)}`,
+    `Template: ${draft.templateId ?? "scratch"}`,
+    "",
+    "Keep delivery channels intact unless I ask to change them. Prefer Epure dashboard field names from the create-alert wizard.",
+  ].join("\n");
+}
 
 export interface CreateAlertRulePanelProps {
   /** Create uses the 3-step wizard; edit shows one scrollable form. */
@@ -93,6 +122,11 @@ export function CreateAlertRulePanel({
   const canSave = editing
     ? canAdvance(2, draft) && canAdvance(3, draft)
     : canAdvance(step, draft);
+  const agentPrompt = useMemo(
+    () => (editing || step > 1 ? buildAlertImplementPrompt(draft) : buildAlertAskPrompt(draft)),
+    [draft, editing, step],
+  );
+  const agentLabel = editing || step > 1 ? "Implement with agent" : "Ask agent";
 
   return (
     <section
@@ -165,22 +199,30 @@ export function CreateAlertRulePanel({
             Back
           </Button>
         )}
-        {editing || step === 3 ? (
-          <Button variant="primary" size="sm" disabled={busy || !canSave} onClick={onSubmit}>
-            <Icon icon={Check} size={14} />
-            {busy ? "Saving…" : resolvedSubmit}
-          </Button>
-        ) : (
-          <Button
-            variant="primary"
+        <div className="flex items-center gap-2">
+          <ApplyWithAiButton
+            prompt={agentPrompt}
+            label={agentLabel}
             size="sm"
-            disabled={busy || !canAdvance(step, draft)}
-            onClick={() => onStep((step + 1) as 2 | 3)}
-          >
-            Next
-            <Icon icon={CaretDown} size={14} className="-rotate-90" />
-          </Button>
-        )}
+            variant="secondary"
+          />
+          {editing || step === 3 ? (
+            <Button variant="primary" size="sm" disabled={busy || !canSave} onClick={onSubmit}>
+              <Icon icon={Check} size={14} />
+              {busy ? "Saving…" : resolvedSubmit}
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={busy || !canAdvance(step, draft)}
+              onClick={() => onStep((step + 1) as 2 | 3)}
+            >
+              Next
+              <Icon icon={CaretDown} size={14} className="-rotate-90" />
+            </Button>
+          )}
+        </div>
       </footer>
     </section>
   );

@@ -844,6 +844,85 @@ pub async fn set_channel_enabled(
     Ok(row)
 }
 
+pub async fn set_channel_label(
+    pool: &PgPool,
+    org_id: Uuid,
+    channel_id: Uuid,
+    label: &str,
+) -> Result<Option<AlertChannelRow>, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let row = sqlx::query_as::<_, AlertChannelRow>(&format!(
+        r#"
+        UPDATE alert_channels
+        SET label = $2
+        WHERE id = $1
+        RETURNING {CHANNEL_SELECT}
+        "#
+    ))
+    .bind(channel_id)
+    .bind(label)
+    .fetch_optional(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
+pub struct UpdateChannelParams {
+    pub label: Option<String>,
+    pub project_id: Option<Uuid>,
+    pub config: Option<serde_json::Value>,
+    pub is_enabled: Option<bool>,
+}
+
+pub async fn update_channel(
+    pool: &PgPool,
+    org_id: Uuid,
+    channel_id: Uuid,
+    params: UpdateChannelParams,
+) -> Result<Option<AlertChannelRow>, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+    let current = sqlx::query_as::<_, AlertChannelRow>(&format!(
+        r#"
+        SELECT {CHANNEL_SELECT}
+        FROM alert_channels
+        WHERE id = $1
+        "#
+    ))
+    .bind(channel_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    let Some(current) = current else {
+        tx.commit().await?;
+        return Ok(None);
+    };
+
+    let label = params.label.unwrap_or(current.label);
+    let project_id = params.project_id.unwrap_or(current.project_id);
+    let config = params
+        .config
+        .map(sqlx::types::Json)
+        .unwrap_or(current.config);
+    let is_enabled = params.is_enabled.unwrap_or(current.is_enabled);
+
+    let row = sqlx::query_as::<_, AlertChannelRow>(&format!(
+        r#"
+        UPDATE alert_channels
+        SET label = $2, project_id = $3, config = $4, is_enabled = $5
+        WHERE id = $1
+        RETURNING {CHANNEL_SELECT}
+        "#
+    ))
+    .bind(channel_id)
+    .bind(&label)
+    .bind(project_id)
+    .bind(&config)
+    .bind(is_enabled)
+    .fetch_optional(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
 pub async fn delete_channel(
     pool: &PgPool,
     org_id: Uuid,

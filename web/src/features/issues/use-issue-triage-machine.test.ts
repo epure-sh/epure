@@ -11,7 +11,7 @@ import {
 } from "./issue-triage-utils";
 import { issueLocationHint } from "./issue-feed-utils";
 import { buildIssueAiClipboard } from "./export-markdown";
-import { extractCulprit, generateAiDiagnosis } from "../../ui/issue-ai-copilot-card";
+import { extractCulprit, generateAiDiagnosis } from "@/ui/components";
 
 describe("use-issue-triage-machine semantics", () => {
   it("defaults to unresolved issues query", () => {

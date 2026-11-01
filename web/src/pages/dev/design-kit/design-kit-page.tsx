@@ -6,9 +6,12 @@ import { useThemeMode } from "@/lib/style-theme";
 import { isPlaygroundMode } from "@/lib/deployment";
 import { Navigate } from "react-router-dom";
 import {
+  DESIGN_KIT_BLOCK_MODULES,
+  DESIGN_KIT_COMPONENT_MODULES,
   DESIGN_KIT_FOUNDATION_PAGES,
-  DESIGN_KIT_KIT_MODULES,
   DESIGN_KIT_PRIMITIVE_MODULES,
+  previewStemForBlock,
+  previewStemForComponent,
   previewStemForPrimitive,
 } from "./registry";
 import { DesignKitCatalogShell } from "./design-kit-catalog-shell";
@@ -63,11 +66,12 @@ const WIDE_TILES = new Set([
 
 function CatalogStats() {
   return (
-    <dl className="mt-3 grid grid-cols-3 gap-2">
+    <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
       {[
         { label: "Foundations", value: DESIGN_KIT_FOUNDATION_PAGES.length },
         { label: "Primitives", value: DESIGN_KIT_PRIMITIVE_MODULES.length },
-        { label: "Kit", value: DESIGN_KIT_KIT_MODULES.length },
+        { label: "Components", value: DESIGN_KIT_COMPONENT_MODULES.length },
+        { label: "Blocks", value: DESIGN_KIT_BLOCK_MODULES.length },
       ].map((row) => (
         <div
           key={row.label}
@@ -107,7 +111,7 @@ function readInitialView(): ViewMode {
 }
 
 /**
- * Docs mode: Orbit-style registry (Foundations · Primitives · Kit).
+ * Docs mode: Orbit-style registry (Foundations · Primitives · Components · Blocks).
  * Canvas remains optional via Docs|Canvas toggle or `?view=canvas`.
  */
 export function DesignKitPage() {
@@ -307,18 +311,45 @@ export function DesignKitPage() {
                   );
                 })}
 
-                <DistrictPin id="kit" label="03 Kit" />
-                {DESIGN_KIT_KIT_MODULES.map((mod) => {
-                  const Preview = resolvePreview(kitPreviewModules, mod);
+                <DistrictPin id="components" label="03 Components" />
+                {DESIGN_KIT_COMPONENT_MODULES.map((mod) => {
+                  const Preview = resolvePreview(
+                    kitPreviewModules,
+                    previewStemForComponent(mod),
+                  );
                   if (!Preview) return null;
                   return (
                     <CanvasArtboard
                       key={mod}
                       id={mod}
                       title={mod}
-                      subtitle="kit family"
+                      subtitle="component"
+                      className={cn(WIDE_TILES.has(mod) ? "col-span-3" : "col-span-2")}
+                    >
+                      <Preview />
+                    </CanvasArtboard>
+                  );
+                })}
+
+                <DistrictPin id="blocks" label="04 Blocks" />
+                {DESIGN_KIT_BLOCK_MODULES.map((mod) => {
+                  const Preview = resolvePreview(
+                    kitPreviewModules,
+                    previewStemForBlock(mod),
+                  );
+                  if (!Preview) return null;
+                  return (
+                    <CanvasArtboard
+                      key={mod}
+                      id={mod}
+                      title={mod}
+                      subtitle="block"
                       className={cn(
-                        mod === "alert-rule" ? "col-span-4" : WIDE_TILES.has(mod) ? "col-span-3" : "col-span-2",
+                        mod === "alert-rule"
+                          ? "col-span-4"
+                          : WIDE_TILES.has(mod)
+                            ? "col-span-3"
+                            : "col-span-2",
                       )}
                     >
                       <Preview />

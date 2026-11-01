@@ -47,6 +47,8 @@ export interface PolarCardProps {
   role?: React.AriaRole;
   tabIndex?: number;
   onKeyDown?: React.KeyboardEventHandler<HTMLElement>;
+  /** Product-tour / automation hook — forwarded to the card root. */
+  "data-tour"?: string;
 }
 
 function resolveVariant(
@@ -78,6 +80,7 @@ export function PolarCard({
   role,
   tabIndex,
   onKeyDown,
+  "data-tour": dataTour,
 }: PolarCardProps) {
   const variant = resolveVariant(variantProp, interactive, selected, Boolean(to));
   const lift = variant === "interactive" || Boolean(to);
@@ -90,6 +93,7 @@ export function PolarCard({
       data-slot="polar-card"
       data-variant={variant}
       data-interactive={lift ? "true" : undefined}
+      data-tour={dataTour}
       borderRadius="xl"
       backgroundColor={
         isSelected

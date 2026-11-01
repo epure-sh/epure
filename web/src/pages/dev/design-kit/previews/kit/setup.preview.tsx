@@ -1,6 +1,6 @@
-import { SetupDocsLink } from "@/ui/setup-docs-link";
-import { SetupPlatformMark } from "@/ui/setup-platform-mark";
-import { StepIndicator } from "@/ui/step-indicator";
+import { SetupDocsLink } from "@/ui/components";
+import { SetupPlatformMark } from "@/ui/components";
+import { StepIndicator } from "@/ui/components";
 import { PreviewBlock, MatrixCell, PreviewRow } from "../../shared";
 
 export default function SetupPreview() {

@@ -23,10 +23,10 @@ import {
   type NoisePolicy,
 } from "../../lib/api";
 import { useAppContext } from "../../shell/app-context";
-import { Badge } from "../../ui/badge";
-import { Button } from "../../ui/button";
-import { Input } from "../../ui/input";
-import { useToast } from "../../ui/toast-provider";
+import { Badge } from "@/ui/primitives";
+import { Button } from "@/ui/primitives";
+import { Input } from "@/ui/primitives";
+import { useToast } from "@/ui/components";
 import { SectionCard } from "@/components/kit/section-card";
 import {
   InfoCallout,

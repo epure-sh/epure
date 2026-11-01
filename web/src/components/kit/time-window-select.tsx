@@ -30,7 +30,7 @@ export function TimeWindowSelect<T extends string>({
 }: TimeWindowSelectProps<T>) {
   return (
     <Select value={value} onValueChange={(next) => onValueChange(next as T)}>
-      <SelectTrigger aria-label={ariaLabel} className="h-7 w-auto min-w-[4.25rem] text-xs">
+      <SelectTrigger aria-label={ariaLabel} className="h-8 min-h-8 w-auto min-w-[4.25rem] rounded-full text-xs">
         <SelectValue>{formatShortLabel(value)}</SelectValue>
       </SelectTrigger>
       <SelectContent>

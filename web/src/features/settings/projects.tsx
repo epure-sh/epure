@@ -8,18 +8,18 @@ import {
   type ProjectRow,
 } from "../../lib/api";
 import { useAppContext } from "../../shell/app-context";
-import { Button } from "../../ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
-import { Field } from "../../ui/field";
-import { Input } from "../../ui/input";
+import { Button } from "@/ui/primitives";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/components";
+import { Field } from "@/ui/components";
+import { Input } from "@/ui/primitives";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../ui/select";
-import { useToast } from "../../ui/toast-provider";
+} from "@/ui/primitives";
+import { useToast } from "@/ui/components";
 import {
   DangerZone,
   DeleteProjectDialog,
@@ -135,7 +135,7 @@ export function ProjectsSettings() {
         /* open wizard anyway */
       }
       navigate(`/?setup=${encodeURIComponent(created.id)}`);
-      toast(`Created ${created.name} — finish setup`);
+      toast(`Created ${created.name}. Finish setup`);
     } catch {
       toast("Failed to create project");
     } finally {
@@ -230,7 +230,7 @@ export function ProjectsSettings() {
                   maxLength={128}
                 />
               </Field>
-              <ReadOnlyDetail label="Slug" value={selected.slug ?? "—"} mono />
+              <ReadOnlyDetail label="Slug" value={selected.slug ?? "-"} mono />
             </CardContent>
           </Card>
 

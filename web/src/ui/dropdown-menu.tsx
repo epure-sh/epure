@@ -1,17 +1,1 @@
-export {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuGroup,
-  DropdownMenuPortal,
-  DropdownMenuSub,
-  DropdownMenuRadioGroup,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuCheckboxItem,
-  DropdownMenuRadioItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
-} from "@/components/ui/dropdown-menu";
+export * from "./primitives/elements/dropdown-menu";

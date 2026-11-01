@@ -2,7 +2,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { EpureBrandIcon, LOGO_CANONICAL_VARIANT, LOGO_VARIANT_NAMES, LogoMark } from "@/ui/logo";
+import { EpureBrandIcon, LOGO_CANONICAL_VARIANT, LOGO_VARIANT_NAMES, LogoMark } from "@/ui/primitives";
 import { PreviewBlock, PreviewRow } from "../shared";
 
 const EDITABLE_COLOR_TOKENS = [

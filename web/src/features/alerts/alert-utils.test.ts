@@ -135,7 +135,7 @@ import { formatAlertListTime, getAlertDayGroupLabel } from "./alert-utils";
 const now = new Date("2026-10-22T15:00:00.000Z").getTime();
 // Same day: formats local time
 const todayTime = formatAlertListTime("2026-10-22T14:30:00.000Z", now);
-assert.ok(todayTime !== "—" && !todayTime.includes("d"));
+assert.ok(todayTime !== "-" && !todayTime.includes("d"));
 
 // Clock skew slightly in future: still labels as "Today"
 const futureSkewLabel = getAlertDayGroupLabel("2026-10-22T15:05:00.000Z", now);
@@ -201,10 +201,10 @@ assert.equal(
 );
 assert.equal(getAlertSignalState(sampleAlert({ ignored: true }), signalNow), "muted");
 
-assert.equal(getAlertSignalStateLabel("firing"), "Firing");
-assert.equal(getAlertSignalStateLabel("fired"), "Fired");
+assert.equal(getAlertSignalStateLabel("firing"), "Needs action");
+assert.equal(getAlertSignalStateLabel("fired"), "Needs action");
 assert.equal(getAlertSignalStateLabel("acknowledged"), "Resolved");
-assert.equal(getAlertSignalStateLabel("muted"), "Snoozed");
+assert.equal(getAlertSignalStateLabel("muted"), "Ignored");
 
 assert.match(getAlertConditionChip(velocity), /^Velocity > /);
 assert.doesNotMatch(getAlertConditionChip(velocity), /velocity_spike/);
@@ -238,7 +238,7 @@ assert.equal(
       kind: "custom",
       payload_json: {
         rule_name: "Checkout errors",
-        title: "Checkout errors — Payment declined spike",
+        title: "Checkout errors: Payment declined spike",
       },
     }),
   ),
@@ -309,7 +309,7 @@ const customPayguard = sampleAlert({
   kind: "custom",
   payload_json: {
     rule_id: "rul-payguard-001",
-    rule_name: "Payment guard — production",
+    rule_name: "Payment guard: production",
     rule_kind: "velocity_spike",
     title: "Payment failed",
   },

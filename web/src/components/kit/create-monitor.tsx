@@ -26,7 +26,6 @@ import {
   CircleNotch,
   Clock,
   Icon,
-  Sparkle,
 } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import {
@@ -41,6 +40,7 @@ import {
   buildSnippet,
   type SnippetPlatform,
 } from "@/features/monitors/snippets";
+import { ApplyWithAiButton } from "@/ui/components";
 import {
   MONITOR_TEMPLATES,
   applyTemplate,
@@ -54,6 +54,20 @@ import {
   type CreateMonitorDraft,
   type MonitorTemplateId,
 } from "./create-monitor-model";
+
+function buildMonitorAskPrompt(draft: CreateMonitorDraft): string {
+  const templates = MONITOR_TEMPLATES.map((t) => `- ${t.title}: ${t.blurb}`).join("\n");
+  return [
+    "I'm creating an Epure cron monitor. Help me pick the right schedule template and thresholds (grace, max runtime, failure count).",
+    "",
+    `Current pick: ${draft.templateId ? describeMonitorDraft(draft) : "none yet"}`,
+    "",
+    "Templates:",
+    templates,
+    "",
+    "Reply with the template id, suggested name/slug, and any threshold tweaks for my job.",
+  ].join("\n");
+}
 
 export type { CreateMonitorDraft } from "./create-monitor-model";
 
@@ -145,18 +159,9 @@ export function CreateMonitorPanel({
     step === 1 ? "Pick a schedule" : step === 2 ? "Name it" : created ? "Connect" : "Defaults";
   const connectMode = step === 3 && created;
   const [agentPrompt, setAgentPrompt] = useState("");
-  const [agentCopied, setAgentCopied] = useState(false);
-
-  async function copyAgentPrompt() {
-    if (!agentPrompt) return;
-    try {
-      await navigator.clipboard.writeText(agentPrompt);
-      setAgentCopied(true);
-      window.setTimeout(() => setAgentCopied(false), 2000);
-    } catch {
-      // clipboard write failed
-    }
-  }
+  const askPrompt = useMemo(() => buildMonitorAskPrompt(draft), [draft]);
+  const headerAgentPrompt = connectMode && agentPrompt ? agentPrompt : askPrompt;
+  const headerAgentLabel = connectMode ? "Implement with agent" : "Ask agent";
 
   return (
     <section
@@ -227,45 +232,41 @@ export function CreateMonitorPanel({
           </Button>
         )}
 
-        {step < 3 ? (
-          <Button
-            variant="primary"
+        <div className="flex items-center gap-2">
+          <ApplyWithAiButton
+            prompt={headerAgentPrompt}
+            label={headerAgentLabel}
             size="sm"
-            disabled={busy || !canAdvanceMonitor(step, draft)}
-            onClick={() => onStep((step + 1) as 2 | 3)}
-          >
-            Next
-            <Icon icon={CaretDown} size={14} className="-rotate-90" />
-          </Button>
-        ) : created ? (
-          <div className="flex items-center gap-2">
+            variant="secondary"
+          />
+          {step < 3 ? (
             <Button
-              type="button"
-              variant="secondary"
+              variant="primary"
               size="sm"
-              disabled={!agentPrompt}
-              onClick={() => void copyAgentPrompt()}
+              disabled={busy || !canAdvanceMonitor(step, draft)}
+              onClick={() => onStep((step + 1) as 2 | 3)}
             >
-              <Icon icon={Sparkle} size={14} />
-              {agentCopied ? "Copied" : "Ask Agent"}
+              Next
+              <Icon icon={CaretDown} size={14} className="-rotate-90" />
             </Button>
+          ) : created ? (
             <Button variant="primary" size="sm" onClick={onDone}>
               <Icon icon={Check} size={14} />
               Mark done
             </Button>
-          </div>
-        ) : (
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={busy || !canCreateMonitor(draft)}
-            loading={busy}
-            onClick={onCreate}
-          >
-            <Icon icon={Check} size={14} />
-            {busy ? "Creating…" : "Create"}
-          </Button>
-        )}
+          ) : (
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={busy || !canCreateMonitor(draft)}
+              loading={busy}
+              onClick={onCreate}
+            >
+              <Icon icon={Check} size={14} />
+              {busy ? "Creating…" : "Create"}
+            </Button>
+          )}
+        </div>
       </footer>
     </section>
   );

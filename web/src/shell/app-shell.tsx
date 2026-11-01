@@ -17,7 +17,7 @@ import { SettingsPage } from "../features/settings";
 import { UserSettingsPage } from "../features/user/user-settings-page";
 import { projectPath } from "../lib/paths";
 
-import { RouteErrorBoundary } from "../ui/route-error-boundary";
+import { RouteErrorBoundary } from "@/ui/block";
 import { useAppContext } from "./app-context";
 import { EnvironmentUrlSync } from "./environment-url-sync";
 import { FeedQueryUrlSync } from "./feed-query-url-sync";
@@ -25,7 +25,7 @@ import { CommandPalette } from "./command-palette";
 import { ProjectScope } from "./project-scope";
 import { TopStrip } from "./top-strip";
 import { AppSidebar } from "./app-sidebar";
-import { Skeleton } from "../ui/skeleton";
+import { Skeleton } from "@/ui/primitives";
 
 function BoundedRoute({
   children,
