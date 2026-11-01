@@ -1,0 +1,3 @@
+{"event_id":"dd0e8400-e29b-41d4-a716-446655440093","sdk":{"name":"sentry.cocoa","version":"9.32.0"}}
+{"type":"event"}
+{"event_id":"dd0e8400-e29b-41d4-a716-446655440093","platform":"cocoa","level":"error","exception":{"values":[{"type":"Swift.DecodingError","value":"keyNotFound(\"access_token\", Swift.DecodingError.Context(codingPath: [], debugDescription: \"No value associated with key\"))","stacktrace":{"frames":[{"filename":"AuthNetworkManager.swift","function":"decodeResponse","lineno":142,"in_app":true}]}}]},"contexts":{"os":{"name":"iOS","version":"18.4"},"device":{"model":"iPhone17,1","family":"iPhone"}},"environment":"production"}

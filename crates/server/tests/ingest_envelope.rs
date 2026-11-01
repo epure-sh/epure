@@ -11,8 +11,21 @@ use support::{fixture_path, project_id, spawn_test_server, PUBLIC_KEY};
 
 /// Every language folder under fixtures/sentry that ships an envelope.
 const ENVELOPE_LANGUAGES: &[&str] = &[
-    "browser", "node", "go", "ruby", "php", "java", "dotnet", "python", "rust", "nextjs", "cocoa",
+    "browser",
+    "node",
+    "go",
+    "ruby",
+    "php",
+    "java",
+    "dotnet",
+    "python",
+    "rust",
+    "nextjs",
+    "cocoa",
     "flutter",
+    "react",
+    "nestjs",
+    "profiling-node",
 ];
 
 fn all_envelope_fixtures() -> Vec<(String, std::path::PathBuf)> {

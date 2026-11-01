@@ -96,6 +96,7 @@ mod tests {
             "store_v1.json",
             "store_v1_45.json",
             "store_v2.json",
+            "store_v2_73.json",
         ] {
             let body = fs::read(fixture_path("python", name))
                 .unwrap_or_else(|err| panic!("read python/{name}: {err}"));

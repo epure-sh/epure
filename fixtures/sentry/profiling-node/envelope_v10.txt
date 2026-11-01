@@ -1,0 +1,5 @@
+{"event_id":"ee0e8400-e29b-41d4-a716-446655441060","sdk":{"name":"@sentry/profiling-node","version":"10.56.0"}}
+{"type":"profile","length":117}
+{"profile":{"samples":[{"stack_id":1,"thread_id":"0","elapsed_since_start_ns":"1000"}],"stacks":[[0]]},"version":"1"}
+{"type":"event"}
+{"event_id":"ee0e8400-e29b-41d4-a716-446655441060","platform":"node","level":"error","exception":{"values":[{"type":"RangeError","value":"Maximum call stack size exceeded","stacktrace":{"frames":[{"filename":"dist/recursion.js","function":"computeFibonacci","lineno":14,"in_app":true}]}}]},"environment":"production"}

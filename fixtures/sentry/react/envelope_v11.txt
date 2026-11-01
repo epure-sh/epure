@@ -1,0 +1,3 @@
+{"event_id":"ee0e8400-e29b-41d4-a716-446655441141","sdk":{"name":"@sentry/react","version":"11.10.0"}}
+{"type":"event"}
+{"event_id":"ee0e8400-e29b-41d4-a716-446655441141","platform":"javascript","level":"error","exception":{"values":[{"type":"Error","value":"useContext must be used within a QueryClientProvider","stacktrace":{"frames":[{"filename":"src/hooks/useData.tsx","function":"useData","lineno":12,"in_app":true}]}}]},"environment":"production"}

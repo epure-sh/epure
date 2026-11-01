@@ -1,0 +1,3 @@
+{"event_id":"ee0e8400-e29b-41d4-a716-446655441050","sdk":{"name":"@sentry/nestjs","version":"10.56.0"}}
+{"type":"event"}
+{"event_id":"ee0e8400-e29b-41d4-a716-446655441050","platform":"node","level":"error","exception":{"values":[{"type":"InternalServerErrorException","value":"Service Unavailable: Downstream payment provider timed out","stacktrace":{"frames":[{"filename":"src/modules/payments/payments.service.ts","function":"PaymentsService.processCharge","lineno":85,"in_app":true}]}}]},"contexts":{"runtime":{"name":"node","version":"v22.12.0"}},"environment":"production"}

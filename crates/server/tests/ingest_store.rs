@@ -165,6 +165,7 @@ async fn store_ingest_accepts_all_python_historical_store_fixtures() {
         "store_v1.json",
         "store_v1_45.json",
         "store_v2.json",
+        "store_v2_73.json",
     ];
 
     for name in fixtures {

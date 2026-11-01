@@ -1,0 +1,3 @@
+{"event_id":"ee0e8400-e29b-41d4-a716-446655441040","sdk":{"name":"@sentry/react","version":"10.76.2"}}
+{"type":"event"}
+{"event_id":"ee0e8400-e29b-41d4-a716-446655441040","platform":"javascript","level":"error","exception":{"values":[{"type":"ChunkLoadError","value":"Loading chunk 404 failed.","stacktrace":{"frames":[{"filename":"static/js/main.chunk.js","function":"lazyComponent","lineno":204,"in_app":true}]}}]},"contexts":{"react":{"componentStack":"\n    in UserProfile\n    in ErrorBoundary\n    in App"}},"environment":"production"}

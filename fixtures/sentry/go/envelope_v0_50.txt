@@ -1,0 +1,3 @@
+{"event_id":"880e8400-e29b-41d4-a716-446655440505","sdk":{"name":"sentry.go","version":"0.50.0"}}
+{"type":"event"}
+{"event_id":"880e8400-e29b-41d4-a716-446655440505","platform":"go","level":"error","exception":{"values":[{"type":"json.UnmarshalTypeError","value":"json: cannot unmarshal string into Go struct field User.Age of type int","stacktrace":{"frames":[{"filename":"encoding/json/decode.go","function":"json.(*decodeState).unmarshal","lineno":190,"in_app":false},{"filename":"services/user.go","function":"services.ParseUserPayload","lineno":47,"in_app":true}]}}]},"environment":"production"}

@@ -274,7 +274,12 @@ fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> 
                 has_non_error_items = true;
                 client_discards.extend(parse_client_report(&payload));
             }
-            Some("transaction") | Some("session") | Some("replay_event") | Some("statsd") => {
+            Some("transaction")
+            | Some("session")
+            | Some("replay_event")
+            | Some("statsd")
+            | Some("profile")
+            | Some("profile_chunk") => {
                 has_non_error_items = true;
             }
             _ => {
@@ -369,8 +374,21 @@ mod tests {
     use std::path::PathBuf;
 
     const ENVELOPE_LANGUAGES: &[&str] = &[
-        "browser", "node", "go", "ruby", "php", "java", "dotnet", "python", "rust", "nextjs",
-        "cocoa", "flutter",
+        "browser",
+        "node",
+        "go",
+        "ruby",
+        "php",
+        "java",
+        "dotnet",
+        "python",
+        "rust",
+        "nextjs",
+        "cocoa",
+        "flutter",
+        "react",
+        "nestjs",
+        "profiling-node",
     ];
 
     fn all_envelope_fixture_paths() -> Vec<(String, PathBuf)> {

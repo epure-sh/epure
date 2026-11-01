@@ -1,0 +1,3 @@
+{"event_id":"550e8400-e29b-41d4-a716-446655441111","sdk":{"name":"sentry.javascript.browser","version":"11.10.0"}}
+{"type":"event","length":426}
+{"event_id":"550e8400-e29b-41d4-a716-446655441111","platform":"javascript","level":"error","exception":{"values":[{"type":"SecurityError","value":"Failed to read localStorage: Access is denied","stacktrace":{"frames":[{"filename":"https://app.example.com/assets/auth.js","function":"getStoredToken","lineno":58,"colno":9,"in_app":true}]}}]},"contexts":{"browser":{"name":"Safari","version":"18.4"}},"environment":"production"}

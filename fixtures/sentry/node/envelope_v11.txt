@@ -1,0 +1,3 @@
+{"event_id":"660e8400-e29b-41d4-a716-446655441121","sdk":{"name":"sentry.javascript.node","version":"11.10.0"}}
+{"type":"event"}
+{"event_id":"660e8400-e29b-41d4-a716-446655441121","platform":"node","level":"error","exception":{"values":[{"type":"DatabaseTimeoutError","value":"Query timed out after 10000ms","stacktrace":{"frames":[{"filename":"dist/db/pool.js","function":"acquireAndExecute","lineno":145,"in_app":true}]}}]},"contexts":{"runtime":{"name":"node","version":"v24.0.0"}},"environment":"production"}

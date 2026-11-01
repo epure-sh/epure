@@ -1,0 +1,1 @@
+{"event_id":"770e8400-e29b-41d4-a716-446655442739","platform":"python","level":"error","exception":{"values":[{"type":"asyncio.TimeoutError","value":"Async operation timed out"}]},"environment":"production","sdk":{"name":"sentry.python","version":"2.73.0"}}

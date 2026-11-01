@@ -1,0 +1,3 @@
+{"event_id":"cc0e8400-e29b-41d4-a716-446655446121","sdk":{"name":"sentry.dotnet","version":"6.12.1"}}
+{"type":"event"}
+{"event_id":"cc0e8400-e29b-41d4-a716-446655446121","platform":"csharp","level":"error","exception":{"values":[{"type":"System.Text.Json.JsonException","value":"The JSON value could not be converted to System.Int32. Path: $.price | LineNumber: 0","stacktrace":{"frames":[{"function":"Acme.Commerce.Controllers.CartController.UpdateItem","module":"Acme.Commerce","lineno":64,"in_app":true}]}}]},"contexts":{"runtime":{"name":".NET","version":"9.0.2"}},"environment":"production"}

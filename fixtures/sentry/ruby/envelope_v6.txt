@@ -1,0 +1,3 @@
+{"event_id":"990e8400-e29b-41d4-a716-446655440600","sdk":{"name":"sentry.ruby","version":"6.2.0"}}
+{"type":"event","length":371}
+{"event_id":"990e8400-e29b-41d4-a716-446655440600","platform":"ruby","level":"error","exception":{"values":[{"type":"ActionController::RoutingError","value":"No route matches [GET] \"/api/v2/missing\"","stacktrace":{"frames":[{"filename":"app/controllers/application_controller.rb","function":"render_not_found","lineno":51,"in_app":true}]}}]},"environment":"production"}

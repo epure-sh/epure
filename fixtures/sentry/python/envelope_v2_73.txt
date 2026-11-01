@@ -1,0 +1,3 @@
+{"event_id":"770e8400-e29b-41d4-a716-446655442734","sdk":{"name":"sentry.python","version":"2.73.0"}}
+{"type":"event"}
+{"event_id":"770e8400-e29b-41d4-a716-446655442734","platform":"python","level":"error","exception":{"values":[{"type":"asyncio.TimeoutError","value":"Async operation timed out waiting for event loop worker","stacktrace":{"frames":[{"filename":"app/async_tasks.py","function":"gather_results","lineno":72,"in_app":true}]}}]},"contexts":{"runtime":{"name":"CPython","version":"3.13.1"}},"environment":"production"}

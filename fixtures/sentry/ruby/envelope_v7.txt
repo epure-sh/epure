@@ -1,0 +1,3 @@
+{"event_id":"990e8400-e29b-41d4-a716-446655440720","sdk":{"name":"sentry.ruby","version":"7.2.0"}}
+{"type":"event","length":403}
+{"event_id":"990e8400-e29b-41d4-a716-446655440720","platform":"ruby","level":"error","exception":{"values":[{"type":"Sidekiq::JobRetryError","value":"Job failed 5 retries: OrderProcessWorker","stacktrace":{"frames":[{"filename":"app/workers/order_process_worker.rb","function":"perform","lineno":33,"in_app":true}]}}]},"contexts":{"runtime":{"name":"ruby","version":"3.4.1"}},"environment":"production"}

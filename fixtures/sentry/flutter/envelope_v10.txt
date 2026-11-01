@@ -1,0 +1,3 @@
+{"event_id":"ff0e8400-e29b-41d4-a716-446655440102","sdk":{"name":"sentry.dart.flutter","version":"10.2.0"}}
+{"type":"event"}
+{"event_id":"ff0e8400-e29b-41d4-a716-446655440102","platform":"dart","level":"error","exception":{"values":[{"type":"HttpException","value":"Connection closed before full header was received, uri = https://api.example.com/v1/feed","stacktrace":{"frames":[{"filename":"package:app/services/feed_service.dart","function":"FeedService.fetchFeed","lineno":75,"in_app":true}]}}]},"contexts":{"os":{"name":"Android","version":"15"}},"environment":"production"}

@@ -1,0 +1,3 @@
+{"event_id":"aa0e8400-e29b-41d4-a716-446655444350","sdk":{"name":"sentry.php","version":"4.35.0"}}
+{"type":"event","length":452}
+{"event_id":"aa0e8400-e29b-41d4-a716-446655444350","platform":"php","level":"error","exception":{"values":[{"type":"Symfony\\Component\\HttpKernel\\Exception\\NotFoundHttpException","value":"The route \"api_v3_products\" does not exist.","stacktrace":{"frames":[{"filename":"src/Controller/ProductController.php","function":"getProduct","lineno":92,"in_app":true}]}}]},"contexts":{"runtime":{"name":"php","version":"8.4.1"}},"environment":"production"}
