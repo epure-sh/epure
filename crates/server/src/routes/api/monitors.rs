@@ -235,7 +235,7 @@ async fn post_check_in(
 
     let status = body.status.unwrap_or_else(|| "ok".to_string());
     let row = monitors::record_check_in(
-        &state.pools.app,
+        &state.pools.ingest,
         dashboard.org_id,
         monitor.project_id,
         RecordCheckInParams {

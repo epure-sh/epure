@@ -272,3 +272,100 @@ async fn envelope_ingest_rejects_garbage_binary_as_malformed() {
     );
     server.abort();
 }
+
+#[tokio::test]
+async fn envelope_ingest_records_cron_check_in_in_progress_and_ok() {
+    let (base_url, pool, server) = spawn_test_server().await;
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/{}/envelope/", base_url, project_id());
+
+    // 1. Post in_progress check_in
+    let check_in_1 =
+        r#"{"check_in_id":"ci_test_101","monitor_slug":"nightly-backup","status":"in_progress"}"#;
+    let body_1 = format!(
+        "{}\n{}\n{}\n",
+        r#"{"event_id":"880e8400-e29b-41d4-a716-4466554400cc"}"#,
+        format!(r#"{{"type":"check_in","length":{}}}"#, check_in_1.len()),
+        check_in_1
+    );
+
+    let res_1 = post_envelope(
+        &client,
+        &url,
+        body_1.into_bytes(),
+        None,
+        Some(public_key_auth()),
+    )
+    .await;
+    assert_eq!(res_1.status(), reqwest::StatusCode::OK);
+
+    // 2. Post ok check_in with duration
+    let check_in_2 = r#"{"check_in_id":"ci_test_101","monitor_slug":"nightly-backup","status":"ok","duration":1.42}"#;
+    let body_2 = format!(
+        "{}\n{}\n{}\n",
+        r#"{"event_id":"880e8400-e29b-41d4-a716-4466554400dd"}"#,
+        format!(r#"{{"type":"check_in","length":{}}}"#, check_in_2.len()),
+        check_in_2
+    );
+
+    let res_2 = post_envelope(
+        &client,
+        &url,
+        body_2.into_bytes(),
+        None,
+        Some(public_key_auth()),
+    )
+    .await;
+    assert_eq!(res_2.status(), reqwest::StatusCode::OK);
+
+    // Verify row in DB
+    let count: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM monitor_check_ins WHERE check_in_id = 'ci_test_101'",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("count check ins");
+    assert_eq!(
+        count, 2,
+        "expected 2 check-in records for ci_test_101 (in_progress, ok)"
+    );
+
+    server.abort();
+}
+
+#[tokio::test]
+async fn envelope_ingest_accepts_client_report_and_sessions() {
+    let (base_url, _pool, server) = spawn_test_server().await;
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/{}/envelope/", base_url, project_id());
+
+    let client_report = r#"{"timestamp":"2026-11-01T12:00:00Z","discarded_events":[{"reason":"rate_limit_backoff","category":"error","quantity":3}]}"#;
+    let session = r#"{"sid":"cccccccccccccccccccccccccccccccc","status":"exited","duration":12.5}"#;
+    let event = r#"{"level":"info","message":"Application initialized successfully"}"#;
+
+    let body = format!(
+        "{}\n{}\n{}\n{}\n{}\n{}\n{}\n",
+        r#"{"event_id":"990e8400-e29b-41d4-a716-4466554400ee","sdk":{"name":"sentry.javascript.browser","version":"8.38.0"}}"#,
+        format!(
+            r#"{{"type":"client_report","length":{}}}"#,
+            client_report.len()
+        ),
+        client_report,
+        format!(r#"{{"type":"session","length":{}}}"#, session.len()),
+        session,
+        format!(r#"{{"type":"event","length":{}}}"#, event.len()),
+        event,
+    );
+
+    let res = post_envelope(
+        &client,
+        &url,
+        gzip_bytes(body.as_bytes()),
+        Some("gzip"),
+        Some(public_key_auth()),
+    )
+    .await;
+    assert_eq!(res.status(), reqwest::StatusCode::ACCEPTED);
+
+    server.abort();
+}
