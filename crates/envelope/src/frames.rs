@@ -355,12 +355,42 @@ fn exception_frames(event: &Value) -> Vec<Value> {
             }
         }
     }
-
-    event
+    if let Some(values) = event.get("exception").and_then(Value::as_array) {
+        if let Some(first) = values.first() {
+            if let Some(frames) = first
+                .pointer("/stacktrace/frames")
+                .and_then(Value::as_array)
+            {
+                return frames.clone();
+            }
+        }
+    }
+    if let Some(frames) = event
         .pointer("/stacktrace/frames")
         .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default()
+    {
+        return frames.clone();
+    }
+    if let Some(threads) = event.pointer("/threads/values").and_then(Value::as_array) {
+        let crashed = threads
+            .iter()
+            .find(|t| t.get("crashed").and_then(Value::as_bool).unwrap_or(false))
+            .or_else(|| {
+                threads
+                    .iter()
+                    .find(|t| t.get("current").and_then(Value::as_bool).unwrap_or(false))
+            })
+            .or_else(|| threads.first());
+        if let Some(thread) = crashed {
+            if let Some(frames) = thread
+                .pointer("/stacktrace/frames")
+                .and_then(Value::as_array)
+            {
+                return frames.clone();
+            }
+        }
+    }
+    Vec::new()
 }
 
 #[cfg(test)]

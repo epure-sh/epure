@@ -1,0 +1,3 @@
+{"event_id":"880e8400-e29b-41d4-a716-446655440115","sdk":{"name":"sentry.go","version":"0.11.0"}}
+{"type":"event"}
+{"event_id":"880e8400-e29b-41d4-a716-446655440115","platform":"go","level":"error","exception":{"values":[{"type":"panic","value":"runtime error: invalid memory address or nil pointer dereference","stacktrace":{"frames":[{"filename":"src/runtime/panic.go","function":"runtime.gopanic","module":"runtime","lineno":1038,"in_app":false},{"filename":"main.go","function":"main.handleRequest","module":"main","lineno":75,"in_app":true}]}}]},"environment":"production"}

@@ -1,0 +1,3 @@
+{"event_id":"880e8400-e29b-41d4-a716-446655440315","sdk":{"name":"sentry.go","version":"0.31.0"}}
+{"type":"event"}
+{"event_id":"880e8400-e29b-41d4-a716-446655440315","platform":"go","level":"error","exception":{"values":[{"type":"*net.OpError","value":"read tcp 127.0.0.1:8080->127.0.0.1:44552: read: connection reset by peer","stacktrace":{"frames":[{"filename":"net/net.go","function":"net.(*conn).Read","lineno":180,"in_app":false},{"filename":"gateway/proxy.go","function":"gateway.ForwardRequest","lineno":91,"in_app":true}]}}]},"environment":"production"}

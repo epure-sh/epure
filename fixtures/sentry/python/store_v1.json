@@ -1,0 +1,1 @@
+{"event_id":"770e8400-e29b-41d4-a716-446655441099","platform":"python","level":"error","exception":[{"type":"ValueError","value":"Invalid literal for int() with base 10: 'abc'"}],"environment":"production","sdk":{"name":"sentry.python","version":"1.0.0"}}

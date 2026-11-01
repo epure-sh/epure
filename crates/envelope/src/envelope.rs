@@ -43,6 +43,19 @@ pub struct ParsedEnvelope {
     pub event_payload: Vec<u8>,
     pub check_ins: Vec<CheckInItem>,
     pub client_discards: Vec<ClientDiscard>,
+    pub envelope_header: Option<Value>,
+}
+
+impl ParsedEnvelope {
+    pub fn envelope_event_id(&self) -> Option<uuid::Uuid> {
+        let val = self.envelope_header.as_ref()?;
+        let id_str = val.get("event_id").and_then(Value::as_str)?;
+        uuid::Uuid::parse_str(id_str).ok()
+    }
+
+    pub fn envelope_sdk(&self) -> Option<&Value> {
+        self.envelope_header.as_ref()?.get("sdk")
+    }
 }
 
 /// Zero-copy scan of a Sentry envelope; discards transaction items.
@@ -203,9 +216,15 @@ pub fn parse_check_in_payload(payload: &[u8]) -> Option<CheckInItem> {
 }
 
 fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> {
-    let mut offset = next_line_end(body, 0)
-        .map(|end| end + 1)
-        .unwrap_or(body.len());
+    let header_end = next_line_end(body, 0).ok_or(EnvelopeError::MalformedItemHeader)?;
+    let header_line = trim_bytes(&body[..header_end]);
+    let envelope_header: Option<Value> = if header_line.starts_with(b"{") {
+        serde_json::from_slice(header_line).ok()
+    } else {
+        None
+    };
+
+    let mut offset = header_end + 1;
     let mut event_payload = None;
     let mut check_ins = Vec::new();
     let mut client_discards = Vec::new();
@@ -269,12 +288,14 @@ fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> 
             event_payload,
             check_ins,
             client_discards,
+            envelope_header,
         })
     } else if !check_ins.is_empty() || !client_discards.is_empty() {
         Ok(ParsedEnvelope {
             event_payload: Vec::new(),
             check_ins,
             client_discards,
+            envelope_header,
         })
     } else if has_non_error_items {
         Err(EnvelopeError::NonErrorAbsorbed)
@@ -349,7 +370,30 @@ mod tests {
 
     const ENVELOPE_LANGUAGES: &[&str] = &[
         "browser", "node", "go", "ruby", "php", "java", "dotnet", "python", "rust", "nextjs",
+        "cocoa", "flutter",
     ];
+
+    fn all_envelope_fixture_paths() -> Vec<(String, PathBuf)> {
+        let base = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/sentry");
+        let mut paths = Vec::new();
+        if let Ok(entries) = fs::read_dir(&base) {
+            for entry in entries.flatten() {
+                if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                    let lang = entry.file_name().to_string_lossy().to_string();
+                    if let Ok(files) = fs::read_dir(entry.path()) {
+                        for file in files.flatten() {
+                            let name = file.file_name().to_string_lossy().to_string();
+                            if name.starts_with("envelope") && name.ends_with(".txt") {
+                                paths.push((format!("{lang}/{name}"), file.path()));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        paths.sort_by(|a, b| a.0.cmp(&b.0));
+        paths
+    }
 
     fn fixture_path(language: &str, name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -433,6 +477,30 @@ mod tests {
                 "{language} zlib body must not look like JSON"
             );
             assert_parsed_event(&format!("{language}/zlib"), &compressed);
+        }
+    }
+
+    #[test]
+    fn parses_every_sdk_version_fixture_raw() {
+        let fixtures = all_envelope_fixture_paths();
+        assert!(
+            fixtures.len() >= 30,
+            "expected >= 30 historical fixtures, found {}",
+            fixtures.len()
+        );
+        for (label, path) in fixtures {
+            let body = fs::read(&path).unwrap_or_else(|err| panic!("read {label}: {err}"));
+            assert_parsed_event(&label, &body);
+        }
+    }
+
+    #[test]
+    fn parses_every_sdk_version_fixture_gzip() {
+        let fixtures = all_envelope_fixture_paths();
+        for (label, path) in fixtures {
+            let body = fs::read(&path).unwrap_or_else(|err| panic!("read {label}: {err}"));
+            let compressed = gzip_bytes(&body);
+            assert_parsed_event(&format!("{label}/gzip"), &compressed);
         }
     }
 

@@ -149,3 +149,87 @@ async fn store_ingest_accepts_gzip_python_fixture() {
     }
     panic!("timed out waiting for gzip store event");
 }
+
+#[tokio::test]
+async fn store_ingest_accepts_all_python_historical_store_fixtures() {
+    use flate2::write::GzEncoder;
+    use flate2::Compression;
+    use std::io::Write;
+
+    let (base_url, pool, server) = spawn_test_server().await;
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/{}/store/", base_url, project_id());
+
+    let fixtures = [
+        "store.json",
+        "store_v1.json",
+        "store_v1_45.json",
+        "store_v2.json",
+    ];
+
+    for name in fixtures {
+        let raw = fs::read(fixture_path("python", name))
+            .unwrap_or_else(|err| panic!("read {name}: {err}"));
+        let fingerprint = preview_fingerprint(&raw);
+
+        // 1. Raw JSON
+        let res = client
+            .post(&url)
+            .header(
+                "X-Sentry-Auth",
+                format!("Sentry sentry_version=7, sentry_key={PUBLIC_KEY}"),
+            )
+            .header("Content-Type", "application/json")
+            .body(raw.clone())
+            .send()
+            .await
+            .expect("post store");
+        assert_eq!(
+            res.status(),
+            reqwest::StatusCode::ACCEPTED,
+            "raw store {name} should return 202"
+        );
+
+        // 2. Gzip JSON
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&raw).expect("gzip write");
+        let compressed = encoder.finish().expect("gzip finish");
+
+        let res_gz = client
+            .post(&url)
+            .header(
+                "X-Sentry-Auth",
+                format!("Sentry sentry_version=7, sentry_key={PUBLIC_KEY}"),
+            )
+            .header("Content-Type", "application/json")
+            .header("Content-Encoding", "gzip")
+            .body(compressed)
+            .send()
+            .await
+            .expect("post gzip store");
+        assert_eq!(
+            res_gz.status(),
+            reqwest::StatusCode::ACCEPTED,
+            "gzip store {name} should return 202"
+        );
+
+        let mut persisted = false;
+        for _ in 0..40 {
+            let count =
+                counters::total_event_count_for_fingerprint(&pool, project_id(), &fingerprint)
+                    .await
+                    .expect("issue count");
+            if count >= 1 {
+                persisted = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        assert!(
+            persisted,
+            "timed out waiting for {name} fingerprint {fingerprint}"
+        );
+    }
+
+    server.abort();
+}

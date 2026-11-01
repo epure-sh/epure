@@ -123,25 +123,52 @@ pub fn is_unhandled(event: &Value) -> bool {
 }
 
 fn exceptions(event: &Value) -> Value {
-    let Some(values) = event.pointer("/exception/values").and_then(Value::as_array) else {
-        return json!([]);
-    };
-    Value::Array(
-        values
-            .iter()
-            .map(|exception| {
-                json!({
-                    "type": exception.get("type").and_then(Value::as_str).unwrap_or("Error"),
-                    "value": exception.get("value").and_then(Value::as_str).unwrap_or(""),
-                    "mechanism": {
-                        "type": exception.pointer("/mechanism/type").and_then(Value::as_str).unwrap_or("generic"),
-                        "handled": exception.pointer("/mechanism/handled").and_then(Value::as_bool).unwrap_or(true),
-                    },
-                    "frames": frames(exception.pointer("/stacktrace/frames")),
+    let values = event
+        .pointer("/exception/values")
+        .and_then(Value::as_array)
+        .or_else(|| event.get("exception").and_then(Value::as_array));
+    if let Some(values) = values {
+        return Value::Array(
+            values
+                .iter()
+                .map(|exception| {
+                    json!({
+                        "type": exception.get("type").and_then(Value::as_str).unwrap_or("Error"),
+                        "value": exception.get("value").and_then(Value::as_str).unwrap_or(""),
+                        "mechanism": {
+                            "type": exception.pointer("/mechanism/type").and_then(Value::as_str).unwrap_or("generic"),
+                            "handled": exception.pointer("/mechanism/handled").and_then(Value::as_bool).unwrap_or(true),
+                        },
+                        "frames": frames(exception.pointer("/stacktrace/frames")),
+                    })
                 })
+                .collect(),
+        );
+    }
+    if let Some(threads) = event.pointer("/threads/values").and_then(Value::as_array) {
+        let crashed = threads
+            .iter()
+            .find(|t| t.get("crashed").and_then(Value::as_bool).unwrap_or(false))
+            .or_else(|| {
+                threads
+                    .iter()
+                    .find(|t| t.get("current").and_then(Value::as_bool).unwrap_or(false))
             })
-            .collect(),
-    )
+            .or_else(|| threads.first());
+        if let Some(thread) = crashed {
+            let name = thread
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or("CrashThread");
+            return json!([{
+                "type": name,
+                "value": "Thread crashed",
+                "mechanism": { "type": "thread", "handled": false },
+                "frames": frames(thread.pointer("/stacktrace/frames")),
+            }]);
+        }
+    }
+    json!([])
 }
 
 fn frames(raw: Option<&Value>) -> Value {

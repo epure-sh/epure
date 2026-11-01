@@ -1,0 +1,3 @@
+{"event_id":"aa0e8400-e29b-41d4-a716-446655444085","sdk":{"name":"sentry.php.laravel","version":"4.8.0"}}
+{"type":"event","length":603}
+{"event_id":"aa0e8400-e29b-41d4-a716-446655444085","platform":"php","level":"error","exception":{"values":[{"type":"Illuminate\\Database\\QueryException","value":"SQLSTATE[HY000] [2002] Connection refused (Connection: mysql, SQL: select * from `users`)","stacktrace":{"frames":[{"filename":"vendor/laravel/framework/src/Illuminate/Database/Connection.php","function":"runQueryCallback","lineno":750,"in_app":false},{"filename":"app/Services/UserService.php","function":"findActiveUsers","lineno":44,"in_app":true}]}}]},"contexts":{"runtime":{"name":"php","version":"8.3.10"}},"environment":"production"}

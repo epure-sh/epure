@@ -1,7 +1,6 @@
 mod support;
 
 use epure_auth::GoogleAuth;
-use epure_storage::{connect, connect_pools, run_migrations};
 use reqwest::Client;
 use support::{project_id, spawn_test_server};
 use uuid::Uuid;
@@ -14,22 +13,13 @@ const DEV_PASSWORD: &str = "devpassword";
 
 #[tokio::test]
 async fn invitation_register_applies_role_with_token() {
-    let database_url =
-        std::env::var("DATABASE_URL").expect("DATABASE_URL must be set for integration tests");
-    let migrate_pool = connect(&database_url).await.expect("connect migrate pool");
-    run_migrations(&migrate_pool).await.expect("run migrations");
-
-    let _pools = connect_pools(&database_url).await.expect("connect pools");
-    support::seed_dev_pool(&migrate_pool)
-        .await
-        .expect("seed dev org");
+    let (base_url, _pool, handle) = spawn_test_server().await;
 
     let invite_email = format!(
         "invite-{}@epure.local",
         &Uuid::new_v4().simple().to_string()[..8]
     );
 
-    let (base_url, _pool, handle) = spawn_test_server().await;
     let owner_client = Client::builder()
         .cookie_store(true)
         .build()
@@ -109,22 +99,13 @@ async fn invitation_register_applies_role_with_token() {
 
 #[tokio::test]
 async fn invitation_register_without_token_does_not_hijack_org() {
-    let database_url =
-        std::env::var("DATABASE_URL").expect("DATABASE_URL must be set for integration tests");
-    let migrate_pool = connect(&database_url).await.expect("connect migrate pool");
-    run_migrations(&migrate_pool).await.expect("run migrations");
-
-    let _pools = connect_pools(&database_url).await.expect("connect pools");
-    support::seed_dev_pool(&migrate_pool)
-        .await
-        .expect("seed dev org");
+    let (base_url, _pool, handle) = spawn_test_server().await;
 
     let invite_email = format!(
         "hijack-{}@epure.local",
         &Uuid::new_v4().simple().to_string()[..8]
     );
 
-    let (base_url, _pool, handle) = spawn_test_server().await;
     let owner_client = Client::builder()
         .cookie_store(true)
         .build()
@@ -187,22 +168,13 @@ async fn invitation_register_without_token_does_not_hijack_org() {
 
 #[tokio::test]
 async fn invitation_google_signup_applies_role_with_token() {
-    let database_url =
-        std::env::var("DATABASE_URL").expect("DATABASE_URL must be set for integration tests");
-    let migrate_pool = connect(&database_url).await.expect("connect migrate pool");
-    run_migrations(&migrate_pool).await.expect("run migrations");
-
-    let pools = connect_pools(&database_url).await.expect("connect pools");
-    support::seed_dev_pool(&migrate_pool)
-        .await
-        .expect("seed dev org");
+    let (base_url, pool, handle) = spawn_test_server().await;
 
     let invite_email = format!(
         "google-invite-{}@epure.local",
         &Uuid::new_v4().simple().to_string()[..8]
     );
 
-    let (base_url, _pool, handle) = spawn_test_server().await;
     let owner_client = Client::builder()
         .cookie_store(true)
         .build()
@@ -232,7 +204,7 @@ async fn invitation_google_signup_applies_role_with_token() {
     let invite_body: serde_json::Value = invite.json().await.expect("invite json");
     let invite_token = invite_body["invite_token"].as_str().expect("invite token");
 
-    let google = GoogleAuth::for_test(pools.app.clone());
+    let google = GoogleAuth::for_test(pool.clone());
     let google_sub = format!("google-sub-{}", Uuid::new_v4());
     let session = google
         .signup_new_user(&google_sub, &invite_email, Some(invite_token))

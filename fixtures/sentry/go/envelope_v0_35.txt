@@ -1,0 +1,3 @@
+{"event_id":"880e8400-e29b-41d4-a716-446655440355","sdk":{"name":"sentry.go","version":"0.35.0"}}
+{"type":"event"}
+{"event_id":"880e8400-e29b-41d4-a716-446655440355","platform":"go","level":"error","exception":{"values":[{"type":"context.DeadlineExceededError","value":"context deadline exceeded while awaiting redis response","stacktrace":{"frames":[{"filename":"pkg/cache/redis.go","function":"cache.GetWithTimeout","lineno":53,"in_app":true}]}}]},"environment":"production"}

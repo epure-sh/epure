@@ -205,14 +205,20 @@ async fn post_envelope(
         return cors_response(&state, &headers, StatusCode::ACCEPTED);
     }
 
-    accept_payload(
-        &state,
-        &headers,
-        project_id,
-        record.org_id,
-        parsed.event_payload,
-    )
-    .await
+    let envelope_sdk = parsed.envelope_sdk().cloned();
+    let mut event_payload = parsed.event_payload;
+    if let Some(sdk) = envelope_sdk {
+        if let Ok(mut val) = serde_json::from_slice::<serde_json::Value>(&event_payload) {
+            if val.get("sdk").is_none() {
+                val["sdk"] = sdk;
+                if let Ok(re_encoded) = serde_json::to_vec(&val) {
+                    event_payload = re_encoded;
+                }
+            }
+        }
+    }
+
+    accept_payload(&state, &headers, project_id, record.org_id, event_payload).await
 }
 
 async fn post_release_files(

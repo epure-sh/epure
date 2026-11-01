@@ -1,0 +1,3 @@
+{"event_id":"cc0e8400-e29b-41d4-a716-446655445007","sdk":{"name":"sentry.dotnet","version":"5.0.0"}}
+{"type":"event"}
+{"event_id":"cc0e8400-e29b-41d4-a716-446655445007","platform":"csharp","level":"error","exception":{"values":[{"type":"Npgsql.PostgresException","value":"23505: duplicate key value violates unique constraint \"IX_Users_Email\"","stacktrace":{"frames":[{"function":"Npgsql.NpgsqlConnector.ReadMessage","module":"Npgsql","in_app":false},{"function":"Acme.Identity.Data.UserRepository.AddUserAsync","module":"Acme.Identity","lineno":47,"in_app":true}]}}]},"contexts":{"runtime":{"name":".NET","version":"8.0.8"}},"environment":"production"}

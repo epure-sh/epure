@@ -1,0 +1,3 @@
+{"event_id":"cc0e8400-e29b-41d4-a716-446655443417","sdk":{"name":"sentry.dotnet","version":"3.41.0"}}
+{"type":"event"}
+{"event_id":"cc0e8400-e29b-41d4-a716-446655443417","platform":"csharp","level":"error","exception":{"values":[{"type":"System.InvalidOperationException","value":"Sequence contains no matching element","stacktrace":{"frames":[{"function":"System.Linq.Enumerable.First","module":"System.Linq","in_app":false},{"function":"Acme.App.Services.CatalogService.GetProduct","module":"Acme.App","lineno":88,"in_app":true}]}}]},"environment":"production"}

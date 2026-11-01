@@ -1,0 +1,3 @@
+{"event_id":"990e8400-e29b-41d4-a716-446655440444","sdk":{"name":"sentry.ruby","version":"4.4.0"}}
+{"type":"event","length":381}
+{"event_id":"990e8400-e29b-41d4-a716-446655440444","platform":"ruby","level":"error","exception":{"values":[{"type":"NoMethodError","value":"undefined method `each' for nil:NilClass","stacktrace":{"frames":[{"filename":"app/models/cart.rb","function":"total_price","lineno":34,"in_app":true}]}}]},"contexts":{"runtime":{"name":"ruby","version":"2.7.4"}},"environment":"production"}

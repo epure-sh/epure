@@ -1,0 +1,3 @@
+{"event_id":"aa0e8400-e29b-41d4-a716-446655443225","sdk":{"name":"sentry.php","version":"3.22.0"}}
+{"type":"event","length":397}
+{"event_id":"aa0e8400-e29b-41d4-a716-446655443225","platform":"php","level":"error","exception":{"values":[{"type":"ErrorException","value":"Undefined variable: $result","stacktrace":{"frames":[{"filename":"/var/www/html/app/Http/Controllers/HomeController.php","function":"index","lineno":28,"in_app":true}]}}]},"contexts":{"runtime":{"name":"php","version":"8.0.28"}},"environment":"production"}

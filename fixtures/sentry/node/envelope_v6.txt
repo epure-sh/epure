@@ -1,0 +1,3 @@
+{"event_id":"660e8400-e29b-41d4-a716-446655446002","sdk":{"name":"sentry.javascript.node","version":"6.19.7"}}
+{"type":"event","length":398}
+{"event_id":"660e8400-e29b-41d4-a716-446655446002","platform":"node","level":"error","exception":{"values":[{"type":"Error","value":"listen EADDRINUSE: address already in use :::3000","stacktrace":{"frames":[{"filename":"net.js","function":"setupListenHandle","lineno":1300,"in_app":false},{"filename":"server.js","function":"startServer","lineno":45,"in_app":true}]}}]},"environment":"production"}

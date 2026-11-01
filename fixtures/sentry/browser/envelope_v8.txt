@@ -1,0 +1,5 @@
+{"event_id":"550e8400-e29b-41d4-a716-446655448001","sent_at":"2024-10-15T10:00:00Z","sdk":{"name":"sentry.javascript.browser","version":"8.38.0"},"trace":{"trace_id":"4bf92f3577b34da6a3ce929d0e0e4736","public_key":"public123","sample_rate":"1.0"}}
+{"type":"client_report","length":121}
+{"timestamp":"2024-10-15T10:00:00Z","discarded_events":[{"reason":"rate_limit_backoff","category":"error","quantity":1}]}
+{"type":"event","length":448}
+{"event_id":"550e8400-e29b-41d4-a716-446655448001","platform":"javascript","level":"error","exception":{"values":[{"type":"UnhandledRejection","value":"FetchError: Failed to fetch /api/checkout","stacktrace":{"frames":[{"filename":"checkout.chunk.js","function":"executePayment","lineno":512,"colno":22,"in_app":true}]}}]},"contexts":{"trace":{"trace_id":"4bf92f3577b34da6a3ce929d0e0e4736","span_id":"00f067aa0ba902b7"}},"environment":"production"}

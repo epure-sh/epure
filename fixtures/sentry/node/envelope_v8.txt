@@ -1,0 +1,3 @@
+{"event_id":"660e8400-e29b-41d4-a716-446655448002","sdk":{"name":"sentry.javascript.node","version":"8.38.0"}}
+{"type":"event"}
+{"event_id":"660e8400-e29b-41d4-a716-446655448002","platform":"node","level":"error","exception":{"values":[{"type":"RedisConnectionError","value":"ECONNREFUSED 127.0.0.1:6379","stacktrace":{"frames":[{"filename":"node_modules/ioredis/lib/redis.js","function":"connect","lineno":150,"in_app":false},{"filename":"src/cache.ts","function":"getOrSetCache","lineno":28,"in_app":true}]}}]},"contexts":{"runtime":{"name":"node","version":"v20.18.0"}},"environment":"production"}

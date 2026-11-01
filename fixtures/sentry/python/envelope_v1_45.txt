@@ -1,0 +1,3 @@
+{"event_id":"770e8400-e29b-41d4-a716-446655441454","sdk":{"name":"sentry.python","version":"1.45.0"}}
+{"type":"event"}
+{"event_id":"770e8400-e29b-41d4-a716-446655441454","platform":"python","level":"error","exception":{"values":[{"type":"HTTPException","value":"500: Database lock timeout","stacktrace":{"frames":[{"filename":"fastapi/routing.py","function":"run_endpoint_function","module":"fastapi.routing","lineno":190,"in_app":false},{"filename":"app/routers/items.py","function":"update_item","module":"app.routers.items","lineno":44,"in_app":true}]}}]},"environment":"production"}

@@ -1,0 +1,3 @@
+{"event_id":"ff0e8400-e29b-41d4-a716-446655440083","sdk":{"name":"sentry.dart.flutter","version":"8.0.0"}}
+{"type":"event"}
+{"event_id":"ff0e8400-e29b-41d4-a716-446655440083","platform":"dart","level":"error","exception":{"values":[{"type":"FlutterError","value":"A RenderFlex overflowed by 42 pixels on the bottom.","stacktrace":{"frames":[{"filename":"package:flutter/src/rendering/flex.dart","function":"RenderFlex.performLayout","lineno":1020,"in_app":false},{"filename":"package:my_shop/widgets/item_card.dart","function":"ItemCard.build","lineno":65,"in_app":true}]}}]},"contexts":{"os":{"name":"iOS","version":"17.5"},"device":{"model":"iPhone 15 Pro"}},"environment":"production"}

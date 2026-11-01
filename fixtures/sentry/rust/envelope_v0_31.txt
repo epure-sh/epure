@@ -1,0 +1,3 @@
+{"event_id":"aa0e8400-e29b-41d4-a716-446655440310","sdk":{"name":"sentry.rust","version":"0.31.0"}}
+{"type":"event"}
+{"event_id":"aa0e8400-e29b-41d4-a716-446655440310","platform":"native","level":"error","exception":{"values":[{"type":"tokio::task::JoinError","value":"task panicked","stacktrace":{"frames":[{"filename":"src/worker.rs","function":"my_app::worker::spawn_pipeline::{{closure}}","symbol":"_ZN6my_app6worker14spawn_pipeline28_$u7b$$u7b$closure$u7d$$u7d$17hdeadbeef12345678E","lineno":140,"in_app":true}]}}]},"environment":"production"}

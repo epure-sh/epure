@@ -11,8 +11,31 @@ use support::{fixture_path, project_id, spawn_test_server, PUBLIC_KEY};
 
 /// Every language folder under fixtures/sentry that ships an envelope.
 const ENVELOPE_LANGUAGES: &[&str] = &[
-    "browser", "node", "go", "ruby", "php", "java", "dotnet", "python", "rust", "nextjs",
+    "browser", "node", "go", "ruby", "php", "java", "dotnet", "python", "rust", "nextjs", "cocoa",
+    "flutter",
 ];
+
+fn all_envelope_fixtures() -> Vec<(String, std::path::PathBuf)> {
+    let base = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/sentry");
+    let mut fixtures = Vec::new();
+    if let Ok(entries) = fs::read_dir(&base) {
+        for entry in entries.flatten() {
+            if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                let lang = entry.file_name().to_string_lossy().to_string();
+                if let Ok(files) = fs::read_dir(entry.path()) {
+                    for file in files.flatten() {
+                        let name = file.file_name().to_string_lossy().to_string();
+                        if name.starts_with("envelope") && name.ends_with(".txt") {
+                            fixtures.push((format!("{lang}/{name}"), file.path()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    fixtures.sort_by(|a, b| a.0.cmp(&b.0));
+    fixtures
+}
 
 fn gzip_bytes(raw: &[u8]) -> Vec<u8> {
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
@@ -136,6 +159,62 @@ async fn envelope_ingest_accepts_every_sdk_fixture_raw_and_gzip() {
         stored_events >= ENVELOPE_LANGUAGES.len() as i64,
         "expected >= {} events, got {stored_events}",
         ENVELOPE_LANGUAGES.len()
+    );
+
+    server.abort();
+}
+
+/// Comprehensive matrix: tests every single historical fixture across all SDKs (raw + gzip)
+#[tokio::test]
+async fn envelope_ingest_accepts_all_historical_sdk_versions_matrix() {
+    let (base_url, pool, server) = spawn_test_server().await;
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/{}/envelope/", base_url, project_id());
+
+    let fixtures = all_envelope_fixtures();
+    assert!(
+        fixtures.len() >= 30,
+        "expected >= 30 historical fixtures, got {}",
+        fixtures.len()
+    );
+
+    for (label, path) in &fixtures {
+        let raw = fs::read(path).unwrap_or_else(|err| panic!("read {label}: {err}"));
+        let parsed = epure_envelope::parse_envelope(&raw)
+            .unwrap_or_else(|err| panic!("parse {label}: {err:?}"));
+        let fingerprint = preview_fingerprint(&parsed.event_payload);
+
+        let response =
+            post_envelope(&client, &url, raw.clone(), None, Some(public_key_auth())).await;
+        assert_eq!(
+            response.status(),
+            reqwest::StatusCode::ACCEPTED,
+            "{label} envelope ingest failed"
+        );
+        wait_for_fingerprint(&pool, &fingerprint).await;
+
+        let gz_response = post_envelope(
+            &client,
+            &url,
+            gzip_bytes(&raw),
+            Some("gzip"),
+            Some(public_key_auth()),
+        )
+        .await;
+        assert_eq!(
+            gz_response.status(),
+            reqwest::StatusCode::ACCEPTED,
+            "{label} gzip envelope ingest failed"
+        );
+    }
+
+    let stored_events = events::count_events_for_project(&pool, project_id())
+        .await
+        .expect("events count");
+    assert!(
+        stored_events >= fixtures.len() as i64,
+        "expected >= {} stored events, got {stored_events}",
+        fixtures.len()
     );
 
     server.abort();
@@ -279,15 +358,16 @@ async fn envelope_ingest_records_cron_check_in_in_progress_and_ok() {
     let client = reqwest::Client::new();
     let url = format!("{}/api/{}/envelope/", base_url, project_id());
 
+    let test_id = format!("ci_test_{}", uuid::Uuid::new_v4().simple());
+
     // 1. Post in_progress check_in
-    let check_in_1 =
-        r#"{"check_in_id":"ci_test_101","monitor_slug":"nightly-backup","status":"in_progress"}"#;
+    let check_in_1 = format!(
+        r#"{{"check_in_id":"{test_id}","monitor_slug":"nightly-backup","status":"in_progress"}}"#
+    );
     let check_in_1_header = format!(r#"{{"type":"check_in","length":{}}}"#, check_in_1.len());
     let body_1 = format!(
         "{}\n{}\n{}\n",
-        r#"{"event_id":"880e8400-e29b-41d4-a716-4466554400cc"}"#,
-        check_in_1_header,
-        check_in_1
+        r#"{"event_id":"880e8400-e29b-41d4-a716-4466554400cc"}"#, check_in_1_header, check_in_1
     );
 
     let res_1 = post_envelope(
@@ -301,13 +381,13 @@ async fn envelope_ingest_records_cron_check_in_in_progress_and_ok() {
     assert_eq!(res_1.status(), reqwest::StatusCode::OK);
 
     // 2. Post ok check_in with duration
-    let check_in_2 = r#"{"check_in_id":"ci_test_101","monitor_slug":"nightly-backup","status":"ok","duration":1.42}"#;
+    let check_in_2 = format!(
+        r#"{{"check_in_id":"{test_id}","monitor_slug":"nightly-backup","status":"ok","duration":1.42}}"#
+    );
     let check_in_2_header = format!(r#"{{"type":"check_in","length":{}}}"#, check_in_2.len());
     let body_2 = format!(
         "{}\n{}\n{}\n",
-        r#"{"event_id":"880e8400-e29b-41d4-a716-4466554400dd"}"#,
-        check_in_2_header,
-        check_in_2
+        r#"{"event_id":"880e8400-e29b-41d4-a716-4466554400dd"}"#, check_in_2_header, check_in_2
     );
 
     let res_2 = post_envelope(
@@ -321,15 +401,15 @@ async fn envelope_ingest_records_cron_check_in_in_progress_and_ok() {
     assert_eq!(res_2.status(), reqwest::StatusCode::OK);
 
     // Verify row in DB
-    let count: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM monitor_check_ins WHERE check_in_id = 'ci_test_101'",
-    )
-    .fetch_one(&pool)
-    .await
-    .expect("count check ins");
+    let count: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM monitor_check_ins WHERE check_in_id = $1")
+            .bind(&test_id)
+            .fetch_one(&pool)
+            .await
+            .expect("count check ins");
     assert_eq!(
         count, 2,
-        "expected 2 check-in records for ci_test_101 (in_progress, ok)"
+        "expected 2 check-in records for {test_id} (in_progress, ok)"
     );
 
     server.abort();

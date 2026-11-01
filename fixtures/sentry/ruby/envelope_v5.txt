@@ -1,0 +1,3 @@
+{"event_id":"990e8400-e29b-41d4-a716-446655440518","sdk":{"name":"sentry.ruby","version":"5.18.0"}}
+{"type":"event","length":540}
+{"event_id":"990e8400-e29b-41d4-a716-446655440518","platform":"ruby","level":"error","exception":{"values":[{"type":"ActiveRecord::RecordNotFound","value":"Couldn't find Invoice with 'id'=99999","stacktrace":{"frames":[{"filename":"gems/activerecord-7.1.3/lib/active_record/relation/finder_methods.rb","function":"find_one","lineno":510,"in_app":false},{"filename":"app/controllers/invoices_controller.rb","function":"show","lineno":18,"in_app":true}]}}]},"contexts":{"runtime":{"name":"ruby","version":"3.3.4"}},"environment":"production"}

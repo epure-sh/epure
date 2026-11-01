@@ -1,0 +1,3 @@
+{"event_id":"880e8400-e29b-41d4-a716-446655440205","sdk":{"name":"sentry.go","version":"0.20.0"}}
+{"type":"event"}
+{"event_id":"880e8400-e29b-41d4-a716-446655440205","platform":"go","level":"error","exception":{"values":[{"type":"error","value":"sql: no rows in result set","stacktrace":{"frames":[{"filename":"pkg/mod/github.com/gin-gonic/gin@v1.9.0/context.go","function":"gin.(*Context).Next","lineno":174,"in_app":false},{"filename":"handlers/auth.go","function":"handlers.GetUserByEmail","lineno":42,"in_app":true}]}}]},"environment":"production"}

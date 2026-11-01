@@ -1,0 +1,3 @@
+{"event_id":"dd0e8400-e29b-41d4-a716-446655440071","sdk":{"name":"sentry.cocoa","version":"7.31.0"}}
+{"type":"event"}
+{"event_id":"dd0e8400-e29b-41d4-a716-446655440071","platform":"cocoa","level":"fatal","threads":{"values":[{"id":1,"name":"com.apple.main-thread","crashed":true,"current":true,"stacktrace":{"frames":[{"package":"UIKitCore","function":"UIApplicationMain","in_app":false},{"filename":"AppDelegate.swift","function":"applicationDidFinishLaunching","lineno":34,"in_app":true}]}}]},"contexts":{"os":{"name":"iOS","version":"15.4"},"device":{"model":"iPhone13,2","family":"iPhone"}},"environment":"production"}

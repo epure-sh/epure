@@ -91,9 +91,26 @@ mod tests {
 
     #[test]
     fn parses_python_store_fixture() {
-        let body = fs::read(fixture_path("python", "store.json")).expect("python fixture");
-        let parsed = parse_store_payload(&body).expect("parse python store");
-        assert!(parsed.starts_with(b"{"));
+        for name in [
+            "store.json",
+            "store_v1.json",
+            "store_v1_45.json",
+            "store_v2.json",
+        ] {
+            let body = fs::read(fixture_path("python", name))
+                .unwrap_or_else(|err| panic!("read python/{name}: {err}"));
+            let parsed = parse_store_payload(&body)
+                .unwrap_or_else(|err| panic!("parse python/{name}: {err:?}"));
+            assert!(parsed.starts_with(b"{"));
+
+            // Test compressed
+            let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+            encoder.write_all(&body).expect("gzip write");
+            let compressed = encoder.finish().expect("gzip finish");
+            let parsed_gz = parse_store_payload(&compressed)
+                .unwrap_or_else(|err| panic!("parse python/{name} gzip: {err:?}"));
+            assert!(parsed_gz.starts_with(b"{"));
+        }
     }
 
     #[test]

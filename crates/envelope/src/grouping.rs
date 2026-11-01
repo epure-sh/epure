@@ -529,6 +529,29 @@ fn exception_type(event: &Value) -> String {
             }
         }
     }
+    if let Some(values) = event.get("exception").and_then(Value::as_array) {
+        if let Some(first) = values.first() {
+            if let Some(ty) = first.get("type").and_then(Value::as_str) {
+                return normalize_token(ty);
+            }
+        }
+    }
+    if let Some(threads) = event.pointer("/threads/values").and_then(Value::as_array) {
+        let crashed = threads
+            .iter()
+            .find(|t| t.get("crashed").and_then(Value::as_bool).unwrap_or(false))
+            .or_else(|| {
+                threads
+                    .iter()
+                    .find(|t| t.get("current").and_then(Value::as_bool).unwrap_or(false))
+            })
+            .or_else(|| threads.first());
+        if let Some(thread) = crashed {
+            if let Some(name) = thread.get("name").and_then(Value::as_str) {
+                return normalize_token(name);
+            }
+        }
+    }
     exception_message(event)
         .map(|message| normalize_token(&message))
         .unwrap_or_else(|| "unknown".to_string())
@@ -536,6 +559,13 @@ fn exception_type(event: &Value) -> String {
 
 fn exception_message(event: &Value) -> Option<String> {
     if let Some(values) = event.pointer("/exception/values").and_then(Value::as_array) {
+        if let Some(first) = values.first() {
+            if let Some(message) = json_text(first.get("value")) {
+                return Some(message);
+            }
+        }
+    }
+    if let Some(values) = event.get("exception").and_then(Value::as_array) {
         if let Some(first) = values.first() {
             if let Some(message) = json_text(first.get("value")) {
                 return Some(message);
@@ -587,11 +617,42 @@ fn exception_frames(event: &Value) -> Vec<Value> {
             }
         }
     }
-    event
+    if let Some(values) = event.get("exception").and_then(Value::as_array) {
+        if let Some(first) = values.first() {
+            if let Some(frames) = first
+                .pointer("/stacktrace/frames")
+                .and_then(Value::as_array)
+            {
+                return frames.clone();
+            }
+        }
+    }
+    if let Some(frames) = event
         .pointer("/stacktrace/frames")
         .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default()
+    {
+        return frames.clone();
+    }
+    if let Some(threads) = event.pointer("/threads/values").and_then(Value::as_array) {
+        let crashed = threads
+            .iter()
+            .find(|t| t.get("crashed").and_then(Value::as_bool).unwrap_or(false))
+            .or_else(|| {
+                threads
+                    .iter()
+                    .find(|t| t.get("current").and_then(Value::as_bool).unwrap_or(false))
+            })
+            .or_else(|| threads.first());
+        if let Some(thread) = crashed {
+            if let Some(frames) = thread
+                .pointer("/stacktrace/frames")
+                .and_then(Value::as_array)
+            {
+                return frames.clone();
+            }
+        }
+    }
+    Vec::new()
 }
 
 fn frame_is_in_app(frame: &Value, platform: Option<&str>) -> bool {

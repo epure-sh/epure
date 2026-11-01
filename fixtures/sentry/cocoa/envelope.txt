@@ -1,0 +1,3 @@
+{"event_id":"dd0e8400-e29b-41d4-a716-446655440082","sdk":{"name":"sentry.cocoa","version":"8.45.0"}}
+{"type":"event"}
+{"event_id":"dd0e8400-e29b-41d4-a716-446655440082","platform":"cocoa","level":"error","exception":{"values":[{"type":"NSInvalidArgumentException","value":"-[__NSDictionaryI objectForKeyedSubscript:]: unrecognized selector sent to instance","stacktrace":{"frames":[{"package":"CoreFoundation","function":"__exceptionPreprocess","in_app":false},{"filename":"ProfileViewController.swift","function":"updateUserProfile","lineno":88,"in_app":true}]}}]},"contexts":{"os":{"name":"iOS","version":"18.1"},"device":{"model":"iPhone16,1","family":"iPhone"}},"environment":"production"}

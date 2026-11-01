@@ -1,0 +1,3 @@
+{"event_id":"aa0e8400-e29b-41d4-a716-446655440280","sdk":{"name":"sentry.rust","version":"0.28.0"}}
+{"type":"event"}
+{"event_id":"aa0e8400-e29b-41d4-a716-446655440280","platform":"native","level":"error","exception":{"values":[{"type":"panic","value":"called `Option::unwrap()` on a `None` value","stacktrace":{"frames":[{"filename":"src/libcore/panicking.rs","function":"core::panicking::panic","lineno":52,"in_app":false},{"filename":"src/parser.rs","function":"my_crate::parser::parse_config","symbol":"_ZN8my_crate6parser12parse_config17h1122334455667788E","lineno":95,"in_app":true}]}}]},"environment":"production"}

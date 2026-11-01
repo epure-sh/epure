@@ -1,0 +1,3 @@
+{"event_id":"ff0e8400-e29b-41d4-a716-446655440072","sdk":{"name":"sentry.dart.flutter","version":"7.0.0"}}
+{"type":"event"}
+{"event_id":"ff0e8400-e29b-41d4-a716-446655440072","platform":"dart","level":"error","exception":{"values":[{"type":"NullThrownError","value":"Throw of null.","stacktrace":{"frames":[{"filename":"package:flutter/src/material/scaffold.dart","function":"ScaffoldState.build","lineno":3100,"in_app":false},{"filename":"package:my_shop/main.dart","function":"MyApp.build","lineno":32,"in_app":true}]}}]},"environment":"production"}

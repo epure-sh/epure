@@ -1,0 +1,3 @@
+{"event_id":"770e8400-e29b-41d4-a716-446655442224","sdk":{"name":"sentry.python","version":"2.22.0"}}
+{"type":"event"}
+{"event_id":"770e8400-e29b-41d4-a716-446655442224","platform":"python","level":"error","exception":{"values":[{"type":"openai.RateLimitError","value":"Rate limit reached for model gpt-4o","stacktrace":{"frames":[{"filename":"openai/_base_client.py","function":"_request","module":"openai._base_client","lineno":1050,"in_app":false},{"filename":"ai_service/generator.py","function":"generate_summary","module":"ai_service.generator","lineno":38,"in_app":true}]}}]},"contexts":{"runtime":{"name":"CPython","version":"3.12.3"},"trace":{"trace_id":"7a75094348e84126938a16dbd7831825","span_id":"83c31671239f1e01"}},"environment":"production"}

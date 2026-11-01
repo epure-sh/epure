@@ -1,0 +1,1 @@
+{"event_id":"770e8400-e29b-41d4-a716-446655441499","platform":"python","level":"error","exception":{"values":[{"type":"TimeoutError","value":"The read operation timed out"}]},"environment":"production","sdk":{"name":"sentry.python","version":"1.45.0"}}

@@ -19,15 +19,20 @@ pub fn normalize_metadata(
     country_hint: Option<&str>,
 ) -> EventMetadata {
     let runtime_name = pointer_string(event, "/contexts/runtime/name")
-        .or_else(|| pointer_string(event, "/runtime/name"));
+        .or_else(|| pointer_string(event, "/runtime/name"))
+        .or_else(|| pointer_string(event, "/sdk/name"));
     let runtime_version = pointer_string(event, "/contexts/runtime/version")
-        .or_else(|| pointer_string(event, "/runtime/version"));
+        .or_else(|| pointer_string(event, "/runtime/version"))
+        .or_else(|| pointer_string(event, "/sdk/version"));
 
     let browser_name =
         pointer_string(event, "/contexts/browser/name").or_else(|| user_agent_browser(user_agent));
-    let os_name = pointer_string(event, "/contexts/os/name").or_else(|| user_agent_os(user_agent));
+    let os_name = pointer_string(event, "/contexts/os/name")
+        .or_else(|| pointer_string(event, "/contexts/device/os_name"))
+        .or_else(|| user_agent_os(user_agent));
     let device_name = pointer_string(event, "/contexts/device/name")
         .or_else(|| pointer_string(event, "/contexts/device/model"))
+        .or_else(|| pointer_string(event, "/contexts/device/family"))
         .or_else(|| user_agent_device(user_agent));
 
     let environment = event

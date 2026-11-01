@@ -1,0 +1,3 @@
+{"event_id":"ee0e8400-e29b-41d4-a716-446655449003","sdk":{"name":"@sentry/nextjs","version":"9.1.0"}}
+{"type":"event"}
+{"event_id":"ee0e8400-e29b-41d4-a716-446655449003","platform":"javascript","level":"error","exception":{"values":[{"type":"Error","value":"Server Action failed: Unauthorized call to updateBilling","stacktrace":{"frames":[{"filename":"turbopack:///[project]/src/actions/billing.ts","function":"updateBilling","lineno":88,"colno":5,"in_app":true}]}}]},"environment":"production"}
