@@ -184,6 +184,11 @@ async fn post_envelope(
             .await
             {
                 tracing::warn!("Failed to record monitor check-in: {err}");
+                return error_response(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "monitor_storage_unavailable",
+                    "Monitor check-in could not be saved; retry the request",
+                );
             }
         }
 
@@ -559,6 +564,12 @@ async fn accept_payload(
     org_id: Uuid,
     payload: Vec<u8>,
 ) -> Response {
+    let payload = match epure_envelope::storage_safe_json(&payload) {
+        Ok(payload) => payload,
+        Err(message) => {
+            return error_response(StatusCode::BAD_REQUEST, "invalid_event_json", message)
+        }
+    };
     if let Err(response) = check_ingest_plan_limit(state, org_id).await {
         state
             .outcomes

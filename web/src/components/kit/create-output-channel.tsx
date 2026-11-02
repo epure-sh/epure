@@ -579,14 +579,14 @@ function VerifyStep({
         <div className="rounded-xl border border-border-subtle bg-surface-2 px-3.5 py-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-2xs font-medium uppercase tracking-wider text-fg-muted">
-              Signing secret · copy once
+              Project signing keys · copy once
             </p>
             <Button variant="ghost" size="sm" onClick={onCopySecret}>
               <Icon icon={Copy} size={12} />
               Copy
             </Button>
           </div>
-          <p className="mt-1 break-all font-mono text-2xs text-fg-primary">{signingSecret}</p>
+          <p className="mt-1 whitespace-pre-wrap break-all font-mono text-2xs text-fg-primary">{signingSecret}</p>
         </div>
       ) : null}
 

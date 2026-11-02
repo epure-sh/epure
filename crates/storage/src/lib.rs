@@ -10,6 +10,7 @@ pub mod events;
 pub mod issue_state;
 pub mod issues;
 pub mod members;
+pub mod monitor_deadlines;
 pub mod monitors;
 pub mod noise;
 pub mod oauth;

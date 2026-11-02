@@ -354,9 +354,9 @@ describe("Empirical Challenger M2: Adversarial Stress Test Suite", () => {
         { ...dummyIssue, title: "Connection ECONNREFUSED 127.0.0.1:5432" },
         null,
       );
-      assert.equal(timeoutDiag.confidence, "High");
-      assert.match(timeoutDiag.cause, /Network or database connection timed out/);
-      assert.match(timeoutDiag.fix, /connection pooling/);
+      assert.equal(timeoutDiag.confidence, "Medium");
+      assert.match(timeoutDiag.cause, /required service could not be reached/);
+      assert.match(timeoutDiag.fix, /Restore the unavailable service/);
 
       // 3. React Hydration
       const hydrationDiag = generateAiDiagnosis(

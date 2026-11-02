@@ -126,7 +126,10 @@ export function CreateOutputChannelDialog({
         created.push(await createAlertChannel(body));
       }
       setChannelIds(created.map((row) => row.id));
-      setSigningSecret(created.find((row) => row.signing_secret)?.signing_secret ?? null);
+      setSigningSecret(created.filter((row) => row.signing_secret).map((row) => {
+        const name = projectChoices.find((project) => project.id === row.project_id)?.name ?? row.project_id;
+        return `${name}: ${row.signing_secret}`;
+      }).join("\n\n") || null);
       setVerified(false);
       setStep(3);
     } catch (err) {
@@ -149,23 +152,17 @@ export function CreateOutputChannelDialog({
     setTestBusy(true);
     setTestError(null);
     try {
-      const primary = channelIds[0]!;
-      const result = await testAlertChannel(primary, { enable_on_ok: true });
-      if (result.sent && result.status === "ok") {
-        await Promise.all(
-          channelIds.slice(1).map((id) =>
-            testAlertChannel(id, { enable_on_ok: true }).catch(() => undefined),
-          ),
-        );
-        setVerified(true);
-        toast.success(
-          channelIds.length > 1
-            ? `Test delivered · ${channelIds.length} projects`
-            : "Test delivered",
-        );
-      } else {
+      const outcomes = await Promise.all(channelIds.map(async (id) => {
+        try { return await testAlertChannel(id, { enable_on_ok: true }); }
+        catch { return { sent: false, status: "fail", error: "Delivery request failed" }; }
+      }));
+      const failures = outcomes.filter((result) => !result.sent || result.status !== "ok");
+      if (failures.length > 0) {
         setVerified(false);
-        setTestError(result.error || "Test delivery failed");
+        setTestError(`${failures.length} of ${channelIds.length} project channels failed verification. ${failures[0]?.error || "Test delivery failed"}`);
+      } else {
+        setVerified(true);
+        toast.success(channelIds.length > 1 ? `Test delivered · ${channelIds.length} projects` : "Test delivered");
       }
     } catch (err) {
       setVerified(false);

@@ -493,27 +493,7 @@ fn is_vendor_frame(frame: &StackFrame) -> bool {
     false
 }
 
-fn has_source_context(frame: &StackFrame) -> bool {
-    frame
-        .context_line
-        .as_ref()
-        .is_some_and(|l| !l.trim().is_empty())
-        || frame
-            .pre_context
-            .as_ref()
-            .is_some_and(|lines| !lines.is_empty())
-        || frame
-            .post_context
-            .as_ref()
-            .is_some_and(|lines| !lines.is_empty())
-}
-
 fn find_culprit_frame(frames: &[StackFrame]) -> Option<StackFrame> {
-    for frame in frames.iter().rev() {
-        if !is_vendor_frame(frame) && has_source_context(frame) {
-            return Some(frame.clone());
-        }
-    }
     for frame in frames.iter().rev() {
         if !is_vendor_frame(frame) {
             return Some(frame.clone());

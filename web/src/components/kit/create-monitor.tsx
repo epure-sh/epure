@@ -130,6 +130,7 @@ export interface CreateMonitorPanelProps {
   connectedMs?: number | null;
   createdSlug?: string | null;
   projectId?: string | null;
+  dsnHint?: string;
   /** True after the monitor row exists and step 3 shows the snippet. */
   created?: boolean;
   onChange: (next: CreateMonitorDraft) => void;
@@ -148,6 +149,7 @@ export function CreateMonitorPanel({
   connectedMs,
   createdSlug,
   projectId,
+  dsnHint,
   created = false,
   onChange,
   onStep,
@@ -205,6 +207,7 @@ export function CreateMonitorPanel({
               draft={draft}
               createdSlug={createdSlug}
               projectId={projectId}
+              dsnHint={dsnHint}
               listening={listening}
               connected={connected}
               connectedMs={connectedMs}
@@ -552,6 +555,7 @@ function ConnectStep({
   draft,
   createdSlug,
   projectId,
+  dsnHint,
   listening,
   connected,
   connectedMs,
@@ -561,6 +565,7 @@ function ConnectStep({
   draft: CreateMonitorDraft;
   createdSlug?: string | null;
   projectId?: string | null;
+  dsnHint?: string;
   listening?: boolean;
   connected?: boolean;
   connectedMs?: number | null;
@@ -573,6 +578,7 @@ function ConnectStep({
   const snippet = useMemo(
     () =>
       buildSnippet(platform, {
+        dsnHint,
         slug,
         schedule,
         timezone: draft.timezone,
@@ -581,7 +587,7 @@ function ConnectStep({
         environment: draft.environment || "production",
         projectId,
       }),
-    [platform, draft, schedule, slug, projectId],
+    [platform, draft, schedule, slug, projectId, dsnHint],
   );
   const language = SNIPPET_TABS.find((t) => t.id === platform)?.language ?? "typescript";
   const agentPrompt = `Add this Epure cron monitor check-in to my scheduled job (slug: ${slug}):\n\n\`\`\`\n${snippet}\n\`\`\`\n\nWire upsert-on-check-in so the monitor stays in sync with the schedule.`;

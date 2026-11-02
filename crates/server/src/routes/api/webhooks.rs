@@ -65,7 +65,11 @@ fn validate_events(events: &[String]) -> bool {
         && events.iter().all(|event| {
             matches!(
                 event.as_str(),
-                "issue_created" | "regression" | "velocity_spike" | "custom_rule"
+                "issue_created"
+                    | "regression"
+                    | "velocity_spike"
+                    | "custom_rule"
+                    | "monitor_recovered"
             )
         })
 }

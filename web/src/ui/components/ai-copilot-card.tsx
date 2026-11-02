@@ -40,18 +40,15 @@ export interface AiCopilotCardProps {
 
 export function extractCulprit(issue: IssueSummary, event: EventDetail | null): string {
   const payload = event?.payload_json as Record<string, unknown> | undefined;
-  if (typeof payload?.transaction === "string" && payload.transaction) {
-    return payload.transaction;
+  if (Array.isArray(event?.stack_frames)) {
+    const frames = event.stack_frames as Array<{ filename?: string; lineno?: number; in_app?: boolean }>;
+    // Sentry frames are oldest first: the deepest application frame raised the exception.
+    const frame = frames.slice().reverse().find((frame) => frame.filename && frame.in_app !== false &&
+      !/(node_modules|site-packages|vendor|dist-packages)\//.test(frame.filename));
+    if (frame?.filename) return frame.lineno ? `${frame.filename}:${frame.lineno}` : frame.filename;
   }
-  if (typeof payload?.culprit === "string" && payload.culprit) {
-    return payload.culprit;
-  }
-  if (Array.isArray(event?.stack_frames) && event.stack_frames.length > 0) {
-    const top = event.stack_frames[0] as { filename?: string; lineno?: number };
-    if (top?.filename) {
-      return top.lineno ? `${top.filename}:${top.lineno}` : top.filename;
-    }
-  }
+  if (typeof payload?.culprit === "string" && payload.culprit) return payload.culprit;
+  if (typeof payload?.transaction === "string" && payload.transaction) return payload.transaction;
   return issue.title ? issue.title.split(":")[0] : "application entrypoint";
 }
 
@@ -66,6 +63,11 @@ export function generateAiDiagnosis(
 } {
   const title = (issue.title ?? "").toLowerCase();
   const culprit = extractCulprit(issue, event);
+  const evidence = `${title} ${JSON.stringify(event?.payload_json?.exception ?? "")}`.toLowerCase();
+  if (/service is not running|container.*not running|econnrefused|enotfound|getaddrinfo|name.*resolution/.test(evidence)) {
+    return { culprit, cause: `A required service could not be reached from ${culprit}.`,
+      fix: "Restore the unavailable service, then check its hostname, port, network and credentials. Retry the actual job after connectivity recovers.", confidence: "Medium" };
+  }
 
   if (title.includes("typeerror") || title.includes("cannot read") || title.includes("undefined")) {
     return {

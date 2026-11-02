@@ -63,6 +63,13 @@ pub async fn list_for_project_ingest(
         SELECT id, project_id, url, format, events, signing_secret
         FROM webhooks
         WHERE project_id = $1
+          AND NOT EXISTS (
+              SELECT 1 FROM alert_channels c
+              WHERE c.org_id = current_setting('app.current_org_id', true)::uuid
+                AND c.project_id = webhooks.project_id
+                AND c.config->>'webhook_id' = webhooks.id::text
+                AND NOT c.is_enabled
+          )
         ORDER BY created_at ASC
         "#,
     )
@@ -90,6 +97,33 @@ pub async fn get_for_dispatch(
 }
 
 pub async fn get_for_dispatch_org(
+    pool: &PgPool,
+    org_id: Uuid,
+    webhook_id: Uuid,
+) -> Result<Option<WebhookDispatchRow>, sqlx::Error> {
+    let mut tx = crate::rls::begin_ingest_transaction(pool, org_id).await?;
+    let row = sqlx::query_as::<_, WebhookDispatchRow>(
+        r#"
+        SELECT w.id, w.project_id, w.url, w.format, w.events, w.signing_secret
+        FROM webhooks w
+        INNER JOIN projects p ON p.id = w.project_id
+        WHERE w.id = $1 AND p.org_id = $2
+          AND NOT EXISTS (
+              SELECT 1 FROM alert_channels c
+              WHERE c.org_id = $2 AND c.project_id = w.project_id
+                AND c.config->>'webhook_id' = w.id::text AND NOT c.is_enabled
+          )
+        "#,
+    )
+    .bind(webhook_id)
+    .bind(org_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
+pub async fn get_for_test_org(
     pool: &PgPool,
     org_id: Uuid,
     webhook_id: Uuid,

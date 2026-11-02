@@ -352,8 +352,7 @@ async fn emit_custom_matches(
             } else {
                 let channels =
                     alert_rules::get_channels_by_ids_ingest(pool, issue.org_id, &rule.channel_ids)
-                        .await
-                        .unwrap_or_default();
+                        .await?;
                 let webhook_ids: Vec<Uuid> = channels
                     .iter()
                     .filter_map(|ch| alert_rules::channel_webhook_id(&ch.config.0))

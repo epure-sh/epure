@@ -111,18 +111,17 @@ export function MonitorDurationStrip({
     return [...empties, ...filtered];
   }, [runs, days, maxSlots, minSlots]);
 
-  const stats = monitorStripStats(
-    recent.filter((r) => r.status !== "empty"),
-  );
+  const actualRuns = recent.filter((r) => r.status !== "empty");
+  const stats = monitorStripStats(actualRuns);
 
   return (
     <div data-slot="monitor-duration-strip" className={cn("min-w-0", className)}>
       <div
         className="flex h-4 flex-wrap content-center items-center gap-0.5"
         role="img"
-        aria-label={`Last ${days} days · ${recent.length} check-ins`}
+        aria-label={`Last ${days} days · ${actualRuns.length} check-ins`}
       >
-        {recent.length === 0 ? (
+        {actualRuns.length === 0 ? (
           <span className="text-2xs text-fg-muted">No runs</span>
         ) : (
           recent.map((run) => (

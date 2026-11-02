@@ -166,6 +166,15 @@ async fn create_monitor(
         return Err(StatusCode::BAD_REQUEST);
     }
 
+    validate_config(
+        body.schedule.as_deref(),
+        body.timezone.as_deref(),
+        body.schedule_type.as_deref(),
+        body.checkin_margin_mins,
+        body.max_runtime_mins,
+        body.failure_issue_threshold,
+    )?;
+
     let row = monitors::create_monitor(
         &state.pools.app,
         dashboard.org_id,
@@ -195,6 +204,21 @@ async fn update_monitor(
     Json(body): Json<UpdateMonitorBody>,
 ) -> Result<impl IntoResponse, StatusCode> {
     require_min_role(&dashboard, Role::Member)?;
+
+    let existing = monitors::get_monitor(&state.pools.app, dashboard.org_id, id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
+    validate_config(
+        body.schedule.as_deref().or(existing.schedule.as_deref()),
+        body.timezone.as_deref().or(existing.timezone.as_deref()),
+        body.schedule_type
+            .as_deref()
+            .or(existing.schedule_type.as_deref()),
+        body.checkin_margin_mins,
+        body.max_runtime_mins,
+        body.failure_issue_threshold,
+    )?;
 
     let row = monitors::update_monitor(
         &state.pools.app,
@@ -275,4 +299,23 @@ async fn delete_monitor(
     }
 
     Ok(Json(DeletedResponse { deleted: true }))
+}
+
+fn validate_config(
+    schedule: Option<&str>,
+    timezone: Option<&str>,
+    kind: Option<&str>,
+    margin: Option<i32>,
+    runtime: Option<i32>,
+    threshold: Option<i32>,
+) -> Result<(), StatusCode> {
+    if !epure_storage::monitor_deadlines::valid_schedule(schedule, timezone)
+        || kind.is_some_and(|v| !matches!(v, "interval" | "crontab"))
+        || margin.is_some_and(|v| v < 0)
+        || runtime.is_some_and(|v| v < 1)
+        || threshold.is_some_and(|v| v < 1)
+    {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    Ok(())
 }
