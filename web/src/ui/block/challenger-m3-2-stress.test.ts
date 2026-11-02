@@ -179,7 +179,7 @@ describe("Challenger 2: Milestone 3 Empirical Stress Suite", () => {
       assert.match(tableHtml, /data-mode="table"/);
       assert.match(tableHtml, /alice@example\.com/);
       assert.match(tableHtml, /production/);
-      assert.match(tableHtml, /src\/billing\/checkout\.ts:142/);
+      assert.match(tableHtml, /POST \/api\/v1\/checkout/);
 
       // 2. List mode
       const listHtml = renderToStaticMarkup(
