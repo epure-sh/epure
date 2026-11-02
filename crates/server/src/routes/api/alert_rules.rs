@@ -274,6 +274,7 @@ fn default_webhook_events() -> Vec<String> {
         "regression".to_string(),
         "velocity_spike".to_string(),
         "custom_rule".to_string(),
+        "monitor_recovered".to_string(),
     ]
 }
 

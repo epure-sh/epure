@@ -393,7 +393,12 @@ pub async fn list_user_authorizations(
     pool: &PgPool,
     user_id: Uuid,
 ) -> Result<Vec<OAuthAuthorizationRow>, sqlx::Error> {
-    sqlx::query_as::<_, OAuthAuthorizationRow>(
+    let mut tx = pool.begin().await?;
+    sqlx::query("SELECT set_config('app.current_user_id', $1, true)")
+        .bind(user_id.to_string())
+        .execute(&mut *tx)
+        .await?;
+    let rows = sqlx::query_as::<_, OAuthAuthorizationRow>(
         r#"
         SELECT id, user_id, org_id, client_id, client_name, scopes,
                ip_address, user_agent, last_used_at, created_at
@@ -403,8 +408,10 @@ pub async fn list_user_authorizations(
         "#,
     )
     .bind(user_id)
-    .fetch_all(pool)
-    .await
+    .fetch_all(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(rows)
 }
 
 pub async fn revoke_authorization(
@@ -414,6 +421,20 @@ pub async fn revoke_authorization(
 ) -> Result<bool, sqlx::Error> {
     let mut tx = pool.begin().await?;
     let now = Utc::now();
+    sqlx::query("SELECT set_config('app.current_user_id', $1, true)")
+        .bind(user_id.to_string())
+        .execute(&mut *tx)
+        .await?;
+    let org_id = sqlx::query_scalar::<_, Uuid>(
+        "SELECT org_id FROM oauth_authorizations WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL FOR UPDATE"
+    ).bind(authorization_id).bind(user_id).fetch_optional(&mut *tx).await?;
+    let Some(org_id) = org_id else {
+        return Ok(false);
+    };
+    sqlx::query("SELECT set_config('app.current_org_id', $1, true)")
+        .bind(org_id.to_string())
+        .execute(&mut *tx)
+        .await?;
 
     let result = sqlx::query(
         r#"

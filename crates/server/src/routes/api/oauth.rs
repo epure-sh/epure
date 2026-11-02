@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Query, State},
-    http::{header, HeaderMap, StatusCode},
+    extract::{FromRequest, Query, Request, State},
+    http::{header, StatusCode},
     response::IntoResponse,
     routing::{delete, get, post},
-    Extension, Json, Router,
+    Extension, Form, Json, Router,
 };
 use epure_auth::DashboardSession;
 use epure_storage::oauth::{
@@ -108,9 +108,39 @@ struct TokenResponse {
 
 async fn post_oauth_token(
     State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-    Json(body): Json<TokenRequest>,
+    request: Request,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    let headers = request.headers().clone();
+    let body = if headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| {
+            v.split(';')
+                .next()
+                .unwrap_or("")
+                .trim()
+                .eq_ignore_ascii_case("application/x-www-form-urlencoded")
+        }) {
+        Form::<TokenRequest>::from_request(request, &state)
+            .await
+            .map(|v| v.0)
+            .map_err(|_| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({"error":"invalid_request"})),
+                )
+            })?
+    } else {
+        Json::<TokenRequest>::from_request(request, &state)
+            .await
+            .map(|v| v.0)
+            .map_err(|_| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({"error":"invalid_request"})),
+                )
+            })?
+    };
     let user_agent = headers
         .get(header::USER_AGENT)
         .and_then(|v| v.to_str().ok())
@@ -488,11 +518,8 @@ async fn get_oauth_info(
 ) -> Result<impl IntoResponse, StatusCode> {
     let orgs = sqlx::query_as::<_, (Uuid, String, String)>(
         r#"
-        SELECT o.id, o.name, om.role
-        FROM organizations o
-        JOIN org_members om ON om.org_id = o.id
-        WHERE om.user_id = $1
-        ORDER BY o.name ASC
+        SELECT org_id, name, role FROM auth_list_user_organizations($1)
+        ORDER BY name ASC
         "#,
     )
     .bind(session.user_id)
@@ -535,13 +562,19 @@ async fn post_oauth_authorize(
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     // Verify membership in approved org
     let is_member = sqlx::query_scalar::<_, bool>(
-        "SELECT EXISTS (SELECT 1 FROM org_members WHERE user_id = $1 AND org_id = $2)",
+        "SELECT EXISTS (SELECT 1 FROM auth_verify_org_membership($1, $2))",
     )
     .bind(session.user_id)
     .bind(body.org_id)
     .fetch_one(&state.pools.app)
     .await
-    .unwrap_or(false);
+    .map_err(|err| {
+        tracing::error!("failed to verify OAuth organization membership: {err}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error":"server_error"})),
+        )
+    })?;
 
     if !is_member {
         return Err((

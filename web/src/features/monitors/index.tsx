@@ -21,6 +21,8 @@ import {
 import {
   deleteMonitor,
   fetchMonitors,
+  fetchSetupDsn,
+  formatDsn,
   updateMonitor,
   type MonitorItem,
 } from "@/lib/api";
@@ -31,7 +33,6 @@ import { CardRowSkeleton, FeedListBody, ProjectPageTitle } from "@/ui/block";
 import { CreateMonitorDialog } from "./create-monitor-dialog";
 import { EditMonitorDialog } from "./edit-monitor-dialog";
 import {
-  estimateNextCheckInIso,
   formatCountdown,
   humanizeSchedule,
   parseStoredSchedule,
@@ -59,7 +60,7 @@ function statusRank(m: MonitorItem): number {
 
 function toRowData(m: MonitorItem, now = Date.now()): MonitorRowData {
   const schedule = parseStoredSchedule(m.schedule, m.timezone ?? "UTC");
-  const nextIso = m.next_check_in_at ?? estimateNextCheckInIso(schedule);
+  const nextIso = m.next_check_in_at;
   return {
     id: m.id,
     name: m.name || m.slug,
@@ -116,14 +117,14 @@ export function MonitorsPage() {
 
   const activeProjectId = activeProject?.id ?? null;
 
-  const loadMonitors = useCallback(async () => {
+  const loadMonitors = useCallback(async (quiet = false) => {
     if (projectsLoading) return;
     if (!activeProjectId) {
       setMonitors([]);
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!quiet) setLoading(true);
     setError(null);
     try {
       const items = await fetchMonitors(activeProjectId);
@@ -141,9 +142,20 @@ export function MonitorsPage() {
   }, [loadMonitors]);
 
   useEffect(() => {
-    const id = window.setInterval(() => setNowTick(Date.now()), 30_000);
-    return () => window.clearInterval(id);
-  }, []);
+    let pending = false;
+    const refresh = async () => {
+      if (pending || document.visibilityState === "hidden") return;
+      pending = true;
+      setNowTick(Date.now());
+      try { await loadMonitors(true); } finally { pending = false; }
+    };
+    const id = window.setInterval(() => void refresh(), 10_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [loadMonitors]);
 
   const counts = useMemo(() => {
     const failing = monitors.filter(
@@ -243,7 +255,10 @@ export function MonitorsPage() {
         failureIssueThreshold: 1,
         channelIds: [],
       });
+    const info = await fetchSetupDsn(monitor.project_id);
+    if (!info.public_key) { toast("Create an active DSN key first"); return; }
     const text = buildSnippet("node", {
+      dsnHint: formatDsn(info.public_key, info.dsn_project_id),
       slug: monitor.slug,
       schedule,
       timezone: monitor.timezone || "UTC",

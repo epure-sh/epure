@@ -334,27 +334,14 @@ export function SetupWizardDialog({
   }, [activeProjectId, toast]);
 
   const setupComplete = verifyIssueSeen;
-  /** New creates must finish verify; finishing an existing project can dismiss earlier. */
-  const mustFinishSetup = !projectId;
 
   const handleOpenDashboard = useCallback(() => {
-    if (!activeProjectId || (mustFinishSetup && !setupComplete)) {
+    if (!activeProjectId) {
       return;
     }
     onOpenChange(false);
     navigate(projectPath(activeProjectId, "dashboard"), { replace: true });
-  }, [activeProjectId, mustFinishSetup, navigate, onOpenChange, setupComplete]);
-
-  const handleOpenChange = useCallback(
-    (next: boolean) => {
-      if (!next && mustFinishSetup && activeProjectId && !setupComplete) {
-        toast("Finish setup. Wait for the first event before leaving.");
-        return;
-      }
-      onOpenChange(next);
-    },
-    [activeProjectId, mustFinishSetup, onOpenChange, setupComplete, toast],
-  );
+  }, [activeProjectId, navigate, onOpenChange]);
 
   const handleBack = useCallback(() => {
     if (step === "verify") {
@@ -422,26 +409,11 @@ export function SetupWizardDialog({
         : "h-auto max-h-[90vh]";
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(CARD_BASE, dialogSizeClass)}
         aria-describedby={undefined}
-        onEscapeKeyDown={(event) => {
-          if (mustFinishSetup && activeProjectId && !setupComplete) {
-            event.preventDefault();
-            toast("Finish setup. Wait for the first event before leaving.");
-          }
-        }}
-        onPointerDownOutside={(event) => {
-          if (mustFinishSetup && activeProjectId && !setupComplete) {
-            event.preventDefault();
-          }
-        }}
-        onInteractOutside={(event) => {
-          if (mustFinishSetup && activeProjectId && !setupComplete) {
-            event.preventDefault();
-          }
-        }}
+
       >
         <DialogHeader className="shrink-0 space-y-2 border-b border-border-subtle px-3 py-2.5 pr-10">
           <DialogTitle className="flex items-center gap-2 text-base font-medium tracking-ui">
@@ -722,10 +694,10 @@ export function SetupWizardDialog({
                   <Button
                     type="button"
                     variant="primary"
-                    disabled={mustFinishSetup && !setupComplete}
+                    disabled={!activeProjectId}
                     onClick={handleOpenDashboard}
                   >
-                    {setupComplete ? "Open dashboard" : "Waiting for first event…"}
+                    {setupComplete ? "Open dashboard" : "Continue to dashboard"}
                   </Button>
                 </div>
               </div>

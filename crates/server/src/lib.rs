@@ -33,6 +33,8 @@ pub struct ServerRuntime {
     pub worker: JoinHandle<()>,
     pub flusher: JoinHandle<()>,
     pub ttl: JoinHandle<()>,
+    pub deliveries: JoinHandle<()>,
+    pub monitors: JoinHandle<()>,
     pub session_cleanup: JoinHandle<()>,
     shutdown: Arc<tokio::sync::Notify>,
 }
@@ -54,6 +56,8 @@ impl ServerRuntime {
             tracing::error!(error = %err, "spike flusher task failed");
         }
         self.ttl.abort();
+        self.deliveries.abort();
+        self.monitors.abort();
         self.session_cleanup.abort();
         tracing::info!("epure runtime shutdown complete");
     }
@@ -170,6 +174,14 @@ pub async fn init_runtime(
         .await;
     });
 
+    let delivery_pool = migrate_pool.clone();
+    let deliveries = tokio::spawn(lifecycle::webhooks::run_delivery_job(delivery_pool));
+    let monitor_pool = migrate_pool.clone();
+    let monitor_ingest_pool = ingest.clone();
+    let monitors = tokio::spawn(jobs::monitors::run_monitor_job(
+        monitor_pool,
+        monitor_ingest_pool,
+    ));
     let ttl_pool = migrate_pool.clone();
     let ttl = tokio::spawn(async move {
         run_ttl_job(ttl_pool).await;
@@ -226,6 +238,8 @@ pub async fn init_runtime(
         worker,
         flusher,
         ttl,
+        deliveries,
+        monitors,
         session_cleanup,
         shutdown,
     })

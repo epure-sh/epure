@@ -14,6 +14,8 @@ import {
   createMonitor,
   fetchAlertChannels,
   fetchMonitorDetails,
+  fetchSetupDsn,
+  formatDsn,
   sendMonitorTestCheckIn,
   type AlertChannelRow,
   type MonitorItem,
@@ -39,6 +41,7 @@ export function CreateMonitorDialog({
 }: CreateMonitorDialogProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [draft, setDraft] = useState(() => emptyMonitorDraft(defaultEnvironment));
+  const [dsnHint, setDsnHint] = useState<string | undefined>();
   const [channels, setChannels] = useState<AlertChannelRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<MonitorItem | null>(null);
@@ -50,6 +53,11 @@ export function CreateMonitorDialog({
 
   useEffect(() => {
     if (!open) return;
+    setDsnHint(undefined);
+    let cancelled = false;
+    void fetchSetupDsn(projectId).then((info) => {
+      if (!cancelled && info.public_key) setDsnHint(formatDsn(info.public_key, info.dsn_project_id));
+    }).catch(() => undefined);
     setStep(1);
     setDraft(emptyMonitorDraft(defaultEnvironment));
     setCreated(null);
@@ -66,6 +74,7 @@ export function CreateMonitorDialog({
         }));
       })
       .catch(() => setChannels([]));
+    return () => { cancelled = true; };
   }, [open, projectId, defaultEnvironment]);
 
   useEffect(() => {
@@ -137,6 +146,7 @@ export function CreateMonitorDialog({
         <DialogTitle className="sr-only">New cron monitor</DialogTitle>
         <CreateMonitorPanel
           step={step}
+          dsnHint={dsnHint}
           draft={draft}
           channels={channels.map((c) => ({
             id: c.id,

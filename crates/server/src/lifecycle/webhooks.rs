@@ -4,7 +4,6 @@ use reqwest::Client;
 use serde_json::json;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::OnceLock;
-use tokio::sync::Semaphore;
 use tracing::warn;
 use uuid::Uuid;
 
@@ -197,7 +196,7 @@ pub async fn dispatch_event(pool: &PgPool, org_id: Uuid, event: &str, context: &
         if !hook.events.iter().any(|value| value == event) {
             continue;
         }
-        dispatch_hook(hook, event, context);
+        enqueue_hook(pool, org_id, hook, event, context).await;
     }
 }
 
@@ -228,12 +227,12 @@ pub async fn dispatch_event_to_webhooks(
             // Channel-linked hooks subscribe to custom_rule; still allow if subscribed.
             continue;
         }
-        dispatch_hook(hook, event, context);
+        enqueue_hook(pool, org_id, hook, event, context).await;
     }
 }
 
 pub async fn dispatch_test(pool: &PgPool, org_id: Uuid, webhook_id: Uuid) -> Result<(), String> {
-    let hook = webhooks::get_for_dispatch_org(pool, org_id, webhook_id)
+    let hook = webhooks::get_for_test_org(pool, org_id, webhook_id)
         .await
         .map_err(|err| err.to_string())?
         .ok_or_else(|| "webhook not found".to_string())?;
@@ -241,51 +240,190 @@ pub async fn dispatch_test(pool: &PgPool, org_id: Uuid, webhook_id: Uuid) -> Res
     let context = WebhookContext {
         project_id: hook.project_id,
         issue_id: Uuid::nil(),
-        title: Some("Webhook test delivery".to_string()),
-        status: "test".to_string(),
-        release: Some("test@0.0.0".to_string()),
+        title: Some("Webhook test delivery".into()),
+        status: "test".into(),
+        release: None,
         event_count: 0,
     };
-    dispatch_hook(hook, "test", &context);
+    let payload = format_payload(&hook, "test", &context);
+    let id = Uuid::new_v4();
+    let mut tx = epure_storage::rls::begin_org_transaction(pool, org_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    sqlx::query("INSERT INTO webhook_deliveries (id, org_id, project_id, webhook_id, event, payload, status, attempts) VALUES ($1,$2,$3,$4,'test',$5,'processing',1)")
+        .bind(id).bind(org_id).bind(hook.project_id).bind(hook.id).bind(&payload)
+        .execute(&mut *tx).await.map_err(|e| e.to_string())?;
+    tx.commit().await.map_err(|e| e.to_string())?;
+    let result = send_hook(&hook, id, &payload).await;
+    let mut tx = epure_storage::rls::begin_org_transaction(pool, org_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    let (status, http, error) = match &result {
+        Ok(code) => ("delivered", Some(*code as i32), None),
+        Err(failure) => (
+            "failed",
+            failure.http_status.map(i32::from),
+            Some(failure.message.clone()),
+        ),
+    };
+    sqlx::query("UPDATE webhook_deliveries SET status=$2, http_status=$3, last_error=$4, updated_at=now() WHERE id=$1")
+        .bind(id).bind(status).bind(http).bind(error).execute(&mut *tx).await.map_err(|e| e.to_string())?;
+    tx.commit().await.map_err(|e| e.to_string())?;
+    result.map(|_| ()).map_err(|e| e.message)
+}
+
+async fn enqueue_hook(
+    pool: &PgPool,
+    org_id: Uuid,
+    hook: WebhookDispatchRow,
+    event: &str,
+    context: &WebhookContext,
+) {
+    let result = async {
+        let mut tx = epure_storage::rls::begin_ingest_transaction(pool, org_id).await?;
+        sqlx::query("INSERT INTO webhook_deliveries (id,org_id,project_id,webhook_id,event,payload) VALUES ($1,$2,$3,$4,$5,$6)")
+            .bind(Uuid::new_v4()).bind(org_id).bind(hook.project_id).bind(hook.id)
+            .bind(event).bind(format_payload(&hook,event,context)).execute(&mut *tx).await?;
+        tx.commit().await
+    }.await;
+    if let Err(err) = result {
+        warn!(webhook_id=%hook.id, "failed to queue webhook: {err}");
+    }
+}
+
+struct DeliveryFailure {
+    http_status: Option<u16>,
+    retry: bool,
+    message: String,
+}
+
+async fn send_hook(
+    hook: &WebhookDispatchRow,
+    id: Uuid,
+    payload: &serde_json::Value,
+) -> Result<u16, DeliveryFailure> {
+    let target = resolve_webhook_target(&hook.url)
+        .await
+        .ok_or_else(|| DeliveryFailure {
+            http_status: None,
+            retry: false,
+            message: "Webhook URL is unsafe or cannot be resolved".into(),
+        })?;
+    let body = serde_json::to_vec(payload).expect("webhook payload json");
+    let timestamp = chrono::Utc::now().timestamp().to_string();
+    let signature = super::webhook_sign::sign_payload(&hook.signing_secret, &timestamp, &body);
+    let response = http_client_for(&target)
+        .post(&hook.url)
+        .header(SIGNATURE_HEADER, signature)
+        .header(DELIVERY_HEADER, id.to_string())
+        .header(TIMESTAMP_HEADER, timestamp)
+        .header("Content-Type", "application/json")
+        .body(body)
+        .send()
+        .await
+        .map_err(|_| DeliveryFailure {
+            http_status: None,
+            retry: true,
+            message: "Webhook request failed or timed out".into(),
+        })?;
+    let status = response.status();
+    if status.is_success() {
+        return Ok(status.as_u16());
+    }
+    Err(DeliveryFailure {
+        http_status: Some(status.as_u16()),
+        retry: status.is_server_error() || status.as_u16() == 429,
+        message: format!("Webhook returned HTTP {}", status.as_u16()),
+    })
+}
+
+#[derive(sqlx::FromRow)]
+struct PendingDelivery {
+    id: Uuid,
+    org_id: Uuid,
+    project_id: Uuid,
+    webhook_id: Uuid,
+    payload: serde_json::Value,
+    attempts: i32,
+}
+
+/// The maintenance pool owns cross-tenant job scheduling, like TTL. Each queued row
+/// was inserted under tenant RLS; destinations are rechecked before every attempt.
+pub async fn run_delivery_once(pool: &PgPool) -> Result<usize, sqlx::Error> {
+    let rows = sqlx::query_as::<_, PendingDelivery>(
+        r#"
+        WITH due AS (
+            SELECT id FROM webhook_deliveries
+            WHERE status IN ('pending','processing') AND next_attempt_at <= now()
+            ORDER BY next_attempt_at LIMIT 16 FOR UPDATE SKIP LOCKED
+        )
+        UPDATE webhook_deliveries d SET status='processing', attempts=attempts+1,
+            next_attempt_at=now()+interval '45 seconds', updated_at=now()
+        FROM due WHERE d.id=due.id
+        RETURNING d.id,d.org_id,d.project_id,d.webhook_id,d.payload,d.attempts
+    "#,
+    )
+    .fetch_all(pool)
+    .await?;
+    let count = rows.len();
+    let mut tasks = tokio::task::JoinSet::new();
+    for row in rows {
+        let pool = pool.clone();
+        tasks.spawn(async move { deliver_pending(&pool, row).await });
+    }
+    while let Some(result) = tasks.join_next().await {
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => warn!("webhook delivery recording failed: {e}"),
+            Err(e) => warn!("webhook delivery task failed: {e}"),
+        }
+    }
+    Ok(count)
+}
+
+async fn deliver_pending(pool: &PgPool, row: PendingDelivery) -> Result<(), sqlx::Error> {
+    let hook=sqlx::query_as::<_,WebhookDispatchRow>(r#"
+        SELECT w.id,w.project_id,w.url,w.format,w.events,w.signing_secret FROM webhooks w
+        JOIN projects p ON p.id=w.project_id
+        WHERE w.id=$1 AND p.org_id=$2 AND w.project_id=$3
+          AND NOT EXISTS (SELECT 1 FROM alert_channels c WHERE c.org_id=$2
+              AND c.project_id=w.project_id AND c.config->>'webhook_id'=w.id::text AND NOT c.is_enabled)
+    "#).bind(row.webhook_id).bind(row.org_id).bind(row.project_id).fetch_optional(pool).await?;
+    let (status, http, error) = if let Some(hook) = hook {
+        match send_hook(&hook, row.id, &row.payload).await {
+            Ok(code) => ("delivered", Some(i32::from(code)), None),
+            Err(e) => (
+                if e.retry && row.attempts < 3 {
+                    "pending"
+                } else {
+                    "failed"
+                },
+                e.http_status.map(i32::from),
+                Some(e.message),
+            ),
+        }
+    } else {
+        (
+            "cancelled",
+            None,
+            Some("Destination removed or paused".to_string()),
+        )
+    };
+    sqlx::query("UPDATE webhook_deliveries SET status=$2,http_status=$3,last_error=$4,next_attempt_at=now()+make_interval(secs => $5),updated_at=now() WHERE id=$1")
+        .bind(row.id).bind(status).bind(http).bind(error).bind(if row.attempts<2 {2.0f64} else {8.0})
+        .execute(pool).await?;
     Ok(())
 }
 
-fn webhook_permits() -> &'static Semaphore {
-    static PERMITS: OnceLock<Semaphore> = OnceLock::new();
-    PERMITS.get_or_init(|| Semaphore::new(32))
-}
-
-fn dispatch_hook(hook: WebhookDispatchRow, event: &str, context: &WebhookContext) {
-    let payload = format_payload(&hook, event, context);
-    let body = serde_json::to_vec(&payload).expect("webhook payload json");
-    let delivery_id = Uuid::new_v4();
-    let timestamp = chrono::Utc::now().timestamp().to_string();
-    let signature = super::webhook_sign::sign_payload(&hook.signing_secret, &timestamp, &body);
-    let url = hook.url.clone();
-
-    tokio::spawn(async move {
-        let Ok(_permit) = webhook_permits().acquire().await else {
-            warn!("webhook semaphore closed");
-            return;
-        };
-        let Some(target) = resolve_webhook_target(&url).await else {
-            warn!("webhook dispatch blocked for unsafe url");
-            return;
-        };
-
-        if let Err(err) = http_client_for(&target)
-            .post(&url)
-            .header(SIGNATURE_HEADER, signature)
-            .header(DELIVERY_HEADER, delivery_id.to_string())
-            .header(TIMESTAMP_HEADER, timestamp)
-            .header("Content-Type", "application/json")
-            .body(body)
-            .send()
-            .await
-        {
-            warn!("webhook dispatch failed: {err}");
+pub async fn run_delivery_job(pool: PgPool) {
+    let mut tick = tokio::time::interval(std::time::Duration::from_secs(1));
+    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    loop {
+        tick.tick().await;
+        if let Err(e) = run_delivery_once(&pool).await {
+            warn!("webhook outbox failed: {e}");
         }
-    });
+    }
 }
 
 fn format_payload(

@@ -342,6 +342,12 @@ impl CredentialAuth {
         epure_storage::rls::with_request_user(user_id, async move {
             let mut tx = epure_storage::rls::begin_org_transaction(&pool, org_id).await?;
 
+            let member_ids = sqlx::query_scalar::<_, Uuid>(
+                "SELECT user_id FROM org_members WHERE org_id = $1 ORDER BY user_id FOR UPDATE",
+            )
+            .bind(org_id)
+            .fetch_all(&mut *tx)
+            .await?;
             let role = sqlx::query_scalar::<_, String>(
                 r#"
                 SELECT role
@@ -356,12 +362,7 @@ impl CredentialAuth {
             .await?
             .ok_or(CredentialError::InvalidCredentials)?;
 
-            let member_count = sqlx::query_scalar::<_, i64>(
-                "SELECT COUNT(*)::bigint FROM org_members WHERE org_id = $1 FOR UPDATE",
-            )
-            .bind(org_id)
-            .fetch_one(&mut *tx)
-            .await?;
+            let member_count = member_ids.len();
 
             if role == "owner" && member_count > 1 {
                 return Err(CredentialError::TransferOwnershipRequired);

@@ -14,8 +14,6 @@ import {
   deleteProject,
   fetchBillingStatus,
   fetchHeadlineStats,
-  fetchSetupProgress,
-  setupOnboardingDone,
   type BillingStatus,
   type HeadlineStats,
   type TimelineBucket,
@@ -201,18 +199,6 @@ export function OrgHomePage() {
     }
     setBusy(true);
     try {
-      for (const project of safeProjects) {
-        try {
-          const progress = await fetchSetupProgress(project.id);
-          if (!setupOnboardingDone(progress)) {
-            toast(`Finish setup for “${project.name}” before creating another project.`);
-            openWizard({ name: project.name, projectId: project.id });
-            return;
-          }
-        } catch {
-          /* skip unreachable projects */
-        }
-      }
       openWizard({ name: "" });
     } finally {
       setBusy(false);

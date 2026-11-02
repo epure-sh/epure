@@ -722,7 +722,18 @@ async fn fresh_session(
         let _ = clear_dashboard_session(session).await;
         return Err(StatusCode::UNAUTHORIZED);
     }
-    Ok(dashboard)
+    let role =
+        sqlx::query_scalar::<_, String>("SELECT role FROM auth_verify_org_membership($1, $2)")
+            .bind(dashboard.user_id)
+            .bind(dashboard.org_id)
+            .fetch_optional(&state.pools.app)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let Some(role) = role else {
+        let _ = clear_dashboard_session(session).await;
+        return Err(StatusCode::UNAUTHORIZED);
+    };
+    Ok(DashboardSession { role, ..dashboard })
 }
 
 fn map_credential_error(error: CredentialError) -> StatusCode {

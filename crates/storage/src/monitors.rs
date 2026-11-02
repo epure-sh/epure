@@ -1,4 +1,5 @@
-use chrono::{DateTime, Utc};
+use crate::monitor_deadlines::{apply_incident_state, next_scheduled};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -137,14 +138,16 @@ pub async fn record_check_in(
             last_check_in_at = now(),
             schedule = COALESCE(EXCLUDED.schedule, monitors.schedule),
             schedule_type = COALESCE(EXCLUDED.schedule_type, monitors.schedule_type),
-            timezone = COALESCE(EXCLUDED.timezone, monitors.timezone),
+            timezone = COALESCE($6, monitors.timezone),
             last_duration_ms = COALESCE(EXCLUDED.last_duration_ms, monitors.last_duration_ms),
             environment = COALESCE(EXCLUDED.environment, monitors.environment),
-            checkin_margin_mins = COALESCE(EXCLUDED.checkin_margin_mins, monitors.checkin_margin_mins),
-            max_runtime_mins = COALESCE(EXCLUDED.max_runtime_mins, monitors.max_runtime_mins),
-            failure_issue_threshold = COALESCE(EXCLUDED.failure_issue_threshold, monitors.failure_issue_threshold),
+            checkin_margin_mins = COALESCE($10, monitors.checkin_margin_mins),
+            max_runtime_mins = COALESCE($11, monitors.max_runtime_mins),
+            failure_issue_threshold = COALESCE($12, monitors.failure_issue_threshold),
             name = COALESCE(monitors.name, EXCLUDED.name),
             updated_at = now()
+        WHERE EXCLUDED.status = 'in_progress' OR monitors.active_check_in_id IS NULL
+            OR monitors.active_check_in_id = $13 OR $13 IS NULL
         RETURNING {MONITOR_COLS}
         "#
     ))
@@ -160,10 +163,40 @@ pub async fn record_check_in(
     .bind(params.checkin_margin_mins)
     .bind(params.max_runtime_mins)
     .bind(params.failure_issue_threshold)
-    .fetch_one(&mut *tx)
+    .bind(&params.check_in_id)
+    .fetch_optional(&mut *tx)
     .await?;
+    let accepted = row.is_some();
+    let mut row = match row {
+        Some(row) => row,
+        None => {
+            sqlx::query_as::<_, MonitorRow>(&format!(
+                "SELECT {MONITOR_COLS} FROM monitors WHERE project_id=$1 AND slug=$2"
+            ))
+            .bind(project_id)
+            .bind(&params.slug)
+            .fetch_one(&mut *tx)
+            .await?
+        }
+    };
 
-    let _ = sqlx::query(
+    if let Some(id) = params.check_in_id.as_deref() {
+        let duplicate:bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM monitor_check_ins WHERE monitor_id=$1 AND check_in_id=$2 AND status=$3)")
+            .bind(row.id).bind(id).bind(status).fetch_one(&mut *tx).await?;
+        if duplicate {
+            tx.rollback().await?;
+            let mut tx = crate::rls::begin_ingest_transaction(pool, org_id).await?;
+            let current = sqlx::query_as::<_, MonitorRow>(&format!(
+                "SELECT {MONITOR_COLS} FROM monitors WHERE id=$1"
+            ))
+            .bind(row.id)
+            .fetch_one(&mut *tx)
+            .await?;
+            tx.commit().await?;
+            return Ok(current);
+        }
+    }
+    sqlx::query(
         r#"
         INSERT INTO monitor_check_ins (
             monitor_id, project_id, org_id, check_in_id, status, duration_ms,
@@ -183,8 +216,38 @@ pub async fn record_check_in(
     .bind(params.issue_id)
     .bind(&params.trace_id)
     .execute(&mut *tx)
-    .await;
-
+    .await?;
+    if accepted {
+        let now = Utc::now();
+        let (active, started): (Option<String>, Option<DateTime<Utc>>) = sqlx::query_as(
+            "SELECT active_check_in_id,runtime_started_at FROM monitors WHERE id=$1",
+        )
+        .bind(row.id)
+        .fetch_one(&mut *tx)
+        .await?;
+        let started = if status == "in_progress" {
+            if active == params.check_in_id {
+                started.unwrap_or(now)
+            } else {
+                now
+            }
+        } else {
+            started.unwrap_or(now)
+        };
+        row.next_check_in_at = if status == "in_progress" {
+            Some(started + Duration::minutes(i64::from(row.max_runtime_mins.max(1))))
+        } else {
+            next_scheduled(row.schedule.as_deref(), row.timezone.as_deref(), started)
+        };
+        sqlx::query("UPDATE monitors SET next_check_in_at=$2,active_check_in_id=$3,runtime_started_at=$4 WHERE id=$1")
+            .bind(row.id).bind(row.next_check_in_at)
+            .bind(if status == "in_progress" { params.check_in_id.as_deref() } else { None })
+            .bind(if status == "in_progress" { Some(started) } else { None })
+            .execute(&mut *tx).await?;
+        if !row.paused && matches!(status, "ok" | "error") {
+            apply_incident_state(&mut tx, &row, status, now).await?;
+        }
+    }
     tx.commit().await?;
     Ok(row)
 }
@@ -340,6 +403,14 @@ pub async fn create_monitor(
     .bind(threshold)
     .fetch_one(&mut *tx)
     .await?;
+    let mut row = row;
+    row.next_check_in_at =
+        next_scheduled(row.schedule.as_deref(), row.timezone.as_deref(), Utc::now());
+    sqlx::query("UPDATE monitors SET next_check_in_at=$2 WHERE id=$1")
+        .bind(row.id)
+        .bind(row.next_check_in_at)
+        .execute(&mut *tx)
+        .await?;
     tx.commit().await?;
     Ok(row)
 }
@@ -382,6 +453,37 @@ pub async fn update_monitor(
     .bind(params.next_check_in_at)
     .fetch_optional(&mut *tx)
     .await?;
+    let mut row = row;
+    if let Some(ref mut monitor) = row {
+        if params.schedule.is_some()
+            || params.timezone.is_some()
+            || params.max_runtime_mins.is_some()
+            || params.paused == Some(false)
+        {
+            let now = Utc::now();
+            let started: Option<DateTime<Utc>> =
+                sqlx::query_scalar("SELECT runtime_started_at FROM monitors WHERE id=$1")
+                    .bind(monitor.id)
+                    .fetch_one(&mut *tx)
+                    .await?;
+            let started = if params.paused == Some(false) {
+                now
+            } else {
+                started.or(monitor.last_check_in_at).unwrap_or(now)
+            };
+            monitor.next_check_in_at = if monitor.status == "in_progress" {
+                Some(started + Duration::minutes(i64::from(monitor.max_runtime_mins.max(1))))
+            } else {
+                next_scheduled(
+                    monitor.schedule.as_deref(),
+                    monitor.timezone.as_deref(),
+                    now,
+                )
+            };
+            sqlx::query("UPDATE monitors SET next_check_in_at=$2,runtime_started_at=CASE WHEN status='in_progress' THEN $3 ELSE NULL END WHERE id=$1")
+                .bind(monitor.id).bind(monitor.next_check_in_at).bind(started).execute(&mut *tx).await?;
+        }
+    }
     tx.commit().await?;
     Ok(row)
 }

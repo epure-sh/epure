@@ -35,3 +35,6 @@ pub use scrub::{
     apply_privacy_policy, looks_like_email, pseudonym_for, scrub_event, scrub_string, PrivacyPolicy,
 };
 pub use store::{decompress_store_payload, parse_store_payload, StoreError};
+
+pub mod json;
+pub use json::storage_safe_json;

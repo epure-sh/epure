@@ -634,7 +634,7 @@ describe("Group 4: Domain Panels & Setup Blocks", () => {
     );
 
     assert.match(html, /data-slot="issue-overview-panel"/);
-    assert.match(html, /POST \/api\/v1\/checkout/);
+    assert.match(html, /src\/billing\/checkout\.ts:142/);
     assert.match(html, /production/);
     assert.match(html, /v2\.4\.1/);
     assert.match(html, /alice@example\.com/);

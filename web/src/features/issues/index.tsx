@@ -220,7 +220,7 @@ export function IssuesPage() {
     Boolean(setup) &&
     waitingForFirstIssue &&
     issues.length === 0 &&
-    isAllIssuesQuery(query) || query === DEFAULT_QUERY;
+    (isAllIssuesQuery(query) || query === DEFAULT_QUERY);
 
   const showTestDataBanner = Boolean(setup?.seeded);
 
