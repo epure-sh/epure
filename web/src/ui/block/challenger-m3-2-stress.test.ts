@@ -179,7 +179,7 @@ describe("Challenger 2: Milestone 3 Empirical Stress Suite", () => {
       assert.match(tableHtml, /data-mode="table"/);
       assert.match(tableHtml, /alice@example\.com/);
       assert.match(tableHtml, /production/);
-      assert.match(tableHtml, /POST \/api\/v1\/checkout/);
+      assert.match(tableHtml, /src\/billing\/checkout\.ts:142/);
 
       // 2. List mode
       const listHtml = renderToStaticMarkup(
@@ -840,7 +840,7 @@ describe("Challenger 2: Milestone 3 Empirical Stress Suite", () => {
         }),
       );
       assert.match(overviewHtml, /data-slot="issue-overview-panel"/);
-      assert.match(overviewHtml, /POST \/api\/v1\/checkout/);
+      assert.match(overviewHtml, /src\/billing\/checkout\.ts:142/);
       assert.match(overviewHtml, /alice@example\.com/);
       assert.match(overviewHtml, /Starting point for your AI agent/);
 
