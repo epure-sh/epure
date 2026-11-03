@@ -179,3 +179,11 @@ test('JSON stdin stays composable and invalid output modes never issue requests'
   const code = await new Promise(resolve => child.on('close', resolve)); assert.equal(code, 0, err); assert.equal(JSON.parse(out).name, 'Piped app');
   const count = s.requests.length; assert.equal((await cli(['projects', 'create', '--name', 'A', '--output', 'bad', '--url', s.url])).code, 2); assert.equal(s.requests.length, count);
 });
+test('named destructive MCP tools expose confirmation in their schemas and execute when approved', async t => {
+  const s = await server((req, res) => res.end('{"deleted":true}')); t.after(s.close); seed(s.url);
+  const mcp = rpcClient(['--url', s.url, '--toolsets', 'projects']); t.after(mcp.close);
+  await mcp.call('initialize', { protocolVersion: '2025-06-18' });
+  const list = await mcp.call('tools/list'); const tool = list.result.tools.find(t => t.name === 'epure_projects_delete'); assert.ok(tool.inputSchema.required.includes('confirm'));
+  const invalid = await mcp.call('tools/call', { name: 'epure_projects_delete', arguments: { id: 'p1' } }); assert.equal(invalid.result.isError, true); assert.equal(s.requests.length, 0);
+  const removed = await mcp.call('tools/call', { name: 'epure_projects_delete', arguments: { id: 'p1', confirm: true } }); assert.equal(removed.result.structuredContent.deleted, true); assert.equal(s.requests.length, 1);
+});

@@ -149,7 +149,7 @@ async function loginLoopback(url, options = {}) {
     server.on('error', err => finish(err));
     server.listen(0, '127.0.0.1', () => {
       const approval = new URL('/oauth/authorize', url);
-      approval.search = new URLSearchParams({ client_id: CLIENT_ID, client_name: 'Epure CLI and MCP', redirect_uri: `http://127.0.0.1:${server.address().port}/callback`, code_challenge: challenge, code_challenge_method: 'S256', scope: options.scope || SCOPES.join(' '), state }).toString();
+      approval.search = new URLSearchParams({ client_id: CLIENT_ID, response_type: 'code', client_name: 'Epure CLI and MCP', redirect_uri: `http://127.0.0.1:${server.address().port}/callback`, code_challenge: challenge, code_challenge_method: 'S256', scope: options.scope || SCOPES.join(' '), state }).toString();
       (options.log || (s => process.stderr.write(`${s}\n`)))(`Approve sign-in: ${approval.href}`);
       if (!options.noBrowser) (options.openBrowser || openBrowser)(approval.href);
     });

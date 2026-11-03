@@ -116,7 +116,7 @@ async function main(argv, { mcp = false, version = '0.2.0' } = {}) {
     checkFlags(flags, ['data', 'query', 'method', 'path']);
     if (words.length > 4 || (words[3] && flags.data !== undefined)) throw new auth.ClientError('INVALID_ARGUMENT', 'Provide one request body using --data JSON|@file|-.', 2);
     const method = (flags.method || words[1] || 'GET').toUpperCase(), path = flags.path || words[2];
-    if (['DELETE'].includes(method) || /\/(erase|strip-identifiers|rotate-secret)$/.test(path || '')) if (!flags.yes) throw new auth.ClientError('CONFIRM_REQUIRED', 'This action is destructive. Review it and pass --yes.', 2);
+    if (['DELETE'].includes(method) || /\/(erase|strip-identifiers|rotate-secret|revoke|rotate|merge|split)$/.test(path || '')) if (!flags.yes) throw new auth.ClientError('CONFIRM_REQUIRED', 'This action is destructive. Review it and pass --yes.', 2);
     output((await apiRequest(url, { method, path, ...((flags.data ?? words[3]) !== undefined ? { body: jsonInput(flags.data ?? words[3]) } : {}), query: jsonInput(flags.query) })).data, flags); return;
   }
   if (!words.length || (words.length === 1 && operations.some(o => o.resource === words[0]))) { process.stdout.write(help(words)); return; }
