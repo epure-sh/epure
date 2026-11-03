@@ -28,6 +28,7 @@ pub fn top_level_router(state: Arc<AppState>) -> Router {
             get(get_oauth_metadata),
         )
         .route("/oauth/token", post(post_oauth_token))
+        .route("/oauth/register", post(super::oauth_clients::register))
         .route("/oauth/revoke", post(post_oauth_revoke))
         .route("/oauth/device/code", post(post_device_code))
         .layer(axum::middleware::from_fn(oauth_public_rate_limit))
@@ -60,6 +61,8 @@ async fn get_oauth_metadata(State(state): State<Arc<AppState>>) -> impl IntoResp
     let base = get_public_url();
     let mut meta = json!({
         "issuer": base,
+        "registration_endpoint": format!("{base}/oauth/register"),
+        "client_id_metadata_document_supported": super::oauth_clients::cimd_enabled(),
         "authorization_endpoint": format!("{base}/oauth/authorize"),
         "token_endpoint": format!("{base}/oauth/token"),
         "revocation_endpoint": format!("{base}/oauth/revoke"),
@@ -121,8 +124,8 @@ struct TokenRequest {
     code: Option<String>,
     code_verifier: Option<String>,
     redirect_uri: Option<String>,
-    #[allow(dead_code)]
     client_id: Option<String>,
+    resource: Option<String>,
     refresh_token: Option<String>,
     device_code: Option<String>,
 }
@@ -173,6 +176,16 @@ async fn post_oauth_token(
                 )
             })?
     };
+    if body
+        .resource
+        .as_deref()
+        .is_some_and(|r| r != format!("{}/mcp", get_public_url()))
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":"invalid_target"})),
+        ));
+    }
     let user_agent = headers
         .get(header::USER_AGENT)
         .and_then(|v| v.to_str().ok())
@@ -197,6 +210,12 @@ async fn post_oauth_token(
                 .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "server_error"}))))?
                 .ok_or_else(|| (StatusCode::BAD_REQUEST, Json(json!({"error": "invalid_grant", "error_description": "code invalid or expired"}))))?;
 
+            if body.client_id.as_deref() != Some(stored_code.client_id.as_str()) {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({"error":"invalid_grant","error_description":"client_id mismatch"})),
+                ));
+            }
             if let Some(ref req_uri) = body.redirect_uri {
                 if req_uri != &stored_code.redirect_uri {
                     return Err((
@@ -303,6 +322,16 @@ async fn post_oauth_token(
                     )
                 })?;
 
+            if body
+                .client_id
+                .as_deref()
+                .is_some_and(|id| id != lookup.client_id)
+            {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({"error":"invalid_grant"})),
+                ));
+            }
             if !epure_auth::oauth::verify_token_hash(rt, &lookup.refresh_token_hash) {
                 return Err((
                     StatusCode::BAD_REQUEST,
@@ -342,6 +371,12 @@ async fn post_oauth_token(
             )
             .await
             .map_err(|err| {
+                if matches!(err, sqlx::Error::RowNotFound) {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({"error":"invalid_grant"})),
+                    );
+                }
                 tracing::error!("failed to rotate oauth tokens: {err}");
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
@@ -548,6 +583,11 @@ async fn get_oauth_info(
     Extension(session): Extension<DashboardSession>,
     Query(query): Query<AuthorizeInfoQuery>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    let client_name = if let Some(redirect) = query.redirect_uri.as_deref() {
+        super::oauth_clients::validate(&state, &query.client_id, redirect).await?
+    } else {
+        query.client_id.clone()
+    };
     let orgs = sqlx::query_as::<_, (Uuid, String, String)>(
         r#"
         SELECT org_id, name, role FROM auth_list_user_organizations($1)
@@ -569,6 +609,7 @@ async fn get_oauth_info(
 
     Ok(Json(json!({
         "client_id": query.client_id,
+        "client_name":client_name,
         "redirect_uri": query.redirect_uri,
         "current_org_id": session.org_id,
         "organizations": org_list,
@@ -592,6 +633,23 @@ async fn post_oauth_authorize(
     Extension(session): Extension<DashboardSession>,
     Json(body): Json<AuthorizeApprovalRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    let client_name=super::oauth_clients::validate(&state,&body.client_id,&body.redirect_uri).await.map_err(|status|(status,Json(json!({"error":"invalid_client","error_description":"Invalid client or redirect URI"}))))?;
+    if body.code_challenge_method.as_deref().unwrap_or("S256") != "S256"
+        || body.code_challenge.len() != 43
+        || !body
+            .code_challenge
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+        || body.scopes.as_ref().is_some_and(|s| {
+            s.iter()
+                .any(|v| !["read:agent", "write:triage", "write:admin"].contains(&v.as_str()))
+        })
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":"invalid_request"})),
+        ));
+    }
     // Verify membership in approved org
     let is_member = sqlx::query_scalar::<_, bool>(
         "SELECT EXISTS (SELECT 1 FROM auth_verify_org_membership($1, $2))",
@@ -621,7 +679,7 @@ async fn post_oauth_authorize(
     let scopes = body
         .scopes
         .unwrap_or_else(|| vec!["read:agent".to_string(), "write:triage".to_string()]);
-    let client_name = body.client_name.unwrap_or_else(|| body.client_id.clone());
+    let _ = body.client_name;
 
     store_oauth_code(
         &state.pools.app,

@@ -1,7 +1,7 @@
 {
   "name": "@epure/mcp",
   "version": "0.1.1",
-  "description": "Stdio MCP server for the Epure dashboard API (PAT auth)",
+  "description": "Deprecated prototype; use @epure-sh/mcp or the hosted OAuth connector",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -33,5 +33,6 @@
   },
   "overrides": {
     "@hono/node-server": "2.1.5"
-  }
+  },
+  "private": true
 }

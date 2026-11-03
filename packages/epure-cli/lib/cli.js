@@ -86,7 +86,12 @@ async function main(argv, { mcp = false, version = '0.2.0' } = {}) {
   if (flags.output && !['json', 'table', 'ndjson'].includes(flags.output)) throw new auth.ClientError('INVALID_ARGUMENT', 'Choose --output json, table, or ndjson.', 2);
   const first = words[0];
   if (mcp && !words.length) { checkFlags(flags, ['read-only', 'toolsets']); return require('./mcp').serve({ url, readOnly: !!flags['read-only'], toolsets: flags.toolsets?.split(','), version }); }
-  if (mcp && first === 'init') { checkFlags(flags, ['read-only', 'toolsets']); output({ mcpServers: { epure: { command: 'npx', args: ['-y', '@epure-sh/mcp', ...(url ? ['--url', auth.normalizeUrl(url)] : []), ...(flags['read-only'] ? ['--read-only'] : []), ...(flags.toolsets ? ['--toolsets', flags.toolsets] : [])] } } }, { json: true }); return; }
+  if (mcp && first === 'init') {
+    checkFlags(flags, ['read-only', 'toolsets', 'transport']);
+    if (flags.transport === 'http') { output({ mcpServers: { epure: { type:'http', url:`${auth.endpoint(url)}/mcp` } } }, {json:true}); return; }
+    if (flags.transport && flags.transport !== 'stdio') throw new auth.ClientError('INVALID_ARGUMENT','Choose --transport http or stdio.',2);
+    output({ mcpServers: { epure: { command: 'npx', args: ['-y', '@epure-sh/mcp', ...(url ? ['--url', auth.normalizeUrl(url)] : []), ...(flags['read-only'] ? ['--read-only'] : []), ...(flags.toolsets ? ['--toolsets', flags.toolsets] : [])] } } }, { json: true }); return;
+  }
   if (mcp && first === 'doctor') {
     checkFlags(flags); const status = auth.publicSession(url);
     if (!status.authenticated) throw auth.authRequired();

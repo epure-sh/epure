@@ -4,7 +4,7 @@ const S = { type: 'string' }, B = { type: 'boolean' }, N = { type: 'number' }, O
 const operations = [];
 function add(resource, action, method, path, properties = {}, required = [], extra = {}) {
   const params = [...path.matchAll(/\{([^}]+)\}/g)].map(m => m[1]);
-  const input = { ...Object.fromEntries(params.map(p => [p, { ...S, description: 'Resource identifier' }])), ...properties };
+  const input = JSON.parse(JSON.stringify({ ...Object.fromEntries(params.map(p => [p, { ...S, description: 'Resource identifier' }])), ...properties }));
   operations.push({ id: `${resource}.${action}`, resource, action, method, path, description: `${action.replaceAll('-', ' ')} ${resource}`, inputSchema: { type: 'object', properties: input, required: [...params, ...required], additionalProperties: false }, ...extra });
 }
 const project = { project_id: S };
@@ -77,8 +77,38 @@ function buildRequest(op, args) {
   if (op.resource === 'privacy' && ['erase', 'export'].includes(op.action) && !args.user_id && !args.email) throw new ClientError('INVALID_ARGUMENT', 'Provide --user-id or --email for the subject.', 2);
   return { method: op.method, path, ...(op.method === 'GET' ? { query: values } : { body: { ...values, ...op.fixed } }) };
 }
+const topics = {
+  projects: 'applications services SDK ingestion project configuration', issues: 'errors exceptions crashes bugs stack traces triage regressions',
+  rules: 'alert rules notifications triggers thresholds conditions cooldown', channels: 'output channels destinations email Slack Discord webhook verification multiple projects',
+  monitors: 'cron jobs scheduled tasks heartbeat check-ins missed failed jobs timezone', alerts: 'fired alerts incidents notification delivery acknowledgement',
+  releases: 'deployments versions release health', members: 'workspace team membership roles access', invitations: 'invite teammates workspace access',
+  webhooks: 'outgoing webhook integrations delivery signing secret', privacy: 'end-user personal data export erase anonymize',
+  'connected-apps': 'OAuth authorized applications revoke access', auth: 'current account workspace identity authentication',
+};
+const descriptions = {
+  'issues.list': 'Search Epure errors, exceptions, crashes and regressions; returns a priority-ranked issue queue. Filter by project_id, environment or q; default 20, maximum 100. Use issues.context for a selected issue.',
+  'issues.context': 'Investigate an Epure error or crash by issue ID: stack trace, source context, breadcrumbs and suspect code. Raw payload and end-user data are excluded unless explicitly requested.',
+  'projects.list': 'Find Epure projects and their IDs before searching errors or configuring monitoring for an application or service.',
+  'channels.create': 'Create one Epure notification output channel for one or several projects. Supply project_ids for sharing, provider and destination config. Verification may be required before delivery; use channels.test next.',
+  'channels.test': 'Send a real verification notification to an output channel destination. This has an external delivery side effect; enable_on_ok can enable the channel after success.',
+  'rules.create': 'Create an Epure alert rule for new errors, regressions or velocity spikes. Requires project_id, name and kind; channel_ids selects delivery destinations. Create or find a channel first.',
+  'monitors.create': 'Monitor a real cron job or scheduled task in Epure. Create a heartbeat monitor with schedule, timezone, grace margin and runtime limits; send real check-ins from the job.',
+  'monitors.check-in': 'Send a real cron monitor heartbeat: in_progress when a job starts, ok on success, error on failure. This changes monitor state and can trigger alerts.',
+  'auth.whoami': 'Identify the signed-in Epure account, workspace, role and OAuth scopes. Use to diagnose access or workspace selection before making changes.',
+};
+for (const op of operations) {
+  op.description = descriptions[op.id] || `${op.action.replaceAll('-', ' ')} Epure ${op.resource}. ${topics[op.resource] || ''}.${op.destructive ? ' Permanently removes or changes data; requires explicit confirmation.' : ''}`;
+  for (const [key, schema] of Object.entries(op.inputSchema.properties)) {
+    schema.description ||= key === 'project_id' ? 'Epure project UUID; obtain it with epure_projects_list.' : key === 'project_ids' ? 'Project UUIDs sharing this single destination; all must belong to the authorized workspace.' : key === 'id' || key.endsWith('_id') ? 'Existing resource UUID returned by the corresponding list tool.' : key === 'schedule' ? 'Cron expression, for example 0 * * * * for every hour.' : key === 'timezone' ? 'IANA timezone, for example Europe/Paris; use UTC when appropriate.' : key.replaceAll('_',' ');
+  }
+}
+function searchOperations(search, allowed = () => true, resource) {
+  const words=(search || '').toLowerCase().match(/[a-z0-9]+/g)||[];
+  const score=op=>words.reduce((n,word)=>n+(`${op.id} ${op.description} ${topics[op.resource]||''} ${op.path}`.toLowerCase().includes(word)?1:0),0);
+  return operations.filter(o=>allowed(o)&&(!resource||o.resource===resource)&&(!words.length||score(o)>0)).sort((a,b)=>score(b)-score(a)||a.id.localeCompare(b.id));
+}
 function discover({ resource, search, offset = 0, limit = 20 } = {}) {
-  const found = operations.filter(o => (!resource || o.resource === resource) && (!search || `${o.id} ${o.path}`.includes(search)));
+  const found = searchOperations(search,undefined,resource);
   return { operations: found.slice(offset, offset + limit), total: found.length, next_offset: offset + limit < found.length ? offset + limit : null, resources: [...new Set(operations.map(o => o.resource))] };
 }
-module.exports = { operations, catalog, validate, buildRequest, discover };
+module.exports = { operations, catalog, validate, buildRequest, discover, searchOperations };

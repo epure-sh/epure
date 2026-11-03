@@ -26,6 +26,7 @@ pub mod mcp;
 mod members;
 mod monitors;
 pub mod oauth;
+mod oauth_clients;
 mod pat_scopes;
 mod privacy;
 mod projects;

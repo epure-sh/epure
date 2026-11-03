@@ -1,10 +1,11 @@
+pub mod runtime;
 use epure_agent_context::wrap_untrusted_data;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-pub const MCP_PROTOCOL_VERSION: &str = "2024-11-05";
+pub const MCP_PROTOCOL_VERSION: &str = "2025-11-25";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonRpcRequest {
@@ -41,162 +42,18 @@ pub struct McpHandler {
 impl McpHandler {
     pub fn new(base_url: String, token: String) -> Self {
         Self {
-            client: Client::new(),
+            client: Client::builder()
+                .timeout(std::time::Duration::from_secs(30))
+                .redirect(reqwest::redirect::Policy::none())
+                .build()
+                .expect("HTTP client"),
             base_url: base_url.trim_end_matches('/').to_string(),
             token,
         }
     }
 
     pub fn tool_definitions() -> Value {
-        json!([
-            {
-                "name": "list_issues",
-                "description": "List top unresolved production issues ranked by priority score",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "project": { "type": "string", "description": "Project ID or slug" },
-                        "limit": { "type": "integer", "description": "Max issues to return (default 10)", "default": 10 }
-                    }
-                }
-            },
-            {
-                "name": "list_unresolved_issues",
-                "description": "Alias for list_issues: list top unresolved production issues ranked by priority score",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "project": { "type": "string", "description": "Project ID or slug" },
-                        "limit": { "type": "integer", "description": "Max issues to return (default 10)", "default": 10 }
-                    }
-                }
-            },
-            {
-                "name": "epure_list_issues",
-                "description": "Alias for list_issues: list unresolved production issues ranked by priority score",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "project": { "type": "string", "description": "Project ID or slug" },
-                        "limit": { "type": "integer", "description": "Max issues to return (default 10)", "default": 10 }
-                    }
-                }
-            },
-            {
-                "name": "get_issue_detail",
-                "description": "Get detailed crash context, stack frames, breadcrumbs, and suspect code for an issue",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "issue_id": { "type": "string", "description": "Issue UUID" }
-                    },
-                    "required": ["issue_id"]
-                }
-            },
-            {
-                "name": "get_crash_context",
-                "description": "Alias for get_issue_detail: get sanitized stack frames, source lines, and crumbs for an issue",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "issue_id": { "type": "string", "description": "Issue UUID" }
-                    },
-                    "required": ["issue_id"]
-                }
-            },
-            {
-                "name": "epure_get_issue_context",
-                "description": "Alias for get_issue_detail: get sanitized stack frames and context for an issue",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "issue_id": { "type": "string", "description": "Issue UUID" }
-                    },
-                    "required": ["issue_id"]
-                }
-            },
-            {
-                "name": "resolve_issue",
-                "description": "Mark an issue as resolved with optional commit SHA",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "issue_id": { "type": "string", "description": "Issue UUID" },
-                        "commit_sha": { "type": "string", "description": "Optional Git commit hash" }
-                    },
-                    "required": ["issue_id"]
-                }
-            },
-            {
-                "name": "mark_issue_resolved",
-                "description": "Alias for resolve_issue: mark an issue as resolved with optional commit SHA",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "issue_id": { "type": "string", "description": "Issue UUID" },
-                        "commit_sha": { "type": "string", "description": "Optional Git commit hash" }
-                    },
-                    "required": ["issue_id"]
-                }
-            },
-            {
-                "name": "epure_triage_issue",
-                "description": "Alias for resolve_issue: mark an issue as resolved with optional commit SHA",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "issue_id": { "type": "string", "description": "Issue UUID" },
-                        "commit_sha": { "type": "string", "description": "Optional Git commit hash" }
-                    },
-                    "required": ["issue_id"]
-                }
-            },
-            {
-                "name": "unresolve_issue",
-                "description": "Mark a previously resolved or ignored issue back as unresolved",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "issue_id": { "type": "string", "description": "Issue UUID" }
-                    },
-                    "required": ["issue_id"]
-                }
-            },
-            {
-                "name": "snooze_issue",
-                "description": "Snooze an issue while events keep arriving. Time modes hold until the deadline: 1h, 4h, 1d, 7d, 30d, 90d. occurrences and users wake earlier if the issue spreads.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "issue_id": { "type": "string", "description": "Issue UUID" },
-                        "mode": { "type": "string", "description": "1h, 4h (also 'hours'), 1d, 7d, 30d, 90d, occurrences, or users. Default 4h." }
-                    },
-                    "required": ["issue_id"]
-                }
-            },
-            {
-                "name": "unsnooze_issue",
-                "description": "Unsnooze/unmute a previously snoozed issue and restore active alerting",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "issue_id": { "type": "string", "description": "Issue UUID" }
-                    },
-                    "required": ["issue_id"]
-                }
-            },
-            {
-                "name": "list_releases",
-                "description": "List deployment releases and tracking metadata for a project",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "project_id": { "type": "string", "description": "Project ID or slug" }
-                    },
-                    "required": ["project_id"]
-                }
-            }
-        ])
+        runtime::REGISTRY["tools"].clone()
     }
 
     pub async fn handle_request(&self, req: JsonRpcRequest) -> JsonRpcResponse {
@@ -206,12 +63,15 @@ impl McpHandler {
                 jsonrpc: "2.0".into(),
                 id,
                 result: Some(json!({
-                    "protocolVersion": MCP_PROTOCOL_VERSION,
+                    "protocolVersion": req.params.as_ref().and_then(|p|p["protocolVersion"].as_str()).filter(|v|["2024-11-05","2025-03-26","2025-06-18","2025-11-25"].contains(v)).unwrap_or(MCP_PROTOCOL_VERSION),
+                    "instructions":runtime::REGISTRY["instructions"],
                     "capabilities": {
-                        "tools": {}
+                        "tools": {}, "resources":{}, "prompts":{}
                     },
                     "serverInfo": {
                         "name": "epure-mcp",
+                        "title":"Epure",
+                        "websiteUrl":"https://epure.sh",
                         "version": env!("CARGO_PKG_VERSION")
                     }
                 })),
@@ -223,6 +83,48 @@ impl McpHandler {
                 result: Some(json!({})),
                 error: None,
             },
+            "resources/list" => JsonRpcResponse {
+                jsonrpc: "2.0".into(),
+                id,
+                result: Some(
+                    json!({"resources":[{"uri":"epure://guide","name":"Epure monitoring guide","mimeType":"text/plain"}]}),
+                ),
+                error: None,
+            },
+            "resources/read"
+                if req
+                    .params
+                    .as_ref()
+                    .is_some_and(|p| p["uri"] == "epure://guide") =>
+            {
+                JsonRpcResponse {
+                    jsonrpc: "2.0".into(),
+                    id,
+                    result: Some(
+                        json!({"contents":[{"uri":"epure://guide","mimeType":"text/plain","text":runtime::REGISTRY["instructions"]}]}),
+                    ),
+                    error: None,
+                }
+            }
+            "prompts/list" => JsonRpcResponse {
+                jsonrpc: "2.0".into(),
+                id,
+                result: Some(json!({"prompts":runtime::REGISTRY["prompts"]})),
+                error: None,
+            },
+            "prompts/get" => {
+                let name = req
+                    .params
+                    .as_ref()
+                    .and_then(|p| p["name"].as_str())
+                    .unwrap_or("");
+                let prompt = runtime::REGISTRY["prompts"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|p| p["name"] == name);
+                JsonRpcResponse{jsonrpc:"2.0".into(),id,result:prompt.map(|p|json!({"messages":[{"role":"user","content":{"type":"text","text":p["description"]}}]})),error:if prompt.is_none(){Some(JsonRpcError{code:-32602,message:"Unknown prompt".into(),data:None})}else{None}}
+            }
             "tools/list" => JsonRpcResponse {
                 jsonrpc: "2.0".into(),
                 id,
@@ -236,6 +138,22 @@ impl McpHandler {
                 let tool_name = params.get("name").and_then(Value::as_str).unwrap_or("");
                 let args = params.get("arguments").cloned().unwrap_or(json!({}));
 
+                if runtime::operation(tool_name, &args).is_some()
+                    || [
+                        "epure_discover",
+                        "epure_api_catalog",
+                        "epure_api",
+                        "epure_action",
+                    ]
+                    .contains(&tool_name)
+                {
+                    return JsonRpcResponse {
+                        jsonrpc: "2.0".into(),
+                        id,
+                        result: Some(runtime::call(self, tool_name, &args).await),
+                        error: None,
+                    };
+                }
                 match self.dispatch_tool(tool_name, args).await {
                     Ok(content) => JsonRpcResponse {
                         jsonrpc: "2.0".into(),
@@ -566,19 +484,16 @@ mod tests {
         let tools = resp.result.unwrap()["tools"].as_array().unwrap().clone();
         let tool_names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
 
-        assert!(tool_names.contains(&"list_issues"));
-        assert!(tool_names.contains(&"list_unresolved_issues"));
-        assert!(tool_names.contains(&"epure_list_issues"));
-        assert!(tool_names.contains(&"get_issue_detail"));
-        assert!(tool_names.contains(&"get_crash_context"));
-        assert!(tool_names.contains(&"epure_get_issue_context"));
-        assert!(tool_names.contains(&"resolve_issue"));
-        assert!(tool_names.contains(&"mark_issue_resolved"));
-        assert!(tool_names.contains(&"epure_triage_issue"));
-        assert!(tool_names.contains(&"unresolve_issue"));
-        assert!(tool_names.contains(&"snooze_issue"));
-        assert!(tool_names.contains(&"unsnooze_issue"));
-        assert!(tool_names.contains(&"list_releases"));
+        for name in [
+            "epure_issues_list",
+            "epure_issues_context",
+            "epure_issues_resolve",
+            "epure_channels_create",
+            "epure_monitors_create",
+            "epure_discover",
+        ] {
+            assert!(tool_names.contains(&name));
+        }
     }
 
     #[tokio::test]
