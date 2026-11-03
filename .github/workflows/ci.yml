@@ -72,15 +72,15 @@ jobs:
         run: npm test
 
       - name: CLI/MCP ingest integration (JS)
-        run: node --test tests/integration_cli_mcp_ingest.test.js
+        run: node --test tests/integration_cli_mcp_ingest.test.js tests/client_oauth.test.js
 
       - name: Verify @epure-sh/mcp package
         working-directory: packages/epure-mcp
-        run: node bin/epure-mcp.js --help || true
+        run: node bin/epure-mcp.js --help
 
       - name: Verify @epure-sh/cli package
         working-directory: packages/epure-cli
-        run: node bin/epure-cli.js --help || true
+        run: node bin/epure-cli.js --help
 
       - name: Format Check
         run: cargo fmt --all -- --check

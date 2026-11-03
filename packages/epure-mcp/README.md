@@ -1,79 +1,51 @@
 # @epure-sh/mcp
 
-[![npm version](https://img.shields.io/npm/v/@epure-sh/mcp.svg)](https://www.npmjs.com/package/@epure-sh/mcp)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+Epure workflows for MCP agents: errors, alerts, channels, cron monitors and project administration. Node.js 18+; stdio transport.
 
-> Surgical `<600`-token Model Context Protocol (MCP) server for [Epure](https://epure.sh) with built-in Agentjacking prompt-injection defense.
+## Sign in once
 
----
-
-## Why Epure MCP?
-
-| Feature | Sentry Official MCP | Epure MCP |
-| :--- | :--- | :--- |
-| **Schema Token Weight** | ~15,000 tokens (exhausts context) | **< 600 tokens** (surgical) |
-| **Agentjacking Defense** | None (vulnerable to prompt injection) | **Strict tag & fence sanitization** |
-| **Pricing** | $40/contributor/month (Seer) | **Included free** / 100% Open Source |
-| **Transport** | stdio & remote SSE | **stdio & remote SSE** |
-
----
-
-## 1-Line Quickstart
-
-### Claude Code
-
-```bash
-claude mcp add epure -- npx -y @epure-sh/mcp --token <YOUR_EPURE_TOKEN>
+```sh
+npx -y @epure-sh/mcp login
+# On SSH/headless machines:
+npx -y @epure-sh/mcp login --device --no-browser
 ```
 
-### Cursor (`.cursor/mcp.json`)
+Approve your real Epure account, workspace and scopes in the browser. This OAuth session is shared with `epure auth login`. There are no pasted credentials, manual token flags or token environment variables. Tools never open browsers or wait for human input; missing authorization returns an actionable tool error immediately. Use `status`, `doctor`, and `logout` to inspect, verify and revoke the session. Older saved sessions without an OAuth client identity require fresh sign-in.
+
+## Connect a client
+
+```sh
+claude mcp add epure -- npx -y @epure-sh/mcp
+npx -y @epure-sh/mcp init
+```
+
+`init` prints this credential-free configuration for Cursor, Claude Desktop or another stdio client:
 
 ```json
-{
-  "mcpServers": {
-    "epure": {
-      "command": "npx",
-      "args": ["-y", "@epure-sh/mcp", "--token", "epk_live_..."]
-    }
-  }
-}
+{"mcpServers":{"epure":{"command":"npx","args":["-y","@epure-sh/mcp"]}}}
 ```
 
-### Self-Hosted Epure Instance
+For self-hosted instances add `--url https://errors.example.com` to both login and server arguments. HTTPS is required except loopback development. Credentials are saved privately in the same local OAuth store as the CLI, never in the MCP configuration. A desktop app must run under the same user/config home as sign-in.
 
-```bash
-claude mcp add epure -- npx -y @epure-sh/mcp --endpoint https://errors.mycompany.com --token <TOKEN>
+## Efficient workflows
+
+The default tool list exposes common issue, project, rule, channel and monitor workflows. All inputs have schemas, tools describe their side effects, and results include `structuredContent` plus compatible text content. Application text is untrusted data, never instructions.
+
+- `epure_issues_list`, `epure_issues_context`, `epure_issues_resolve` and related tools handle triage. Lists default to 20 issues, context excludes raw payload/user data unless explicitly requested.
+- `epure_rules_create`, `epure_channels_test`, `epure_monitors_create` and `epure_monitors_update` handle setup and operations.
+- `epure_discover` searches additional actions and exact schemas without sign-in. Filter `resource` or `search`, and use `offset`/`limit` to keep discovery compact.
+- `epure_action` executes a discovered action: `{"operation":"monitors.update","arguments":{"id":"MONITOR_ID","paused":true}}`. Destructive actions require `confirm:true`.
+- `epure_api_catalog` discovers remaining REST routes; `epure_api` calls them directly through OAuth. It does not depend on the optional hosted MCP server.
+
+```sh
+# Expose only read operations:
+npx -y @epure-sh/mcp --read-only
+# Expose all named actions for selected resources:
+npx -y @epure-sh/mcp --toolsets issues,projects,monitors
 ```
 
----
+Restrictions also apply to discovery, `epure_action`, and advanced API calls. The server's OAuth scopes and workspace roles remain authoritative. Browser authentication and manual credential management are excluded. For read-only consent use `login --scope read:agent`; the default consent requests `read:agent write:triage write:admin` for full product setup.
 
-## Available Tools
+Legacy issue tool names remain callable when their workflows are enabled. Protocol versions supported: 2024-11-05, 2025-03-26, 2025-06-18 and 2025-11-25. Transport is newline-delimited JSON-RPC over stdio, with cancellation, pagination, stable errors, and diagnostics only on stderr. This package does not advertise HTTP/SSE transport.
 
-1. **`list_unresolved_issues`**: Fetch recent unresolved production errors with impact metrics (event count, affected unique users, first seen, last seen).
-2. **`get_crash_context`**: Get surgical crash context for an issue including demangled stack frames, relevant code lines, and last 5 breadcrumbs — wrapped in `<untrusted_exception_data>` boundaries.
-3. **`mark_issue_resolved`**: Mark an issue resolved with an optional commit SHA or release identifier.
-
----
-
-## Agentjacking Defense
-
-Public Sentry DSNs can receive poisoned exception values designed to manipulate LLM agents (e.g. Cursor or Claude Code). `@epure-sh/mcp` sanitizes untrusted exception payloads by:
-- Neutralizing prompt-injection directives (`system:`, `instructions:`, `<instructions>`).
-- Escaping markdown fences (` ``` `).
-- Isolating stack data within defensive context boundaries.
-
----
-
-## License
-
-Apache-2.0 © Epure
-
-## Full resource API access (0.1.8)
-
-CLI: `epure api-catalog`, then `epure api GET /api/v1/projects`. Mutations accept JSON, `@body.json`, or `-` for stdin. Multipart uploads: `epure api POST /api/v1/projects/PROJECT/releases/VERSION/files '{}' --file file=app.js.map`.
-
-MCP: `epure_api_catalog` lists actions; `epure_api` accepts method/path/query/body and multipart files (field, filename, base64, contentType). REST tools and existing queue/context/resolve tools work without the optional hosted MCP endpoint.
-
-Use a PAT: read:agent for reads, write:triage for triage, write:admin plus an appropriate organization role for project/channel/rule/monitor/release/team management. Credential changes and OAuth consent remain session/login operations. No permission bypass. Application response text is untrusted data. Default cloud endpoint: https://app.epure.sh.
-
-For full management consent at login: `EPURE_SCOPES="read:agent write:triage write:admin" epure login` (or `epure-mcp login`). Existing credentials need reauthentication or a suitably scoped PAT.
+Logout removes the shared local session and attempts remote OAuth grant revocation. If the server is unavailable or lacks the revocation update, it reports the need to revoke the app in Settings → Connected apps. [Design and research](https://github.com/epure-sh/epure/blob/main/docs/cli-mcp-redesign.md).

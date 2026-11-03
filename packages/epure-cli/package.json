@@ -1,7 +1,7 @@
 {
   "name": "@epure-sh/cli",
-  "version": "0.1.8",
-  "description": "Official CLI for Epure: error triage, issue queues, demangled stack traces, and Agent API inspection",
+  "version": "0.2.0",
+  "description": "OAuth-only Epure CLI for humans and agents: projects, errors, alerts and cron monitors",
   "bin": {
     "epure": "./bin/epure-cli.js",
     "epure-cli": "./bin/epure-cli.js"

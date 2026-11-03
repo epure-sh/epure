@@ -1,469 +1,175 @@
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const http = require('http');
-const https = require('https');
-const crypto = require('crypto');
-const { exec } = require('child_process');
-const readline = require('readline');
-
-function getCredentialsPath() {
-  const configHome = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
-  return path.join(configHome, 'epure', 'credentials.json');
+'use strict';
+// Shared OAuth runtime. Keep identical in both npm packages (enforced in tests).
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const http = require('node:http');
+const crypto = require('node:crypto');
+const { spawn } = require('node:child_process');
+const { setTimeout: sleep } = require('node:timers/promises');
+const CLIENT_ID = 'epure-cli';
+const SCOPES = ['read:agent', 'write:triage', 'write:admin'];
+class ClientError extends Error {
+  constructor(code, message, exitCode = 1) { super(message); this.code = code; this.exitCode = exitCode; }
 }
-
+function authRequired() { return new ClientError('AUTH_REQUIRED', 'Sign in with: epure auth login (or epure-mcp login). Use --device on a remote machine.', 4); }
+function normalizeUrl(value = 'https://app.epure.sh') {
+  const raw = value.trim();
+  let u; try { u = new URL(raw.includes('://') ? raw : `https://${raw}`); } catch { throw new ClientError('INVALID_URL', 'Use an HTTPS instance origin.', 2); }
+  const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname);
+  if ((u.protocol !== 'https:' && !(u.protocol === 'http:' && loopback)) || u.username || u.password || u.search || u.hash || !['', '/'].includes(u.pathname)) {
+    throw new ClientError('INVALID_URL', 'Use an HTTPS instance origin (HTTP is allowed only on loopback).', 2);
+  }
+  return u.origin;
+}
+function getCredentialsPath() { return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'epure', 'credentials.json'); }
 function readCredentials() {
-  const p = getCredentialsPath();
-  try {
-    if (fs.existsSync(p)) {
-      const raw = fs.readFileSync(p, 'utf8');
-      return JSON.parse(raw);
-    }
-  } catch {}
-  return { current_instance: '', instances: {} };
+  try { const c = JSON.parse(fs.readFileSync(getCredentialsPath(), 'utf8')); if (!c.instances || typeof c.instances !== 'object') throw Error(); return c; }
+  catch (e) { if (e.code === 'ENOENT') return { current_instance: '', instances: {} }; throw new ClientError('CREDENTIAL_STORE', 'Cannot read OAuth sessions. Repair or remove the credentials file, then sign in again.'); }
 }
-
-function writeCredentials(data) {
-  const p = getCredentialsPath();
-  const dir = path.dirname(p);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  }
-  fs.writeFileSync(p, JSON.stringify(data, null, 2), { encoding: 'utf8', mode: 0o600 });
-  try {
-    fs.chmodSync(p, 0o600);
-  } catch {}
+function writeCredentials(c) {
+  const dest = getCredentialsPath();
+  fs.mkdirSync(path.dirname(dest), { recursive: true, mode: 0o700 });
+  const tmp = `${dest}.${process.pid}.${crypto.randomBytes(6).toString('hex')}`;
+  try { fs.writeFileSync(tmp, JSON.stringify(c, null, 2), { mode: 0o600, flag: 'wx' }); fs.renameSync(tmp, dest); }
+  finally { try { fs.unlinkSync(tmp); } catch {} }
 }
-
-function normalizeUrl(url) {
-  if (!url) return 'https://app.epure.sh';
-  let u = url.trim().replace(/\/+$/, '');
-  if (!u.startsWith('http://') && !u.startsWith('https://')) {
-    u = `https://${u}`;
-  }
-  return u;
+function endpoint(value) { return normalizeUrl(value || process.env.EPURE_URL || readCredentials().current_instance || undefined); }
+function getActiveCredentials(url) { const target = endpoint(url); const c = readCredentials().instances[target]; return c ? { ...c, url: target } : null; }
+function saveInstance(url, data, activate = true) {
+  const target = normalizeUrl(url); const c = readCredentials();
+  c.instances[target] = { ...data, url: target };
+  if (activate) c.current_instance = target;
+  writeCredentials(c);
 }
-
-function getActiveCredentials(targetUrl) {
-  const creds = readCredentials();
-  const normTarget = targetUrl ? normalizeUrl(targetUrl) : '';
-  const current = normTarget || creds.current_instance || 'https://app.epure.sh';
-  const instance = creds.instances ? creds.instances[current] : null;
-  if (!instance && !normTarget && creds.instances) {
-    const keys = Object.keys(creds.instances);
-    if (keys.length > 0) {
-      return { url: keys[0], ...creds.instances[keys[0]] };
-    }
-  }
-  return instance ? { url: current, ...instance } : null;
-}
-
-function saveInstance(url, data) {
-  const normUrl = normalizeUrl(url);
-  const creds = readCredentials();
-  if (!creds.instances) creds.instances = {};
-  creds.instances[normUrl] = {
-    url: normUrl,
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
-    expires_at: data.expires_at,
-    org_id: data.org_id,
-    user_id: data.user_id,
-    scopes: data.scopes || ['read:agent', 'write:triage'],
-  };
-  creds.current_instance = normUrl;
-  writeCredentials(creds);
-}
-
-function switchInstance(url) {
-  const normUrl = normalizeUrl(url);
-  const creds = readCredentials();
-  if (!creds.instances || !creds.instances[normUrl]) {
-    throw new Error(`Instance "${normUrl}" not found in credentials. Run "epure login --url ${normUrl}" first.`);
-  }
-  creds.current_instance = normUrl;
-  writeCredentials(creds);
-  return normUrl;
-}
-
 function removeInstance(url) {
-  const creds = readCredentials();
-  const target = url ? normalizeUrl(url) : creds.current_instance;
-  if (creds.instances && creds.instances[target]) {
-    delete creds.instances[target];
+  const target = endpoint(url); const c = readCredentials(); delete c.instances[target];
+  if (c.current_instance === target) c.current_instance = Object.keys(c.instances)[0] || '';
+  writeCredentials(c); return target;
+}
+function switchInstance(url) { const target = normalizeUrl(url); const c = readCredentials(); if (!c.instances[target]?.refresh_token) throw authRequired(); c.current_instance = target; writeCredentials(c); return target; }
+function listInstances() { const c = readCredentials(); return { current_instance: c.current_instance, instances: Object.keys(c.instances) }; }
+async function post(url, body, signal) {
+  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 20000);
+  const abort = () => controller.abort(); signal?.addEventListener('abort', abort, { once: true }); if (signal?.aborted) abort();
+  const json = url.endsWith('/oauth/device/code');
+  try {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': json ? 'application/json' : 'application/x-www-form-urlencoded' }, body: json ? JSON.stringify(body) : new URLSearchParams(body), redirect: 'error', signal: controller.signal });
+    let data; try { data = await r.json(); } catch { data = {}; }
+    if (!r.ok) {
+      const known = ['authorization_pending', 'slow_down', 'access_denied', 'expired_token', 'invalid_grant', 'invalid_client', 'invalid_request', 'invalid_scope', 'server_error'];
+      const code = known.includes(data.error) ? data.error : 'OAUTH_ERROR';
+      throw new ClientError(code, `OAuth request failed (${code}). Run auth login again if approval expired.`, 4);
+    }
+    return data;
+  } catch (err) {
+    if (err instanceof ClientError) throw err;
+    throw new ClientError(signal?.aborted ? 'CANCELLED' : 'NETWORK_ERROR', signal?.aborted ? 'Sign-in cancelled.' : 'Cannot reach the OAuth service. Check your instance and connection.', signal?.aborted ? 2 : 1);
+  } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
+}
+function persist(url, data, clientId = CLIENT_ID, activate = true) {
+  if (!data.access_token || !data.refresh_token || !Number.isFinite(Number(data.expires_in)) || Number(data.expires_in) <= 0) throw new ClientError('OAUTH_RESPONSE', 'The OAuth service returned an incomplete session.', 4);
+  const entry = { access_token: data.access_token, refresh_token: data.refresh_token, client_id: clientId, expires_at: Math.floor(Date.now() / 1000) + Number(data.expires_in), scopes: (data.scope || '').split(' ').filter(Boolean), org_id: data.org_id, user_id: data.user_id };
+  saveInstance(url, entry, activate); return entry;
+}
+// Serialize refresh rotation across CLI and MCP processes, not just within one process.
+async function withLock(fn) {
+  const lock = `${getCredentialsPath()}.lock`;
+  fs.mkdirSync(path.dirname(lock), { recursive: true, mode: 0o700 });
+  const deadline = Date.now() + 25000; let fd;
+  while (fd === undefined) {
+    try { fd = fs.openSync(lock, 'wx', 0o600); fs.writeFileSync(fd, String(process.pid)); }
+    catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      try { const pid = Number(fs.readFileSync(lock, 'utf8')); if (pid > 0) { try { process.kill(pid, 0); } catch (p) { if (p.code === 'ESRCH') { fs.unlinkSync(lock); continue; } } } } catch (e2) { if (e2.code === 'ENOENT') continue; }
+      if (Date.now() >= deadline) throw new ClientError('AUTH_BUSY', 'Another process is refreshing the OAuth session. Retry shortly.');
+      await sleep(50);
+    }
   }
-  if (creds.current_instance === target) {
-    const remaining = Object.keys(creds.instances || {});
-    creds.current_instance = remaining.length > 0 ? remaining[0] : '';
-  }
-  writeCredentials(creds);
-  return target;
+  try { return await fn(); } finally { fs.closeSync(fd); fs.unlinkSync(lock); }
 }
-
-function listInstances() {
-  const creds = readCredentials();
-  return {
-    current_instance: creds.current_instance || '',
-    instances: Object.keys(creds.instances || {}),
-  };
+async function ensureValidToken(instance, force = false) {
+  if (!instance?.refresh_token || !instance.client_id) throw authRequired();
+  const fresh = c => c?.access_token && c.expires_at > Date.now() / 1000 + 300;
+  if (!force && fresh(instance)) return instance.access_token;
+  return withLock(async () => {
+    const current = getActiveCredentials(instance.url);
+    if (!current?.refresh_token) throw authRequired();
+    if (fresh(current) && (!force || current.access_token !== instance.access_token)) return current.access_token;
+    let res;
+    try { res = await post(`${instance.url}/oauth/token`, { grant_type: 'refresh_token', refresh_token: current.refresh_token, client_id: current.client_id || CLIENT_ID }); }
+    catch (err) { if (['invalid_grant', 'invalid_client', 'access_denied'].includes(err.code)) throw authRequired(); throw err; }
+    // Older servers may preserve the refresh credential instead of rotating it.
+    return persist(instance.url, { ...res, refresh_token: res.refresh_token || current.refresh_token }, current.client_id || CLIENT_ID, false).access_token;
+  });
 }
-
-function base64url(buf) {
-  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
 function openBrowser(url) {
-  const platform = process.platform;
-  let cmd;
-  if (platform === 'darwin') {
-    cmd = `open "${url}"`;
-  } else if (platform === 'win32') {
-    cmd = `start "" "${url}"`;
-  } else {
-    cmd = `xdg-open "${url}"`;
-  }
-  exec(cmd, () => {});
+  const args = process.platform === 'darwin' ? ['open', [url]] : process.platform === 'win32' ? ['rundll32.exe', ['url.dll,FileProtocolHandler', url]] : ['xdg-open', [url]];
+  const child = spawn(args[0], args[1], { stdio: 'ignore', detached: true }); child.on('error', () => {}); child.unref();
 }
-
-function postJson(fullUrl, body) {
-  return new Promise((resolve, reject) => {
-    const urlObj = new URL(fullUrl);
-    const client = urlObj.protocol === 'https:' ? https : http;
-    const payload = JSON.stringify(body);
-
-    const req = client.request(
-      fullUrl,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(payload),
-          'User-Agent': 'epure-auth/0.1.7',
-        },
-      },
-      (res) => {
-        let resBody = '';
-        res.on('data', (c) => (resBody += c));
-        res.on('end', () => {
-          try {
-            const data = JSON.parse(resBody);
-            if (res.statusCode >= 200 && res.statusCode < 300) {
-              resolve(data);
-            } else {
-              reject(new Error(data.error_description || data.error || `HTTP ${res.statusCode}: ${resBody}`));
-            }
-          } catch {
-            if (res.statusCode >= 200 && res.statusCode < 300) {
-              resolve({});
-            } else {
-              reject(new Error(`HTTP ${res.statusCode}: ${resBody}`));
-            }
-          }
-        });
-      }
-    );
-
-    req.on('error', reject);
-    req.write(payload);
-    req.end();
-  });
-}
-
-async function ensureValidToken(instanceData, forceRefresh = false) {
-  if (!instanceData || !instanceData.refresh_token) {
-    return instanceData?.access_token || null;
-  }
-  const nowSec = Math.floor(Date.now() / 1000);
-  const expiresAt = instanceData.expires_at || 0;
-  // Refresh if under 48 hours left or forced
-  if (!forceRefresh && expiresAt > nowSec + 172800) {
-    return instanceData.access_token;
-  }
-
-  try {
-    const res = await postJson(`${instanceData.url}/oauth/token`, {
-      grant_type: 'refresh_token',
-      refresh_token: instanceData.refresh_token,
-    });
-    if (res.access_token) {
-      instanceData.access_token = res.access_token;
-      if (res.refresh_token) {
-        instanceData.refresh_token = res.refresh_token;
-      }
-      instanceData.expires_at = nowSec + (res.expires_in || 2592000);
-      saveInstance(instanceData.url, instanceData);
-      return instanceData.access_token;
-    }
-  } catch (err) {
-    if (expiresAt > nowSec) {
-      return instanceData.access_token;
-    }
-    throw err;
-  }
-  return instanceData.access_token;
-}
-
-function promptLine(query) {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-  return new Promise((resolve) => {
-    rl.question(query, (ans) => {
-      rl.close();
-      resolve(ans.trim());
-    });
-  });
-}
-
-async function selectInstanceUrl(passedUrl) {
-  if (passedUrl) {
-    return normalizeUrl(passedUrl);
-  }
-
-  if (!process.stdin.isTTY) {
-    return 'https://app.epure.sh';
-  }
-
-  console.log('\nSelect Epure instance:');
-  console.log('  1) Epure Cloud (https://app.epure.sh) [default]');
-  console.log('  2) Localhost (http://localhost:8080)');
-  console.log('  3) Custom Domain / VPS');
-  const ans = await promptLine('Choose [1-3, default 1]: ');
-
-  if (ans === '2') {
-    return 'http://localhost:8080';
-  } else if (ans === '3') {
-    const custom = await promptLine('Enter custom instance URL (e.g. https://errors.mycompany.com): ');
-    return normalizeUrl(custom || 'https://app.epure.sh');
-  }
-  return 'https://app.epure.sh';
-}
-
-async function loginLoopback(targetUrl, clientId, clientName) {
-  return new Promise((resolve, reject) => {
-    const verifier = base64url(crypto.randomBytes(32));
-    const challenge = base64url(crypto.createHash('sha256').update(verifier).digest());
-    const state = crypto.randomBytes(16).toString('hex');
-
-    const server = http.createServer(async (req, res) => {
-      try {
-        const parsed = new URL(req.url, 'http://127.0.0.1');
-        if (parsed.pathname !== '/callback') {
-          res.writeHead(404);
-          res.end();
-          return;
-        }
-
-        const code = parsed.searchParams.get('code');
-        const returnedState = parsed.searchParams.get('state');
-        const error = parsed.searchParams.get('error');
-
-        if (error) {
-          res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end(`
-            <html><body style="font-family: sans-serif; background: #0c0d0e; color: #f87171; padding: 40px; text-align: center;">
-              <h2>Authorization Denied</h2>
-              <p>${parsed.searchParams.get('error_description') || error}</p>
-            </body></html>
-          `);
-          server.close();
-          return reject(new Error(`Authorization failed: ${error}`));
-        }
-
-        if (returnedState !== state) {
-          res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end('State mismatch error.');
-          server.close();
-          return reject(new Error('OAuth state mismatch'));
-        }
-
-        if (!code) {
-          res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end('Missing code parameter.');
-          server.close();
-          return reject(new Error('Missing authorization code'));
-        }
-
-        // Exchange code for tokens
-        const port = server.address().port;
-        const redirectUri = `http://127.0.0.1:${port}/callback`;
-
-        const tokenRes = await postJson(`${targetUrl}/oauth/token`, {
-          grant_type: 'authorization_code',
-          code,
-          code_verifier: verifier,
-          redirect_uri: redirectUri,
-          client_id: clientId,
-        });
-
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <title>Epure - Authenticated</title>
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0c0d0e; color: #f0f0f0; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-              .box { background: #16181a; border: 1px solid #2a2d32; border-radius: 12px; padding: 40px; text-align: center; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-              h1 { color: #fff; font-size: 20px; margin: 0 0 10px; }
-              p { color: #888; font-size: 14px; margin: 0; }
-              .icon { color: #10b981; font-size: 40px; margin-bottom: 16px; }
-            </style>
-          </head>
-          <body>
-            <div class="box">
-              <div class="icon">✓</div>
-              <h1>Authenticated with Epure</h1>
-              <p>You can close this tab and return to your terminal.</p>
-            </div>
-          </body>
-          </html>
-        `);
-
-        server.close();
-
-        const nowSec = Math.floor(Date.now() / 1000);
-        saveInstance(targetUrl, {
-          access_token: tokenRes.access_token,
-          refresh_token: tokenRes.refresh_token,
-          expires_at: nowSec + (tokenRes.expires_in || 2592000),
-          org_id: tokenRes.org_id,
-          user_id: tokenRes.user_id,
-          scopes: (tokenRes.scope || 'read:agent write:triage').split(' '),
-        });
-
-        resolve({
-          url: targetUrl,
-          org_id: tokenRes.org_id,
-          user_id: tokenRes.user_id,
-        });
-      } catch (err) {
-        server.close();
-        reject(err);
-      }
-    });
-
-    server.listen(0, '127.0.0.1', () => {
-      const port = server.address().port;
-      const redirectUri = `http://127.0.0.1:${port}/callback`;
-      const authUrl = `${targetUrl}/oauth/authorize?client_id=${encodeURIComponent(clientId)}&client_name=${encodeURIComponent(clientName)}&redirect_uri=${encodeURIComponent(redirectUri)}&code_challenge=${challenge}&code_challenge_method=S256&scope=${encodeURIComponent(process.env.EPURE_SCOPES || 'read:agent write:triage')}&state=${state}`;
-
-      console.log(`\nOpening browser to authorize with Epure (${targetUrl})...`);
-      console.log(`If your browser does not open automatically, visit:`);
-      console.log(`  ${authUrl}\n`);
-
-      openBrowser(authUrl);
-    });
-
-    server.on('error', reject);
-
-    // 2-minute timeout for authorization
-    const timer = setTimeout(() => {
-      server.close();
-      reject(new Error('Browser authorization timed out (120s)'));
-    }, 120000);
-
-    server.on('close', () => {
-      clearTimeout(timer);
-    });
-  });
-}
-
-async function loginDeviceCode(targetUrl, clientId, clientName) {
-  const initRes = await postJson(`${targetUrl}/oauth/device/code`, {
-    client_id: clientId,
-    client_name: clientName,
-    scope: process.env.EPURE_SCOPES || 'read:agent write:triage',
-  });
-
-  const { device_code, user_code, verification_uri, verification_uri_complete, interval = 5, expires_in = 600 } = initRes;
-
-  const authUrl = verification_uri_complete || `${verification_uri}?user_code=${user_code}`;
-  console.log(`\nTo authenticate this device, open your browser and visit:`);
-  console.log(`  ${authUrl}`);
-  console.log(`Or visit ${verification_uri} and enter code:`);
-  console.log(`  ${user_code}\n`);
-
-  openBrowser(authUrl);
-
-  const pollIntervalMs = Math.max(interval, 2) * 1000;
-  const deadline = Date.now() + expires_in * 1000;
-
-  process.stdout.write('Waiting for approval in browser...');
-
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, pollIntervalMs));
-    process.stdout.write('.');
-
+function publicSession(url) { const c = getActiveCredentials(url); return { instance: endpoint(url), authenticated: !!(c?.refresh_token && c?.client_id), user_id: c?.user_id, org_id: c?.org_id, scopes: c?.scopes, expires_at: c?.expires_at, login_command: 'epure auth login' }; }
+async function loginDeviceCode(url, options = {}) {
+  const signal = options.signal; const log = options.log || (s => process.stderr.write(`${s}\n`));
+  const init = await post(`${url}/oauth/device/code`, { client_id: CLIENT_ID, client_name: 'Epure CLI and MCP', scope: options.scope || SCOPES.join(' ') }, signal);
+  const approval = new URL(init.verification_uri_complete || init.verification_uri, url);
+  if (approval.origin !== new URL(url).origin) throw new ClientError('OAUTH_RESPONSE', 'OAuth approval URL must belong to your instance.', 4);
+  if (!init.device_code || !init.user_code) throw new ClientError('OAUTH_RESPONSE', 'Missing device approval details.', 4);
+  log(`Approve sign-in: ${approval.href}\nCode: ${init.user_code}\nWaiting for browser approval…`);
+  if (!options.noBrowser) openBrowser(approval.href);
+  let interval = Math.max(1, Number(init.interval) || 5) * 1000;
+  const deadline = Date.now() + Math.min(Number(init.expires_in) || 600, 900) * 1000;
+  while (Date.now() + interval < deadline) {
+    await (options.sleep || sleep)(interval, undefined, { signal });
     try {
-      const tokenRes = await postJson(`${targetUrl}/oauth/token`, {
-        grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-        device_code,
-        client_id: clientId,
-      });
-
-      if (tokenRes.access_token) {
-        console.log(' Done!');
-        const nowSec = Math.floor(Date.now() / 1000);
-        saveInstance(targetUrl, {
-          access_token: tokenRes.access_token,
-          refresh_token: tokenRes.refresh_token,
-          expires_at: nowSec + (tokenRes.expires_in || 2592000),
-          org_id: tokenRes.org_id,
-          user_id: tokenRes.user_id,
-          scopes: (tokenRes.scope || 'read:agent write:triage').split(' '),
-        });
-
-        return {
-          url: targetUrl,
-          org_id: tokenRes.org_id,
-          user_id: tokenRes.user_id,
-        };
-      }
-    } catch (err) {
-      if (err.message.includes('authorization_pending')) {
-        continue;
-      }
-      console.log('');
-      throw err;
-    }
+      const data = await post(`${url}/oauth/token`, { grant_type: 'urn:ietf:params:oauth:grant-type:device_code', device_code: init.device_code, client_id: CLIENT_ID }, signal);
+      await withLock(async () => persist(url, data)); return publicSession(url);
+    } catch (e) { if (e.code === 'authorization_pending') continue; if (e.code === 'slow_down') { interval += 5000; continue; } throw e; }
   }
-
-  console.log('');
-  throw new Error('Device activation expired. Please run login again.');
+  throw new ClientError('expired_token', 'Approval expired. Run auth login --device again.', 4);
 }
-
+async function loginLoopback(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const verifier = crypto.randomBytes(32).toString('base64url');
+    const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+    const state = crypto.randomBytes(32).toString('hex'); let timer, handling = false;
+    const finish = (err, data) => { clearTimeout(timer); options.signal?.removeEventListener('abort', cancel); server.close(); server.closeIdleConnections?.(); err ? reject(err) : resolve(data); };
+    const cancel = () => finish(new ClientError('CANCELLED', 'Sign-in cancelled.', 2));
+    const server = http.createServer(async (req, res) => {
+      const q = new URL(req.url, 'http://127.0.0.1');
+      if (q.pathname !== '/callback' || req.method !== 'GET') { res.writeHead(404).end(); return; }
+      if (q.searchParams.get('state') !== state) { res.writeHead(400).end('Invalid OAuth state. Return to the original sign-in tab.'); return; }
+      if (handling) { res.writeHead(409).end(); return; } handling = true;
+      try {
+        if (q.searchParams.has('error')) throw new ClientError('access_denied', 'Browser approval was denied.', 4);
+        const code = q.searchParams.get('code'); if (!code) throw new ClientError('OAUTH_RESPONSE', 'Missing authorization code.', 4);
+        const data = await post(`${url}/oauth/token`, { grant_type: 'authorization_code', code, code_verifier: verifier, redirect_uri: `http://127.0.0.1:${server.address().port}/callback`, client_id: CLIENT_ID }, options.signal);
+        await withLock(async () => persist(url, data)); res.writeHead(200, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' }).end('Signed in to Epure. You can close this tab.'); finish(null, publicSession(url));
+      } catch (e) { res.writeHead(400).end('Sign-in failed. Return to your terminal.'); finish(e); }
+    });
+    server.on('error', err => finish(err));
+    server.listen(0, '127.0.0.1', () => {
+      const approval = new URL('/oauth/authorize', url);
+      approval.search = new URLSearchParams({ client_id: CLIENT_ID, client_name: 'Epure CLI and MCP', redirect_uri: `http://127.0.0.1:${server.address().port}/callback`, code_challenge: challenge, code_challenge_method: 'S256', scope: options.scope || SCOPES.join(' '), state }).toString();
+      (options.log || (s => process.stderr.write(`${s}\n`)))(`Approve sign-in: ${approval.href}`);
+      if (!options.noBrowser) (options.openBrowser || openBrowser)(approval.href);
+    });
+    timer = setTimeout(() => finish(new ClientError('AUTH_TIMEOUT', 'Browser approval timed out. Run auth login again.', 4)), 180000);
+    options.signal?.addEventListener('abort', cancel, { once: true });
+  });
+}
 async function login(options = {}) {
-  const targetUrl = await selectInstanceUrl(options.url);
-  const clientId = options.clientId || 'epure-cli';
-  const clientName = options.clientName || `${clientId} (${os.hostname()})`;
-
-  const useDevice = options.device || Boolean(process.env.SSH_CLIENT) || !process.stdin.isTTY;
-
-  if (useDevice) {
-    return loginDeviceCode(targetUrl, clientId, clientName);
-  }
-
-  try {
-    return await loginLoopback(targetUrl, clientId, clientName);
-  } catch (err) {
-    console.log(`Loopback failed (${err.message}). Falling back to Device Code Flow...`);
-    return await loginDeviceCode(targetUrl, clientId, clientName);
-  }
+  const url = endpoint(options.url);
+  const scopes = (options.scope || SCOPES.join(' ')).split(/[ ,]+/).filter(Boolean);
+  if (!scopes.length || scopes.some(s => !SCOPES.includes(s))) throw new ClientError('INVALID_SCOPE', `Choose scopes from: ${SCOPES.join(', ')}`, 2);
+  const opts = { ...options, scope: scopes.join(' ') };
+  return options.device || process.env.SSH_CLIENT || !process.stdin.isTTY ? loginDeviceCode(url, opts) : loginLoopback(url, opts);
 }
-
-module.exports = {
-  getCredentialsPath,
-  readCredentials,
-  writeCredentials,
-  normalizeUrl,
-  getActiveCredentials,
-  saveInstance,
-  switchInstance,
-  removeInstance,
-  listInstances,
-  ensureValidToken,
-  login,
-};
+async function logout(url) {
+  return withLock(async () => {
+  const target = endpoint(url); const c = getActiveCredentials(target); let revoked = false;
+  try { if (c?.refresh_token) { await post(`${target}/oauth/revoke`, { token: c.refresh_token, token_type_hint: 'refresh_token', client_id: c.client_id || CLIENT_ID }); revoked = true; } }
+  catch {} finally { removeInstance(target); }
+  return { instance: target, authenticated: false, revoked, ...(!revoked && c?.refresh_token ? { warning: 'Local session removed. Remote revocation failed; revoke Epure CLI and MCP in Settings → Connected apps.' } : {}) };
+  });
+}
+module.exports = { ClientError, authRequired, normalizeUrl, endpoint, getCredentialsPath, readCredentials, writeCredentials, saveInstance, getActiveCredentials, switchInstance, listInstances, removeInstance, ensureValidToken, publicSession, login, loginLoopback, loginDeviceCode, logout };

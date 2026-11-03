@@ -28,6 +28,7 @@ pub fn top_level_router(state: Arc<AppState>) -> Router {
             get(get_oauth_metadata),
         )
         .route("/oauth/token", post(post_oauth_token))
+        .route("/oauth/revoke", post(post_oauth_revoke))
         .route("/oauth/device/code", post(post_device_code))
         .layer(axum::middleware::from_fn(oauth_public_rate_limit))
         .with_state(state)
@@ -61,6 +62,8 @@ async fn get_oauth_metadata(State(state): State<Arc<AppState>>) -> impl IntoResp
         "issuer": base,
         "authorization_endpoint": format!("{base}/oauth/authorize"),
         "token_endpoint": format!("{base}/oauth/token"),
+        "revocation_endpoint": format!("{base}/oauth/revoke"),
+        "revocation_endpoint_auth_methods_supported": ["none"],
         "device_authorization_endpoint": format!("{base}/oauth/device/code"),
         "response_types_supported": ["code"],
         "grant_types_supported": [
@@ -77,6 +80,35 @@ async fn get_oauth_metadata(State(state): State<Arc<AppState>>) -> impl IntoResp
         meta["mcp_endpoint"] = json!(format!("{base}/mcp"));
     }
     Json(meta)
+}
+
+// RFC 7009: public native clients prove possession of their refresh credential.
+// Invalid or already revoked credentials succeed without disclosing session state.
+#[derive(Deserialize)]
+struct RevokeRequest {
+    token: String,
+    client_id: String,
+}
+
+async fn post_oauth_revoke(
+    State(state): State<Arc<AppState>>,
+    Form(body): Form<RevokeRequest>,
+) -> Result<StatusCode, StatusCode> {
+    if let Some(prefix) = epure_auth::oauth::parse_refresh_token_prefix(&body.token) {
+        if let Some(found) = lookup_refresh_token(&state.pools.app, &prefix)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        {
+            if found.client_id == body.client_id
+                && epure_auth::oauth::verify_token_hash(&body.token, &found.refresh_token_hash)
+            {
+                revoke_authorization(&state.pools.app, found.user_id, found.authorization_id)
+                    .await
+                    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            }
+        }
+    }
+    Ok(StatusCode::OK)
 }
 
 // ---------------------------------------------------------------------------
