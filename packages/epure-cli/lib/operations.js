@@ -26,7 +26,7 @@ add('issues', 'snooze', 'POST', '/api/v1/agent/issues/{id}/snooze', { mode: S },
 add('issues', 'unsnooze', 'POST', '/api/v1/agent/issues/{id}/unsnooze');
 for (const action of ['events', 'releases', 'timeline']) add('issues', action, 'GET', `/api/v1/issues/{issue_id}/${action}`);
 crud('rules', '/api/v1/alert-rules', { ...project, ...rule }, ['project_id', 'name', 'kind'], Object.fromEntries(Object.entries(rule).filter(([k]) => k !== 'kind')), project);
-crud('channels', '/api/v1/alert-channels', { ...project, provider: S, label: S, config: O, require_verify: B }, ['project_id', 'provider', 'label'], { ...project, label: S, config: O, is_enabled: B }, project);
+crud('channels', '/api/v1/alert-channels', { ...project, project_ids: A, provider: S, label: S, config: O, require_verify: B }, ['provider', 'label'], { ...project, project_ids: A, label: S, config: O, is_enabled: B }, project);
 add('channels', 'test', 'POST', '/api/v1/alert-channels/{id}/test', { enable_on_ok: B });
 add('channels', 'ping', 'POST', '/api/v1/alert-channels/{id}/ping');
 crud('monitors', '/api/v1/monitors', { ...project, slug: S, ...monitor }, ['project_id', 'slug'], { ...monitor, paused: B }, project);
@@ -72,6 +72,7 @@ function buildRequest(op, args) {
   validate(op.inputSchema, args);
   const values = { ...args }; let path = op.path.replace(/\{([^}]+)\}/g, (_, k) => { const value = values[k]; delete values[k]; return encodeURIComponent(value); });
   if (op.id === 'issues.context') values.format ||= 'json';
+  if (op.id === 'channels.create' && !args.project_id && !args.project_ids?.length) throw new ClientError('INVALID_ARGUMENT', 'Provide project_id or non-empty project_ids.', 2);
   if (op.id === 'issues.list') values.limit ||= 20;
   if (op.resource === 'privacy' && ['erase', 'export'].includes(op.action) && !args.user_id && !args.email) throw new ClientError('INVALID_ARGUMENT', 'Provide --user-id or --email for the subject.', 2);
   return { method: op.method, path, ...(op.method === 'GET' ? { query: values } : { body: { ...values, ...op.fixed } }) };

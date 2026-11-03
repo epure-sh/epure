@@ -126,10 +126,8 @@ export function CreateOutputChannelDialog({
         created.push(await createAlertChannel(body));
       }
       setChannelIds(created.map((row) => row.id));
-      setSigningSecret(created.filter((row) => row.signing_secret).map((row) => {
-        const name = projectChoices.find((project) => project.id === row.project_id)?.name ?? row.project_id;
-        return `${name}: ${row.signing_secret}`;
-      }).join("\n\n") || null);
+      onCreated?.();
+      setSigningSecret(created[0]?.signing_secret ?? null);
       setVerified(false);
       setStep(3);
     } catch (err) {
@@ -159,7 +157,7 @@ export function CreateOutputChannelDialog({
       const failures = outcomes.filter((result) => !result.sent || result.status !== "ok");
       if (failures.length > 0) {
         setVerified(false);
-        setTestError(`${failures.length} of ${channelIds.length} project channels failed verification. ${failures[0]?.error || "Test delivery failed"}`);
+        setTestError(failures[0]?.error || "Test delivery failed");
       } else {
         setVerified(true);
         toast.success(channelIds.length > 1 ? `Test delivered · ${channelIds.length} projects` : "Test delivered");

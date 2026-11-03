@@ -66,3 +66,5 @@ Exit codes: **0** success, **1** request/runtime failure, **2** usage/confirmati
 ## Development
 
 See [research and design](https://github.com/epure-sh/epure/blob/main/docs/cli-mcp-redesign.md). Both npm packages ship identical shared runtime modules, enforced by regression tests. The Cargo `epure-cli` binary embeds and launches this same runtime, and also requires Node.js 18+.
+
+Output channels can be shared across projects: use `project_ids` in the schema (CLI: `--project-ids '["PROJECT_A","PROJECT_B"]'`). One channel has one destination and one verification state. Single-project `project_id` remains supported.

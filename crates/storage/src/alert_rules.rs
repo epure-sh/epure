@@ -504,6 +504,7 @@ pub struct AlertChannelRow {
     pub id: Uuid,
     pub org_id: Uuid,
     pub project_id: Uuid,
+    pub project_ids: Vec<Uuid>,
     pub provider: String,
     pub label: String,
     pub config: sqlx::types::Json<serde_json::Value>,
@@ -520,6 +521,7 @@ pub struct AlertChannelPublic {
     pub id: Uuid,
     pub org_id: Uuid,
     pub project_id: Uuid,
+    pub project_ids: Vec<Uuid>,
     pub provider: String,
     pub label: String,
     pub config: serde_json::Value,
@@ -541,6 +543,7 @@ pub struct CreatedAlertChannel {
 
 pub struct CreateChannelParams {
     pub project_id: Uuid,
+    pub project_ids: Vec<Uuid>,
     pub provider: String,
     pub label: String,
     pub config: serde_json::Value,
@@ -548,7 +551,7 @@ pub struct CreateChannelParams {
 }
 
 const CHANNEL_SELECT: &str = r#"
-    id, org_id, project_id, provider, label, config, is_enabled,
+    id, org_id, project_id, project_ids, provider, label, config, is_enabled,
     last_error, last_tested_at, last_test_status, created_at
 "#;
 
@@ -631,6 +634,7 @@ pub fn channel_to_public(row: &AlertChannelRow) -> AlertChannelPublic {
         id: row.id,
         org_id: row.org_id,
         project_id: row.project_id,
+        project_ids: row.project_ids.clone(),
         provider: row.provider.clone(),
         label: row.label.clone(),
         config: sanitize_channel_config(&row.provider, &row.config.0),
@@ -689,7 +693,7 @@ pub async fn list_channels(
         r#"
         SELECT {CHANNEL_SELECT}
         FROM alert_channels
-        WHERE project_id = $1
+        WHERE $1 = ANY(project_ids)
         ORDER BY created_at ASC
         "#
     ))
@@ -771,8 +775,8 @@ pub async fn create_channel(
     let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
     let row = sqlx::query_as::<_, AlertChannelRow>(&format!(
         r#"
-        INSERT INTO alert_channels (org_id, project_id, provider, label, config, is_enabled)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO alert_channels (org_id, project_id, provider, label, config, is_enabled, project_ids)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING {CHANNEL_SELECT}
         "#
     ))
@@ -782,6 +786,7 @@ pub async fn create_channel(
     .bind(&params.label)
     .bind(sqlx::types::Json(&params.config))
     .bind(params.is_enabled)
+    .bind(&params.project_ids)
     .fetch_one(&mut *tx)
     .await?;
     tx.commit().await?;
@@ -870,6 +875,7 @@ pub async fn set_channel_label(
 pub struct UpdateChannelParams {
     pub label: Option<String>,
     pub project_id: Option<Uuid>,
+    pub project_ids: Option<Vec<Uuid>>,
     pub config: Option<serde_json::Value>,
     pub is_enabled: Option<bool>,
 }
@@ -897,7 +903,15 @@ pub async fn update_channel(
     };
 
     let label = params.label.unwrap_or(current.label);
-    let project_id = params.project_id.unwrap_or(current.project_id);
+    let project_ids = params.project_ids.unwrap_or_else(|| {
+        params
+            .project_id
+            .map(|id| vec![id])
+            .unwrap_or(current.project_ids)
+    });
+    let project_id = *project_ids
+        .first()
+        .ok_or_else(|| sqlx::Error::Protocol("A channel requires at least one project".into()))?;
     let config = params
         .config
         .map(sqlx::types::Json)
@@ -907,7 +921,7 @@ pub async fn update_channel(
     let row = sqlx::query_as::<_, AlertChannelRow>(&format!(
         r#"
         UPDATE alert_channels
-        SET label = $2, project_id = $3, config = $4, is_enabled = $5
+        SET label = $2, project_id = $3, config = $4, is_enabled = $5, project_ids = $6
         WHERE id = $1
         RETURNING {CHANNEL_SELECT}
         "#
@@ -917,6 +931,7 @@ pub async fn update_channel(
     .bind(project_id)
     .bind(&config)
     .bind(is_enabled)
+    .bind(&project_ids)
     .fetch_optional(&mut *tx)
     .await?;
     tx.commit().await?;
@@ -970,7 +985,7 @@ pub async fn rule_in_cooldown(
         SELECT EXISTS(
             SELECT 1
             FROM alerts
-            WHERE project_id = $1
+            WHERE $1 = ANY(project_ids)
               AND kind = 'custom'
               AND issue_id IS NOT DISTINCT FROM $2
               AND payload_json->>'rule_id' = $3

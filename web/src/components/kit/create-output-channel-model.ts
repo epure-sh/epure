@@ -115,9 +115,9 @@ export function draftConfig(draft: OutputChannelDraft): {
   return { url: draft.url.trim() };
 }
 
-/** One create body per selected project (same destination, cloned per project). */
+/** A single destination shared by every selected project. */
 export function draftToCreateBodies(draft: OutputChannelDraft): Array<{
-  project_id: string;
+  project_ids: string[];
   provider: ChannelProvider;
   label: string;
   config: {
@@ -132,11 +132,11 @@ export function draftToCreateBodies(draft: OutputChannelDraft): Array<{
     throw new Error("Incomplete draft");
   }
   const config = draftConfig(draft);
-  return draft.projectIds.map((project_id) => ({
-    project_id,
+  return [{
+    project_ids: [...new Set(draft.projectIds)],
     provider: draft.provider!,
     label: draft.label.trim(),
     config,
     require_verify: true,
-  }));
+  }];
 }

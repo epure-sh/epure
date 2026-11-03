@@ -1,3 +1,5 @@
+import { Box } from "@polar-sh/orbit/Box";
+import { Text } from "@polar-sh/orbit/Text";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -46,7 +48,7 @@ export function EditOutputChannelDialog({
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [label, setLabel] = useState("");
-  const [projectId, setProjectId] = useState("");
+  const [projectIds, setProjectIds] = useState<string[]>([]);
   const [enabled, setEnabled] = useState(true);
   const [url, setUrl] = useState("");
   const [recipients, setRecipients] = useState<string[]>([]);
@@ -65,7 +67,7 @@ export function EditOutputChannelDialog({
   useEffect(() => {
     if (!open || !channel) return;
     setLabel(channel.label);
-    setProjectId(channel.project_id);
+    setProjectIds(channel.project_ids ?? [channel.project_id]);
     setEnabled(channel.is_enabled);
     setUrl("");
     setBotToken("");
@@ -100,7 +102,7 @@ export function EditOutputChannelDialog({
       toast.error("Name is required");
       return;
     }
-    if (!projectId) {
+    if (projectIds.length === 0) {
       toast.error("Select a project");
       return;
     }
@@ -138,7 +140,7 @@ export function EditOutputChannelDialog({
     try {
       const updated = await patchAlertChannel(channel.id, {
         label: nextLabel,
-        project_id: projectId,
+        project_ids: projectIds,
         is_enabled: enabled,
         config: Object.keys(config).length > 0 ? config : undefined,
       });
@@ -185,20 +187,15 @@ export function EditOutputChannelDialog({
             />
           </Field>
 
-          <Field label="Project" hint="Alerts for this project can deliver here.">
-            <select
-              value={projectId}
-              onChange={(event) => setProjectId(event.target.value)}
-              className="h-8 w-full rounded-md border border-border-subtle bg-surface-1 px-2 text-xs text-fg-primary outline-none focus-visible:border-accent"
-              aria-label="Project"
-            >
+          <Field label="Projects" hint="Alerts from these projects can deliver here.">
+            <Box as="fieldset" flexDirection="column" gap="s">
               {projectChoices.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                  {project.slug ? ` (${project.slug})` : ""}
-                </option>
+                <Box as="label" key={project.id} alignItems="center" gap="s">
+                  <Checkbox checked={projectIds.includes(project.id)} onCheckedChange={(checked) => setProjectIds((current) => checked === true ? [...new Set([...current, project.id])] : current.filter((id) => id !== project.id))} />
+                  <Text>{project.name}</Text>
+                </Box>
               ))}
-            </select>
+            </Box>
           </Field>
 
           {provider === "email" ? (

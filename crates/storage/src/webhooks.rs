@@ -62,14 +62,16 @@ pub async fn list_for_project_ingest(
         r#"
         SELECT id, project_id, url, format, events, signing_secret
         FROM webhooks
-        WHERE project_id = $1
-          AND NOT EXISTS (
-              SELECT 1 FROM alert_channels c
-              WHERE c.org_id = current_setting('app.current_org_id', true)::uuid
-                AND c.project_id = webhooks.project_id
-                AND c.config->>'webhook_id' = webhooks.id::text
-                AND NOT c.is_enabled
-          )
+        WHERE (
+            (project_id = $1 AND NOT EXISTS (
+                SELECT 1 FROM alert_channels c WHERE c.config->>'webhook_id' = webhooks.id::text
+            )) OR EXISTS (
+                SELECT 1 FROM alert_channels c
+                WHERE c.org_id = current_setting('app.current_org_id', true)::uuid
+                  AND c.config->>'webhook_id' = webhooks.id::text
+                  AND $1 = ANY(c.project_ids) AND c.is_enabled
+            )
+        )
         ORDER BY created_at ASC
         "#,
     )

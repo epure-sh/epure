@@ -43,7 +43,7 @@ fn run() -> Result<u8, String> {
         }
         std::fs::write(
             directory.join("main.js"),
-            "require('./cli').run(process.argv.slice(2), {version:'0.2.0'});\n",
+            "require('./cli').run(process.argv.slice(2), {version:'0.2.1'});\n",
         )
         .map_err(|e| e.to_string())?;
         let status = Command::new("node")
