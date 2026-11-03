@@ -30,6 +30,7 @@ import { useAppContext } from "@/shell/app-context";
 import {
   createBillingPortalSession,
   createCheckoutSession,
+  changeBillingPlan,
   fetchBillingStatus,
   syncCheckout,
   syncBilling,
@@ -107,7 +108,7 @@ function Metric({
 
 export function BillingPage() {
   const navigate = useNavigate();
-  const { currentOrg, projects, user } = useAppContext();
+  const { currentOrg, projects, user, refreshUser } = useAppContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [billingLoading, setBillingLoading] = useState(true);
@@ -155,8 +156,9 @@ export function BillingPage() {
     }
     if (!status) status = cloud ? await fetchBillingStatus() : null;
     setBillingStatus(status);
+    if (status) await refreshUser().catch(() => {});
     setBillingLoading(false);
-  }, [checkoutId, cloud, isOwner, setSearchParams]);
+  }, [checkoutId, cloud, isOwner, setSearchParams, refreshUser]);
 
   useEffect(() => {
     void loadBilling();
@@ -276,6 +278,13 @@ export function BillingPage() {
     }
     setUpgradingPlanId(target.id);
     try {
+      if (billingStatus?.subscription_id || billingStatus?.subscription_status === "past_due") {
+        const updated = await changeBillingPlan(target.tierCode ?? "pro");
+        setBillingStatus(updated);
+        await refreshUser().catch(() => {});
+        toast.success(updated.subscription?.pending_update ? "Plan change scheduled for your next billing period." : "Your plan has been updated.");
+        return;
+      }
       const res = await createCheckoutSession({
         plan_tier: target.tierCode ?? "pro",
         interval: "monthly",
@@ -288,7 +297,7 @@ export function BillingPage() {
       }
       toast.error("Checkout did not return a session.");
     } catch {
-      toast.error("Could not start checkout. Please try again.");
+      toast.error("Could not update billing. Check your payment method or retry.");
     } finally {
       setUpgradingPlanId(null);
     }
@@ -349,7 +358,7 @@ export function BillingPage() {
               <Icon icon={Copy} size={14} />
               Copy
             </Button>
-            {cloud && isOwner && billingStatus?.subscription_id ? (
+            {cloud && isOwner && (billingStatus?.subscription_id || ["past_due", "canceled", "unpaid"].includes(billingStatus?.subscription_status ?? "")) ? (
               <Button
                 type="button"
                 variant="secondary"
@@ -374,6 +383,15 @@ export function BillingPage() {
             : `Event volume for ${orgName}. Self-hosted instances are not metered. No subscription or invoice.`}
         </p>
 
+        {billingStatus?.subscription?.pending_update ? (
+          <Box><Text variant="body">Plan change scheduled for {new Date(billingStatus.subscription.pending_update.applies_at).toLocaleDateString()}.</Text></Box>
+        ) : null}
+        {billingStatus?.subscription?.cancel_at_period_end ? (
+          <Box><Text variant="body">Your subscription ends on {new Date(billingStatus.subscription.current_period_end).toLocaleDateString()}.</Text></Box>
+        ) : null}
+        {billingStatus?.sync?.last_error ? (
+          <Box><Text variant="body">Billing updates are delayed. Automatic retries are running.</Text></Box>
+        ) : null}
         {/* Plan / deployment status */}
         {billingLoading ? (
           <div className="flex items-center gap-2 text-xs text-fg-muted">
@@ -718,7 +736,7 @@ export function BillingPage() {
                           variant="primary"
                           size="sm"
                           disabled={
-                            upgradingPlanId === tier.id || !isOwner || Boolean(tier.comingSoon)
+                            upgradingPlanId !== null || !isOwner || Boolean(tier.comingSoon)
                           }
                           onClick={() => void handleSelectPlan(tier)}
                         >

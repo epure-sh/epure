@@ -36,6 +36,7 @@ interface AppContextValue {
   organizations: UserOrganization[];
   currentOrg: UserOrganization | null;
   refreshOrganizations: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   switchOrg: (orgId: string) => Promise<void>;
   buildQuery: (query: string) => string;
 }
@@ -127,6 +128,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     void refreshProjects();
   }, [refreshProjects, refreshOrganizations]);
 
+  const refreshUser = useCallback(async () => {
+    setUser(await fetchMe());
+    await refreshOrganizations();
+  }, [refreshOrganizations]);
+
   const switchOrg = useCallback(
     async (orgId: string) => {
       try {
@@ -194,6 +200,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       organizations,
       currentOrg,
       refreshOrganizations,
+      refreshUser,
       switchOrg,
       buildQuery,
     }),
@@ -211,6 +218,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       organizations,
       currentOrg,
       refreshOrganizations,
+      refreshUser,
       switchOrg,
       buildQuery,
     ],
@@ -233,6 +241,7 @@ const DEFAULT_APP_CONTEXT: AppContextValue = {
   organizations: [],
   currentOrg: null,
   refreshOrganizations: async () => {},
+  refreshUser: async () => {},
   switchOrg: async () => {},
   buildQuery: (query: string) => query,
 };

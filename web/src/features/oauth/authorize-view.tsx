@@ -20,7 +20,7 @@ import { Bot, Check, ShieldCheck, Terminal, AlertTriangle, ArrowRight } from "lu
 export function AuthorizeView() {
   const [searchParams] = useSearchParams();
   const clientId = searchParams.get("client_id") || "";
-  const clientName = searchParams.get("client_name") || clientId || "AI Coding Assistant";
+  const [clientName,setClientName] = useState(clientId || "AI Coding Assistant");
   const redirectUri = searchParams.get("redirect_uri") || "";
   const codeChallenge = searchParams.get("code_challenge") || "";
   const codeChallengeMethod = searchParams.get("code_challenge_method") || "S256";
@@ -54,6 +54,7 @@ export function AuthorizeView() {
 
     fetchOAuthInfo(clientId, redirectUri)
       .then((info) => {
+        setClientName(info.client_name || clientId);
         setOrgs(info.organizations);
         setSelectedOrgId(info.organizations.some((org) => org.id === info.current_org_id) ? info.current_org_id : info.organizations[0]?.id || "");
         setLoading(false);

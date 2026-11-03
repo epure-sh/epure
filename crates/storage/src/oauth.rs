@@ -318,6 +318,24 @@ pub async fn rotate_oauth_tokens(
     params: RotateTokensTxParams,
 ) -> Result<IssuedTokensResult, sqlx::Error> {
     let mut tx = pool.begin().await?;
+    sqlx::query(
+        "SELECT set_config('app.current_user_id',$1,true),set_config('app.current_org_id',$2,true)",
+    )
+    .bind(params.user_id.to_string())
+    .bind(params.org_id.to_string())
+    .execute(&mut *tx)
+    .await?;
+    let authorization:Option<Uuid>=sqlx::query_scalar("SELECT id FROM oauth_authorizations WHERE id=$1 AND user_id=$2 AND org_id=$3 AND revoked_at IS NULL FOR UPDATE")
+        .bind(params.authorization_id).bind(params.user_id).bind(params.org_id).fetch_optional(&mut *tx).await?;
+    if authorization.is_none() {
+        return Err(sqlx::Error::RowNotFound);
+    }
+    let refresh:Option<Uuid>=sqlx::query_scalar("SELECT id FROM oauth_tokens WHERE authorization_id=$1 AND agent_token_id=$2 AND revoked_at IS NULL AND expires_at>now() FOR UPDATE")
+        .bind(params.authorization_id).bind(params.old_agent_token_id).fetch_optional(&mut *tx).await?;
+    if refresh.is_none() {
+        return Err(sqlx::Error::RowNotFound);
+    }
+
     let now = Utc::now();
     let access_expires_at = now + Duration::days(OAUTH_ACCESS_TOKEN_LIFETIME_DAYS);
     let refresh_expires_at = now + Duration::days(OAUTH_REFRESH_TOKEN_LIFETIME_DAYS);

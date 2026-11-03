@@ -7,6 +7,7 @@ import {
   loginWithPassword,
   registerWithPassword,
 } from "../../lib/api";
+import { safeAuthReturn } from "@/lib/auth-return";
 import { apiErrorMessage } from "../../lib/api-error";
 import { isCloudSocialSignInVisible } from "../../lib/deployment";
 import { HTTP_SESSION_COOKIE_MESSAGE, httpSecureCookieTrap } from "../../lib/session-cookie";
@@ -67,7 +68,7 @@ function GoogleIcon({ className }: { className?: string }) {
 export function LoginPage() {
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("invite")?.trim() || null;
-  const from = searchParams.get("from")?.trim() || "/";
+  const from = safeAuthReturn(searchParams.get("from"));
 
   const [authConfig, setAuthConfig] = useState<Awaited<ReturnType<typeof fetchAuthConfig>> | null>(
     null,
@@ -155,7 +156,7 @@ export function LoginPage() {
       } else {
         await loginWithPassword(email.trim(), password);
       }
-      window.location.assign(from.startsWith("/") ? from : "/");
+      window.location.assign(from);
     } catch (error) {
       setFormError(apiErrorMessage(error, "Sign-in failed. Check your email and password."));
     } finally {
@@ -303,7 +304,7 @@ export function LoginPage() {
                 const githubUrl = inviteToken
                   ? `/api/v1/auth/github?invite=${encodeURIComponent(inviteToken)}`
                   : "/api/v1/auth/github";
-                window.location.href = githubUrl;
+                window.location.href = `${githubUrl}${githubUrl.includes("?") ? "&" : "?"}from=${encodeURIComponent(from)}`;
               }}
             >
               <GitHubIcon className="size-4 shrink-0 text-ink" />
@@ -322,7 +323,7 @@ export function LoginPage() {
                 const googleUrl = inviteToken
                   ? `/api/v1/auth/google?invite=${encodeURIComponent(inviteToken)}`
                   : "/api/v1/auth/google";
-                window.location.href = googleUrl;
+                window.location.href = `${googleUrl}${googleUrl.includes("?") ? "&" : "?"}from=${encodeURIComponent(from)}`;
               }}
             >
               <GoogleIcon className="size-4 shrink-0" />

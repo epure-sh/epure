@@ -196,3 +196,16 @@ test('human issue tables show titles and identities; markdown context is complet
     text = ''; const markdown = '# Exception\n' + 'frame details\n'.repeat(30); output(markdown, { output: 'table' }); assert.equal(text, markdown);
   } finally { process.stdout.write = original; }
 });
+
+test('hosted registry is generated from canonical tool schemas and task search finds hidden setup workflows', () => {
+ const {operations,searchOperations}=require('../packages/epure-cli/lib/operations');
+ const {toolsFor,INSTRUCTIONS}=require('../packages/epure-cli/lib/mcp');
+ const registry=JSON.parse(fs.readFileSync(path.join(ROOT,'crates/mcp/registry.json'),'utf8'));
+ const tools=toolsFor().tools;
+ assert.equal(registry.tools.length,tools.length);assert.equal(registry.instructions,INSTRUCTIONS);
+ for(const op of operations)assert.ok(tools.some(t=>t.name===`epure_${op.id.replace(/[.-]/g,'_')}`),op.id);
+ assert.ok(searchOperations('email alert destination').some(o=>o.id==='channels.create'));
+ assert.ok(searchOperations('cron heartbeat').some(o=>o.id==='monitors.create'));
+ const descriptor=tools.find(t=>t.name==='epure_channels_create');assert.match(descriptor.inputSchema.properties.provider.description,/provider/);
+ for(const file of ['operations.js','mcp.js'])assert.equal(fs.readFileSync(path.join(ROOT,'packages/epure-cli/lib',file),'utf8'),fs.readFileSync(path.join(ROOT,'packages/epure-mcp/lib',file),'utf8'));
+});

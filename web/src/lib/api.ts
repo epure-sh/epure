@@ -1388,6 +1388,7 @@ export interface OAuthInfoOrg {
 }
 
 export interface OAuthInfoResponse {
+  client_name?: string;
   client_id: string;
   redirect_uri?: string;
   current_org_id: string;
@@ -1439,6 +1440,8 @@ export async function approveDeviceCode(userCode: string, orgId: string): Promis
 }
 
 export interface BillingStatus {
+  subscription?: { product_id: string | null; current_period_end: string; cancel_at_period_end: boolean; pending_update: { product_id: string; applies_at: string } | null; last_synced_at: string | null } | null;
+  sync?: { last_synced_at: string | null; attempts: number; last_error: string | null; drift_count: number } | null;
   plan_tier: string;
   project_count: number;
   max_projects: number;
@@ -1454,6 +1457,10 @@ export async function fetchBillingStatus(): Promise<BillingStatus | null> {
   } catch {
     return null;
   }
+}
+
+export async function changeBillingPlan(planTier: string): Promise<BillingStatus> {
+  return apiFetch<BillingStatus>("/api/v1/billing/change-plan", { method: "POST", body: JSON.stringify({ plan_tier: planTier }) });
 }
 
 export async function syncBilling(): Promise<BillingStatus> {

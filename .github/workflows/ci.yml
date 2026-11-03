@@ -71,6 +71,9 @@ jobs:
         working-directory: web
         run: npm test
 
+      - name: Verify hosted MCP registry
+        run: node scripts/generate-mcp-registry.js --check
+
       - name: CLI/MCP ingest integration (JS)
         run: node --test tests/integration_cli_mcp_ingest.test.js tests/client_oauth.test.js
 

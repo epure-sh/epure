@@ -1,6 +1,6 @@
 {
   "name": "@epure-sh/mcp",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "OAuth-only Epure MCP server with typed Epure workflows, OAuth sign-in and filtered discovery",
   "bin": {
     "epure-mcp": "./bin/epure-mcp.js",

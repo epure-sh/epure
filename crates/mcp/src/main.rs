@@ -1,58 +1,71 @@
-use clap::Parser;
-use epure_mcp::{JsonRpcRequest, McpHandler};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+//! Native launcher for the same OAuth-only runtime shipped on npm.
+//! Sharing the implementation avoids a second, incompatible authentication client.
+use std::process::{Command, ExitCode};
 
-#[derive(Parser, Debug)]
-#[command(
-    name = "epure-mcp",
-    about = "Ultra-lean (<600 tokens) surgical MCP server for Epure"
-)]
-struct Args {
-    #[arg(long, env = "EPURE_URL", default_value = "https://epure.sh")]
-    url: String,
-
-    #[arg(long, env = "EPURE_TOKEN")]
-    token: Option<String>,
-
-    #[arg(long)]
-    domain: Option<String>,
+fn run() -> Result<u8, String> {
+    let directory = std::env::temp_dir().join(format!("epure-mcp-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(&directory).map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&directory, std::fs::Permissions::from_mode(0o700))
+            .map_err(|e| e.to_string())?;
+    }
+    let result = (|| {
+        let files = [
+            (
+                "auth.js",
+                include_str!("../../../packages/epure-mcp/lib/auth.js"),
+            ),
+            (
+                "api.js",
+                include_str!("../../../packages/epure-mcp/lib/api.js"),
+            ),
+            (
+                "operations.js",
+                include_str!("../../../packages/epure-mcp/lib/operations.js"),
+            ),
+            (
+                "cli.js",
+                include_str!("../../../packages/epure-mcp/lib/cli.js"),
+            ),
+            (
+                "mcp.js",
+                include_str!("../../../packages/epure-mcp/lib/mcp.js"),
+            ),
+            (
+                "api-catalog.json",
+                include_str!("../../../packages/epure-mcp/lib/api-catalog.json"),
+            ),
+        ];
+        for (name, source) in files {
+            std::fs::write(directory.join(name), source).map_err(|e| e.to_string())?;
+        }
+        std::fs::write(
+            directory.join("main.js"),
+            "require('./cli').run(process.argv.slice(2), {mcp:true,version:'0.3.0'});\n",
+        )
+        .map_err(|e| e.to_string())?;
+        let status = Command::new("node")
+            .arg(directory.join("main.js"))
+            .args(std::env::args_os().skip(1))
+            .status()
+            .map_err(|_| {
+                "Node.js 18 or later is required. Install Node.js, or use npx @epure-sh/cli."
+                    .to_string()
+            })?;
+        Ok(status.code().unwrap_or(1) as u8)
+    })();
+    let _ = std::fs::remove_dir_all(&directory);
+    result
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = Args::parse();
-    let token = args
-        .token
-        .or_else(|| std::env::var("EPURE_TOKEN").ok())
-        .unwrap_or_else(|| {
-            if let Some(domain) = &args.domain {
-                format!("epk_demo_{domain}")
-            } else {
-                eprintln!("Warning: No EPURE_TOKEN provided. Some tools may fail authentication.");
-                String::new()
-            }
-        });
-
-    let handler = McpHandler::new(args.url, token);
-
-    let stdin = tokio::io::stdin();
-    let mut reader = BufReader::new(stdin).lines();
-    let mut stdout = tokio::io::stdout();
-
-    while let Ok(Some(line)) = reader.next_line().await {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-
-        if let Ok(req) = serde_json::from_str::<JsonRpcRequest>(trimmed) {
-            let res = handler.handle_request(req).await;
-            let json_str = serde_json::to_string(&res)?;
-            stdout.write_all(json_str.as_bytes()).await?;
-            stdout.write_all(b"\n").await?;
-            stdout.flush().await?;
+fn main() -> ExitCode {
+    match run() {
+        Ok(code) => ExitCode::from(code),
+        Err(message) => {
+            eprintln!("{message}");
+            ExitCode::FAILURE
         }
     }
-
-    Ok(())
 }

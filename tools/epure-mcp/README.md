@@ -1,15 +1,3 @@
-# epure-mcp
+# Deprecated prototype
 
-Local stdio MCP server for Epure. Wraps the dashboard API with a PAT (`EPURE_URL` + `EPURE_TOKEN`).
-
-**Full setup (MCP hosts, scopes, CLI, tools):** [epure.sh/docs/guides/mcp-and-cli](https://epure.sh/docs/guides/mcp-and-cli)
-
-## Build
-
-```bash
-cd tools/epure-mcp
-npm ci
-npm run build
-```
-
-Run: `node dist/index.js` (requires `EPURE_TOKEN` in the environment).
+Use [@epure-sh/mcp](../../packages/epure-mcp/README.md), or connect Claude Web to `https://app.epure.sh/mcp` with OAuth. This old prototype is private and must not be published. Its manual-credential setup is unsupported.

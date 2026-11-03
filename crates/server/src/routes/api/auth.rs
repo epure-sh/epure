@@ -132,6 +132,37 @@ struct OAuthCallbackQuery {
 #[derive(Deserialize)]
 struct GoogleStartQuery {
     invite: Option<String>,
+    from: Option<String>,
+}
+
+fn safe_login_return(value: Option<&str>) -> String {
+    let Some(value) = value.filter(|v| {
+        v.starts_with('/')
+            && !v.starts_with("//")
+            && !v.contains('\\')
+            && !v.chars().any(char::is_control)
+    }) else {
+        return "/".into();
+    };
+    let Ok(url) = reqwest::Url::parse(&format!("https://epure.invalid{value}")) else {
+        return "/".into();
+    };
+    if url.origin().ascii_serialization() != "https://epure.invalid" {
+        return "/".into();
+    }
+    format!(
+        "{}{}{}",
+        url.path(),
+        url.query().map(|v| format!("?{v}")).unwrap_or_default(),
+        url.fragment().map(|v| format!("#{v}")).unwrap_or_default()
+    )
+}
+async fn finish_social_login(session: &Session) -> Result<Response, StatusCode> {
+    let value = session
+        .remove::<String>("auth_return_to")
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Redirect::to(&safe_login_return(value.as_deref())).into_response())
 }
 
 fn oauth_login_redirect(error: &str) -> Response {
@@ -236,6 +267,10 @@ async fn google_start(
     // Cloud only — 404 when GOOGLE_CLIENT_ID / SECRET are unset (OSS default).
     let google = state.google.as_ref().ok_or(StatusCode::NOT_FOUND)?;
     oauth_begin_session(&session).await?;
+    session
+        .insert("auth_return_to", safe_login_return(query.from.as_deref()))
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let state_token = GoogleAuth::generate_state();
     session
         .insert(OAUTH_STATE_KEY, state_token.clone())
@@ -320,12 +355,13 @@ async fn google_callback(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    Ok(Redirect::to("/").into_response())
+    finish_social_login(&session).await
 }
 
 #[derive(Deserialize)]
 struct GitHubStartQuery {
     invite: Option<String>,
+    from: Option<String>,
 }
 
 async fn github_start(
@@ -335,6 +371,10 @@ async fn github_start(
 ) -> Result<Response, StatusCode> {
     let github = state.github.as_ref().ok_or(StatusCode::NOT_FOUND)?;
     oauth_begin_session(&session).await?;
+    session
+        .insert("auth_return_to", safe_login_return(query.from.as_deref()))
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let state_token = GitHubAuth::generate_state();
     session
         .insert(OAUTH_STATE_KEY, state_token.clone())
@@ -419,7 +459,7 @@ async fn github_callback(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    Ok(Redirect::to("/").into_response())
+    finish_social_login(&session).await
 }
 
 #[derive(Deserialize)]
@@ -749,6 +789,26 @@ fn map_credential_error(error: CredentialError) -> StatusCode {
         CredentialError::TransferOwnershipRequired => StatusCode::CONFLICT,
         CredentialError::Password(_) | CredentialError::Sqlx(_) => {
             StatusCode::INTERNAL_SERVER_ERROR
+        }
+    }
+}
+
+#[cfg(test)]
+mod login_return_tests {
+    use super::*;
+    #[test]
+    fn keeps_consent_query_and_blocks_external_returns() {
+        assert_eq!(
+            safe_login_return(Some("/oauth/authorize?client_id=app&state=test")),
+            "/oauth/authorize?client_id=app&state=test"
+        );
+        for value in [
+            "//evil.invalid",
+            "/\\evil.invalid",
+            "https://evil.invalid",
+            "/\r\nLocation: evil",
+        ] {
+            assert_eq!(safe_login_return(Some(value)), "/");
         }
     }
 }
