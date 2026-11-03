@@ -36,14 +36,16 @@ fn challenge(status: StatusCode, scope: &str) -> Response {
 async fn authorize(
     state: &AppState,
     headers: &HeaderMap,
-) -> Result<(String, epure_auth::AgentTokenSession), Response> {
+) -> Result<(String, epure_auth::AgentTokenSession), Box<Response>> {
     if !state.mcp_enabled {
-        return Err((StatusCode::NOT_FOUND, Json(json!({"error":"mcp_disabled"}))).into_response());
+        return Err(Box::new(
+            (StatusCode::NOT_FOUND, Json(json!({"error":"mcp_disabled"}))).into_response(),
+        ));
     }
     if let Some(origin) = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) {
         let public = epure_storage::epure_public_url();
         if origin != public.trim_end_matches('/') && origin != "https://claude.ai" {
-            return Err(StatusCode::FORBIDDEN.into_response());
+            return Err(Box::new(StatusCode::FORBIDDEN.into_response()));
         }
     }
     let bearer = headers
@@ -53,21 +55,21 @@ async fn authorize(
         .unwrap_or("");
     let session = epure_auth::authenticate_agent_token(&state.pools.app, bearer)
         .await
-        .map_err(|_| challenge(StatusCode::UNAUTHORIZED, "read:agent"))?;
+        .map_err(|_| Box::new(challenge(StatusCode::UNAUTHORIZED, "read:agent")))?;
     let audience: Option<String> = sqlx::query_scalar("SELECT oauth_mcp_token_audience($1)")
         .bind(session.token_id)
         .fetch_optional(&state.pools.app)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())?
+        .map_err(|_| Box::new(StatusCode::INTERNAL_SERVER_ERROR.into_response()))?
         .flatten();
     if audience.as_deref() != Some("/mcp") {
-        return Err(challenge(StatusCode::UNAUTHORIZED, "read:agent"));
+        return Err(Box::new(challenge(StatusCode::UNAUTHORIZED, "read:agent")));
     }
     Ok((bearer.to_string(), session))
 }
 async fn no_stream(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
     if let Err(response) = authorize(&state, &headers).await {
-        return response;
+        return *response;
     }
     // Stateless Streamable HTTP: JSON POST responses, no server-initiated SSE/session stream.
     (StatusCode::METHOD_NOT_ALLOWED, [(header::ALLOW, "POST")]).into_response()
@@ -79,7 +81,7 @@ async fn post_mcp(
 ) -> Response {
     let (token, session) = match authorize(&state, &headers).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     if req.jsonrpc != "2.0"
         || req
