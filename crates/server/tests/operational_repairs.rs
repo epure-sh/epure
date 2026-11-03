@@ -121,13 +121,53 @@ async fn audit_oauth_account_and_removed_session_regressions() {
         .unwrap()["id"]
         .as_str()
         .unwrap();
+    // Possession of a refresh credential is required, and a different public
+    // client cannot revoke this grant. Invalid requests are idempotent successes.
+    for refresh in ["invalid-refresh", token["refresh_token"].as_str().unwrap()] {
+        body(
+            Client::new()
+                .post(format!("{base}/oauth/revoke"))
+                .form(&[("token", refresh), ("client_id", "different-client")])
+                .send()
+                .await
+                .unwrap(),
+            200,
+        )
+        .await;
+    }
+    body(
+        Client::new()
+            .get(format!("{base}/api/v1/agent/whoami"))
+            .bearer_auth(access)
+            .send()
+            .await
+            .unwrap(),
+        200,
+    )
+    .await;
+    for _ in 0..2 {
+        body(
+            Client::new()
+                .post(format!("{base}/oauth/revoke"))
+                .form(&[
+                    ("token", token["refresh_token"].as_str().unwrap()),
+                    ("client_id", "repair-check"),
+                    ("token_type_hint", "refresh_token"),
+                ])
+                .send()
+                .await
+                .unwrap(),
+            200,
+        )
+        .await;
+    }
     body(
         owner
             .delete(format!("{base}/api/v1/user/connected-apps/{id}"))
             .send()
             .await
             .unwrap(),
-        204,
+        404,
     )
     .await;
     assert_eq!(

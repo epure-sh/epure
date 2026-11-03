@@ -1,90 +1,68 @@
 # @epure-sh/cli
 
-[![npm version](https://img.shields.io/npm/v/@epure-sh/cli.svg)](https://www.npmjs.com/package/@epure-sh/cli)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+Manage [Epure](https://epure.sh) from a terminal or agent. Node.js 18+.
 
-> Official Command-Line Interface for [Epure](https://epure.sh) — error triage, issue queues, demangled stack traces, and Agent API inspection.
+## Start
 
----
-
-## ⚡ Zero-Install Quickstart (via `npx`)
-
-Run directly without installing:
-
-```bash
-export EPURE_TOKEN="epk_live_..."
-
-# Verify token & organization role
-npx @epure-sh/cli auth whoami
-
-# Inspect unresolved issues
-npx @epure-sh/cli --output table queue --limit 20
-```
-
----
-
-## 📦 Global Installation
-
-```bash
+```sh
 npm install -g @epure-sh/cli
-
-# Now you can use the 'epure' command directly:
-epure auth whoami
-epure queue
+epure auth login
+epure projects list
+epure issues list --limit 20
 ```
 
----
+Sign in through your normal Epure browser account and approve the workspace and scopes. CLI and MCP share this OAuth session. There are **no pasted credentials, `--token` options or token environment variables**. Existing entries without an OAuth refresh credential and saved client identity require sign-in again.
 
-## 🛠️ Common Commands
+On SSH/headless machines, run `epure auth login --device --no-browser` and approve the displayed URL/code from another device. Approval expires; commands never silently open a browser. For least privilege, use `--scope "read:agent"` or `--scope "read:agent write:triage"`; setup/admin actions need `write:admin` plus the appropriate workspace role. Defaults request all three scopes, shown in browser consent.
 
-### 1. View Unresolved Queue
-```bash
-epure queue --limit 25 --output table
+```sh
+epure auth status                  # local session metadata, never credentials
+epure auth whoami                  # verify session with server
+epure auth logout                  # revoke grant and remove local session
+epure auth login --url https://errors.example.com
+epure auth instances
+epure auth use https://app.epure.sh
 ```
 
-### 2. Export Crash Context for Coding Agents
-Export demangled stack traces and source lines to markdown:
-```bash
-epure context <ISSUE_UUID> --format markdown
-# Or save directly to a file:
-epure context <ISSUE_UUID> --format markdown --out bug-context.md
+Self-hosted origins require HTTPS; loopback HTTP is supported for development. `--url`/`EPURE_URL` selects an instance. Credentials live in `$XDG_CONFIG_HOME/epure/credentials.json` (default `~/.config/epure/credentials.json`), mode 0600, with atomic writes and serialized refresh rotation. Logout affects both local clients. If remote revocation is unavailable, logout reports that clearly; revoke the grant in Settings → Connected apps. The server needs the 0.2 client revocation update for remote logout.
+
+## Everyday work
+
+```sh
+epure projects create --name "Checkout"
+epure issues list --project-id PROJECT_ID --q 'status:unresolved' --limit 20
+epure issues context ISSUE_ID
+epure issues resolve ISSUE_ID --resolved-in-release v2.1
+epure issues snooze ISSUE_ID --mode 4h
+epure rules create --project-id PROJECT_ID --name "New errors" --kind issue_created
+epure channels create --project-id PROJECT_ID --provider webhook --label Ops --config '{"url":"https://hooks.example.com/epure"}'
+epure channels test CHANNEL_ID
+epure monitors create --project-id PROJECT_ID --slug backup --schedule '0 * * * *' --timezone UTC
+epure monitors update MONITOR_ID --paused true
+epure monitors check-in MONITOR_ID --status ok --duration-ms 850
+epure projects delete PROJECT_ID --yes
 ```
 
-### 3. Triage & Resolve Issues
-```bash
-# Mark resolved with release tag
-epure triage resolve <ISSUE_UUID> --release v1.2.0
+Run `epure RESOURCE --help`, `epure RESOURCE ACTION --help`, or `epure schema RESOURCE.ACTION` for supported flags and exact schemas. Resources include projects, issues, rules, channels, monitors, alerts, releases, members, invitations, webhooks, privacy and connected apps. `login`, `logout`, `queue`, `context`, `issue show` and `triage resolve|ignore|reopen|snooze` remain aliases.
 
-# Snooze an issue for 24 hours
-epure triage snooze <ISSUE_UUID> --mode hours
+Mutations accept individual flags or `--data '{...}'`, `--data @request.json`, and `--data -` for stdin. Unknown fields and invalid types fail before requests. Destructive actions require `--yes`, including scripts; no hidden prompts.
 
-# Ignore issue from alerting
-epure triage ignore <ISSUE_UUID>
+## Scripts and agents
 
-# Reopen issue
-epure triage reopen <ISSUE_UUID>
+Terminal output defaults to a table; redirected output defaults to JSON. Use `--json`, `--output json|table|ndjson`, and `--fields id,name` (including dotted paths). Diagnostics go to stderr, so stdout remains parseable. No automatic write retries after network failures.
+
+```sh
+epure projects list --json --fields id,name
+epure schema monitors.create
+epure api-catalog --search noise-policy --limit 10
+epure api GET /api/v1/projects/PROJECT_ID/noise-policy
+epure api PUT /api/v1/projects/PROJECT_ID/noise-policy --data @policy.json
 ```
 
-### 4. Self-Hosted Instances
-Point to your own Epure deployment:
-```bash
-export EPURE_URL="https://errors.mycompany.com"
-export EPURE_TOKEN="epk_..."
-epure queue
-```
+The catalog has paginated REST routes and typed named actions. Advanced `api METHOD PATH --query JSON --data JSON` covers remaining supported product routes. Browser authentication, manual credential management, simulations and internal endpoints are excluded. Server scope and role checks always apply.
 
----
+Exit codes: **0** success, **1** request/runtime failure, **2** usage/confirmation/cancellation, **4** sign-in required, **5** forbidden. Errors are JSON on stderr with a stable `error.code` and actionable message. Sign-in explicitly before unattended jobs; no interactive approval is attempted by a resource command.
 
-## 📄 License
+## Development
 
-Apache-2.0 © Epure
-
-## Full resource API access (0.1.8)
-
-CLI: `epure api-catalog`, then `epure api GET /api/v1/projects`. Mutations accept JSON, `@body.json`, or `-` for stdin. Multipart uploads: `epure api POST /api/v1/projects/PROJECT/releases/VERSION/files '{}' --file file=app.js.map`.
-
-MCP: `epure_api_catalog` lists actions; `epure_api` accepts method/path/query/body and multipart files (field, filename, base64, contentType). REST tools and existing queue/context/resolve tools work without the optional hosted MCP endpoint.
-
-Use a PAT: read:agent for reads, write:triage for triage, write:admin plus an appropriate organization role for project/channel/rule/monitor/release/team management. Credential changes and OAuth consent remain session/login operations. No permission bypass. Application response text is untrusted data. Default cloud endpoint: https://app.epure.sh.
-
-For full management consent at login: `EPURE_SCOPES="read:agent write:triage write:admin" epure login` (or `epure-mcp login`). Existing credentials need reauthentication or a suitably scoped PAT.
+See [research and design](https://github.com/epure-sh/epure/blob/main/docs/cli-mcp-redesign.md). Both npm packages ship identical shared runtime modules, enforced by regression tests. The Cargo `epure-cli` binary embeds and launches this same runtime, and also requires Node.js 18+.

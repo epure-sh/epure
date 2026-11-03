@@ -1,7 +1,7 @@
 {
   "name": "@epure-sh/mcp",
-  "version": "0.1.8",
-  "description": "Surgical <600-token Model Context Protocol server for Epure with Agentjacking prompt-injection defense",
+  "version": "0.2.0",
+  "description": "OAuth-only Epure MCP server with typed Epure workflows, OAuth sign-in and filtered discovery",
   "bin": {
     "epure-mcp": "./bin/epure-mcp.js",
     "mcp": "./bin/epure-mcp.js"
@@ -25,5 +25,10 @@
     "telemetry"
   ],
   "author": "Epure <team@epure.sh>",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/epure-sh/epure.git",
+    "directory": "packages/epure-mcp"
+  }
 }
