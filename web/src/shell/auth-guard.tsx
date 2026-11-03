@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import { safeAuthReturn } from "@/lib/auth-return";
 import { Skeleton } from "@/ui/primitives";
 
 type AuthStatus = "loading" | "authed" | "guest";
@@ -39,7 +40,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   }
 
   if (status === "guest") {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    return <Navigate to={`/login?from=${encodeURIComponent(safeAuthReturn(location.pathname + location.search + location.hash))}`} replace />;
   }
 
   return children;
