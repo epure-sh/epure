@@ -480,7 +480,7 @@ test.describe('MCP: epure-mcp stdio protocol and tools', () => {
       const initResp = responses.find((r) => r.id === 1);
       assert.ok(initResp, 'expected initialize response');
       assert.equal(initResp.result.serverInfo.name, 'epure-mcp');
-      assert.equal(initResp.result.serverInfo.version, '0.1.7');
+      assert.equal(initResp.result.serverInfo.version, require('../packages/epure-mcp/package.json').version);
 
       const toolsResp = responses.find((r) => r.id === 2);
       assert.ok(toolsResp, 'expected tools/list response');

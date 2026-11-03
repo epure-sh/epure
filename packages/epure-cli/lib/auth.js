@@ -36,7 +36,7 @@ function writeCredentials(data) {
 }
 
 function normalizeUrl(url) {
-  if (!url) return 'https://epure.sh';
+  if (!url) return 'https://app.epure.sh';
   let u = url.trim().replace(/\/+$/, '');
   if (!u.startsWith('http://') && !u.startsWith('https://')) {
     u = `https://${u}`;
@@ -47,7 +47,7 @@ function normalizeUrl(url) {
 function getActiveCredentials(targetUrl) {
   const creds = readCredentials();
   const normTarget = targetUrl ? normalizeUrl(targetUrl) : '';
-  const current = normTarget || creds.current_instance || 'https://epure.sh';
+  const current = normTarget || creds.current_instance || 'https://app.epure.sh';
   const instance = creds.instances ? creds.instances[current] : null;
   if (!instance && !normTarget && creds.instances) {
     const keys = Object.keys(creds.instances);
@@ -222,11 +222,11 @@ async function selectInstanceUrl(passedUrl) {
   }
 
   if (!process.stdin.isTTY) {
-    return 'https://epure.sh';
+    return 'https://app.epure.sh';
   }
 
   console.log('\nSelect Epure instance:');
-  console.log('  1) Epure Cloud (https://epure.sh) [default]');
+  console.log('  1) Epure Cloud (https://app.epure.sh) [default]');
   console.log('  2) Localhost (http://localhost:8080)');
   console.log('  3) Custom Domain / VPS');
   const ans = await promptLine('Choose [1-3, default 1]: ');
@@ -235,9 +235,9 @@ async function selectInstanceUrl(passedUrl) {
     return 'http://localhost:8080';
   } else if (ans === '3') {
     const custom = await promptLine('Enter custom instance URL (e.g. https://errors.mycompany.com): ');
-    return normalizeUrl(custom || 'https://epure.sh');
+    return normalizeUrl(custom || 'https://app.epure.sh');
   }
-  return 'https://epure.sh';
+  return 'https://app.epure.sh';
 }
 
 async function loginLoopback(targetUrl, clientId, clientName) {
@@ -348,7 +348,7 @@ async function loginLoopback(targetUrl, clientId, clientName) {
     server.listen(0, '127.0.0.1', () => {
       const port = server.address().port;
       const redirectUri = `http://127.0.0.1:${port}/callback`;
-      const authUrl = `${targetUrl}/oauth/authorize?client_id=${encodeURIComponent(clientId)}&client_name=${encodeURIComponent(clientName)}&redirect_uri=${encodeURIComponent(redirectUri)}&code_challenge=${challenge}&code_challenge_method=S256&scope=read:agent+write:triage&state=${state}`;
+      const authUrl = `${targetUrl}/oauth/authorize?client_id=${encodeURIComponent(clientId)}&client_name=${encodeURIComponent(clientName)}&redirect_uri=${encodeURIComponent(redirectUri)}&code_challenge=${challenge}&code_challenge_method=S256&scope=${encodeURIComponent(process.env.EPURE_SCOPES || 'read:agent write:triage')}&state=${state}`;
 
       console.log(`\nOpening browser to authorize with Epure (${targetUrl})...`);
       console.log(`If your browser does not open automatically, visit:`);
@@ -375,7 +375,7 @@ async function loginDeviceCode(targetUrl, clientId, clientName) {
   const initRes = await postJson(`${targetUrl}/oauth/device/code`, {
     client_id: clientId,
     client_name: clientName,
-    scopes: ['read:agent', 'write:triage'],
+    scope: process.env.EPURE_SCOPES || 'read:agent write:triage',
   });
 
   const { device_code, user_code, verification_uri, verification_uri_complete, interval = 5, expires_in = 600 } = initRes;

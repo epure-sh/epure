@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import {
   AlertRuleListRow,
   ALERT_RULE_COL_END,
@@ -185,6 +185,7 @@ export interface AlertRulesManagerProps {
   projectSlug?: string;
   canManage?: boolean;
   version?: number;
+  savedRule?: AlertRuleRow | null;
   query?: string;
   statusFilter?: RulesStatusFilter;
   destinationFilter?: RuleDestinationKind;
@@ -212,6 +213,7 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
       projectSlug: _projectSlug = "checkout-web",
       canManage = true,
       version = 0,
+      savedRule = null,
       query = "",
       statusFilter = "all",
       destinationFilter = "all",
@@ -231,7 +233,29 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
     },
     ref,
   ) {
-  const [rules, setRules] = useState<AlertRuleRow[]>([]);
+  const [rules, setRulesState] = useState<AlertRuleRow[]>([]);
+  const pendingSave = useRef<AlertRuleRow | null>(null);
+  const revision = useRef(0);
+  const requestId = useRef(0);
+  const loaded = useRef(false);
+  const setRules = useCallback((update: React.SetStateAction<AlertRuleRow[]>) => {
+    revision.current += 1;
+    pendingSave.current = null;
+    setRulesState(update);
+  }, []);
+  useEffect(() => {
+    loaded.current = false;
+    setRulesState([]);
+    return () => { requestId.current += 1; };
+  }, [projectId]);
+  useEffect(() => {
+    if (savedRule?.project_id === projectId) {
+      revision.current += 1;
+      pendingSave.current = savedRule;
+      setRulesState((rows) => [savedRule, ...rows.filter((row) => row.id !== savedRule.id)]);
+      setLoading(false);
+    }
+  }, [projectId, savedRule, setRules]);
   const [channels, setChannels] = useState<AlertChannelRow[]>([]);
   const [ownedSelection, setOwnedSelection] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -250,16 +274,23 @@ export const AlertRulesManager = forwardRef<AlertRulesManagerHandle, AlertRulesM
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    const id = ++requestId.current;
+    const snapshot = revision.current;
+    if (!loaded.current && !savedRule) setLoading(true);
     try {
-      setRules(await fetchAlertRules(projectId));
+      const rows = await fetchAlertRules(projectId);
+      if (id !== requestId.current || snapshot !== revision.current) return;
+      const pending = pendingSave.current;
+      if (pending && rows.some((row) => row.id === pending.id)) pendingSave.current = null;
+      setRulesState(pendingSave.current?.project_id === projectId
+        ? [pendingSave.current, ...rows.filter((row) => row.id !== pendingSave.current!.id)] : rows);
+      loaded.current = true;
     } catch {
-      setRules([]);
-      toast.error("Could not load alert rules");
+      if (id === requestId.current) toast.error("Could not load alert rules");
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, savedRule]);
 
   useEffect(() => {
     void load();

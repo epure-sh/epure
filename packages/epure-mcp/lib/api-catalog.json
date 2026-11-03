@@ -1,0 +1,470 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/v1/agent/queue"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/agent/issues/{id}"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/agent/issues/{id}"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/agent/issues/{id}/context"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/agent/issues/{id}/snooze"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/agent/issues/{id}/unsnooze"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/agent/alerts"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/agent/whoami"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/agent-tokens"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/agent-tokens"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/agent-tokens/{id}/revoke"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/alert-rules"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/alert-rules"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/alert-rules/{id}"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/alert-rules/{id}"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/alert-channels"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/alert-channels"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/alert-channels/{id}"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/alert-channels/{id}"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/alert-channels/{id}/test"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/alert-channels/{id}/ping"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/alerts/rules"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/alerts/rules"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/alerts/rules/{id}"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/alerts/rules/{id}"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/alerts"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/alerts/simulate"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/alerts/{id}"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/alerts/test-email"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/projects/{project_id}/alerts/simulate"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/projects/{project_id}/email-alerts"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/projects/{project_id}/email-alerts"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/projects/{project_id}/alerts/test-email"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/register"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/login"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/config"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/google"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/google/callback"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/github"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/github/callback"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/magic-link"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/magic-link/verify"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/me"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/organizations"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/switch-org"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/auth/profile"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/auth/password"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/account/export"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/auth/account"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/accept-invitation"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/logout"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/projects/{project_id}/dsn-keys"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/projects/{project_id}/dsn-keys"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/dsn-keys/{id}/revoke"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/projects/{project_id}/dsn-keys/rotate"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/issues/{issue_id}/events"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/issues/{issue_id}/releases"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/issues/{issue_id}/timeline"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/events/{event_id}/feedback"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/issues"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/issues/trends"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/issues/bulk"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/issues/bulk"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/issues/merge"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/issues/split"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/issues/{id}/merged"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/issues/{id}"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/issues/{id}/snooze"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/issues/{id}/unsnooze"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/mcp"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/mcp"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/api/mcp"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/api/mcp"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/members"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/members/{user_id}"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/members/{user_id}"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/invitations"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/invitations"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/invitations/{id}"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/monitors"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/monitors"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/monitors/{id}"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/monitors/{id}"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/monitors/{id}"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/monitors/{id}/check-ins"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/oauth/info"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/oauth/authorize"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/oauth/device/verify"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/oauth/device/approve"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/user/connected-apps"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/user/connected-apps/{id}"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/privacy"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/projects/{id}/privacy/export"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/projects/{id}/privacy/erase"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/projects/{id}/privacy/strip-identifiers"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/projects"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/projects"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/projects/{id}"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/projects/{id}"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/projects/{id}/activity"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/projects/{id}/velocity"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/projects/{id}/noise-policy"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/v1/projects/{id}/noise-policy"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/projects/{id}/noise-policy/preview"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/projects/{id}/ingest-outcomes"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/releases"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/setup"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/setup"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/setup/dsn"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/setup/test-event"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/stats"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/webhooks"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/webhooks"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/webhooks/{id}"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/webhooks/{id}"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/webhooks/{id}/test"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/webhooks/{id}/rotate-secret"
+  }
+]

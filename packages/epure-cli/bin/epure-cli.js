@@ -10,7 +10,7 @@ const https = require('https');
 const { URL } = require('url');
 const auth = require('../lib/auth');
 
-const VERSION = '0.1.7';
+const VERSION = '0.1.8';
 
 const args = process.argv.slice(2);
 
@@ -37,7 +37,8 @@ Core Commands:
   triage ignore <issue_id>    Ignore an issue from alerting
   triage reopen <issue_id>    Reopen a resolved or ignored issue
   alerts                      List recent alerting events (optional: --view unread)
-  api <METHOD> <PATH>         Execute raw authenticated API call against workspace
+  api-catalog                List available product API actions
+  api <METHOD> <PATH> [JSON|@file|-]  Execute any authorized API action
 
 Admin / Outbound Sales:
   admin create-canary         Pre-provision an isolated Epure Cloud workspace with live DSN & Magic Link
@@ -45,7 +46,7 @@ Admin / Outbound Sales:
 
 Global Options:
   --token, -t <token>         Override Epure Personal Access Token
-  --url, -u <url>             Override Epure endpoint (default: current instance or https://epure.sh)
+  --url, -u <url>             Override Epure endpoint (default: current instance or https://app.epure.sh)
   --device                    Force RFC 8628 Device Code flow (for SSH/headless)
   --output, -o <json|table>   Output format (default: json)
   --help, -h                  Display this help message
@@ -54,7 +55,7 @@ Global Options:
 Examples:
   epure login
   epure login --url http://localhost:8080
-  epure use https://epure.sh
+  epure use https://app.epure.sh
   epure queue --limit 20
   epure context 550e8400-e29b-41d4-a716-446655440000 --format markdown
   epure triage resolve 550e8400-e29b-41d4-a716-446655440000 --release v1.2.0
@@ -104,7 +105,7 @@ let baseUrl = explicitUrl;
 
 async function resolveAuthentication() {
   if (explicitToken) {
-    baseUrl = auth.normalizeUrl(explicitUrl || 'https://epure.sh');
+    baseUrl = auth.normalizeUrl(explicitUrl || 'https://app.epure.sh');
     return explicitToken;
   }
 
@@ -120,7 +121,7 @@ async function resolveAuthentication() {
     }
   }
 
-  baseUrl = auth.normalizeUrl(explicitUrl || 'https://epure.sh');
+  baseUrl = auth.normalizeUrl(explicitUrl || 'https://app.epure.sh');
   return '';
 }
 
@@ -285,7 +286,7 @@ async function handleCommand() {
       if (secret) {
         activeToken = secret;
       }
-      if (!baseUrl || baseUrl === 'https://epure.sh') {
+      if (!baseUrl || baseUrl === 'https://app.epure.sh') {
         baseUrl = process.env.EPURE_CLOUD_URL || explicitUrl || 'https://cloud.epure.sh';
       }
       if (!activeToken) {
@@ -322,6 +323,8 @@ async function handleCommand() {
       throw new Error(`Unknown admin command: ${subCmd}. Usage: epure admin create-canary`);
     }
   }
+
+  if (cmd === 'api-catalog') { printOutput(require('../lib/api-catalog.json')); return; }
 
   // All other commands require authentication
   await resolveAuthentication();
@@ -414,7 +417,7 @@ async function handleCommand() {
       }
 
       const params = new URLSearchParams({ issue_id: issueId, format });
-      const res = await request('GET', `/api/v1/agent/context?${params.toString()}`);
+      const res = await request('GET', `/api/v1/agent/issues/${encodeURIComponent(issueId)}/context?${params.toString()}`);
 
       if (format === 'markdown') {
         console.log(res.text);
@@ -479,15 +482,25 @@ async function handleCommand() {
       break;
     }
 
+    case 'api-catalog': { printOutput(require('../lib/api-catalog.json')); break; }
+
     case 'api': {
       const method = (filteredArgs[1] || 'GET').toUpperCase();
       const path = filteredArgs[2];
       if (!path) {
         throw new Error('Usage: epure api <METHOD> <PATH> [JSON_BODY]');
       }
-      const rawBody = filteredArgs[3] || null;
-      const res = await request(method, path, rawBody);
-      printOutput(res.json());
+      const input = filteredArgs[3]?.startsWith('--') ? null : filteredArgs[3];
+      const rawBody = input === '-' ? require('fs').readFileSync(0,'utf8') : input?.startsWith('@') ? require('fs').readFileSync(input.slice(1),'utf8') : input || null;
+      if (!path.startsWith('/api/v1/')) throw new Error('Path must start with /api/v1/');
+      const files=[];
+      for(let i=3;i<filteredArgs.length;i++)if(filteredArgs[i]==='--file'){
+        const spec=filteredArgs[++i];if(!spec?.includes('='))throw new Error('--file expects field=filename');
+        const split=spec.indexOf('=');const filename=spec.slice(split+1);
+        files.push({field:spec.slice(0,split),filename:require('path').basename(filename),base64:require('fs').readFileSync(filename).toString('base64')});
+      }
+      const result=await require('../lib/api').apiRequest(baseUrl,activeToken,{method,path,body:rawBody?JSON.parse(rawBody):undefined,...(files.length?{files}:{})});
+      printOutput(result.data);
       break;
     }
 

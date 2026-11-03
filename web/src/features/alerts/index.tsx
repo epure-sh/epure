@@ -107,6 +107,7 @@ export function AlertsPage() {
   const rulesManagerRef = useRef<AlertRulesManagerHandle>(null);
   const [createRuleOpen, setCreateRuleOpen] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
+  const [savedRule, setSavedRule] = useState<import("@/lib/api").AlertRuleRow | null>(null);
   const [rulesVersion, setRulesVersion] = useState(0);
   /** Keep each section alive after first open so Inbox ↔ Rules does not remount. */
   const [historyMounted, setHistoryMounted] = useState(() => section !== "configure");
@@ -733,10 +734,11 @@ export function AlertsPage() {
               setRulesDestinationFilter("all");
               setRulesVersion((value) => value + 1);
               if (rule) {
+                setSavedRule(rule);
                 setActiveRuleId(rule.id);
                 rulesManagerRef.current?.addRule(rule);
               }
-              void rulesManagerRef.current?.reload();
+
               setSearchParams(
                 (prev) => {
                   const next = new URLSearchParams(prev);
@@ -765,6 +767,7 @@ export function AlertsPage() {
                 projectId={activeProjectId}
                 projectSlug={projectSlug}
                 version={rulesVersion}
+                savedRule={savedRule}
                 canManage={canManageWebhooks}
                 query={rulesSearch}
                 statusFilter={rulesStatusFilter}
