@@ -117,7 +117,24 @@ async fn resolve_in_release_recurrence_fires_regression_webhook() {
         .expect("second ingest");
     assert_eq!(second.status(), 202);
 
-    tokio::time::sleep(Duration::from_millis(900)).await;
+    // Delivery is asynchronous through the durable outbox; wait for evidence,
+    // not a delay shorter than the worker's one-second polling interval.
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(15);
+    loop {
+        let received = webhook_events
+            .lock()
+            .expect("webhook lock")
+            .iter()
+            .any(|body| {
+                body.get("event").and_then(Value::as_str) == Some("regression")
+                    && body.get("issue_id").and_then(Value::as_str)
+                        == Some(issue_id.to_string().as_str())
+            });
+        if received || tokio::time::Instant::now() >= deadline {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
 
     let issue = issues::get_issue_by_id(
         &pool,
