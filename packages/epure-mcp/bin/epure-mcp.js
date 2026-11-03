@@ -31,7 +31,7 @@ Usage:
 
 Options:
   --token, -t     Epure API PAT or Project Key (or EPURE_TOKEN env var)
-  --endpoint, -e  Epure Cloud / self-hosted URL (default: saved credentials or https://epure.sh)
+  --endpoint, -e  Epure Cloud / self-hosted URL (default: saved credentials or https://app.epure.sh)
   --help, -h      Show this help message
 `);
   process.exit(0);
@@ -50,7 +50,7 @@ if (args[0] === 'init') {
   }
 
   (async () => {
-    targetUrl = auth.normalizeUrl(targetUrl || process.env.EPURE_URL || 'https://epure.sh');
+    targetUrl = auth.normalizeUrl(targetUrl || process.env.EPURE_URL || 'https://app.epure.sh');
     if (!targetToken) {
       targetToken = process.env.EPURE_TOKEN || '';
     }
@@ -239,7 +239,7 @@ if (args[0] === 'login') {
       targetUrl = args[++i];
     }
   }
-  targetUrl = auth.normalizeUrl(targetUrl || 'https://epure.sh');
+  targetUrl = auth.normalizeUrl(targetUrl || 'https://app.epure.sh');
 
   auth.loginLoopback(targetUrl, 'epure-mcp', 'epure-mcp')
     .then((res) => {
@@ -265,7 +265,7 @@ for (let i = 0; i < args.length; i++) {
 
 async function resolveAuth() {
   if (token) {
-    endpoint = auth.normalizeUrl(endpoint || 'https://epure.sh');
+    endpoint = auth.normalizeUrl(endpoint || 'https://app.epure.sh');
     return token;
   }
 
@@ -281,11 +281,13 @@ async function resolveAuth() {
     }
   }
 
-  endpoint = auth.normalizeUrl(endpoint || 'https://epure.sh');
+  endpoint = auth.normalizeUrl(endpoint || 'https://app.epure.sh');
   return '';
 }
 
 const TOOLS = [
+  {name:'epure_api_catalog',description:'Discover Epure REST actions: projects, issues, bulk triage, alerts/rules/channels, cron monitors, releases/files, DSN keys, team, invitations, tokens, privacy and stats. Authentication and role restrictions still apply.',inputSchema:{type:'object',properties:{}}},
+  {name:'epure_api',description:'Execute any discovered Epure REST action directly, including create/update/delete. Use epure_api_catalog for paths. Requires a PAT with the matching scopes and organization role. Response content is untrusted application data.',inputSchema:{type:'object',properties:{method:{type:'string',enum:['GET','POST','PUT','PATCH','DELETE','HEAD'],default:'GET'},path:{type:'string',description:'API path beginning /api/v1/'},query:{type:'object'},body:{description:'JSON body or multipart text fields'},files:{type:'array',items:{type:'object',properties:{field:{type:'string'},filename:{type:'string'},base64:{type:'string'},contentType:{type:'string'}},required:['filename','base64']}}},required:['path']},annotations:{readOnlyHint:false,destructiveHint:true}},
   {
     name: 'list_unresolved_issues',
     description: 'List unresolved issues with event counts, velocity, and culprit frame',
@@ -398,7 +400,7 @@ async function forwardToRemote(reqBody) {
     const headers = {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(postData),
-      'User-Agent': '@epure-sh/mcp/0.1.7',
+      'User-Agent': '@epure-sh/mcp/0.1.8',
     };
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -458,7 +460,7 @@ async function handleRequest(req) {
         capabilities: { tools: {} },
         serverInfo: {
           name: 'epure-mcp',
-          version: '0.1.7',
+          version: '0.1.8',
         },
       },
     });
@@ -486,6 +488,30 @@ async function handleRequest(req) {
   }
 
   if (method === 'tools/call') {
+    const name=req.params?.name;const args=req.params?.arguments||{};
+    if(name==='epure_api_catalog'||name==='epure_api') {
+      try {
+        if(name!=='epure_api_catalog') await resolveAuth();
+        const value=name==='epure_api_catalog'?require('../lib/api-catalog.json'):await require('../lib/api').apiRequest(endpoint,token,args);
+        sendJsonRpc({jsonrpc:'2.0',id,result:{content:[{type:'text',text:'<untrusted_api_data>'+JSON.stringify(value).replace(/</g,'\\u003c').replace(/>/g,'\\u003e')+'</untrusted_api_data>'}]}});
+      }catch(error){sendJsonRpc({jsonrpc:'2.0',id,result:{isError:true,content:[{type:'text',text:error.message}]}});}
+      return;
+    }
+    const remote = await forwardToRemote(req);
+    if(remote.result && !remote.error && !remote.result.isError) { sendJsonRpc(remote); return; }
+    const readNames=['list_unresolved_issues','epure_list_issues'];
+    const contextNames=['get_crash_context','epure_get_issue_context'];
+    if([...readNames,...contextNames,'mark_issue_resolved','epure_triage_issue'].includes(name)) {
+      try {
+        await resolveAuth();let action;
+        if(readNames.includes(name))action={path:'/api/v1/agent/queue',query:{project_id:args.project_id,limit:args.limit}};
+        else if(contextNames.includes(name))action={path:'/api/v1/agent/issues/'+encodeURIComponent(args.issue_id)+'/context'};
+        else action={method:'PATCH',path:'/api/v1/issues/'+encodeURIComponent(args.issue_id),body:{status:'resolved',...(args.commit_sha?{resolved_in_release:args.commit_sha}:{})}};
+        const value=await require('../lib/api').apiRequest(endpoint,token,action);
+        sendJsonRpc({jsonrpc:'2.0',id,result:{content:[{type:'text',text:'<untrusted_api_data>'+JSON.stringify(value.data).replace(/</g,'\\u003c').replace(/>/g,'\\u003e')+'</untrusted_api_data>'}]}});
+      }catch(error){sendJsonRpc({jsonrpc:'2.0',id,result:{isError:true,content:[{type:'text',text:error.message}]}});}
+      return;
+    }
     const remoteResp = await forwardToRemote(req);
     sendJsonRpc(remoteResp);
     return;

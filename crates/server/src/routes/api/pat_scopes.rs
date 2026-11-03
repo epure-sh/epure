@@ -46,7 +46,11 @@ pub fn pat_missing_scopes(method: &Method, path: &str, scopes: &[String]) -> Opt
         return needs_read();
     }
 
-    if path.starts_with("/webhooks")
+    if path.starts_with("/alert-channels")
+        || path.starts_with("/monitors")
+        || path.starts_with("/releases")
+        || path.starts_with("/user/connected-apps")
+        || path.starts_with("/webhooks")
         || path.starts_with("/alert-rules")
         || path.starts_with("/alerts/rules")
         || path.starts_with("/dsn-keys")
@@ -210,5 +214,28 @@ mod tests {
             pat_missing_scopes(&Method::POST, "/api/v1/auth/login", &s),
             Some(StatusCode::FORBIDDEN)
         );
+    }
+}
+
+#[cfg(test)]
+mod management_regression {
+    use super::*;
+    #[test]
+    fn resource_mutations_require_admin_scope() {
+        for path in [
+            "/api/v1/alert-channels",
+            "/api/v1/monitors",
+            "/api/v1/releases",
+            "/api/v1/user/connected-apps/123",
+        ] {
+            assert_eq!(
+                pat_missing_scopes(&Method::POST, path, &["write:triage".into()]),
+                Some(StatusCode::FORBIDDEN)
+            );
+            assert_eq!(
+                pat_missing_scopes(&Method::POST, path, &["write:admin".into()]),
+                None
+            );
+        }
     }
 }

@@ -36,7 +36,7 @@ function writeCredentials(data) {
 }
 
 function normalizeUrl(url) {
-  if (!url) return 'https://epure.sh';
+  if (!url) return 'https://app.epure.sh';
   let u = url.trim().replace(/\/+$/, '');
   if (!u.startsWith('http://') && !u.startsWith('https://')) {
     u = `https://${u}`;
@@ -47,7 +47,7 @@ function normalizeUrl(url) {
 function getActiveCredentials(targetUrl) {
   const creds = readCredentials();
   const normTarget = targetUrl ? normalizeUrl(targetUrl) : '';
-  const current = normTarget || creds.current_instance || 'https://epure.sh';
+  const current = normTarget || creds.current_instance || 'https://app.epure.sh';
   const instance = creds.instances ? creds.instances[current] : null;
   if (!instance && !normTarget && creds.instances) {
     const keys = Object.keys(creds.instances);
@@ -277,7 +277,7 @@ async function loginLoopback(targetUrl, clientId, clientName) {
     server.listen(0, '127.0.0.1', () => {
       const port = server.address().port;
       const redirectUri = `http://127.0.0.1:${port}/callback`;
-      const authUrl = `${targetUrl}/oauth/authorize?client_id=${encodeURIComponent(clientId)}&client_name=${encodeURIComponent(clientName)}&redirect_uri=${encodeURIComponent(redirectUri)}&code_challenge=${challenge}&code_challenge_method=S256&scope=read:agent+write:triage&state=${state}`;
+      const authUrl = `${targetUrl}/oauth/authorize?client_id=${encodeURIComponent(clientId)}&client_name=${encodeURIComponent(clientName)}&redirect_uri=${encodeURIComponent(redirectUri)}&code_challenge=${challenge}&code_challenge_method=S256&scope=${encodeURIComponent(process.env.EPURE_SCOPES || 'read:agent write:triage')}&state=${state}`;
 
       console.error(`\n[epure-mcp] Opening browser to authenticate with ${targetUrl}...`);
       console.error(`[epure-mcp] Visit: ${authUrl}\n`);

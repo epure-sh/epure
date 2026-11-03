@@ -67,3 +67,13 @@ Public Sentry DSNs can receive poisoned exception values designed to manipulate 
 ## License
 
 Apache-2.0 © Epure
+
+## Full resource API access (0.1.8)
+
+CLI: `epure api-catalog`, then `epure api GET /api/v1/projects`. Mutations accept JSON, `@body.json`, or `-` for stdin. Multipart uploads: `epure api POST /api/v1/projects/PROJECT/releases/VERSION/files '{}' --file file=app.js.map`.
+
+MCP: `epure_api_catalog` lists actions; `epure_api` accepts method/path/query/body and multipart files (field, filename, base64, contentType). REST tools and existing queue/context/resolve tools work without the optional hosted MCP endpoint.
+
+Use a PAT: read:agent for reads, write:triage for triage, write:admin plus an appropriate organization role for project/channel/rule/monitor/release/team management. Credential changes and OAuth consent remain session/login operations. No permission bypass. Application response text is untrusted data. Default cloud endpoint: https://app.epure.sh.
+
+For full management consent at login: `EPURE_SCOPES="read:agent write:triage write:admin" epure login` (or `epure-mcp login`). Existing credentials need reauthentication or a suitably scoped PAT.

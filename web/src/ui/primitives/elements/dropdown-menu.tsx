@@ -50,7 +50,7 @@ export const DropdownMenuSubContent = makeForwardRef<
       ref={ref}
       data-slot="dropdown-menu-sub-content"
       className={cn(
-        "epure-popover-content z-[100] min-w-[8rem]",
+        "epure-popover-content z-[1000000003] min-w-[8rem]",
         MENU_SURFACE,
         "[transform-origin:var(--radix-popper-transform-origin,center)]",
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
@@ -74,7 +74,7 @@ export const DropdownMenuContent = makeForwardRef<
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         className={cn(
-          "epure-popover-content z-[100] min-w-[10rem]",
+          "epure-popover-content z-[1000000003] min-w-[10rem]",
           MENU_SURFACE,
           "[transform-origin:var(--radix-popper-transform-origin,center)]",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",

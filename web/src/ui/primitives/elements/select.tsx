@@ -149,7 +149,7 @@ export function SelectContent({
     <OrbitSelectContent
       data-slot="select-content"
       position={position}
-      className={cn("z-[80]", MENU_SURFACE_PADDED_CHILD, className)}
+      className={cn("z-[1000000003]", MENU_SURFACE_PADDED_CHILD, className)}
       {...props}
     >
       {children}

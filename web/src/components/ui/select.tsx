@@ -136,7 +136,7 @@ export function SelectContent({
       position={position}
       // Above issue-detail overlay (z-70) + select backdrop (z-75).
       // Match DropdownMenu card chrome (Orbit defaults rounded-xl / border-none).
-      className={cn("z-[80]", MENU_SURFACE_PADDED_CHILD, className)}
+      className={cn("z-[1000000003]", MENU_SURFACE_PADDED_CHILD, className)}
       {...props}
     >
       {children}

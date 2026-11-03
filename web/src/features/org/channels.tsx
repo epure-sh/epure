@@ -137,8 +137,8 @@ export function OrgChannelsPage() {
     return map;
   }, [projects, contextProjects]);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
     try {
       const [channelRows, projectRows] = await Promise.all([
         fetchAlertChannels(),
@@ -442,7 +442,7 @@ export function OrgChannelsPage() {
       <CreateOutputChannelDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
-        onCreated={() => void refresh()}
+        onCreated={() => void refresh(true)}
       />
 
       <EditOutputChannelDialog
