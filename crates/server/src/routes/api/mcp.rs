@@ -114,14 +114,29 @@ async fn post_mcp(
             if let Ok(method) = method.parse() {
                 if super::pat_scopes::pat_missing_scopes(&method, &path, &session.scopes).is_some()
                 {
-                    let scope = if method == axum::http::Method::GET {
-                        "read:agent"
-                    } else if path.starts_with("/api/v1/agent/issues/") {
-                        "write:triage"
-                    } else {
-                        "write:admin"
+                    let required = ["read:agent", "write:triage", "write:admin"]
+                        .into_iter()
+                        .find(|scope| {
+                            super::pat_scopes::pat_missing_scopes(
+                                &method,
+                                &path,
+                                &[scope.to_string()],
+                            )
+                            .is_none()
+                        });
+                    let Some(required) = required else {
+                        return (StatusCode::FORBIDDEN, Json(json!({"error":"forbidden"})))
+                            .into_response();
                     };
-                    return challenge(StatusCode::FORBIDDEN, scope);
+                    let scopes = ["read:agent", "write:triage", "write:admin"]
+                        .into_iter()
+                        .filter(|scope| {
+                            *scope == required
+                                || session.scopes.iter().any(|granted| granted == scope)
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    return challenge(StatusCode::FORBIDDEN, &scopes);
                 }
             }
         }

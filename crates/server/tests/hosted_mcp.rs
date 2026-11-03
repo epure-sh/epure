@@ -165,6 +165,21 @@ async fn hosted_connector_discovers_oauth_and_calls_tenant_scoped_named_tools() 
         .to_str()
         .unwrap()
         .contains("insufficient_scope"));
+    let scope_header = denied.headers()["www-authenticate"].to_str().unwrap();
+    assert!(scope_header.contains("read:agent write:admin"));
+    let admin_read = json!({"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"epure_invitations_list","arguments":{}}});
+    let denied_read = client
+        .post(format!("{base}/mcp"))
+        .bearer_auth(access)
+        .json(&admin_read)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(denied_read.status(), 403);
+    assert!(denied_read.headers()["www-authenticate"]
+        .to_str()
+        .unwrap()
+        .contains("write:admin"));
     assert_eq!(
         client
             .get(format!("{base}/mcp"))
