@@ -44,15 +44,21 @@ function output(data, flags = {}) {
   data = pickFields(data, flags.fields);
   const format = flags.json ? 'json' : flags.output || (process.stdout.isTTY ? 'table' : 'json');
   if (format === 'json') { process.stdout.write(`${JSON.stringify(data, null, 2)}\n`); return; }
+  if (format === 'table' && typeof data === 'string') { process.stdout.write(data.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g, '') + (data.endsWith('\n') ? '' : '\n')); return; }
+  if (format === 'table' && Array.isArray(data?.queue)) data = data.queue.map(row => row.issue ? { id: row.issue.id, title: row.issue.title, status: row.issue.status, events: row.issue.event_count, score: row.priority_score } : row);
   const list = data && !Array.isArray(data) && typeof data === 'object' ? Object.values(data).find(v => Array.isArray(v) && (!v.length || typeof v[0] === 'object')) : null;
   const rows = (Array.isArray(data) ? data : list || [data]).map(r => r && typeof r === 'object' ? r : { value: r });
   if (format === 'ndjson') { for (const row of rows) process.stdout.write(`${JSON.stringify(row)}\n`); return; }
   if (format !== 'table') throw new auth.ClientError('INVALID_ARGUMENT', 'Choose --output json, table, or ndjson.', 2);
   const safe = v => String(typeof v === 'object' ? JSON.stringify(v) : v ?? '').replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').slice(0, 100);
   if (!rows.length) { process.stdout.write('No results.\n'); return; }
-  const keys = [...new Set(rows.flatMap(r => Object.keys(r || {})))].slice(0, 7);
+  const available = [...new Set(rows.flatMap(r => Object.keys(r || {})))];
+  const preferred = ['id', 'name', 'title', 'status', 'events', 'score', 'slug', 'provider', 'label', 'kind', 'paused', 'authenticated', 'instance'];
+  const keys = (flags.fields ? available : [...preferred.filter(k => available.includes(k)), ...available.filter(k => !preferred.includes(k))]).slice(0, flags.fields ? 10 : 5);
   const cells = [keys, ...rows.map(r => keys.map(k => safe(r?.[k])))];
-  const widths = keys.map((_, i) => Math.min(50, Math.max(...cells.map(r => r[i]?.length || 0))));
+  const widths = keys.map((key, i) => Math.min(key === 'id' ? 36 : 50, Math.max(...cells.map(r => r[i]?.length || 0))));
+  const budget = Math.max(60, process.stdout.columns || 110) - (keys.length - 1) * 2;
+  while (widths.reduce((a, b) => a + b, 0) > budget) { const candidates = widths.map((w, i) => ({ w, i })).filter(({ w, i }) => keys[i] !== 'id' && w > Math.max(8, keys[i].length)).sort((a, b) => b.w - a.w); if (!candidates.length) break; widths[candidates[0].i]--; }
   for (const row of cells) process.stdout.write(`${row.map((v, i) => safe(v).slice(0, widths[i]).padEnd(widths[i])).join('  ').trimEnd()}\n`);
 }
 function help(words = []) {
@@ -129,6 +135,7 @@ async function main(argv, { mcp = false, version = '0.2.0' } = {}) {
   for (const key of keys) { const flag = key.replaceAll('_', '-'); if (flags[flag] !== undefined) { if (args[key] !== undefined) throw new auth.ClientError('INVALID_ARGUMENT', `Provide ${key} once, in --data or a flag.`, 2); args[key] = coerce(flags[flag], op.inputSchema.properties[key]); } }
   validate(op.inputSchema, args);
   if (op.destructive && !flags.yes) throw new auth.ClientError('CONFIRM_REQUIRED', 'This action is destructive. Review it and pass --yes.', 2);
+  if (op.id === 'issues.context' && !args.format) args.format = process.stdout.isTTY && !flags.json && !['json', 'ndjson'].includes(flags.output) ? 'markdown' : 'json';
   output((await apiRequest(url, buildRequest(op, args))).data, flags);
 }
 function run(argv, options) {

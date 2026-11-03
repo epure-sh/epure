@@ -187,3 +187,12 @@ test('named destructive MCP tools expose confirmation in their schemas and execu
   const invalid = await mcp.call('tools/call', { name: 'epure_projects_delete', arguments: { id: 'p1' } }); assert.equal(invalid.result.isError, true); assert.equal(s.requests.length, 0);
   const removed = await mcp.call('tools/call', { name: 'epure_projects_delete', arguments: { id: 'p1', confirm: true } }); assert.equal(removed.result.structuredContent.deleted, true); assert.equal(s.requests.length, 1);
 });
+test('human issue tables show titles and identities; markdown context is complete', () => {
+  const { output } = require('../packages/epure-cli/lib/cli'); const original = process.stdout.write; let text = '';
+  process.stdout.write = value => { text += value; return true; };
+  try {
+    output({ queue: [{ priority_score: 9, issue: { id: '550e8400-e29b-41d4-a716-446655440000', title: 'Checkout failed', status: 'unresolved', event_count: 12 } }] }, { output: 'table' });
+    assert.match(text, /Checkout failed/); assert.match(text, /550e8400-e29b-41d4-a716-446655440000/); assert.ok(text.split('\n').every(line => line.length <= 110));
+    text = ''; const markdown = '# Exception\n' + 'frame details\n'.repeat(30); output(markdown, { output: 'table' }); assert.equal(text, markdown);
+  } finally { process.stdout.write = original; }
+});
