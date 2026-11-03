@@ -207,6 +207,9 @@ if (args[0] === 'init') {
       }
     }
 
+    if (!verified && targetToken && targetToken !== 'YOUR_EPURE_TOKEN') {
+      try { await require('../lib/api').apiRequest(targetUrl,targetToken,{path:'/api/v1/agent/whoami'}); verified=true; } catch {}
+    }
     console.log(`\n✓ Epure MCP configuration written:`);
     configuredFiles.forEach((item) => {
       console.log(`  • ${item.name}: ${item.path}`);
@@ -214,7 +217,7 @@ if (args[0] === 'init') {
 
     if (verified) {
       console.log(`\n✓ Live verification test succeeded: Server is connected & responding.`);
-      console.log(`  Surgical tools active: list_unresolved_issues, get_crash_context, mark_issue_resolved (<600 tokens/call).`);
+      console.log(`  Tools active: issue triage, epure_api_catalog and epure_api resource management.`);
     } else {
       console.log(`\n✓ Configuration completed.`);
       console.log(`  Tools registered: list_unresolved_issues, get_crash_context, mark_issue_resolved.`);
