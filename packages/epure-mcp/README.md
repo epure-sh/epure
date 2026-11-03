@@ -49,3 +49,5 @@ Restrictions also apply to discovery, `epure_action`, and advanced API calls. Th
 Legacy issue tool names remain callable when their workflows are enabled. Protocol versions supported: 2024-11-05, 2025-03-26, 2025-06-18 and 2025-11-25. Transport is newline-delimited JSON-RPC over stdio, with cancellation, pagination, stable errors, and diagnostics only on stderr. This package does not advertise HTTP/SSE transport.
 
 Logout removes the shared local session and attempts remote OAuth grant revocation. If the server is unavailable or lacks the revocation update, it reports the need to revoke the app in Settings → Connected apps. [Design and research](https://github.com/epure-sh/epure/blob/main/docs/cli-mcp-redesign.md).
+
+Output channels can be shared across projects: use `project_ids` in the schema (CLI: `--project-ids '["PROJECT_A","PROJECT_B"]'`). One channel has one destination and one verification state. Single-project `project_id` remains supported.

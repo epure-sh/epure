@@ -211,18 +211,17 @@ pub async fn dispatch_event_to_webhooks(
     if webhook_ids.is_empty() {
         return;
     }
-    for webhook_id in webhook_ids {
-        let hook = match webhooks::get_for_dispatch_org(pool, org_id, *webhook_id).await {
-            Ok(Some(row)) => row,
-            Ok(None) => continue,
-            Err(err) => {
-                warn!("failed to load webhook {webhook_id}: {err}");
-                continue;
-            }
-        };
-        if hook.project_id != context.project_id {
-            continue;
+    let hooks = match webhooks::list_for_project_ingest(pool, org_id, context.project_id).await {
+        Ok(hooks) => hooks,
+        Err(error) => {
+            warn!("failed to load shared channel webhooks: {error}");
+            return;
         }
+    };
+    for hook in hooks
+        .into_iter()
+        .filter(|hook| webhook_ids.contains(&hook.id))
+    {
         if !hook.events.iter().any(|value| value == event) && event != "test" {
             // Channel-linked hooks subscribe to custom_rule; still allow if subscribed.
             continue;
@@ -282,7 +281,7 @@ async fn enqueue_hook(
     let result = async {
         let mut tx = epure_storage::rls::begin_ingest_transaction(pool, org_id).await?;
         sqlx::query("INSERT INTO webhook_deliveries (id,org_id,project_id,webhook_id,event,payload) VALUES ($1,$2,$3,$4,$5,$6)")
-            .bind(Uuid::new_v4()).bind(org_id).bind(hook.project_id).bind(hook.id)
+            .bind(Uuid::new_v4()).bind(org_id).bind(context.project_id).bind(hook.id)
             .bind(event).bind(format_payload(&hook,event,context)).execute(&mut *tx).await?;
         tx.commit().await
     }.await;
@@ -385,9 +384,14 @@ async fn deliver_pending(pool: &PgPool, row: PendingDelivery) -> Result<(), sqlx
     let hook=sqlx::query_as::<_,WebhookDispatchRow>(r#"
         SELECT w.id,w.project_id,w.url,w.format,w.events,w.signing_secret FROM webhooks w
         JOIN projects p ON p.id=w.project_id
-        WHERE w.id=$1 AND p.org_id=$2 AND w.project_id=$3
-          AND NOT EXISTS (SELECT 1 FROM alert_channels c WHERE c.org_id=$2
-              AND c.project_id=w.project_id AND c.config->>'webhook_id'=w.id::text AND NOT c.is_enabled)
+        WHERE w.id=$1 AND p.org_id=$2 AND (
+            (w.project_id=$3 AND NOT EXISTS (
+                SELECT 1 FROM alert_channels c WHERE c.org_id=$2 AND c.config->>'webhook_id'=w.id::text
+            )) OR EXISTS (
+                SELECT 1 FROM alert_channels c WHERE c.org_id=$2 AND c.config->>'webhook_id'=w.id::text
+                AND $3=ANY(c.project_ids) AND c.is_enabled
+            )
+        )
     "#).bind(row.webhook_id).bind(row.org_id).bind(row.project_id).fetch_optional(pool).await?;
     let (status, http, error) = if let Some(hook) = hook {
         match send_hook(&hook, row.id, &row.payload).await {

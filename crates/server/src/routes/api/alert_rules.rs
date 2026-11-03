@@ -238,7 +238,8 @@ async fn delete_rule(
 
 #[derive(Deserialize)]
 struct CreateChannelBody {
-    project_id: String,
+    project_id: Option<String>,
+    project_ids: Option<Vec<String>>,
     provider: String,
     label: String,
     #[serde(default)]
@@ -250,6 +251,7 @@ struct CreateChannelBody {
 
 #[derive(Deserialize)]
 struct PatchChannelBody {
+    project_ids: Option<Vec<String>>,
     is_enabled: Option<bool>,
     label: Option<String>,
     project_id: Option<String>,
@@ -305,6 +307,42 @@ async fn list_channels(
     Ok(Json(serde_json::json!({ "channels": public })))
 }
 
+async fn resolve_channel_projects(
+    state: &AppState,
+    org_id: Uuid,
+    single: Option<&str>,
+    multiple: Option<&[String]>,
+) -> Result<Vec<Uuid>, StatusCode> {
+    let raw = multiple
+        .map(|ids| ids.to_vec())
+        .unwrap_or_else(|| single.map(|id| vec![id.to_owned()]).unwrap_or_default());
+    if raw.is_empty() || raw.len() > 100 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let mut ids = Vec::new();
+    for value in raw {
+        let id =
+            epure_storage::projects::resolve_project_id(&state.pools.app, org_id, value.trim())
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+                .ok_or(StatusCode::NOT_FOUND)?;
+        if !ids.contains(&id) {
+            ids.push(id);
+        }
+    }
+    if let Some(single) = single {
+        let id =
+            epure_storage::projects::resolve_project_id(&state.pools.app, org_id, single.trim())
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+                .ok_or(StatusCode::NOT_FOUND)?;
+        if !ids.contains(&id) {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+    }
+    Ok(ids)
+}
+
 async fn create_channel(
     State(state): State<Arc<AppState>>,
     Extension(dashboard): Extension<DashboardSession>,
@@ -315,14 +353,14 @@ async fn create_channel(
     if label.is_empty() || !alert_rules::validate_provider(&body.provider) {
         return Err(StatusCode::BAD_REQUEST);
     }
-    let project_id = epure_storage::projects::resolve_project_id(
-        &state.pools.app,
+    let project_ids = resolve_channel_projects(
+        &state,
         dashboard.org_id,
-        body.project_id.trim(),
+        body.project_id.as_deref(),
+        body.project_ids.as_deref(),
     )
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-    .ok_or(StatusCode::NOT_FOUND)?;
+    .await?;
+    let project_id = project_ids[0];
 
     let require_verify = body.require_verify.unwrap_or(true);
     let raw_config = body.config.unwrap_or_else(|| serde_json::json!({}));
@@ -449,6 +487,7 @@ async fn create_channel(
         dashboard.org_id,
         CreateChannelParams {
             project_id,
+            project_ids,
             provider: body.provider,
             label: label.to_string(),
             config: serde_json::Value::Object(stored_config),
@@ -487,21 +526,20 @@ async fn patch_channel(
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string());
 
-    let project_id = if let Some(raw) = body
-        .project_id
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-    {
+    let project_ids = if body.project_ids.is_some() || body.project_id.is_some() {
         Some(
-            epure_storage::projects::resolve_project_id(&state.pools.app, dashboard.org_id, raw)
-                .await
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-                .ok_or(StatusCode::NOT_FOUND)?,
+            resolve_channel_projects(
+                &state,
+                dashboard.org_id,
+                body.project_id.as_deref(),
+                body.project_ids.as_deref(),
+            )
+            .await?,
         )
     } else {
         None
     };
+    let project_id = project_ids.as_ref().map(|ids| ids[0]);
 
     let mut next_config = row.config.0.clone();
     let mut config_changed = false;
@@ -647,6 +685,7 @@ async fn patch_channel(
         UpdateChannelParams {
             label,
             project_id,
+            project_ids,
             config: config_changed.then_some(next_config),
             is_enabled: body.is_enabled,
         },

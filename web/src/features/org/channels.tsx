@@ -169,12 +169,11 @@ export function OrgChannelsPage() {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return channels;
     return channels.filter((channel) => {
-      const project = projectById.get(channel.project_id);
+      const channelProjects = (channel.project_ids ?? [channel.project_id]).map((id) => projectById.get(id)).filter((project) => project != null);
       return (
         channel.label.toLowerCase().includes(q) ||
         channel.provider.toLowerCase().includes(q) ||
-        (project?.name ?? "").toLowerCase().includes(q) ||
-        (project?.slug ?? "").toLowerCase().includes(q)
+        channelProjects.some((project) => project.name.toLowerCase().includes(q) || (project.slug ?? "").toLowerCase().includes(q))
       );
     });
   }, [channels, searchQuery, projectById]);
@@ -320,7 +319,7 @@ export function OrgChannelsPage() {
           <ChannelGallery>
             {filtered.map((channel) => {
               const status = channelStatus(channel);
-              const project = projectById.get(channel.project_id);
+              const channelProjects = (channel.project_ids ?? [channel.project_id]).map((id) => projectById.get(id)).filter((project) => project != null);
               const Glyph = providerIcon(channel.provider);
               const testOk = channel.last_test_status === "ok";
               const testFail =
@@ -397,7 +396,7 @@ export function OrgChannelsPage() {
                     <div className="col-start-1 col-span-2 min-w-0 self-end">
                       <PolarCardDescription>
                         {channel.provider}
-                        {project ? ` · ${project.slug || project.name}` : ""}
+                        {channelProjects.length ? ` · ${channelProjects.map((project) => project.name).join(", ")}` : ""}
                       </PolarCardDescription>
                     </div>
                     <div className="flex shrink-0 items-center gap-1 justify-self-end self-end whitespace-nowrap">

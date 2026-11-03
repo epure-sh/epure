@@ -121,7 +121,11 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  try {
+    return await response.json() as T;
+  } catch {
+    throw new ApiError(response.status, path, `Unexpected server response for ${path}. Reload the page and try again.`);
+  }
 }
 
 export interface IssueListTrend {
@@ -345,6 +349,7 @@ export interface AlertChannelRow {
   id: string;
   org_id: string;
   project_id: string;
+  project_ids?: string[];
   provider: "slack" | "discord" | "telegram" | "email" | "webhook" | string;
   label: string;
   config?: AlertChannelConfig;
@@ -359,6 +364,7 @@ export interface CreatedAlertChannel {
   id: string;
   org_id: string;
   project_id: string;
+  project_ids?: string[];
   provider: string;
   label: string;
   config?: AlertChannelConfig;
@@ -393,7 +399,8 @@ export async function fetchAlertChannels(projectId?: string | null): Promise<Ale
 }
 
 export async function createAlertChannel(input: {
-  project_id: string;
+  project_id?: string;
+  project_ids?: string[];
   provider: string;
   label: string;
   config?: {
@@ -446,6 +453,7 @@ export async function patchAlertChannel(
     is_enabled?: boolean;
     label?: string;
     project_id?: string;
+    project_ids?: string[];
     config?: {
       url?: string;
       recipients?: string[];
@@ -1365,12 +1373,12 @@ export interface ConnectedAppRow {
 }
 
 export async function fetchConnectedApps(): Promise<ConnectedAppRow[]> {
-  const body = await apiFetch<{ connected_apps: ConnectedAppRow[] }>("/api/user/connected-apps");
+  const body = await apiFetch<{ connected_apps: ConnectedAppRow[] }>("/api/v1/user/connected-apps");
   return body.connected_apps;
 }
 
 export async function revokeConnectedApp(id: string): Promise<void> {
-  await apiFetch<void>(`/api/user/connected-apps/${id}`, { method: "DELETE" });
+  await apiFetch<void>(`/api/v1/user/connected-apps/${id}`, { method: "DELETE" });
 }
 
 export interface OAuthInfoOrg {
@@ -1391,7 +1399,7 @@ export async function fetchOAuthInfo(clientId: string, redirectUri?: string): Pr
   if (redirectUri) {
     params.set("redirect_uri", redirectUri);
   }
-  return apiFetch<OAuthInfoResponse>(`/api/oauth/info?${params.toString()}`);
+  return apiFetch<OAuthInfoResponse>(`/api/v1/oauth/info?${params.toString()}`);
 }
 
 export interface OAuthAuthorizePayload {
@@ -1406,7 +1414,7 @@ export interface OAuthAuthorizePayload {
 }
 
 export async function submitOAuthAuthorize(payload: OAuthAuthorizePayload): Promise<{ code: string; redirect_uri: string }> {
-  return apiFetch<{ code: string; redirect_uri: string }>("/api/oauth/authorize", {
+  return apiFetch<{ code: string; redirect_uri: string }>("/api/v1/oauth/authorize", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -1420,11 +1428,11 @@ export interface DeviceVerifyResponse {
 }
 
 export async function verifyDeviceCode(userCode: string): Promise<DeviceVerifyResponse> {
-  return apiFetch<DeviceVerifyResponse>(`/api/oauth/device/verify?user_code=${encodeURIComponent(userCode)}`);
+  return apiFetch<DeviceVerifyResponse>(`/api/v1/oauth/device/verify?user_code=${encodeURIComponent(userCode)}`);
 }
 
 export async function approveDeviceCode(userCode: string, orgId: string): Promise<void> {
-  await apiFetch<void>("/api/oauth/device/approve", {
+  await apiFetch<void>("/api/v1/oauth/device/approve", {
     method: "POST",
     body: JSON.stringify({ user_code: userCode, org_id: orgId }),
   });
@@ -1446,6 +1454,10 @@ export async function fetchBillingStatus(): Promise<BillingStatus | null> {
   } catch {
     return null;
   }
+}
+
+export async function syncBilling(): Promise<BillingStatus> {
+  return apiFetch<BillingStatus>("/api/v1/billing/sync", { method: "POST" });
 }
 
 export interface CreateCheckoutParams {

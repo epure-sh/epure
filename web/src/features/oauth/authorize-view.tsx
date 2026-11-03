@@ -55,7 +55,7 @@ export function AuthorizeView() {
     fetchOAuthInfo(clientId, redirectUri)
       .then((info) => {
         setOrgs(info.organizations);
-        setSelectedOrgId(info.current_org_id || info.organizations[0]?.id || "");
+        setSelectedOrgId(info.organizations.some((org) => org.id === info.current_org_id) ? info.current_org_id : info.organizations[0]?.id || "");
         setLoading(false);
       })
       .catch((err) => {
@@ -115,6 +115,7 @@ export function AuthorizeView() {
       ) {
         return;
       }
+      if (e.defaultPrevented || target?.closest('[role="combobox"], [role="listbox"], [role="option"], button, select, [data-slot="select-content"]')) return;
       if (e.key === "Enter" && !loading && !submitting && selectedOrgId) {
         e.preventDefault();
         void handleAuthorize();
@@ -178,7 +179,7 @@ export function AuthorizeView() {
                 <label className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
                   Select Workspace / Organization
                 </label>
-                <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
+                <Select disabled={loading || submitting || orgs.length === 0} value={selectedOrgId} onValueChange={setSelectedOrgId}>
                   <SelectTrigger size="sm" className="w-full">
                     <SelectValue placeholder="Select workspace" />
                   </SelectTrigger>

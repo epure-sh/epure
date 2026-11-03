@@ -61,9 +61,8 @@ export const PLANS: PlanDefinition[] = [
   {
     id: "pro",
     name: "Cloud Pro",
-    price: "$29",
-    priceMonthly: "$29",
-    priceAnnual: "$24",
+    price: "$24",
+    priceMonthly: "$24",
     period: "/ mo",
     tierCode: "pro",
     description:
@@ -91,9 +90,8 @@ export const PLANS: PlanDefinition[] = [
   {
     id: "scale",
     name: "Cloud Scale",
-    price: "$89",
-    priceMonthly: "$89",
-    priceAnnual: "$79",
+    price: "$79",
+    priceMonthly: "$79",
     period: "/ mo",
     tierCode: "scale",
     description:

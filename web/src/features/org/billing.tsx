@@ -32,6 +32,7 @@ import {
   createCheckoutSession,
   fetchBillingStatus,
   syncCheckout,
+  syncBilling,
   type BillingStatus,
 } from "@/lib/api";
 import { isCloudDeployment } from "@/lib/deployment";
@@ -142,23 +143,20 @@ export function BillingPage() {
   const loadBilling = useCallback(async () => {
     setBillingLoading(true);
     let status: BillingStatus | null = null;
-    if (cloud && checkoutId) {
-      status = await syncCheckout(checkoutId).catch(() => null);
-      setSearchParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          next.delete("checkout_id");
-          return next;
-        },
-        { replace: true },
-      );
+    if (cloud && isOwner) {
+      try {
+        status = checkoutId ? await syncCheckout(checkoutId) : await syncBilling();
+        if (checkoutId && status?.subscription_id && ["active", "trialing"].includes(status.subscription_status)) {
+          setSearchParams((current) => { const next = new URLSearchParams(current); next.delete("checkout_id"); return next; }, { replace: true });
+        }
+      } catch {
+        toast.error("Could not synchronize billing. Your current plan is unchanged; please retry.");
+      }
     }
-    if (!status) {
-      status = cloud ? await fetchBillingStatus() : null;
-    }
+    if (!status) status = cloud ? await fetchBillingStatus() : null;
     setBillingStatus(status);
     setBillingLoading(false);
-  }, [checkoutId, cloud, setSearchParams]);
+  }, [checkoutId, cloud, isOwner, setSearchParams]);
 
   useEffect(() => {
     void loadBilling();
@@ -280,8 +278,8 @@ export function BillingPage() {
     try {
       const res = await createCheckoutSession({
         plan_tier: target.tierCode ?? "pro",
-        interval: "annual",
-        success_url: `${window.location.origin}/billing?checkout=success`,
+        interval: "monthly",
+        success_url: `${window.location.origin}/billing?checkout=success&checkout_id={CHECKOUT_ID}`,
         cancel_url: `${window.location.origin}/billing?checkout=canceled`,
       });
       if (res?.url) {
@@ -424,7 +422,7 @@ export function BillingPage() {
                   <p className="font-mono text-2xl font-semibold tabular-nums text-fg-primary">
                     {plan.priceAnnual ?? plan.priceMonthly}
                     <span className="ml-1 font-sans text-xs font-normal text-fg-muted">
-                      / mo · billed annually
+                      / mo · billed monthly
                     </span>
                   </p>
                 ) : null}
@@ -695,7 +693,7 @@ export function BillingPage() {
                     <p className="mt-2 font-mono text-xl font-semibold tabular-nums text-fg-primary">
                       {tier.priceAnnual ?? tier.price}
                       <span className="ml-1 font-sans text-xs font-normal text-fg-muted">
-                        / mo · annual
+                        / mo · monthly
                       </span>
                     </p>
                     <p className="mt-1 text-2xs leading-relaxed text-fg-muted">
