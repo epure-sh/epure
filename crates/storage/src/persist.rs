@@ -6,6 +6,7 @@ use crate::counters::SyncCounterParams;
 use crate::events::InsertEventParams;
 use crate::issues::{IssueLifecycleState, UpsertIssueParams};
 use crate::rls;
+use crate::StorageError;
 
 pub struct PersistCounterOnly {
     pub org_id: Uuid,
@@ -275,7 +276,7 @@ pub async fn upsert_issue_in_tx(
             'low',
             0
         )
-        ON CONFLICT (project_id, fingerprint) WHERE merge_parent_id IS NULL
+        ON CONFLICT (project_id, fingerprint)
         DO UPDATE SET
             title = COALESCE(EXCLUDED.title, issues.title),
             level = COALESCE(EXCLUDED.level, issues.level),
@@ -428,7 +429,7 @@ async fn insert_event_in_tx(
     Ok(())
 }
 
-async fn sync_counter_in_tx(
+pub(crate) async fn sync_counter_in_tx(
     tx: &mut Transaction<'_, Postgres>,
     params: SyncCounterParams,
 ) -> Result<(), sqlx::Error> {
@@ -489,7 +490,7 @@ async fn record_unique_user_in_tx(
     }
 }
 
-async fn refresh_issue_priority_in_tx(
+pub(crate) async fn refresh_issue_priority_in_tx(
     tx: &mut Transaction<'_, Postgres>,
     issue_id: Uuid,
     now: DateTime<Utc>,
@@ -606,4 +607,437 @@ fn hour_floor(time: DateTime<Utc>) -> DateTime<Utc> {
         .and_hms_opt(time.hour(), 0, 0)
         .map(|naive| naive.and_utc())
         .unwrap_or(time)
+}
+
+/// Zero Sequence Burn on Issue Conflict:
+/// Checks if an issue exists first without burning sequence numbers.
+/// Follows merge_parent_id so merged issues route directly to their parent.
+pub async fn resolve_or_create_issue(
+    pool: &PgPool,
+    org_id: Uuid,
+    project_id: Uuid,
+    fingerprint: &str,
+    params: &UpsertIssueParams,
+) -> Result<(Uuid, bool), StorageError> {
+    let mut tx = rls::begin_ingest_transaction(pool, org_id).await?;
+
+    // 1. Fast read without sequence generation
+    let existing = sqlx::query_as::<_, (Uuid, Option<Uuid>, String)>(
+        r#"
+        SELECT id, merge_parent_id, status
+        FROM issues
+        WHERE project_id = $1 AND fingerprint = $2
+        "#,
+    )
+    .bind(project_id)
+    .bind(fingerprint)
+    .fetch_optional(&mut *tx)
+    .await?;
+
+    if let Some((id, merge_parent_id, _status)) = existing {
+        tx.commit().await?;
+        let final_id = merge_parent_id.unwrap_or(id);
+        return Ok((final_id, false));
+    }
+
+    let id = upsert_issue_in_tx(
+        &mut tx,
+        UpsertIssueParams {
+            org_id,
+            project_id,
+            fingerprint: fingerprint.to_string(),
+            title: params.title.clone(),
+            level: params.level.clone(),
+            environment: params.environment.clone(),
+            release: params.release.clone(),
+            occurred_at: params.occurred_at,
+            increment_by: 0,
+            grouping: params.grouping.clone(),
+            rollup: params.rollup.clone(),
+        },
+    )
+    .await?;
+    tx.commit().await?;
+    Ok((id, true))
+}
+
+pub type IngestedEvent = InsertEventParams;
+
+/// Batched Partitioned Event Insert using PostgreSQL UNNEST
+pub async fn persist_event_batch(
+    pool: &PgPool,
+    events: &[IngestedEvent],
+) -> Result<Vec<Uuid>, StorageError> {
+    if events.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut inserted_ids = Vec::new();
+    let mut by_org: std::collections::HashMap<Uuid, Vec<&IngestedEvent>> =
+        std::collections::HashMap::new();
+    for ev in events {
+        by_org.entry(ev.org_id).or_default().push(ev);
+    }
+
+    for (org_id, org_events) in by_org {
+        let mut ids = Vec::with_capacity(org_events.len());
+        let mut org_ids = Vec::with_capacity(org_events.len());
+        let mut project_ids = Vec::with_capacity(org_events.len());
+        let mut issue_ids = Vec::with_capacity(org_events.len());
+        let mut occurred_ats = Vec::with_capacity(org_events.len());
+        let mut environments = Vec::with_capacity(org_events.len());
+        let mut releases = Vec::with_capacity(org_events.len());
+        let mut platforms = Vec::with_capacity(org_events.len());
+        let mut runtime_names = Vec::with_capacity(org_events.len());
+        let mut runtime_versions = Vec::with_capacity(org_events.len());
+        let mut browser_names = Vec::with_capacity(org_events.len());
+        let mut os_names = Vec::with_capacity(org_events.len());
+        let mut country_codes = Vec::with_capacity(org_events.len());
+        let mut user_ids = Vec::with_capacity(org_events.len());
+        let mut user_emails = Vec::with_capacity(org_events.len());
+        let mut payload_jsons = Vec::with_capacity(org_events.len());
+        let mut stack_frames = Vec::with_capacity(org_events.len());
+        let mut breadcrumbs = Vec::with_capacity(org_events.len());
+
+        for ev in org_events {
+            ids.push(ev.id);
+            org_ids.push(ev.org_id);
+            project_ids.push(ev.project_id);
+            issue_ids.push(ev.issue_id);
+            occurred_ats.push(ev.occurred_at);
+            environments.push(ev.environment.clone());
+            releases.push(ev.release.clone());
+            platforms.push(ev.platform.clone());
+            runtime_names.push(ev.runtime_name.clone());
+            runtime_versions.push(ev.runtime_version.clone());
+            browser_names.push(ev.browser_name.clone());
+            os_names.push(ev.os_name.clone());
+            country_codes.push(ev.country_code.clone());
+            user_ids.push(ev.user_id.clone());
+            user_emails.push(ev.user_email.clone());
+            payload_jsons.push(ev.payload_json.clone());
+            stack_frames.push(ev.stack_frames.clone());
+            breadcrumbs.push(ev.breadcrumbs.clone());
+        }
+
+        let mut tx = rls::begin_ingest_transaction(pool, org_id).await?;
+
+        let inserted = sqlx::query_scalar::<_, Uuid>(
+            r#"
+            WITH inserted AS (INSERT INTO events (
+                id, org_id, project_id, issue_id, occurred_at,
+                environment, release, platform, runtime_name, runtime_version,
+                browser_name, os_name, country_code, user_id, user_email,
+                payload_json, stack_frames, breadcrumbs
+            )
+            SELECT * FROM UNNEST(
+                $1::uuid[], $2::uuid[], $3::uuid[], $4::uuid[], $5::timestamptz[],
+                $6::text[], $7::text[], $8::text[], $9::text[], $10::text[],
+                $11::text[], $12::text[], $13::text[], $14::text[], $15::text[],
+                $16::jsonb[], $17::jsonb[], $18::jsonb[]
+            )
+            ON CONFLICT (id, occurred_at) DO NOTHING
+            RETURNING issue_id, project_id, occurred_at, id, environment, release, platform, browser_name, os_name, payload_json
+            ), counts AS (
+                SELECT issue_id, count(*)::bigint AS n, max(occurred_at) AS seen,
+                       min(occurred_at) AS first_seen
+                FROM inserted GROUP BY issue_id
+            ), latest AS (
+                SELECT DISTINCT ON (issue_id) * FROM inserted ORDER BY issue_id, occurred_at DESC, id
+            ), updated AS (
+                UPDATE issues i SET event_count = i.event_count + c.n,
+                    last_seen_at = GREATEST(i.last_seen_at, c.seen),
+                    first_seen_at = LEAST(i.first_seen_at, c.first_seen),
+                    latest_event_id = CASE WHEN l.occurred_at >= i.last_seen_at THEN l.id ELSE i.latest_event_id END,
+                    last_release = CASE WHEN l.occurred_at >= i.last_seen_at THEN COALESCE(l.release, i.last_release) ELSE i.last_release END,
+                    release = CASE WHEN l.occurred_at >= i.last_seen_at THEN COALESCE(l.release, i.release) ELSE i.release END,
+                    platform = COALESCE(i.platform, l.platform),
+                    environments = CASE WHEN l.environment IS NULL OR i.environments ? l.environment THEN i.environments ELSE i.environments || jsonb_build_array(l.environment) END
+                FROM counts c JOIN latest l ON l.issue_id = c.issue_id WHERE i.id = c.issue_id RETURNING i.id
+            ), counters AS (
+                INSERT INTO issue_counters (project_id, fingerprint, window_start, count, bodies_stored)
+                SELECT e.project_id, i.fingerprint, date_trunc('hour', e.occurred_at), count(*), count(*)
+                FROM inserted e JOIN issues i ON i.id = e.issue_id
+                GROUP BY e.project_id, i.fingerprint, date_trunc('hour', e.occurred_at)
+                ON CONFLICT (project_id, fingerprint, window_start) DO UPDATE
+                SET count = issue_counters.count + EXCLUDED.count,
+                    bodies_stored = issue_counters.bodies_stored + EXCLUDED.bodies_stored
+            ), releases_inserted AS (
+                INSERT INTO releases (project_id, version)
+                SELECT DISTINCT project_id, release FROM inserted WHERE release IS NOT NULL AND release <> ''
+                ON CONFLICT (project_id, version) DO NOTHING
+            )
+            , facets AS (INSERT INTO issue_tag_facets (issue_id, tag_key, tag_value, count)
+            SELECT e.issue_id, t.key, t.value, count(*)
+            FROM inserted e CROSS JOIN LATERAL jsonb_each_text(
+                CASE WHEN jsonb_typeof(e.payload_json->'tags') = 'object'
+                     THEN e.payload_json->'tags' ELSE '{}'::jsonb END
+                || jsonb_strip_nulls(jsonb_build_object('environment', e.environment, 'release', e.release, 'browser.name', e.browser_name, 'os.name', e.os_name))
+            ) t
+            WHERE t.key <> '' AND t.value <> ''
+            GROUP BY e.issue_id, t.key, t.value
+            ON CONFLICT (issue_id, tag_key, tag_value) DO UPDATE SET
+                count = issue_tag_facets.count + EXCLUDED.count, updated_at = NOW()
+            ) SELECT id FROM inserted
+            "#,
+        )
+        .bind(&ids)
+        .bind(&org_ids)
+        .bind(&project_ids)
+        .bind(&issue_ids)
+        .bind(&occurred_ats)
+        .bind(&environments)
+        .bind(&releases)
+        .bind(&platforms)
+        .bind(&runtime_names)
+        .bind(&runtime_versions)
+        .bind(&browser_names)
+        .bind(&os_names)
+        .bind(&country_codes)
+        .bind(&user_ids)
+        .bind(&user_emails)
+        .bind(&payload_jsons)
+        .bind(&stack_frames)
+        .bind(&breadcrumbs)
+        .fetch_all(&mut *tx)
+        .await?;
+
+        if !inserted.is_empty() {
+            let mut affected = issue_ids;
+            affected.sort_unstable();
+            affected.dedup();
+            for issue_id in affected {
+                refresh_issue_priority_in_tx(&mut tx, issue_id, Utc::now()).await?;
+            }
+        }
+        tx.commit().await?;
+        inserted_ids.extend(inserted);
+    }
+
+    Ok(inserted_ids)
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct TelemetryDeltas {
+    pub issue_counts: Vec<IssueCountDelta>,
+    pub tag_facets: Vec<TagFacetDelta>,
+    pub sessions: Vec<SessionBucketDelta>,
+}
+
+#[derive(Debug, Clone)]
+pub struct IssueCountDelta {
+    pub org_id: Uuid,
+    pub project_id: Uuid,
+    pub issue_id: Uuid,
+    pub fingerprint: String,
+    pub window_start: DateTime<Utc>,
+    pub count_delta: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct TagFacetDelta {
+    pub org_id: Uuid,
+    pub issue_id: Uuid,
+    pub tag_key: String,
+    pub tag_value: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct SessionBucketDelta {
+    pub org_id: Uuid,
+    pub project_id: Uuid,
+    pub release: String,
+    pub environment: String,
+    pub bucket_minute: DateTime<Utc>,
+    pub sessions_started: i64,
+    pub sessions_crashed: i64,
+    pub sessions_errored: i64,
+    pub duration_ms_p50: Option<i32>,
+}
+
+/// Bulk flusher for micro-batched telemetry counters, tag facets, and session health buckets
+pub async fn flush_all_telemetry_deltas(
+    pool: &PgPool,
+    deltas: &TelemetryDeltas,
+) -> Result<(), StorageError> {
+    let mut tx = pool.begin().await?;
+    // 1. Bulk update issues event_count and issue_counters per org
+    if !deltas.issue_counts.is_empty() {
+        let mut by_org: std::collections::HashMap<Uuid, Vec<&IssueCountDelta>> =
+            std::collections::HashMap::new();
+        for item in &deltas.issue_counts {
+            by_org.entry(item.org_id).or_default().push(item);
+        }
+
+        for (org_id, org_items) in by_org {
+            let mut issue_ids = Vec::with_capacity(org_items.len());
+            let mut count_deltas = Vec::with_capacity(org_items.len());
+            let mut project_ids = Vec::with_capacity(org_items.len());
+            let mut fingerprints = Vec::with_capacity(org_items.len());
+            let mut window_starts = Vec::with_capacity(org_items.len());
+
+            for item in org_items {
+                issue_ids.push(item.issue_id);
+                count_deltas.push(item.count_delta);
+                project_ids.push(item.project_id);
+                fingerprints.push(item.fingerprint.clone());
+                window_starts.push(item.window_start);
+            }
+
+            sqlx::query("SELECT ingest_set_org_context($1)")
+                .bind(org_id)
+                .execute(&mut *tx)
+                .await?;
+
+            sqlx::query(
+                r#"
+                UPDATE issues AS i
+                SET event_count = i.event_count + u.delta,
+                    last_seen_at = GREATEST(i.last_seen_at, NOW())
+                FROM (SELECT id, SUM(delta)::bigint AS delta FROM UNNEST($1::uuid[], $2::bigint[]) AS d(id, delta) GROUP BY id) AS u
+                WHERE i.id = u.id
+                "#,
+            )
+            .bind(&issue_ids)
+            .bind(&count_deltas)
+            .execute(&mut *tx)
+            .await?;
+
+            sqlx::query(
+                r#"
+                INSERT INTO issue_counters (project_id, fingerprint, window_start, count, bodies_stored)
+                SELECT u.project_id, u.fingerprint, u.window_start, SUM(u.count_delta)::bigint, 0
+                FROM UNNEST($1::uuid[], $2::text[], $3::timestamptz[], $4::bigint[])
+                    AS u(project_id, fingerprint, window_start, count_delta)
+                GROUP BY u.project_id, u.fingerprint, u.window_start
+                ON CONFLICT (project_id, fingerprint, window_start)
+                DO UPDATE SET count = issue_counters.count + EXCLUDED.count
+                "#,
+            )
+            .bind(&project_ids)
+            .bind(&fingerprints)
+            .bind(&window_starts)
+            .bind(&count_deltas)
+            .execute(&mut *tx)
+            .await?;
+        }
+    }
+
+    // 2. Bulk upsert tag facets per org
+    if !deltas.tag_facets.is_empty() {
+        let mut by_org: std::collections::HashMap<Uuid, Vec<&TagFacetDelta>> =
+            std::collections::HashMap::new();
+        for f in &deltas.tag_facets {
+            by_org.entry(f.org_id).or_default().push(f);
+        }
+
+        for (org_id, org_facets) in by_org {
+            let mut issue_ids = Vec::with_capacity(org_facets.len());
+            let mut tag_keys = Vec::with_capacity(org_facets.len());
+            let mut tag_values = Vec::with_capacity(org_facets.len());
+            let mut counts = Vec::with_capacity(org_facets.len());
+
+            for f in org_facets {
+                issue_ids.push(f.issue_id);
+                tag_keys.push(f.tag_key.clone());
+                tag_values.push(f.tag_value.clone());
+                counts.push(f.count);
+            }
+
+            sqlx::query("SELECT ingest_set_org_context($1)")
+                .bind(org_id)
+                .execute(&mut *tx)
+                .await?;
+
+            sqlx::query(
+                r#"
+                INSERT INTO issue_tag_facets (issue_id, tag_key, tag_value, count, updated_at)
+                SELECT u.issue_id, u.tag_key, u.tag_value, u.count, NOW()
+                FROM UNNEST($1::uuid[], $2::text[], $3::text[], $4::bigint[])
+                    AS u(issue_id, tag_key, tag_value, count)
+                ON CONFLICT (issue_id, tag_key, tag_value)
+                DO UPDATE SET
+                    count = issue_tag_facets.count + EXCLUDED.count,
+                    updated_at = NOW()
+                "#,
+            )
+            .bind(&issue_ids)
+            .bind(&tag_keys)
+            .bind(&tag_values)
+            .bind(&counts)
+            .execute(&mut *tx)
+            .await?;
+        }
+    }
+
+    // 3. Bulk upsert release health buckets per org
+    if !deltas.sessions.is_empty() {
+        let mut by_org: std::collections::HashMap<Uuid, Vec<&SessionBucketDelta>> =
+            std::collections::HashMap::new();
+        for s in &deltas.sessions {
+            by_org.entry(s.org_id).or_default().push(s);
+        }
+
+        for (org_id, org_sessions) in by_org {
+            let mut project_ids = Vec::with_capacity(org_sessions.len());
+            let mut releases = Vec::with_capacity(org_sessions.len());
+            let mut environments = Vec::with_capacity(org_sessions.len());
+            let mut bucket_minutes = Vec::with_capacity(org_sessions.len());
+            let mut starteds = Vec::with_capacity(org_sessions.len());
+            let mut crasheds = Vec::with_capacity(org_sessions.len());
+            let mut erroreds = Vec::with_capacity(org_sessions.len());
+            let mut p50s = Vec::with_capacity(org_sessions.len());
+
+            for s in org_sessions {
+                project_ids.push(s.project_id);
+                releases.push(s.release.clone());
+                environments.push(s.environment.clone());
+                bucket_minutes.push(s.bucket_minute);
+                starteds.push(s.sessions_started);
+                crasheds.push(s.sessions_crashed);
+                erroreds.push(s.sessions_errored);
+                p50s.push(s.duration_ms_p50);
+            }
+
+            sqlx::query("SELECT ingest_set_org_context($1)")
+                .bind(org_id)
+                .execute(&mut *tx)
+                .await?;
+
+            sqlx::query(
+                r#"
+                INSERT INTO release_health_buckets (
+                    project_id, release, environment, bucket_minute,
+                    sessions_started, sessions_crashed, sessions_errored, duration_ms_p50
+                )
+                SELECT u.project_id, u.release, u.environment, u.bucket_minute,
+                       u.started, u.crashed, u.errored, u.p50
+                FROM UNNEST(
+                    $1::uuid[], $2::text[], $3::text[], $4::timestamptz[],
+                    $5::bigint[], $6::bigint[], $7::bigint[], $8::integer[]
+                ) AS u(project_id, release, environment, bucket_minute, started, crashed, errored, p50)
+                ON CONFLICT (project_id, release, environment, bucket_minute)
+                DO UPDATE SET
+                    sessions_started = release_health_buckets.sessions_started + EXCLUDED.sessions_started,
+                    sessions_crashed = release_health_buckets.sessions_crashed + EXCLUDED.sessions_crashed,
+                    sessions_errored = release_health_buckets.sessions_errored + EXCLUDED.sessions_errored,
+                    duration_ms_p50 = COALESCE(EXCLUDED.duration_ms_p50, release_health_buckets.duration_ms_p50)
+                "#,
+            )
+            .bind(&project_ids)
+            .bind(&releases)
+            .bind(&environments)
+            .bind(&bucket_minutes)
+            .bind(&starteds)
+            .bind(&crasheds)
+            .bind(&erroreds)
+            .bind(&p50s)
+            .execute(&mut *tx)
+            .await?;
+        }
+    }
+
+    tx.commit().await?;
+    Ok(())
 }

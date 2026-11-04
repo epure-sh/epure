@@ -9,7 +9,6 @@ use crate::lifecycle::velocity::VelocityTracker;
 use crate::pipeline::grouping_cache::GroupingCache;
 use crate::pipeline::ingest_cap::IngestCapTracker;
 use crate::pipeline::ingest_plan_limit::IngestPlanLimitTracker;
-use crate::pipeline::mpsc::IngestJob;
 use crate::pipeline::noise_cache::NoisePolicyCache;
 use crate::pipeline::outcomes::OutcomeLedger;
 use crate::pipeline::spike::SpikeValve;
@@ -18,7 +17,7 @@ use crate::pipeline::spike::SpikeValve;
 pub struct AppState {
     pub pools: StoragePools,
     pub dsn_validator: Arc<DsnValidator>,
-    pub ingest_tx: mpsc::Sender<IngestJob>,
+    pub ingest_tx: mpsc::Sender<()>,
     pub spike_valve: Arc<SpikeValve>,
     pub grouping: Arc<GroupingCache>,
     pub outcomes: Arc<OutcomeLedger>,

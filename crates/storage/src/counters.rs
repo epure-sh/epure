@@ -37,7 +37,7 @@ pub async fn total_event_count_for_fingerprint(
     project_id: Uuid,
     fingerprint: &str,
 ) -> Result<i64, sqlx::Error> {
-    Ok(sqlx::query_scalar::<_, i64>(
+    let count = sqlx::query_scalar::<_, i64>(
         r#"
         SELECT event_count::bigint
         FROM issues
@@ -48,5 +48,6 @@ pub async fn total_event_count_for_fingerprint(
     .bind(fingerprint)
     .fetch_optional(pool)
     .await?
-    .unwrap_or(0))
+    .unwrap_or(0);
+    Ok(count)
 }

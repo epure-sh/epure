@@ -1,11 +1,15 @@
+use flate2::read::{GzDecoder, ZlibDecoder};
 use memchr::memchr;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::borrow::Cow;
+use std::io::Read;
 use thiserror::Error;
 
 use crate::noise::{parse_client_report, ClientDiscard};
-use crate::store::{decompress_store_payload, is_gzip, is_zlib};
+use crate::store::{is_gzip, is_zlib};
+
+pub const MAX_UNCOMPRESSED_ENVELOPE_BYTES: u64 = 10 * 1024 * 1024; // 10 MiB
 
 #[derive(Debug, Error)]
 pub enum EnvelopeError {
@@ -19,8 +23,31 @@ pub enum EnvelopeError {
     NonErrorAbsorbed,
     #[error("envelope item length mismatch")]
     LengthMismatch,
+    #[error("envelope item truncated")]
+    TruncatedItem,
     #[error("envelope decompression failed")]
     DecompressFailed,
+    #[error("envelope payload too large")]
+    PayloadTooLarge,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SessionStatus {
+    Ok,
+    Exited,
+    Crashed,
+    Abnormal,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionAggItem {
+    pub release: String,
+    pub environment: String,
+    pub status: SessionStatus,
+    pub errors: u32,
+    pub distinct_id: Option<String>,
+    pub count: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -52,8 +79,11 @@ pub struct ParsedEnvelope {
     pub check_ins: Vec<CheckInItem>,
     pub client_discards: Vec<ClientDiscard>,
     pub user_feedback: Vec<UserFeedbackItem>,
+    pub sessions: Vec<SessionAggItem>,
     pub envelope_header: Option<Value>,
 }
+
+pub type DemuxedEnvelope = ParsedEnvelope;
 
 impl ParsedEnvelope {
     pub fn envelope_event_id(&self) -> Option<uuid::Uuid> {
@@ -69,8 +99,7 @@ impl ParsedEnvelope {
 
 /// Zero-copy scan of a Sentry envelope; discards transaction items.
 ///
-/// PHP / Laravel SDKs gzip the body by default (`http_compression`); accept that
-/// the same way store ingest already does.
+/// Bounded to MAX_UNCOMPRESSED_ENVELOPE_BYTES to prevent decompression bombs.
 pub fn parse_envelope(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> {
     let decoded = decode_envelope_body(body)?;
     parse_envelope_decoded(&decoded)
@@ -81,43 +110,38 @@ fn decode_envelope_body(body: &[u8]) -> Result<Cow<'_, [u8]>, EnvelopeError> {
         return Err(EnvelopeError::Empty);
     }
 
-    let decoded = if body.first() == Some(&b'{') {
-        Cow::Borrowed(body)
-    } else if is_gzip(body) || is_zlib(body) {
-        let decoded =
-            decompress_store_payload(body).map_err(|_| EnvelopeError::DecompressFailed)?;
-        Cow::Owned(decoded)
-    } else {
-        return Err(EnvelopeError::MalformedItemHeader);
-    };
-
-    Ok(normalize_newlines(decoded))
-}
-
-/// Envelope wire format is `\n`-separated. Some SDKs / proxies emit `\r\n`.
-fn normalize_newlines(body: Cow<'_, [u8]>) -> Cow<'_, [u8]> {
-    if !body.contains(&b'\r') {
-        return body;
-    }
-    let mut out = Vec::with_capacity(body.len());
-    let mut i = 0;
-    while i < body.len() {
-        match body[i] {
-            b'\r' if i + 1 < body.len() && body[i + 1] == b'\n' => {
-                out.push(b'\n');
-                i += 2;
-            }
-            b'\r' => {
-                out.push(b'\n');
-                i += 1;
-            }
-            b => {
-                out.push(b);
-                i += 1;
-            }
+    if body.first() == Some(&b'{') || body.first() == Some(&b'[') {
+        if body.len() as u64 > MAX_UNCOMPRESSED_ENVELOPE_BYTES {
+            return Err(EnvelopeError::PayloadTooLarge);
         }
+        return Ok(Cow::Borrowed(body));
     }
-    Cow::Owned(out)
+
+    if is_gzip(body) {
+        let mut decoder = GzDecoder::new(body).take(MAX_UNCOMPRESSED_ENVELOPE_BYTES + 1);
+        let mut out = Vec::new();
+        decoder
+            .read_to_end(&mut out)
+            .map_err(|_| EnvelopeError::DecompressFailed)?;
+        if out.len() as u64 > MAX_UNCOMPRESSED_ENVELOPE_BYTES {
+            return Err(EnvelopeError::PayloadTooLarge);
+        }
+        return Ok(Cow::Owned(out));
+    }
+
+    if is_zlib(body) {
+        let mut decoder = ZlibDecoder::new(body).take(MAX_UNCOMPRESSED_ENVELOPE_BYTES + 1);
+        let mut out = Vec::new();
+        decoder
+            .read_to_end(&mut out)
+            .map_err(|_| EnvelopeError::DecompressFailed)?;
+        if out.len() as u64 > MAX_UNCOMPRESSED_ENVELOPE_BYTES {
+            return Err(EnvelopeError::PayloadTooLarge);
+        }
+        return Ok(Cow::Owned(out));
+    }
+
+    Err(EnvelopeError::MalformedItemHeader)
 }
 
 pub fn parse_check_in_payload(payload: &[u8]) -> Option<CheckInItem> {
@@ -268,52 +292,181 @@ pub fn parse_user_feedback_payload(raw: &[u8]) -> Option<UserFeedbackItem> {
     }
 }
 
-fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> {
-    let header_end = next_line_end(body, 0).ok_or(EnvelopeError::MalformedItemHeader)?;
-    let header_line = trim_bytes(&body[..header_end]);
-    let envelope_header: Option<Value> = if header_line.starts_with(b"{") {
-        serde_json::from_slice(header_line).ok()
+pub fn parse_session_payload(
+    payload: &[u8],
+    default_release: Option<&str>,
+    default_env: Option<&str>,
+) -> Vec<SessionAggItem> {
+    let Ok(val) = serde_json::from_slice::<Value>(payload) else {
+        return Vec::new();
+    };
+
+    let mut out = Vec::new();
+
+    let release = val
+        .pointer("/attrs/release")
+        .or_else(|| val.get("release"))
+        .and_then(Value::as_str)
+        .or(default_release)
+        .unwrap_or("unknown")
+        .to_string();
+
+    let environment = val
+        .pointer("/attrs/environment")
+        .or_else(|| val.get("environment"))
+        .and_then(Value::as_str)
+        .or(default_env)
+        .unwrap_or("production")
+        .to_string();
+
+    if let Some(aggregates) = val.get("aggregates").and_then(Value::as_array) {
+        for agg in aggregates {
+            let crashed = agg.get("crashed").and_then(Value::as_u64).unwrap_or(0) as u32;
+            let abnormal = agg.get("abnormal").and_then(Value::as_u64).unwrap_or(0) as u32;
+            let exited = agg.get("exited").and_then(Value::as_u64).unwrap_or(0) as u32;
+            let errored = agg.get("errored").and_then(Value::as_u64).unwrap_or(0) as u32;
+
+            if crashed > 0 {
+                out.push(SessionAggItem {
+                    release: release.clone(),
+                    environment: environment.clone(),
+                    status: SessionStatus::Crashed,
+                    errors: errored.max(1),
+                    distinct_id: None,
+                    count: crashed,
+                });
+            }
+            if abnormal > 0 {
+                out.push(SessionAggItem {
+                    release: release.clone(),
+                    environment: environment.clone(),
+                    status: SessionStatus::Abnormal,
+                    errors: errored,
+                    distinct_id: None,
+                    count: abnormal,
+                });
+            }
+            if exited > 0 {
+                out.push(SessionAggItem {
+                    release: release.clone(),
+                    environment: environment.clone(),
+                    status: SessionStatus::Exited,
+                    errors: errored,
+                    distinct_id: None,
+                    count: exited,
+                });
+            }
+        }
+    } else {
+        let status_str = val.get("status").and_then(Value::as_str).unwrap_or("ok");
+        let status = match status_str.to_lowercase().as_str() {
+            "crashed" => SessionStatus::Crashed,
+            "abnormal" => SessionStatus::Abnormal,
+            "exited" => SessionStatus::Exited,
+            _ => SessionStatus::Ok,
+        };
+        let errors = val.get("errors").and_then(Value::as_u64).unwrap_or(0) as u32;
+        let distinct_id = val
+            .get("did")
+            .or_else(|| val.get("distinct_id"))
+            .and_then(Value::as_str)
+            .map(str::to_string);
+
+        out.push(SessionAggItem {
+            release,
+            environment,
+            status,
+            errors,
+            distinct_id,
+            count: 1,
+        });
+    }
+
+    out
+}
+
+pub fn read_header_line<'a>(raw: &'a [u8], pos: &mut usize) -> Option<&'a [u8]> {
+    if *pos >= raw.len() {
+        return None;
+    }
+    let slice = if let Some(idx) = memchr(b'\n', &raw[*pos..]) {
+        let line = &raw[*pos..*pos + idx];
+        *pos += idx + 1;
+        line
+    } else {
+        let line = &raw[*pos..];
+        *pos = raw.len();
+        line
+    };
+    Some(slice.strip_suffix(b"\r").unwrap_or(slice))
+}
+
+fn parse_envelope_decoded(raw: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> {
+    let mut pos = 0;
+    let header_line = read_header_line(raw, &mut pos).ok_or(EnvelopeError::MalformedItemHeader)?;
+    let header_trimmed = trim_bytes(header_line);
+    let envelope_header: Option<Value> = if header_trimmed.starts_with(b"{") {
+        serde_json::from_slice(header_trimmed).ok()
     } else {
         None
     };
 
-    let mut offset = header_end + 1;
+    let default_release = envelope_header
+        .as_ref()
+        .and_then(|h| h.pointer("/trace/release").or_else(|| h.get("release")))
+        .and_then(Value::as_str);
+    let default_env = envelope_header
+        .as_ref()
+        .and_then(|h| {
+            h.pointer("/trace/environment")
+                .or_else(|| h.get("environment"))
+        })
+        .and_then(Value::as_str);
+
     let mut event_payload = None;
     let mut check_ins = Vec::new();
     let mut client_discards = Vec::new();
     let mut user_feedback = Vec::new();
+    let mut sessions = Vec::new();
     let mut has_non_error_items = false;
 
-    while offset < body.len() {
-        let line_end = next_line_end(body, offset).ok_or(EnvelopeError::MalformedItemHeader)?;
-        let header_line = trim_bytes(&body[offset..line_end]);
-        if header_line.is_empty() {
-            offset = line_end + 1;
+    while pos < raw.len() {
+        let item_header_line = match read_header_line(raw, &mut pos) {
+            Some(line) => trim_bytes(line),
+            None => break,
+        };
+        if item_header_line.is_empty() {
             continue;
         }
 
-        let item_type = item_type(header_line)?;
-        let payload_len = item_length(header_line)?;
-        offset = line_end + 1;
+        let item_type = item_type(item_header_line)?;
+        let payload_len = item_length(item_header_line)?;
 
-        let payload_end = if let Some(len) = payload_len {
-            if offset + len > body.len() {
-                return Err(EnvelopeError::LengthMismatch);
+        let payload = if let Some(len) = payload_len {
+            if pos + len > raw.len() {
+                return Err(EnvelopeError::TruncatedItem);
             }
-            offset + len
+            let slice = &raw[pos..pos + len];
+            pos += len;
+            if pos < raw.len() && raw[pos] == b'\r' {
+                pos += 1;
+            }
+            if pos < raw.len() && raw[pos] == b'\n' {
+                pos += 1;
+            }
+            slice.to_vec()
         } else {
-            next_item_offset(body, offset)
+            let next_offset = next_item_offset(raw, pos);
+            let slice = &raw[pos..next_offset];
+            pos = next_offset;
+            if pos < raw.len() && raw[pos] == b'\r' {
+                pos += 1;
+            }
+            if pos < raw.len() && raw[pos] == b'\n' {
+                pos += 1;
+            }
+            slice.to_vec()
         };
-
-        let payload = body[offset..payload_end].to_vec();
-        offset = payload_end;
-        // Item payloads are followed by a newline (`\n` or `\r\n`).
-        if offset < body.len() && body[offset] == b'\r' {
-            offset += 1;
-        }
-        if offset < body.len() && body[offset] == b'\n' {
-            offset += 1;
-        }
 
         match item_type.as_deref() {
             Some("event") => event_payload = Some(payload),
@@ -335,8 +488,15 @@ fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> 
                     has_non_error_items = true;
                 }
             }
+            Some("session") | Some("sessions") => {
+                has_non_error_items = true;
+                sessions.extend(parse_session_payload(
+                    &payload,
+                    default_release,
+                    default_env,
+                ));
+            }
             Some("transaction")
-            | Some("session")
             | Some("replay_event")
             | Some("statsd")
             | Some("profile")
@@ -355,14 +515,20 @@ fn parse_envelope_decoded(body: &[u8]) -> Result<ParsedEnvelope, EnvelopeError> 
             check_ins,
             client_discards,
             user_feedback,
+            sessions,
             envelope_header,
         })
-    } else if !check_ins.is_empty() || !client_discards.is_empty() || !user_feedback.is_empty() {
+    } else if !check_ins.is_empty()
+        || !client_discards.is_empty()
+        || !user_feedback.is_empty()
+        || !sessions.is_empty()
+    {
         Ok(ParsedEnvelope {
             event_payload: Vec::new(),
             check_ins,
             client_discards,
             user_feedback,
+            sessions,
             envelope_header,
         })
     } else if has_non_error_items {
@@ -707,16 +873,28 @@ mod tests {
 
     #[test]
     fn absorbs_session_and_transaction_only_envelopes() {
-        let session = r#"{"sid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","status":"ok"}"#;
+        let transaction = r#"{"type":"transaction","transaction":"GET /api"}"#;
+        let tx_header = format!(r#"{{"type":"transaction","length":{}}}"#, transaction.len());
+        let tx_body = format!(
+            "{}\n{}\n{}\n",
+            r#"{"event_id":"550e8400-e29b-41d4-a716-446655440099"}"#, tx_header, transaction,
+        );
+        assert!(matches!(
+            parse_envelope(tx_body.as_bytes()),
+            Err(EnvelopeError::NonErrorAbsorbed)
+        ));
+
+        let session =
+            r#"{"sid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","status":"ok","release":"1.0.0"}"#;
         let session_header = format!(r#"{{"type":"session","length":{}}}"#, session.len());
-        let body = format!(
+        let sess_body = format!(
             "{}\n{}\n{}\n",
             r#"{"event_id":"550e8400-e29b-41d4-a716-446655440099"}"#, session_header, session,
         );
-        assert!(matches!(
-            parse_envelope(body.as_bytes()),
-            Err(EnvelopeError::NonErrorAbsorbed)
-        ));
+        let parsed =
+            parse_envelope(sess_body.as_bytes()).expect("session parsed into DemuxedEnvelope");
+        assert_eq!(parsed.sessions.len(), 1);
+        assert_eq!(parsed.sessions[0].status, SessionStatus::Ok);
     }
 
     #[test]
@@ -789,5 +967,46 @@ mod tests {
         let mfb = &parsed_multi.user_feedback[0];
         assert_eq!(mfb.name.as_deref(), Some("Charlie Brown"));
         assert_eq!(mfb.email.as_deref(), Some("charlie@example.com"));
+    }
+
+    #[test]
+    fn test_zip_bomb_rejected() {
+        use flate2::write::GzEncoder;
+        use flate2::Compression;
+        use std::io::Write;
+
+        // 11 MiB of zeroes compressed into tiny gzip
+        let zeroes = vec![0u8; 11 * 1024 * 1024];
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&zeroes).expect("compress zeroes");
+        let gzipped = encoder.finish().expect("finish gzip");
+
+        // Envelope parser should reject with PayloadTooLarge
+        let err = parse_envelope(&gzipped).expect_err("should reject decompression bomb");
+        assert!(matches!(err, EnvelopeError::PayloadTooLarge));
+    }
+
+    #[test]
+    fn test_crlf_binary_length_framing() {
+        // Multi-item envelope with \r\n inside an event body of explicit length, followed by a session item
+        let header = r#"{"event_id":"550e8400-e29b-41d4-a716-446655440011"}"#;
+        let event_payload =
+            "{\r\n\"message\": \"test with \\r\\n in payload\",\r\n\"extra\": 123\r\n}";
+        let item_header = format!(r#"{{"type":"event","length":{}}}"#, event_payload.len());
+        let session_payload =
+            r#"{"status":"crashed","release":"1.0.0","environment":"production","errors":1}"#;
+        let session_header = format!(r#"{{"type":"session","length":{}}}"#, session_payload.len());
+
+        let raw = format!(
+            "{}\r\n{}\r\n{}\r\n{}\r\n{}\r\n",
+            header, item_header, event_payload, session_header, session_payload
+        );
+
+        let parsed = parse_envelope(raw.as_bytes()).expect("parse envelope with CRLF framing");
+        assert_eq!(parsed.event_payload, event_payload.as_bytes());
+        assert_eq!(parsed.sessions.len(), 1);
+        assert_eq!(parsed.sessions[0].status, SessionStatus::Crashed);
+        assert_eq!(parsed.sessions[0].release, "1.0.0");
+        assert_eq!(parsed.sessions[0].environment, "production");
     }
 }

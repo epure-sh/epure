@@ -16,8 +16,12 @@
 //! bucket is the same or an adjacent 8-line window.
 
 use crate::frames::{clean_frame_filename, demangle_rust_symbol, is_framework_frame};
+use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use smallvec::SmallVec;
+use uuid::Uuid;
 
 const PRIME64_1: u64 = 0x9E37_79B1_85EB_CA87;
 const PRIME64_2: u64 = 0xC2B2_AE3D_27D4_EB4F;
@@ -164,6 +168,7 @@ impl MultiFingerprint {
             "line_bucket": self.line_bucket,
             "col_bucket": self.col_bucket,
             "exception_type": self.exception_type,
+            "template": self.templated_value,
         })
     }
 
@@ -176,10 +181,160 @@ pub fn band_of(hash: u64, index: usize) -> u16 {
     ((hash >> (index * BAND_BITS as usize)) & 0xFFFF) as u16
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GroupingMeta {
+    pub matched_by: String, // "exact" | "locus" | "wrapper_elided" | "simhash_lsh" | "fallback"
+    pub causal_frame_index: Option<usize>,
+    pub elided_wrapper_frames: Vec<usize>,
+    pub locus_distance: Option<u32>,
+    pub decoded_framework_error: Option<String>,
+    pub wire_hash: Option<u64>,
+    pub h_locus: Option<u64>,
+    pub h_sim: Option<u64>,
+}
+
+/// Preserves error codes during template sanitization:
+/// - `#\d+` (e.g. `Minified React error #418`, `#310`)
+/// - `\bE\d{2,6}\b` (e.g. Rust `E0382`, syscall codes)
+/// - HTTP 4xx/5xx status codes (`400`-`599`)
+/// - 5-character alphanumeric SQLSTATE codes (`23505`, `42P01`, `40001`).
+pub fn is_preserved_error_code(token: &str, prev_token: Option<&str>) -> bool {
+    // 1. Minified React / framework invariant error codes: #418, #310
+    if token.starts_with('#') && token.len() >= 2 && token[1..].chars().all(|c| c.is_ascii_digit())
+    {
+        return true;
+    }
+
+    // 2. Rust/compiler/syscall codes: E0382, E0502, E0499 (starts with E/e followed by 2 to 6 digits)
+    if (token.starts_with('E') || token.starts_with('e'))
+        && token.len() >= 3
+        && token.len() <= 7
+        && token[1..].chars().all(|c| c.is_ascii_digit())
+    {
+        return true;
+    }
+
+    // 3. HTTP status codes: 400-599
+    if token.len() == 3
+        && (token.starts_with('4') || token.starts_with('5'))
+        && token.chars().all(|c| c.is_ascii_digit())
+    {
+        if let Some(prev) = prev_token {
+            let p = prev.to_ascii_lowercase();
+            if p == "http" || p == "status" || p == "code" || p == "error" || p == "response" {
+                return true;
+            }
+        }
+        match token {
+            "400" | "401" | "402" | "403" | "404" | "405" | "408" | "409" | "410" | "418"
+            | "422" | "429" | "500" | "501" | "502" | "503" | "504" | "505" => return true,
+            _ => {}
+        }
+    }
+
+    // 4. SQLSTATE codes: 5-character alphanumeric codes with standard class
+    if token.len() == 5 && token.chars().all(|c| c.is_ascii_alphanumeric()) {
+        let is_upper_or_digit = token
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit());
+        let has_digit = token.chars().any(|c| c.is_ascii_digit());
+        let common_classes = ["23", "42", "40", "08", "28", "22", "25", "57", "58"];
+        if is_upper_or_digit && has_digit && common_classes.iter().any(|cls| token.starts_with(cls))
+        {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Decode top React minified invariant error codes into human-readable descriptions.
+pub fn decode_react_invariant(code: &str) -> Option<&'static str> {
+    match code.trim_start_matches('#') {
+        "130" => Some("Element type is invalid: expected a string or a class/function but got undefined/object."),
+        "185" => Some("Maximum update depth exceeded. This can happen when a component repeatedly calls setState inside componentWillUpdate or componentDidUpdate."),
+        "300" => Some("Rendered fewer hooks than expected. This may be caused by an accidental early return statement."),
+        "301" => Some("Too many re-renders. React limits the number of renders to prevent an infinite loop."),
+        "310" => Some("Rendered more hooks than during the previous render."),
+        "321" => Some("Invalid hook call. Hooks can only be called inside of the body of a function component."),
+        "418" => Some("Hydration failed because the initial UI does not match what was rendered on the server."),
+        "419" => Some("The server could not finish this Suspense boundary, likely due to an error during SSR."),
+        "421" => Some("This Suspense boundary received an update before it finished hydrating."),
+        "422" => Some("There was an error while hydrating this Suspense boundary."),
+        "423" => Some("There was an error while hydrating but React was able to recover by rendering at the client root instead."),
+        "425" => Some("Text content does not match server-rendered HTML."),
+        "426" => Some("A tree hydrated but some attributes of the server rendered HTML didn't match the client properties."),
+        _ => None,
+    }
+}
+
+pub fn extract_decoded_framework_error(msg: &str) -> Option<String> {
+    if let Some(idx) = msg.find("Minified React error #") {
+        let rest = &msg[idx + "Minified React error #".len()..];
+        let code_digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if !code_digits.is_empty() {
+            if let Some(decoded) = decode_react_invariant(&code_digits) {
+                return Some(format!("React Error #{code_digits}: {decoded}"));
+            }
+        }
+    }
+    if let Some(idx) = msg.find("react.dev/errors/") {
+        let rest = &msg[idx + "react.dev/errors/".len()..];
+        let code_digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if !code_digits.is_empty() {
+            if let Some(decoded) = decode_react_invariant(&code_digits) {
+                return Some(format!("React Error #{code_digits}: {decoded}"));
+            }
+        }
+    }
+    None
+}
+
+/// Stage 1 Wire Signature (< 2µs edge check before demangling).
+pub fn compute_wire_hash(event: &Value) -> u64 {
+    let ex_type = exception_type(event);
+    let msg = exception_message(event).unwrap_or_default();
+    let templated = normalize_exception_value(&truncate_chars(&msg, 128));
+
+    let mut buf = Vec::with_capacity(256);
+    buf.extend_from_slice(ex_type.as_bytes());
+    buf.push(0);
+    buf.extend_from_slice(templated.as_bytes());
+    buf.push(0);
+
+    for frame in exception_frames(event).into_iter().rev().take(5) {
+        let file = frame
+            .get("filename")
+            .or_else(|| frame.get("abs_path"))
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let func = frame
+            .get("function")
+            .or_else(|| frame.get("symbol"))
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let line = frame.get("lineno").and_then(Value::as_u64).unwrap_or(0);
+        let col = frame.get("colno").and_then(Value::as_u64).unwrap_or(0);
+
+        buf.extend_from_slice(file.as_bytes());
+        buf.push(b':');
+        buf.extend_from_slice(func.as_bytes());
+        buf.push(b':');
+        buf.extend_from_slice(&line.to_le_bytes());
+        buf.push(b':');
+        buf.extend_from_slice(&col.to_le_bytes());
+        buf.push(0);
+    }
+
+    xxh64(&buf, 42)
+}
+
 /// Drain-style single pass. Dynamic tokens become typed placeholders.
 pub fn normalize_exception_value(raw: &str) -> String {
     let mut out = String::with_capacity(raw.len().min(TEMPLATE_LIMIT));
     let mut chars = raw.chars().peekable();
+    let mut prev_token: Option<String> = None;
+
     while let Some(ch) = chars.next() {
         if out.len() >= TEMPLATE_LIMIT {
             break;
@@ -192,6 +347,22 @@ pub fn normalize_exception_value(raw: &str) -> String {
                 }
             }
             out.push_str("<QUOTED>");
+            prev_token = None;
+            continue;
+        }
+        // Preserve #\d+ exemption (e.g. Minified React error #418, #310)
+        if ch == '#' && chars.peek().is_some_and(|c| c.is_ascii_digit()) {
+            let mut code = String::new();
+            code.push('#');
+            while let Some(next) = chars.peek().copied() {
+                if !next.is_ascii_digit() {
+                    break;
+                }
+                code.push(next);
+                chars.next();
+            }
+            out.push_str(&code);
+            prev_token = Some(code);
             continue;
         }
         if is_delimiter(ch) {
@@ -207,8 +378,18 @@ pub fn normalize_exception_value(raw: &str) -> String {
             token.push(next);
             chars.next();
         }
-        if let Some(placeholder) = placeholder_for(&token) {
+
+        if is_preserved_error_code(&token, prev_token.as_deref()) {
+            for lower in token.chars() {
+                if out.len() >= TEMPLATE_LIMIT {
+                    break;
+                }
+                out.push(lower.to_ascii_lowercase());
+            }
+            prev_token = Some(token);
+        } else if let Some(placeholder) = placeholder_for(&token) {
             out.push_str(placeholder);
+            prev_token = None;
         } else {
             for lower in token.chars() {
                 if out.len() >= TEMPLATE_LIMIT {
@@ -216,6 +397,7 @@ pub fn normalize_exception_value(raw: &str) -> String {
                 }
                 out.push(lower.to_ascii_lowercase());
             }
+            prev_token = Some(token);
         }
     }
     out
@@ -253,6 +435,15 @@ fn placeholder_for(token: &str) -> Option<&'static str> {
     if token.contains('/') || token.contains('\\') {
         return Some("<PATH>");
     }
+    // IP address: 4 octets separated by dots
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() == 4
+        && parts
+            .iter()
+            .all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
+    {
+        return Some("<IP>");
+    }
     let hex_digits = token
         .bytes()
         .filter(|byte| byte.is_ascii_hexdigit())
@@ -262,6 +453,9 @@ fn placeholder_for(token: &str) -> Option<&'static str> {
             .bytes()
             .all(|byte| byte.is_ascii_hexdigit() || byte == b'-')
     {
+        if token.len() == 36 && token.bytes().filter(|b| *b == b'-').count() == 4 {
+            return Some("<UUID>");
+        }
         return Some("<HEX>");
     }
     if !token.bytes().any(|byte| byte.is_ascii_digit()) {
@@ -323,113 +517,12 @@ struct NormFrame {
     line_bucket: u32,
     col_bucket: u32,
     hash: u64,
+    context: Option<String>,
+    context_line: Option<String>,
 }
 
 pub fn compute_multi_fingerprint(event: &Value) -> MultiFingerprint {
-    if let Some(custom) = custom_fingerprint(event) {
-        let templated = exception_message(event)
-            .map(|message| normalize_exception_value(&message))
-            .unwrap_or_default();
-        let mixed = xxh64(custom.as_bytes(), 9);
-        return MultiFingerprint {
-            fingerprint: custom,
-            h_exact: mixed,
-            h_locus: mixed,
-            h_sim: mixed,
-            exception_type: exception_type(event),
-            templated_value: templated,
-            throw_file: String::new(),
-            throw_function: String::new(),
-            line_bucket: 0,
-            col_bucket: 0,
-            merge_reason: "custom",
-            cycle_folded: false,
-            call_path_count: 0,
-            custom: true,
-            variant_label: String::new(),
-        };
-    }
-
-    let exception_type = exception_type(event);
-    let templated = exception_message(event)
-        .map(|message| normalize_exception_value(&message))
-        .unwrap_or_default();
-    let platform = event.get("platform").and_then(Value::as_str);
-    let (in_app, other) = split_frames(event, platform);
-    let weak_stack = in_app.is_empty();
-    let active = if weak_stack { other } else { in_app };
-    let hashes: Vec<u64> = active.iter().map(|frame| frame.hash).collect();
-    let (folded, cycle_folded) = fold_stack_cycles(&hashes);
-    let call_path_count = u16::try_from(folded.len()).unwrap_or(u16::MAX);
-
-    let throw = active.first();
-    let throw_file = throw.map(|frame| frame.file.clone()).unwrap_or_default();
-    let throw_function = throw
-        .map(|frame| frame.function.clone())
-        .unwrap_or_default();
-    let line_bucket = throw.map(|frame| frame.line_bucket).unwrap_or(0);
-    let col_bucket = throw.map(|frame| frame.col_bucket).unwrap_or(0);
-
-    let locus_material = if throw.is_none() {
-        format!("{exception_type}\0no-frame\0{templated}")
-    } else if weak_stack {
-        format!("{exception_type}\0{throw_file}:{throw_function}:{line_bucket}:{col_bucket}\0{templated}")
-    } else {
-        format!("{exception_type}\0{throw_file}:{throw_function}:{line_bucket}:{col_bucket}")
-    };
-
-    let mut h_exact = xxh64(exception_type.as_bytes(), 1) ^ xxh64(templated.as_bytes(), 6);
-    if folded.is_empty() {
-        h_exact ^= xxh64(locus_material.as_bytes(), 5);
-    }
-    for frame_hash in &folded {
-        h_exact = h_exact.rotate_left(11) ^ frame_hash;
-    }
-    let h_locus = xxh64(locus_material.as_bytes(), 7);
-    let h_sim = simhash(
-        &exception_type,
-        &throw_file,
-        &throw_function,
-        line_bucket,
-        &active,
-        &templated,
-    );
-
-    let merge_reason = if throw.is_none() || weak_stack {
-        "message_template"
-    } else if cycle_folded {
-        "cycle_folded"
-    } else if call_path_count > 1 {
-        "crash_site"
-    } else {
-        "exact_stack"
-    };
-
-    let caller = active.get(1);
-    let variant_label = match caller {
-        Some(frame) => format!("{}:{} | {templated}", frame.file, frame.function),
-        None if !templated.is_empty() => templated.clone(),
-        None => String::new(),
-    };
-    let variant_label = truncate_chars(&variant_label, 180);
-
-    MultiFingerprint {
-        fingerprint: hash_string(&locus_material),
-        h_exact,
-        h_locus,
-        h_sim,
-        exception_type,
-        templated_value: templated,
-        throw_file,
-        throw_function,
-        line_bucket,
-        col_bucket,
-        merge_reason,
-        cycle_folded,
-        call_path_count,
-        custom: false,
-        variant_label,
-    }
+    compute_canonical_grouping(event, Uuid::nil(), None, None, None).0
 }
 
 pub fn preview_multi_fingerprint(payload: &[u8]) -> MultiFingerprint {
@@ -592,20 +685,6 @@ fn json_text(value: Option<&Value>) -> Option<String> {
     }
 }
 
-fn split_frames(event: &Value, platform: Option<&str>) -> (Vec<NormFrame>, Vec<NormFrame>) {
-    let mut in_app = Vec::new();
-    let mut other = Vec::new();
-    for frame in exception_frames(event).into_iter().rev() {
-        let norm = normalize_frame(&frame, platform);
-        if frame_is_in_app(&frame, platform) {
-            in_app.push(norm);
-        } else {
-            other.push(norm);
-        }
-    }
-    (in_app, other)
-}
-
 fn exception_frames(event: &Value) -> Vec<Value> {
     if let Some(values) = event.pointer("/exception/values").and_then(Value::as_array) {
         if let Some(first) = values.first() {
@@ -673,17 +752,23 @@ fn frame_is_in_app(frame: &Value, platform: Option<&str>) -> bool {
 }
 
 fn normalize_frame(frame: &Value, platform: Option<&str>) -> NormFrame {
-    let raw_file = frame
-        .get("filename")
-        .or_else(|| frame.get("abs_path"))
-        .or_else(|| frame.get("module"))
-        .or_else(|| frame.get("package"))
-        .and_then(Value::as_str)
+    let raw_file = ["filename", "abs_path", "module", "package"]
+        .iter()
+        .find_map(|key| {
+            frame
+                .get(*key)
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+        })
         .unwrap_or("unknown");
-    let raw_function = frame
-        .get("function")
-        .or_else(|| frame.get("symbol"))
-        .and_then(Value::as_str)
+    let raw_function = ["function", "symbol"]
+        .iter()
+        .find_map(|key| {
+            frame
+                .get(*key)
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+        })
         .unwrap_or("unknown");
     let file = mask_content_hashes(&clean_frame_filename(raw_file));
     let function = canonicalize_function(raw_function, platform);
@@ -700,12 +785,22 @@ fn normalize_frame(frame: &Value, platform: Option<&str>) -> NormFrame {
         .min(u64::from(u32::MAX)) as u32
         >> 3;
     let material = format!("{file}\0{function}\0{line_bucket}\0{col_bucket}");
+    let context = frame
+        .get("context")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let context_line = frame
+        .get("context_line")
+        .and_then(Value::as_str)
+        .map(str::to_string);
     NormFrame {
         file,
         function,
         line_bucket,
         col_bucket,
         hash: xxh64(material.as_bytes(), 2),
+        context,
+        context_line,
     }
 }
 
@@ -900,6 +995,464 @@ pub struct GroupingSeed {
     pub col_bucket: u32,
 }
 
+/// Force in_app = false for vendor bundles, internal runtimes, and anonymous blocks
+/// unless explicitly matching project in_app_include.
+pub fn is_forced_not_in_app(filename: &str, in_app_include: Option<&[String]>) -> bool {
+    let lower = filename.to_ascii_lowercase();
+    if in_app_include.is_some_and(|includes| {
+        includes
+            .iter()
+            .any(|inc| !inc.is_empty() && lower.contains(&inc.to_ascii_lowercase()))
+    }) {
+        return false;
+    }
+    if lower.contains("node_modules/") {
+        if let Some(includes) = in_app_include {
+            for inc in includes {
+                if lower.contains(&inc.to_ascii_lowercase()) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    lower.contains("webpack/")
+        || lower.contains("turbopack/")
+        || lower.contains("next/dist/")
+        || lower.contains("node:internal/")
+        || lower.contains("internal/")
+        || lower.contains("<anonymous>")
+        || lower.contains("[native code]")
+}
+
+/// Transparent utility wrappers: file path matching utils, helpers, http, client, interceptors, logger,
+/// or function names matching fetch*, request*, unwrap*, assert*, handleError*, createError*, log*.
+pub fn is_utility_wrapper(filename: &str, function: &str) -> bool {
+    let file = filename.to_ascii_lowercase();
+    let func = function.to_ascii_lowercase();
+
+    let path_wrapper = file.contains("/utils/")
+        || file.contains("/helpers/")
+        || file.contains("/http")
+        || file.contains("/client")
+        || file.contains("/api-client")
+        || file.contains("/interceptors/")
+        || file.contains("/logger");
+
+    let func_wrapper = func.starts_with("fetch")
+        || func.starts_with("request")
+        || func.starts_with("unwrap")
+        || func.starts_with("assert")
+        || func.starts_with("handleerror")
+        || func.starts_with("createerror")
+        || func.starts_with("log");
+
+    path_wrapper || func_wrapper
+}
+
+/// Dynamic tracker for high fan-in frames: if an innermost (file, function) has been seen with > 8
+/// distinct caller frames in the project, it is treated as a wrapper.
+#[derive(Debug, Default)]
+pub struct FrameFanInTracker {
+    callers: DashMap<(Uuid, String, String), std::collections::HashSet<(String, String)>>,
+}
+
+impl FrameFanInTracker {
+    pub fn new() -> Self {
+        Self {
+            callers: DashMap::new(),
+        }
+    }
+
+    pub fn record_and_check_is_wrapper(
+        &self,
+        project_id: Uuid,
+        file: &str,
+        func: &str,
+        caller_file: Option<&str>,
+        caller_func: Option<&str>,
+    ) -> bool {
+        let key = (project_id, file.to_string(), func.to_string());
+        let mut entry = self.callers.entry(key).or_default();
+        if let (Some(cf), Some(cfunc)) = (caller_file, caller_func) {
+            if entry.len() < 32 {
+                entry.insert((cf.to_string(), cfunc.to_string()));
+            }
+        }
+        entry.len() > 8
+    }
+
+    pub fn is_high_fan_in(&self, project_id: Uuid, file: &str, func: &str) -> bool {
+        let key = (project_id, file.to_string(), func.to_string());
+        if let Some(entry) = self.callers.get(&key) {
+            entry.len() > 8
+        } else {
+            false
+        }
+    }
+}
+
+/// Active 4-Band 16-Bit SimHash LSH Index
+type LshBand = DashMap<(Uuid, u16), SmallVec<[(u64, u64, u64, u32); 8]>>;
+
+#[derive(Debug, Default)]
+pub struct SimHashLshRouter {
+    pub bands: [LshBand; 4],
+}
+
+impl SimHashLshRouter {
+    pub fn new() -> Self {
+        Self {
+            bands: [
+                DashMap::new(),
+                DashMap::new(),
+                DashMap::new(),
+                DashMap::new(),
+            ],
+        }
+    }
+
+    pub fn query_or_insert(
+        &self,
+        project_id: Uuid,
+        scope_key_hash: u64,
+        h_sim: u64,
+        h_locus: u64,
+    ) -> (u64, bool) {
+        self.query_or_insert_guarded(project_id, scope_key_hash, h_sim, h_locus, 0)
+    }
+
+    pub fn query_or_insert_guarded(
+        &self,
+        project_id: Uuid,
+        scope_key_hash: u64,
+        h_sim: u64,
+        h_locus: u64,
+        line_bucket: u32,
+    ) -> (u64, bool) {
+        for (band_idx, band_map) in self.bands.iter().enumerate() {
+            let band_val = band_of(h_sim, band_idx);
+            let key = (project_id, band_val);
+            if let Some(candidates) = band_map.get(&key) {
+                for &(cand_scope, cand_sim, cand_locus, cand_line) in candidates.iter() {
+                    if cand_scope == scope_key_hash
+                        && cand_line.abs_diff(line_bucket) <= 1
+                        && (cand_sim ^ h_sim).count_ones() <= 3
+                    {
+                        return (cand_locus, true);
+                    }
+                }
+            }
+        }
+
+        for (band_idx, band_map) in self.bands.iter().enumerate() {
+            let band_val = band_of(h_sim, band_idx);
+            let key = (project_id, band_val);
+            let mut bucket = band_map.entry(key).or_default();
+            if bucket.len() >= 8 {
+                bucket.remove(0); // FIFO replacement
+            }
+            bucket.push((scope_key_hash, h_sim, h_locus, line_bucket));
+        }
+
+        (h_locus, false)
+    }
+}
+
+/// Stage 2 Post-Demangle Multi-Resolution Grouping with Wrapper Elision and 4-Band LSH.
+pub fn compute_canonical_grouping(
+    event: &Value,
+    project_id: Uuid,
+    in_app_include: Option<&[String]>,
+    fan_in_tracker: Option<&FrameFanInTracker>,
+    lsh_router: Option<&SimHashLshRouter>,
+) -> (MultiFingerprint, GroupingMeta) {
+    let mut meta = GroupingMeta {
+        wire_hash: Some(compute_wire_hash(event)),
+        matched_by: "fallback".to_string(),
+        ..Default::default()
+    };
+
+    if let Some(msg) = exception_message(event) {
+        meta.decoded_framework_error = extract_decoded_framework_error(&msg);
+    }
+
+    if let Some(custom) = custom_fingerprint(event) {
+        let templated = exception_message(event)
+            .map(|message| normalize_exception_value(&message))
+            .unwrap_or_default();
+        let mixed = xxh64(custom.as_bytes(), 9);
+        meta.matched_by = "exact".to_string();
+        meta.h_locus = Some(mixed);
+        meta.h_sim = Some(mixed);
+        return (
+            MultiFingerprint {
+                fingerprint: custom,
+                h_exact: mixed,
+                h_locus: mixed,
+                h_sim: mixed,
+                exception_type: exception_type(event),
+                templated_value: templated,
+                throw_file: String::new(),
+                throw_function: String::new(),
+                line_bucket: 0,
+                col_bucket: 0,
+                merge_reason: "custom",
+                cycle_folded: false,
+                call_path_count: 0,
+                custom: true,
+                variant_label: String::new(),
+            },
+            meta,
+        );
+    }
+
+    let root_cause_type = exception_type(event);
+    let outer_type = event
+        .pointer("/exception/values")
+        .and_then(Value::as_array)
+        .and_then(|v| v.first())
+        .and_then(|f| f.get("type"))
+        .and_then(Value::as_str)
+        .map(normalize_token)
+        .unwrap_or_else(|| root_cause_type.clone());
+
+    let templated = exception_message(event)
+        .map(|message| normalize_exception_value(&message))
+        .unwrap_or_default();
+    let platform = event.get("platform").and_then(Value::as_str);
+
+    let raw_frames = exception_frames(event);
+    let mut in_app_frames = Vec::new();
+    let mut other_frames = Vec::new();
+
+    for frame in raw_frames.into_iter().rev() {
+        let mut norm = normalize_frame(&frame, platform);
+        if let Some(ctx) = frame.get("context_line").and_then(Value::as_str) {
+            norm.context_line = Some(ctx.to_string());
+        }
+        if let Some(ctx) = frame.get("context").and_then(Value::as_str) {
+            norm.context = Some(ctx.to_string());
+        }
+
+        let is_forced_off = is_forced_not_in_app(&norm.file, in_app_include);
+        let in_app_effective = if is_forced_off {
+            false
+        } else {
+            frame_is_in_app(&frame, platform)
+        };
+
+        if in_app_effective {
+            in_app_frames.push(norm);
+        } else {
+            other_frames.push(norm);
+        }
+    }
+
+    let weak_stack = in_app_frames.is_empty();
+    let active_frames = if weak_stack {
+        other_frames
+    } else {
+        in_app_frames
+    };
+
+    if active_frames.is_empty() {
+        let locus_material = format!("{root_cause_type}\0no-frame\0{templated}");
+        let h_locus = xxh64(locus_material.as_bytes(), 7);
+        let h_exact =
+            xxh64(root_cause_type.as_bytes(), 1) ^ xxh64(templated.as_bytes(), 6) ^ h_locus;
+        let h_sim = h_locus;
+        meta.matched_by = "fallback".to_string();
+        meta.h_locus = Some(h_locus);
+        meta.h_sim = Some(h_sim);
+
+        return (
+            MultiFingerprint {
+                fingerprint: hash_string(&locus_material),
+                h_exact,
+                h_locus,
+                h_sim,
+                exception_type: root_cause_type,
+                templated_value: templated,
+                throw_file: String::new(),
+                throw_function: String::new(),
+                line_bucket: 0,
+                col_bucket: 0,
+                merge_reason: "message_template",
+                cycle_folded: false,
+                call_path_count: 0,
+                custom: false,
+                variant_label: String::new(),
+            },
+            meta,
+        );
+    }
+
+    // Utility wrapper elision
+    let mut causal_idx = 0;
+    let mut elided_wrapper_frames = Vec::new();
+    let innermost = &active_frames[0];
+    let innermost_is_wrapper = is_utility_wrapper(&innermost.file, &innermost.function)
+        || fan_in_tracker
+            .is_some_and(|t| t.is_high_fan_in(project_id, &innermost.file, &innermost.function));
+
+    if innermost_is_wrapper && !weak_stack {
+        for (idx, cand) in active_frames.iter().enumerate().take(4).skip(1) {
+            let cand_is_wrapper = is_utility_wrapper(&cand.file, &cand.function)
+                || fan_in_tracker
+                    .is_some_and(|t| t.is_high_fan_in(project_id, &cand.file, &cand.function));
+            if !cand_is_wrapper {
+                causal_idx = idx;
+                elided_wrapper_frames = (0..idx).collect();
+                break;
+            }
+        }
+    }
+
+    if !elided_wrapper_frames.is_empty() {
+        meta.matched_by = "wrapper_elided".to_string();
+    } else {
+        meta.matched_by = "locus".to_string();
+    }
+    meta.causal_frame_index = Some(causal_idx);
+    meta.elided_wrapper_frames = elided_wrapper_frames;
+
+    let causal_frame = &active_frames[causal_idx];
+    let immediate_caller = active_frames.get(causal_idx + 1);
+
+    if let Some(tracker) = fan_in_tracker {
+        tracker.record_and_check_is_wrapper(
+            project_id,
+            &causal_frame.file,
+            &causal_frame.function,
+            immediate_caller.map(|c| c.file.as_str()),
+            immediate_caller.map(|c| c.function.as_str()),
+        );
+    }
+
+    let hashes: Vec<u64> = active_frames[causal_idx..].iter().map(|f| f.hash).collect();
+    let (folded, cycle_folded) = fold_stack_cycles(&hashes);
+    let call_path_count = u16::try_from(folded.len()).unwrap_or(u16::MAX);
+
+    // Scope-Relative h_locus
+    let ctx_line = causal_frame
+        .context_line
+        .as_deref()
+        .or(causal_frame.context.as_deref());
+    let has_concrete = !causal_frame.function.is_empty()
+        && causal_frame.function != "<anonymous>"
+        && causal_frame.function != "anonymous"
+        && causal_frame.function != "unknown";
+
+    let locus_material = if has_concrete || ctx_line.is_some() {
+        let ctx_hash = ctx_line
+            .map(|l| xxh64(l.trim().as_bytes(), 42))
+            .unwrap_or(0);
+        let location = if ctx_line.is_some() {
+            0
+        } else {
+            causal_frame.line_bucket
+        };
+        format!(
+            "{root_cause_type}\0{outer_type}\0{}\0{}\0{ctx_hash}\0{location}\0{templated}",
+            causal_frame.file, causal_frame.function
+        )
+    } else {
+        format!(
+            "{root_cause_type}\0{outer_type}\0{}\0{}\0{}\0{}\0{templated}",
+            causal_frame.file,
+            causal_frame.function,
+            causal_frame.line_bucket,
+            causal_frame.col_bucket
+        )
+    };
+
+    let h_locus = xxh64(locus_material.as_bytes(), 7);
+    let h_sim = simhash(
+        &root_cause_type,
+        &causal_frame.file,
+        &causal_frame.function,
+        causal_frame.line_bucket,
+        &active_frames[causal_idx..],
+        &templated,
+    );
+
+    let mut h_exact = xxh64(root_cause_type.as_bytes(), 1) ^ xxh64(templated.as_bytes(), 6);
+    for frame_hash in &folded {
+        h_exact = h_exact.rotate_left(11) ^ frame_hash;
+    }
+
+    // Active 4-Band LSH Routing
+    let scope_key_hash = xxh64(
+        format!(
+            "{root_cause_type}\0{outer_type}\0{}\0{}\0{templated}",
+            causal_frame.file, causal_frame.function
+        )
+        .as_bytes(),
+        0,
+    );
+    let final_h_locus = if let Some(router) = lsh_router {
+        let (routed_locus, matched_sim) = router.query_or_insert_guarded(
+            project_id,
+            scope_key_hash,
+            h_sim,
+            h_locus,
+            causal_frame.line_bucket,
+        );
+        if matched_sim && meta.matched_by != "wrapper_elided" {
+            meta.matched_by = "simhash_lsh".to_string();
+        }
+        routed_locus
+    } else {
+        h_locus
+    };
+
+    meta.h_locus = Some(final_h_locus);
+    meta.h_sim = Some(h_sim);
+
+    let merge_reason = if weak_stack {
+        "message_template"
+    } else if meta.matched_by == "wrapper_elided" {
+        "wrapper_elided"
+    } else if cycle_folded {
+        "cycle_folded"
+    } else if call_path_count > 1 {
+        "crash_site"
+    } else {
+        "exact_stack"
+    };
+
+    let variant_label = match immediate_caller {
+        Some(frame) => format!("{}:{} | {templated}", frame.file, frame.function),
+        None if !templated.is_empty() => templated.clone(),
+        None => String::new(),
+    };
+    let variant_label = truncate_chars(&variant_label, 180);
+
+    let issue_fingerprint = hash_string(&format!("{root_cause_type}\0{final_h_locus}"));
+
+    (
+        MultiFingerprint {
+            fingerprint: issue_fingerprint,
+            h_exact,
+            h_locus: final_h_locus,
+            h_sim,
+            exception_type: root_cause_type,
+            templated_value: templated,
+            throw_file: causal_frame.file.clone(),
+            throw_function: causal_frame.function.clone(),
+            line_bucket: causal_frame.line_bucket,
+            col_bucket: causal_frame.col_bucket,
+            merge_reason,
+            cycle_folded,
+            call_path_count,
+            custom: false,
+            variant_label,
+        },
+        meta,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -979,12 +1532,12 @@ mod tests {
     }
 
     #[test]
-    fn residual_message_words_keep_the_locus_and_split_exact() {
+    fn distinct_message_classes_at_same_site_remain_separate() {
         let frames = json!([frame("src/db.ts", "query", 40, true)]);
         let left =
             compute_multi_fingerprint(&event("Error", "connection reset by peer", frames.clone()));
         let right = compute_multi_fingerprint(&event("Error", "statement timeout", frames));
-        assert_eq!(left.fingerprint, right.fingerprint);
+        assert_ne!(left.fingerprint, right.fingerprint);
         assert_ne!(left.h_exact, right.h_exact);
         assert!((left.h_sim ^ right.h_sim).count_ones() <= SIMHASH_HAMMING);
     }
@@ -1158,5 +1711,130 @@ mod tests {
         assert_eq!((base ^ mutated).count_ones(), 3);
         let shared = (0..4).any(|band| band_of(base, band) == band_of(mutated, band));
         assert!(shared);
+    }
+
+    #[test]
+    fn preserves_error_codes_during_sanitization() {
+        // #418 preserved
+        let react = normalize_exception_value("Minified React error #418; visit https://react.dev");
+        assert!(react.contains("#418"), "Expected #418 in: {react}");
+
+        // Rust code E0382 preserved
+        let rust = normalize_exception_value("cannot borrow moved value E0382");
+        assert!(rust.contains("e0382"), "Expected e0382 in: {rust}");
+
+        // HTTP status codes preserved
+        let http = normalize_exception_value("HTTP 500 Internal Server Error");
+        assert!(http.contains("500"), "Expected 500 in: {http}");
+
+        // SQLSTATE code 23505 preserved
+        let sql = normalize_exception_value("duplicate key 23505 unique constraint violation");
+        assert!(sql.contains("23505"), "Expected 23505 in: {sql}");
+
+        // Standalone numbers and UUIDs replaced
+        let nums = normalize_exception_value("order 987654 failed for user 4321");
+        assert!(nums.contains("<NUM>"));
+        assert!(!nums.contains("987654"));
+
+        let uuid = normalize_exception_value("tx 550e8400-e29b-41d4-a716-446655440000");
+        assert!(uuid.contains("<UUID>"));
+    }
+
+    #[test]
+    fn decodes_react_minified_invariant() {
+        let decoded_418 = decode_react_invariant("#418");
+        assert!(decoded_418.is_some());
+        assert!(decoded_418.unwrap().contains("Hydration failed"));
+
+        let decoded_310 = decode_react_invariant("#310");
+        assert!(decoded_310.is_some());
+        assert!(decoded_310.unwrap().contains("Rendered more hooks"));
+
+        let extracted = extract_decoded_framework_error(
+            "Minified React error #418; visit https://react.dev/errors/418 for the full message",
+        );
+        assert!(extracted.is_some());
+        assert!(extracted.unwrap().contains("Hydration failed"));
+    }
+
+    #[test]
+    fn compute_wire_hash_is_fast_and_deterministic() {
+        let ev = event(
+            "TypeError",
+            "cannot read properties of undefined",
+            json!([
+                frame("src/app.tsx", "render", 12, true),
+                frame("src/utils/http.ts", "fetchData", 80, true)
+            ]),
+        );
+        let h1 = compute_wire_hash(&ev);
+        let h2 = compute_wire_hash(&ev);
+        assert_eq!(h1, h2);
+        assert_ne!(h1, 0);
+    }
+
+    #[test]
+    fn wrapper_elision_selects_causal_caller() {
+        let project_id = Uuid::new_v4();
+        let ev = event(
+            "Error",
+            "network timeout",
+            json!([
+                // Causal caller
+                frame("src/features/checkout.ts", "submitPayment", 100, true),
+                // Intermediate wrapper
+                frame("src/utils/http.ts", "request", 45, true),
+                // Innermost wrapper throw site
+                frame("src/utils/client.ts", "fetchWithTimeout", 12, true)
+            ]),
+        );
+
+        let (fp, meta) = compute_canonical_grouping(&ev, project_id, None, None, None);
+        assert_eq!(meta.matched_by, "wrapper_elided");
+        assert_eq!(meta.causal_frame_index, Some(2)); // index 2 is submitPayment (reversed from frames)
+        assert_eq!(meta.elided_wrapper_frames, vec![0, 1]);
+        assert_eq!(fp.throw_file, "src/features/checkout.ts");
+        assert_eq!(fp.throw_function, "submitpayment");
+    }
+
+    #[test]
+    fn simhash_lsh_router_matches_near_duplicates() {
+        let router = SimHashLshRouter::new();
+        let project_id = Uuid::new_v4();
+        let scope_key = 12345u64;
+
+        let locus_orig = 999999u64;
+        let sim_orig = 0b10101010_11001100_00110011_11110000_10101010_11001100_00110011_11110000u64;
+
+        // First insert
+        let (routed_1, matched_1) =
+            router.query_or_insert(project_id, scope_key, sim_orig, locus_orig);
+        assert_eq!(routed_1, locus_orig);
+        assert!(!matched_1);
+
+        // Near-duplicate with 2 bits flipped (within Hamming <= 3)
+        let sim_near = sim_orig ^ (1 | (1 << 2));
+        let locus_cand = 888888u64;
+        let (routed_2, matched_2) =
+            router.query_or_insert(project_id, scope_key, sim_near, locus_cand);
+        assert_eq!(routed_2, locus_orig);
+        assert!(matched_2);
+    }
+
+    #[test]
+    fn is_forced_not_in_app_identifies_vendor_and_runtime_frames() {
+        assert!(is_forced_not_in_app("node_modules/react/index.js", None));
+        // Allowed when in in_app_include
+        let includes = vec!["@org/core".to_string()];
+        assert!(!is_forced_not_in_app(
+            "node_modules/@org/core/index.js",
+            Some(&includes)
+        ));
+        assert!(is_forced_not_in_app("webpack/runtime/bootstrap.js", None));
+        assert!(is_forced_not_in_app("next/dist/client/index.js", None));
+        assert!(is_forced_not_in_app(
+            "node:internal/process/task_queues",
+            None
+        ));
     }
 }

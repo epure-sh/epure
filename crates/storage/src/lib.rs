@@ -7,6 +7,7 @@ pub mod bootstrap;
 pub mod counters;
 pub mod dsn_keys;
 pub mod events;
+pub mod ingest_queue;
 pub mod issue_state;
 pub mod issues;
 pub mod members;
@@ -25,6 +26,11 @@ pub mod stats;
 pub mod unique_users;
 pub mod user_feedback;
 pub mod webhooks;
+
+pub use persist::{
+    flush_all_telemetry_deltas, persist_event_batch, resolve_or_create_issue, IngestedEvent,
+    IssueCountDelta, SessionBucketDelta, TagFacetDelta, TelemetryDeltas,
+};
 
 use sqlx::postgres::PgPoolOptions;
 

@@ -1,7 +1,5 @@
 mod support;
 
-use epure_envelope::compute_fingerprint;
-use epure_storage::events;
 use serde_json::json;
 use std::fs;
 use std::time::Duration;
@@ -89,10 +87,26 @@ async fn processing_demangle_groups_and_scrubs() {
     assert_eq!(upload.status(), reqwest::StatusCode::CREATED);
 
     let event = crash_event();
-    let fingerprint = compute_fingerprint(&event);
+    let mut ids = Vec::<uuid::Uuid>::new();
+    assert_eq!(
+        upload_sourcemap(&client, &base_url, "other.min.js.map")
+            .await
+            .status(),
+        reqwest::StatusCode::CREATED
+    );
     let payload = serde_json::to_vec(&event).expect("serialize event");
 
-    for _ in 0..2 {
+    for index in 0..2 {
+        let payload = if index == 1 {
+            let mut second = event.clone();
+            second["exception"]["values"][0]["stacktrace"]["frames"][0]["filename"] =
+                json!("other.min.js");
+            second["exception"]["values"][0]["stacktrace"]["frames"][0]["function"] =
+                json!("differentGeneratedSymbol");
+            serde_json::to_vec(&second).unwrap()
+        } else {
+            payload.clone()
+        };
         let response = client
             .post(format!("{}/api/{}/store/", base_url, project_id()))
             .header("X-Sentry-Auth", auth_header())
@@ -102,19 +116,32 @@ async fn processing_demangle_groups_and_scrubs() {
             .await
             .expect("post crash");
         assert_eq!(response.status(), reqwest::StatusCode::ACCEPTED);
+        ids.push(
+            serde_json::from_value(
+                response.json::<serde_json::Value>().await.unwrap()["id"].clone(),
+            )
+            .unwrap(),
+        );
     }
 
     tokio::time::sleep(Duration::from_millis(750)).await;
 
-    let issue_count = events::count_issues_for_fingerprint(&pool, project_id(), &fingerprint)
-        .await
-        .expect("issue count");
+    let issue_count: i64 =
+        sqlx::query_scalar("SELECT count(DISTINCT issue_id) FROM events WHERE id=ANY($1)")
+            .bind(&ids)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(issue_count, 1);
 
-    let stack_frames = events::latest_event_stack_frames(&pool, project_id())
-        .await
-        .expect("stack frames")
-        .expect("stack frames present");
+    let stack_frames = sqlx::query_scalar::<_, Option<serde_json::Value>>(
+        "SELECT stack_frames FROM events WHERE id=ANY($1) ORDER BY occurred_at DESC LIMIT 1",
+    )
+    .bind(&ids)
+    .fetch_one(&pool)
+    .await
+    .expect("stack frames")
+    .expect("stack frames present");
     let frames = stack_frames.as_array().expect("frame array");
     assert!(!frames.is_empty());
     assert_eq!(frames[0]["demangled"], true);
@@ -125,10 +152,14 @@ async fn processing_demangle_groups_and_scrubs() {
         .as_str()
         .is_some_and(|line| line.contains("function throwError")));
 
-    let breadcrumbs = events::latest_event_breadcrumbs(&pool, project_id())
-        .await
-        .expect("breadcrumbs")
-        .expect("breadcrumbs present");
+    let breadcrumbs = sqlx::query_scalar::<_, Option<serde_json::Value>>(
+        "SELECT breadcrumbs FROM events WHERE id=ANY($1) ORDER BY occurred_at DESC LIMIT 1",
+    )
+    .bind(&ids)
+    .fetch_one(&pool)
+    .await
+    .expect("breadcrumbs")
+    .expect("breadcrumbs present");
     let message = breadcrumbs[0]["message"]
         .as_str()
         .expect("breadcrumb message");
@@ -157,13 +188,20 @@ async fn processing_demangle_finds_prefixed_artifact_names() {
         .await
         .expect("post crash");
     assert_eq!(response.status(), reqwest::StatusCode::ACCEPTED);
+    let id: uuid::Uuid =
+        serde_json::from_value(response.json::<serde_json::Value>().await.unwrap()["id"].clone())
+            .unwrap();
 
     tokio::time::sleep(Duration::from_millis(750)).await;
 
-    let stack_frames = events::latest_event_stack_frames(&pool, project_id())
-        .await
-        .expect("stack frames")
-        .expect("stack frames present");
+    let stack_frames = sqlx::query_scalar::<_, Option<serde_json::Value>>(
+        "SELECT stack_frames FROM events WHERE id=$1",
+    )
+    .bind(id)
+    .fetch_one(&pool)
+    .await
+    .expect("stack frames")
+    .expect("stack frames present");
     let frames = stack_frames.as_array().expect("frame array");
     assert_eq!(frames[0]["demangled"], true);
     assert_eq!(frames[0]["function"], "throwError");

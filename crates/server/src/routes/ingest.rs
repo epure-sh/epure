@@ -45,6 +45,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/api/{project_id}/user-feedback/", options(cors_preflight))
         .route("/api/{project_id}/user-feedback/", post(post_user_feedback))
         .layer(RequestBodyLimitLayer::new(BODY_LIMIT))
+        .layer(tower::limit::ConcurrencyLimitLayer::new(16))
         .with_state(state)
 }
 
@@ -146,6 +147,26 @@ async fn post_envelope(
     };
 
     record_client_discards(&state, record.org_id, project_id, &parsed.client_discards);
+
+    if !parsed.sessions.is_empty() {
+        let local = crate::pipeline::spike::SpikeValve::default();
+        for item in &parsed.sessions {
+            local.record_session_agg(record.org_id, project_id, item);
+        }
+        if epure_storage::persist::flush_all_telemetry_deltas(
+            &state.pools.ingest,
+            &local.take_telemetry_deltas(),
+        )
+        .await
+        .is_err()
+        {
+            return error_response(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "session_storage_unavailable",
+                "Session data could not be committed; retry",
+            );
+        }
+    }
 
     if !parsed.check_ins.is_empty() {
         let mut first_check_in_id = None;
@@ -570,6 +591,27 @@ async fn accept_payload(
             return error_response(StatusCode::BAD_REQUEST, "invalid_event_json", message)
         }
     };
+    if let Some(id) = client_event_id(&payload) {
+        match epure_storage::ingest_queue::received(&state.pools.ingest, org_id, project_id, id)
+            .await
+        {
+            Ok(true) => {
+                return with_cors(
+                    state,
+                    headers,
+                    (StatusCode::ACCEPTED, Json(IngestAccepted { id })).into_response(),
+                )
+            }
+            Ok(false) => {}
+            Err(_) => {
+                return error_response(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "receipt_unavailable",
+                    "Retry; durable receipts are unavailable",
+                )
+            }
+        }
+    }
     if let Err(response) = check_ingest_plan_limit(state, org_id).await {
         state
             .outcomes
@@ -588,22 +630,21 @@ async fn accept_payload(
     }
 
     let multi = preview_multi_fingerprint(&payload);
-    let fingerprint = state
-        .grouping
-        .resolve_issue_key(&state.pools.ingest, org_id, project_id, &multi)
-        .await;
+    let fingerprint = if multi.custom {
+        multi.fingerprint.clone()
+    } else {
+        let release = serde_json::from_slice::<serde_json::Value>(&payload)
+            .ok()
+            .and_then(|v| v.get("release").and_then(|r| r.as_str()).map(str::to_owned))
+            .unwrap_or_default();
+        format!(
+            "v2:{}:{:016x}",
+            multi.fingerprint,
+            epure_envelope::grouping::xxh64(release.as_bytes(), 91)
+        )
+    };
     let client_supplied_id = client_event_id(&payload);
     let supplied = client_supplied_id.is_some();
-    if let Some(event_id) = client_supplied_id {
-        if !state.outcomes.claim_event_id(project_id, event_id) {
-            state.outcomes.record(org_id, project_id, "duplicate", 1);
-            return with_cors(
-                state,
-                headers,
-                (StatusCode::ACCEPTED, Json(IngestAccepted { id: event_id })).into_response(),
-            );
-        }
-    }
     let event_id = client_supplied_id.unwrap_or_else(Uuid::new_v4);
     let user_agent = headers
         .get("user-agent")
@@ -625,7 +666,7 @@ async fn accept_payload(
         }
     };
 
-    let job = match state.spike_valve.check_grouped(
+    let job = match state.spike_valve.classify_grouped(
         project_id,
         org_id,
         GroupedSpikeInput {
@@ -636,7 +677,7 @@ async fn accept_payload(
             variant_label: &multi.variant_label,
         },
     ) {
-        SpikeDecision::AllowStore => {
+        Ok(SpikeDecision::AllowStore) => {
             // Coalesced duplicates never reach this branch, so they cannot
             // exhaust the hourly project cap.
             if let Err(response) = check_ingest_cap(state, project_id).await {
@@ -646,7 +687,6 @@ async fn accept_payload(
                 state.outcomes.record(org_id, project_id, "cap_rejected", 1);
                 return response;
             }
-            state.grouping.observe(project_id, &multi, &fingerprint);
             state.outcomes.record(org_id, project_id, "queued", 1);
             IngestJob::StoreEvent {
                 event_id,
@@ -660,9 +700,23 @@ async fn accept_payload(
                 client_supplied_id: supplied,
             }
         }
-        SpikeDecision::CounterOnly => {
-            // Counted in RAM and flushed onto the parent issue. Not charged
-            // against the project cap.
+        Ok(SpikeDecision::CounterOnly) => {
+            if let Err(err) = crate::pipeline::durable::enqueue_counter(
+                &state.pools.ingest,
+                org_id,
+                project_id,
+                event_id,
+                fingerprint,
+            )
+            .await
+            {
+                tracing::warn!(error=%err,"durable counter admission failed");
+                return error_response(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "backlog_unavailable",
+                    "Retry this event; durable admission failed",
+                );
+            }
             state
                 .outcomes
                 .record(org_id, project_id, "spike_coalesced", 1);
@@ -672,21 +726,31 @@ async fn accept_payload(
                 (StatusCode::ACCEPTED, Json(IngestAccepted { id: event_id })).into_response(),
             );
         }
+        Err(_) => {
+            return error_response(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "grouping_capacity",
+                "Retry later; grouping capacity is busy",
+            )
+        }
     };
 
-    if state.ingest_tx.send(job).await.is_err() {
-        if let Some(event_id) = client_supplied_id {
-            state.outcomes.release_event_id(project_id, event_id);
+    if let Err(err) = crate::pipeline::durable::enqueue(&state.pools.ingest, job).await {
+        tracing::warn!(error=%err,"durable event admission failed");
+        if err.to_string().contains("project ingest cap") {
+            return error_response(
+                StatusCode::FORBIDDEN,
+                "ingest_cap_exceeded",
+                "Project ingest cap exceeded",
+            );
         }
-        state
-            .outcomes
-            .record(org_id, project_id, "queue_rejected", 1);
         return error_response(
             StatusCode::SERVICE_UNAVAILABLE,
-            "queue_unavailable",
-            "Ingest queue is unavailable",
+            "backlog_unavailable",
+            "Retry this event; durable admission failed",
         );
     }
+    let _ = state.ingest_tx.try_send(());
 
     with_cors(
         state,

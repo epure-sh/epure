@@ -11,9 +11,11 @@ pub fn user_key(user_id: Option<&str>, user_email: Option<&str>) -> Option<Strin
 /// Record a unique user for an issue. Returns `true` when this is a new user key.
 pub async fn record_unique_user(
     pool: &PgPool,
+    org_id: Uuid,
     issue_id: Uuid,
     user_key: &str,
 ) -> Result<bool, sqlx::Error> {
+    let mut tx = crate::rls::begin_ingest_transaction(pool, org_id).await?;
     let inserted = sqlx::query_scalar::<_, bool>(
         r#"
         INSERT INTO issue_unique_users (issue_id, user_key, first_seen_at, last_seen_at, event_count)
@@ -26,7 +28,7 @@ pub async fn record_unique_user(
     )
     .bind(issue_id)
     .bind(user_key)
-    .fetch_one(pool)
+    .fetch_one(&mut *tx)
     .await?;
 
     if inserted {
@@ -38,12 +40,11 @@ pub async fn record_unique_user(
             "#,
         )
         .bind(issue_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
-        Ok(true)
-    } else {
-        Ok(false)
     }
+    tx.commit().await?;
+    Ok(inserted)
 }
 
 pub async fn count_unique_users(pool: &PgPool, issue_id: Uuid) -> Result<i64, sqlx::Error> {

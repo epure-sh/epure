@@ -1,7 +1,28 @@
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReleaseHealthBucketPoint {
+    pub bucket_minute: DateTime<Utc>,
+    pub sessions_started: i64,
+    pub sessions_crashed: i64,
+    pub sessions_errored: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReleaseHealthStat {
+    pub release: String,
+    pub environment: String,
+    pub total_sessions: i64,
+    pub crashed_sessions: i64,
+    pub errored_sessions: i64,
+    pub crash_free_rate: f64,
+    pub duration_ms_p50: Option<i32>,
+    pub sparkline: Vec<ReleaseHealthBucketPoint>,
+}
 
 #[derive(Debug, sqlx::FromRow, serde::Serialize)]
 pub struct ReleaseSummary {
@@ -107,6 +128,118 @@ pub async fn list_releases_for_project(
     Ok(rows)
 }
 
+pub async fn get_release_health_stats(
+    pool: &PgPool,
+    org_id: Uuid,
+    project_id: Uuid,
+    release: Option<&str>,
+    environment: Option<&str>,
+    since: DateTime<Utc>,
+) -> Result<Vec<ReleaseHealthStat>, sqlx::Error> {
+    let mut tx = crate::rls::begin_org_transaction(pool, org_id).await?;
+
+    let summary_rows = sqlx::query(
+        r#"
+        SELECT
+            release,
+            environment,
+            COALESCE(SUM(sessions_started), 0)::bigint AS total_sessions,
+            COALESCE(SUM(sessions_crashed), 0)::bigint AS crashed_sessions,
+            COALESCE(SUM(sessions_errored), 0)::bigint AS errored_sessions,
+            AVG(duration_ms_p50)::integer AS duration_ms_p50
+        FROM release_health_buckets
+        WHERE project_id = $1
+          AND ($2::text IS NULL OR release = $2)
+          AND ($3::text IS NULL OR environment = $3)
+          AND bucket_minute >= $4
+        GROUP BY release, environment
+        ORDER BY total_sessions DESC
+        "#,
+    )
+    .bind(project_id)
+    .bind(release)
+    .bind(environment)
+    .bind(since)
+    .fetch_all(&mut *tx)
+    .await?;
+
+    let bucket_rows = sqlx::query(
+        r#"
+        SELECT
+            release,
+            environment,
+            bucket_minute,
+            sessions_started,
+            sessions_crashed,
+            sessions_errored
+        FROM release_health_buckets
+        WHERE project_id = $1
+          AND ($2::text IS NULL OR release = $2)
+          AND ($3::text IS NULL OR environment = $3)
+          AND bucket_minute >= $4
+        ORDER BY bucket_minute ASC
+        "#,
+    )
+    .bind(project_id)
+    .bind(release)
+    .bind(environment)
+    .bind(since)
+    .fetch_all(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    let mut buckets_map: std::collections::HashMap<
+        (String, String),
+        Vec<ReleaseHealthBucketPoint>,
+    > = std::collections::HashMap::new();
+
+    for row in bucket_rows {
+        let rel: String = row.try_get("release")?;
+        let env: String = row.try_get("environment")?;
+        let pt = ReleaseHealthBucketPoint {
+            bucket_minute: row.try_get("bucket_minute")?,
+            sessions_started: row.try_get("sessions_started")?,
+            sessions_crashed: row.try_get("sessions_crashed")?,
+            sessions_errored: row.try_get("sessions_errored")?,
+        };
+        buckets_map.entry((rel, env)).or_default().push(pt);
+    }
+
+    let mut results = Vec::with_capacity(summary_rows.len());
+    for row in summary_rows {
+        let rel: String = row.try_get("release")?;
+        let env: String = row.try_get("environment")?;
+        let total: i64 = row.try_get("total_sessions")?;
+        let crashed: i64 = row.try_get("crashed_sessions")?;
+        let errored: i64 = row.try_get("errored_sessions")?;
+        let duration_ms_p50: Option<i32> = row.try_get("duration_ms_p50").ok();
+
+        let crash_free_rate = if total > 0 {
+            ((total - crashed).max(0) as f64 / total as f64) * 100.0
+        } else {
+            100.0
+        };
+
+        let sparkline = buckets_map
+            .remove(&(rel.clone(), env.clone()))
+            .unwrap_or_default();
+
+        results.push(ReleaseHealthStat {
+            release: rel,
+            environment: env,
+            total_sessions: total,
+            crashed_sessions: crashed,
+            errored_sessions: errored,
+            crash_free_rate,
+            duration_ms_p50,
+            sparkline,
+        });
+    }
+
+    Ok(results)
+}
+
 pub struct ArtifactRecord {
     pub id: Uuid,
     pub name: String,
@@ -164,14 +297,36 @@ pub async fn upsert_artifact(
     bytes: &[u8],
 ) -> Result<Uuid, sqlx::Error> {
     let checksum = hex::encode(Sha256::digest(bytes));
+    upsert_artifact_with_debug_id(
+        pool,
+        org_id,
+        release_id,
+        name,
+        storage_path,
+        Some(&checksum),
+        None,
+    )
+    .await
+}
+
+pub async fn upsert_artifact_with_debug_id(
+    pool: &PgPool,
+    org_id: Uuid,
+    release_id: Uuid,
+    name: &str,
+    storage_path: &str,
+    checksum: Option<&str>,
+    debug_id: Option<&str>,
+) -> Result<Uuid, sqlx::Error> {
     let mut tx = crate::rls::begin_ingest_transaction(pool, org_id).await?;
     let id = sqlx::query_scalar(
         r#"
-        INSERT INTO release_artifacts (release_id, name, storage_path, checksum)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO release_artifacts (release_id, name, storage_path, checksum, debug_id)
+        VALUES ($1, $2, $3, $4, $5)
         ON CONFLICT (release_id, name) DO UPDATE
         SET storage_path = EXCLUDED.storage_path,
-            checksum = EXCLUDED.checksum
+            checksum = COALESCE(EXCLUDED.checksum, release_artifacts.checksum),
+            debug_id = COALESCE(EXCLUDED.debug_id, release_artifacts.debug_id)
         RETURNING id
         "#,
     )
@@ -179,6 +334,7 @@ pub async fn upsert_artifact(
     .bind(name)
     .bind(storage_path)
     .bind(checksum)
+    .bind(debug_id)
     .fetch_one(&mut *tx)
     .await?;
     tx.commit().await?;

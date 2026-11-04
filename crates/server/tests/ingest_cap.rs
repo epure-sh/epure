@@ -37,6 +37,19 @@ async fn ingest_cap_exceeded_returns_403() {
         .await
         .expect("set ingest cap");
 
+    // This fixture explicitly starts a fresh hourly allowance; production budgets survive restarts.
+    sqlx::query("DELETE FROM ingest_body_budget WHERE project_id=$1")
+        .bind(project_id())
+        .execute(&migrate_pool)
+        .await
+        .unwrap();
+    sqlx::query(
+        "DELETE FROM issue_counters WHERE project_id=$1 AND window_start=date_trunc('hour',now())",
+    )
+    .bind(project_id())
+    .execute(&migrate_pool)
+    .await
+    .unwrap();
     let client = reqwest::Client::new();
     let body = fs::read(fixture_path("browser", "envelope.txt")).expect("browser fixture");
 
@@ -50,11 +63,23 @@ async fn ingest_cap_exceeded_returns_403() {
         .expect("first ingest");
     assert_eq!(first.status(), reqwest::StatusCode::ACCEPTED);
 
+    // A retry of the first event is a duplicate, not another quota-consuming event.
+    let mut second_body = String::from_utf8(body.clone()).unwrap();
+    let header: serde_json::Value =
+        serde_json::from_str(second_body.lines().next().unwrap()).unwrap();
+    if let Some(old) = header.get("event_id").and_then(serde_json::Value::as_str) {
+        let new = if old.contains('-') {
+            uuid::Uuid::new_v4().to_string()
+        } else {
+            uuid::Uuid::new_v4().simple().to_string()
+        };
+        second_body = second_body.replace(old, &new);
+    }
     let second = client
         .post(format!("{base_url}/api/{}/envelope/", project_id()))
         .header("X-Sentry-Auth", auth_header())
         .header("Content-Type", "application/x-sentry-envelope")
-        .body(body)
+        .body(second_body)
         .send()
         .await
         .expect("second ingest");
