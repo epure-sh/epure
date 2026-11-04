@@ -17,6 +17,8 @@ struct ReadyResponse {
     database: &'static str,
     lost_event_count: u64,
     queue_depth: usize,
+    durable_queue_bytes: i64,
+    dead_letter_count: i64,
     ingest_lag_ms: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     version: Option<String>,
@@ -44,15 +46,20 @@ async fn health_ready(
             axum::http::StatusCode::SERVICE_UNAVAILABLE
         })?;
     }
+    let backlog = epure_storage::ingest_queue::stats(&state.pools.ingest)
+        .await
+        .map_err(|_| axum::http::StatusCode::SERVICE_UNAVAILABLE)?;
+    if backlog.dead > 0 || backlog.oldest_ms > 300000 {
+        return Err(axum::http::StatusCode::SERVICE_UNAVAILABLE);
+    }
     Ok(Json(ReadyResponse {
         status: "ok",
         database: "ok",
         lost_event_count: lost_event_count(),
-        queue_depth: state
-            .ingest_tx
-            .max_capacity()
-            .saturating_sub(state.ingest_tx.capacity()),
-        ingest_lag_ms: state.outcomes.lag_ms(),
+        queue_depth: backlog.pending as usize,
+        durable_queue_bytes: backlog.bytes,
+        dead_letter_count: backlog.dead,
+        ingest_lag_ms: backlog.oldest_ms.max(0) as u64,
         version: optional_env("EPURE_VERSION"),
         git_sha: optional_env("EPURE_GIT_SHA"),
     }))

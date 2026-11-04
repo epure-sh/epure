@@ -1,3 +1,4 @@
+pub mod durable;
 pub mod flusher;
 pub mod grouping_cache;
 pub mod ingest_cap;

@@ -46,13 +46,18 @@ impl IngestCapTracker {
         }
 
         let cap = projects::ingest_cap_for_project(pool, project_id).await?;
-        self.caps.insert(project_id, (hour, cap));
+        if self.caps.len() < 20000 || self.caps.contains_key(&project_id) {
+            self.caps.insert(project_id, (hour, cap));
+        }
         Ok(cap)
     }
 
     /// Returns whether an ingest-cap alert should fire (once per project per hour).
     pub fn take_cap_alert_slot(&self, project_id: Uuid) -> bool {
         let hour = Self::current_hour();
+        if self.cap_alerts.len() >= 20000 && !self.cap_alerts.contains_key(&project_id) {
+            return false;
+        }
         match self.cap_alerts.entry(project_id) {
             dashmap::mapref::entry::Entry::Occupied(mut entry) => {
                 if *entry.get() == hour {
@@ -87,6 +92,9 @@ impl IngestCapTracker {
         self.cap_alerts
             .retain(|_, stored_hour| *stored_hour + 2 >= hour);
 
+        if self.counters.len() >= 20000 && !self.counters.contains_key(&project_id) {
+            return Ok(IngestAllowance::Denied);
+        }
         let mut entry = self.counters.entry(project_id).or_insert((hour, 0));
         if entry.0 != hour {
             *entry = (hour, 0);

@@ -1,7 +1,7 @@
 mod support;
 
 use epure_envelope::preview_fingerprint;
-use epure_storage::{counters, events};
+use epure_storage::events;
 use std::fs;
 use std::time::Duration;
 use support::{auth_header, fixture_path, project_id, spawn_test_server, PUBLIC_KEY};
@@ -26,10 +26,9 @@ async fn store_ingest_persists_issue_row() {
 
     tokio::time::sleep(Duration::from_millis(500)).await;
 
-    let event_count =
-        counters::total_event_count_for_fingerprint(&pool, project_id(), &fingerprint)
-            .await
-            .expect("issue count");
+    let event_count = support::effective_event_count(&pool, project_id(), &fingerprint)
+        .await
+        .expect("issue count");
     assert!(event_count >= 1);
 
     let stored_events = events::count_events_for_project(&pool, project_id())
@@ -137,10 +136,9 @@ async fn store_ingest_accepts_gzip_python_fixture() {
     assert_eq!(response.status(), reqwest::StatusCode::ACCEPTED);
 
     for _ in 0..40 {
-        let event_count =
-            counters::total_event_count_for_fingerprint(&pool, project_id(), &fingerprint)
-                .await
-                .expect("issue count");
+        let event_count = support::effective_event_count(&pool, project_id(), &fingerprint)
+            .await
+            .expect("issue count");
         if event_count >= 1 {
             server.abort();
             return;
@@ -216,10 +214,9 @@ async fn store_ingest_accepts_all_python_historical_store_fixtures() {
 
         let mut persisted = false;
         for _ in 0..40 {
-            let count =
-                counters::total_event_count_for_fingerprint(&pool, project_id(), &fingerprint)
-                    .await
-                    .expect("issue count");
+            let count = support::effective_event_count(&pool, project_id(), &fingerprint)
+                .await
+                .expect("issue count");
             if count >= 1 {
                 persisted = true;
                 break;

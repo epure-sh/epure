@@ -47,11 +47,11 @@ impl ServerRuntime {
     /// After HTTP graceful shutdown: signal flusher, close ingest, join worker and flusher.
     pub async fn shutdown(self) {
         tracing::info!("epure runtime shutting down");
-        self.shutdown.notify_waiters();
         drop(self.state);
         if let Err(err) = self.worker.await {
             tracing::error!(error = %err, "ingest worker task failed");
         }
+        self.shutdown.notify_one();
         if let Err(err) = self.flusher.await {
             tracing::error!(error = %err, "spike flusher task failed");
         }
@@ -139,7 +139,7 @@ pub async fn init_runtime(
         return Err("EPURE_DEV_MOCK_CHECKOUT must not be enabled in production".into());
     }
 
-    let (ingest_tx, ingest_rx) = mpsc::channel(10_000);
+    let (ingest_tx, ingest_rx) = mpsc::channel(1);
     let spike_valve = SpikeValve::new();
     let grouping = Arc::new(GroupingCache::new());
     let outcomes = OutcomeLedger::new();
@@ -162,6 +162,7 @@ pub async fn init_runtime(
     let worker_velocity = velocity_tracker.clone();
     let worker_grouping = grouping.clone();
     let worker_outcomes = outcomes.clone();
+    let worker_spike = spike_valve.clone();
     let worker = tokio::spawn(async move {
         run_worker(
             worker_pool,
@@ -169,6 +170,7 @@ pub async fn init_runtime(
             worker_velocity,
             worker_grouping,
             worker_outcomes,
+            worker_spike,
             ingest_rx,
         )
         .await;

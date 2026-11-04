@@ -1,7 +1,7 @@
 mod support;
 
 use epure_envelope::preview_fingerprint;
-use epure_storage::{counters, events};
+use epure_storage::events;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use std::fs;
@@ -91,10 +91,9 @@ fn public_key_auth() -> String {
 
 async fn wait_for_fingerprint(pool: &sqlx::PgPool, fingerprint: &str) {
     for _ in 0..40 {
-        let event_count =
-            counters::total_event_count_for_fingerprint(pool, project_id(), fingerprint)
-                .await
-                .expect("issue count");
+        let event_count = support::effective_event_count(pool, project_id(), fingerprint)
+            .await
+            .expect("issue count");
         if event_count >= 1 {
             return;
         }

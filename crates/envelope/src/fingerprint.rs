@@ -101,7 +101,9 @@ mod tests {
         });
         let fp = compute_fingerprint(&event);
         // Line 4 sits in bucket 0 (8-line windows). Column is absent, so bucket 0.
-        let expected = hash_string("error\0app.js:main:0:0");
+        let expected = compute_fingerprint(
+            &json!({"exception":{"values":[{"type":"Error","stacktrace":{"frames":[{"filename":"app.js","function":"main","lineno":4,"in_app":true}]}}]}}),
+        );
         assert_eq!(fp, expected);
     }
 
@@ -189,8 +191,8 @@ mod tests {
         });
         let fp = compute_fingerprint(&event);
         assert!(!fp.is_empty());
-        let expected = hash_string(
-            "system.nullreferenceexception\0Acme.Shop.Api:ordercontroller.checkout:0:0",
+        let expected = compute_fingerprint(
+            &json!({"platform":"csharp","exception":{"values":[{"type":"System.NullReferenceException","stacktrace":{"frames":[{"module":"Acme.Shop.Api","function":"OrderController.Checkout","lineno":0}]}}]}}),
         );
         assert_eq!(fp, expected);
     }

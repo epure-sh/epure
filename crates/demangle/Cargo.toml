@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+moka = { version = "0.12.16", default-features = false, features = ["sync"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 sourcemap = "9"

@@ -1,13 +1,13 @@
 use chrono::{DateTime, Timelike, Utc};
 use epure_demangle::demangle_stack_frames;
 use epure_envelope::{
-    apply_privacy_policy, breadcrumbs_to_json, compute_multi_fingerprint, culprit_from_event,
+    apply_privacy_policy, breadcrumbs_to_json, compute_canonical_grouping, culprit_from_event,
     decompress_store_payload, event_occurred_at, extract_breadcrumbs, hash_to_i64, is_unhandled,
     normalize_metadata, project_event, PrivacyPolicy,
 };
 use epure_storage::projects;
 use epure_storage::PgPool;
-use epure_storage::{counters, events, issues, persist, releases, unique_users};
+use epure_storage::{events, issues, persist, releases, unique_users};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -19,12 +19,11 @@ use tracing::{error, warn};
 use uuid::Uuid;
 
 use crate::lifecycle::{process, velocity::VelocityTracker};
+use crate::pipeline::spike::SpikeValve;
 
 use super::grouping_cache::GroupingCache;
 use super::mpsc::IngestJob;
 use super::outcomes::OutcomeLedger;
-
-const BATCH_FLUSH_INTERVAL: Duration = Duration::from_millis(500);
 
 static LOST_EVENTS: AtomicU64 = AtomicU64::new(0);
 
@@ -37,11 +36,6 @@ fn event_timestamp(event: &Value) -> Option<chrono::DateTime<Utc>> {
 
 pub fn lost_event_count() -> u64 {
     LOST_EVENTS.load(Ordering::Relaxed)
-}
-
-fn record_lost_event(reason: &str) {
-    let total = LOST_EVENTS.fetch_add(1, Ordering::Relaxed) + 1;
-    error!(total, reason, "ingest dropped event after accept");
 }
 
 fn sanitize_error(err: &dyn std::error::Error) -> String {
@@ -58,203 +52,200 @@ fn sanitize_error(err: &dyn std::error::Error) -> String {
     "worker error".into()
 }
 
-fn is_transient(err: &dyn std::error::Error) -> bool {
-    let text = err.to_string();
-    text.contains("timed out")
-        || text.contains("timeout")
-        || text.contains("connection reset")
-        || text.contains("40001")
-        || text.contains("40P01")
-}
-
 pub async fn run_worker(
     pool: PgPool,
     artifacts_dir: PathBuf,
     velocity_tracker: Arc<VelocityTracker>,
     grouping: Arc<GroupingCache>,
     outcomes: Arc<OutcomeLedger>,
-    mut rx: Receiver<IngestJob>,
+    spike_valve: Arc<SpikeValve>,
+    mut rx: Receiver<()>,
 ) {
-    let mut flush_interval = tokio::time::interval(BATCH_FLUSH_INTERVAL);
-    flush_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-
+    let mut interval = tokio::time::interval(Duration::from_millis(50));
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    let mut closing = false;
     loop {
-        tokio::select! {
-            job = rx.recv() => {
-                match job {
-                    Some(job) => {
-                        if let Err(err) = process_job_with_retry(
-                            &pool,
-                            &artifacts_dir,
-                            &velocity_tracker,
-                            &grouping,
-                            &outcomes,
-                            job,
-                        ).await {
-                            tracing::error!("ingest worker processing error: {err}");
-                            record_lost_event(&sanitize_error(err.as_ref()));
+        tokio::select! {_ = interval.tick()=>{}, hint=rx.recv(),if !closing=>{if hint.is_none(){closing=true;}}}
+        let rows = match epure_storage::ingest_queue::claim(&pool).await {
+            Ok(rows) => rows,
+            Err(err) => {
+                error!(error=%err,"durable queue claim failed");
+                if closing {
+                    break;
+                }
+                continue;
+            }
+        };
+        if rows.is_empty() {
+            if closing {
+                break;
+            }
+            continue;
+        }
+        let mut stores = Vec::new();
+        let mut counters = Vec::new();
+        for row in rows {
+            match row
+                .job
+                .clone()
+                .and_then(|v| serde_json::from_value::<IngestJob>(v).ok())
+            {
+                Some(IngestJob::CounterOnly { .. }) => counters.push(row),
+                Some(job) => stores.push((row, job)),
+                None => {
+                    let _ = epure_storage::ingest_queue::retry(&pool, &row, "invalid durable job")
+                        .await;
+                }
+            }
+        }
+        if !stores.is_empty() {
+            let jobs = stores.iter().map(|(_, j)| j.clone()).collect();
+            let batch = process_batch(
+                &pool,
+                &artifacts_dir,
+                &velocity_tracker,
+                &grouping,
+                &outcomes,
+                &spike_valve,
+                jobs,
+            )
+            .await;
+            for (row, job) in stores {
+                let result = if batch.is_ok() {
+                    Ok(())
+                } else {
+                    process_batch(
+                        &pool,
+                        &artifacts_dir,
+                        &velocity_tracker,
+                        &grouping,
+                        &outcomes,
+                        &spike_valve,
+                        vec![job],
+                    )
+                    .await
+                    .map_err(|e| sanitize_error(e.as_ref()))
+                };
+                match result {
+                    Ok(()) => {
+                        if let Err(err) = epure_storage::ingest_queue::finish(&pool, &row).await {
+                            warn!(error=%err,"receipt finish will recover after lease expiry");
                         }
                     }
-                    None => {
-                        warn!("ingest worker channel closed, draining remaining jobs");
-                        drain_pending_jobs(
-                            &pool,
-                            &artifacts_dir,
-                            &velocity_tracker,
-                            &grouping,
-                            &outcomes,
-                            &mut rx,
-                        )
-                        .await;
-                        break;
+                    Err(err) => {
+                        let _ = epure_storage::ingest_queue::retry(&pool, &row, &err).await;
                     }
                 }
             }
-            _ = flush_interval.tick() => {}
         }
-    }
-}
-
-async fn drain_pending_jobs(
-    pool: &PgPool,
-    artifacts_dir: &Path,
-    velocity_tracker: &Arc<VelocityTracker>,
-    grouping: &Arc<GroupingCache>,
-    outcomes: &Arc<OutcomeLedger>,
-    rx: &mut Receiver<IngestJob>,
-) {
-    while let Ok(job) = rx.try_recv() {
-        if let Err(err) = process_job_with_retry(
-            pool,
-            artifacts_dir,
-            velocity_tracker,
-            grouping,
-            outcomes,
-            job,
-        )
-        .await
-        {
-            tracing::error!("ingest worker processing error: {err}");
-            record_lost_event(&sanitize_error(err.as_ref()));
-        }
-    }
-}
-
-async fn process_job_with_retry(
-    pool: &PgPool,
-    artifacts_dir: &Path,
-    velocity_tracker: &Arc<VelocityTracker>,
-    grouping: &Arc<GroupingCache>,
-    outcomes: &Arc<OutcomeLedger>,
-    job: IngestJob,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match process_job(
-        pool,
-        artifacts_dir,
-        velocity_tracker,
-        grouping,
-        outcomes,
-        job.clone(),
-    )
-    .await
-    {
-        Ok(()) => Ok(()),
-        Err(err) if is_transient(err.as_ref()) => {
-            warn!("ingest worker retrying transient error");
-            process_job(
-                pool,
-                artifacts_dir,
-                velocity_tracker,
-                grouping,
-                outcomes,
-                job,
-            )
-            .await
-        }
-        Err(err) => {
-            if let IngestJob::StoreEvent {
-                org_id, project_id, ..
-            } = &job
-            {
-                outcomes.record(*org_id, *project_id, "lost_after_accept", 1);
-            }
-            Err(err)
-        }
-    }
-}
-
-async fn process_job(
-    pool: &PgPool,
-    artifacts_dir: &Path,
-    velocity_tracker: &Arc<VelocityTracker>,
-    grouping: &Arc<GroupingCache>,
-    outcomes: &Arc<OutcomeLedger>,
-    job: IngestJob,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match job {
-        IngestJob::CounterOnly {
-            project_id,
-            org_id,
-            fingerprint,
-        } => {
-            let now = Utc::now();
-            let (prior, issue_id) = persist::persist_counter_only(
-                pool,
-                persist::PersistCounterOnly {
-                    org_id,
-                    project_id,
-                    fingerprint,
-                    occurred_at: now,
-                    window_start: window_hour_start(now),
-                },
-            )
-            .await?;
-
-            if let Err(err) =
-                process::after_issue_event(pool, velocity_tracker, prior, org_id, issue_id, None)
-                    .await
-            {
-                warn!(
-                    issue_id = %issue_id,
-                    error = sanitize_error(err.as_ref()),
-                    "lifecycle after counter-only failed"
-                );
-            }
-        }
-        IngestJob::StoreEvent {
-            event_id,
-            project_id,
-            org_id,
-            fingerprint: _preview_fingerprint,
-            payload,
-            user_agent,
-            country_code_hint,
-            accepted_at,
-            client_supplied_id,
-        } => {
-            outcomes
-                .note_lag_ms(u64::try_from(accepted_at.elapsed().as_millis()).unwrap_or(u64::MAX));
-            if client_supplied_id && !_preview_fingerprint.is_empty() {
-                let prior = epure_storage::noise::recent_event_fingerprint(
-                    pool, org_id, project_id, event_id,
-                )
-                .await
-                .ok()
-                .flatten();
-                if prior.as_deref() == Some(_preview_fingerprint.as_str()) {
-                    outcomes.record(org_id, project_id, "duplicate", 1);
-                    return Ok(());
+        if !counters.is_empty() {
+            match epure_storage::ingest_queue::apply_counter_batch(&pool, &counters).await {
+                Ok(done) => {
+                    let done: std::collections::HashSet<_> = done.into_iter().collect();
+                    for row in counters {
+                        if !done.contains(&row.event_id) {
+                            let _ = epure_storage::ingest_queue::retry(
+                                &pool,
+                                &row,
+                                "waiting for canonical issue",
+                            )
+                            .await;
+                        }
+                    }
+                }
+                Err(err) => {
+                    error!(error=%err,"durable counter batch retained");
+                    for row in counters {
+                        let _ = epure_storage::ingest_queue::retry(
+                            &pool,
+                            &row,
+                            "counter batch database error",
+                        )
+                        .await;
+                    }
                 }
             }
-            let payload = decompress_store_payload(&payload)?;
-            let mut payload_json: Value = serde_json::from_slice(&payload)?;
+        }
+    }
+}
 
-            let stack_frames =
-                demangle_event_frames(pool, artifacts_dir, org_id, project_id, &payload_json)
-                    .await?;
+async fn process_batch(
+    pool: &PgPool,
+    artifacts_dir: &Path,
+    velocity_tracker: &Arc<VelocityTracker>,
+    _grouping: &Arc<GroupingCache>,
+    outcomes: &Arc<OutcomeLedger>,
+    _spike_valve: &Arc<SpikeValve>,
+    jobs: Vec<IngestJob>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let mut events_to_persist = Vec::with_capacity(jobs.len());
+    let mut configs = HashMap::<Uuid, Vec<String>>::new();
+    let mut post_ops = Vec::with_capacity(jobs.len());
 
-            let store_identifiers =
-                match projects::ingest_store_end_user_identifiers(pool, project_id).await {
+    for job in jobs {
+        match job {
+            IngestJob::CounterOnly {
+                project_id,
+                org_id,
+                fingerprint,
+            } => {
+                let now = Utc::now();
+                let (prior, issue_id) = persist::persist_counter_only(
+                    pool,
+                    persist::PersistCounterOnly {
+                        org_id,
+                        project_id,
+                        fingerprint,
+                        occurred_at: now,
+                        window_start: window_hour_start(now),
+                    },
+                )
+                .await?;
+
+                if let Err(err) = process::after_issue_event(
+                    pool,
+                    velocity_tracker,
+                    prior,
+                    org_id,
+                    issue_id,
+                    None,
+                )
+                .await
+                {
+                    warn!(
+                        issue_id = %issue_id,
+                        error = sanitize_error(err.as_ref()),
+                        "lifecycle after counter-only failed"
+                    );
+                }
+            }
+            IngestJob::StoreEvent {
+                event_id,
+                project_id,
+                org_id,
+                fingerprint: _preview_fingerprint,
+                payload,
+                user_agent,
+                country_code_hint,
+                accepted_at,
+                client_supplied_id: _,
+            } => {
+                outcomes.note_lag_ms(
+                    u64::try_from(accepted_at.elapsed().as_millis()).unwrap_or(u64::MAX),
+                );
+
+                let payload = decompress_store_payload(&payload)?;
+                let mut payload_json: Value = serde_json::from_slice(&payload)?;
+
+                let stack_frames =
+                    demangle_event_frames(pool, artifacts_dir, org_id, project_id, &payload_json)
+                        .await?;
+
+                let store_identifiers = match projects::ingest_store_end_user_identifiers(
+                    pool, project_id,
+                )
+                .await
+                {
                     Ok(value) => value,
                     Err(err) => {
                         warn!(
@@ -264,53 +255,109 @@ async fn process_job(
                         false
                     }
                 };
-            let now = event_timestamp(&payload_json).unwrap_or_else(Utc::now);
-            let multi = compute_multi_fingerprint(&payload_json);
-            let fingerprint = if _preview_fingerprint.is_empty() {
-                multi.fingerprint.clone()
-            } else {
-                _preview_fingerprint
-            };
-            grouping.observe(project_id, &multi, &fingerprint);
-            let unhandled = is_unhandled(&payload_json);
-            let platform = payload_json
-                .get("platform")
-                .and_then(Value::as_str)
-                .map(str::to_string);
-            apply_privacy_policy(
-                &mut payload_json,
-                PrivacyPolicy {
-                    store_end_user_identifiers: store_identifiers,
-                },
-            );
-            let title = issues::title_from_event(&payload_json);
-            let stored_event = project_event(&payload_json, &now.to_rfc3339());
-            let culprit = culprit_from_event(&stored_event);
-            payload_json = stored_event;
-            let breadcrumbs = extract_breadcrumbs(&payload_json);
-            let breadcrumbs_json = breadcrumbs_to_json(&breadcrumbs);
-            let metadata = normalize_metadata(
-                &payload_json,
-                user_agent.as_deref(),
-                country_code_hint.as_deref(),
-            );
 
-            let release = payload_json
-                .get("release")
-                .and_then(Value::as_str)
-                .map(str::to_string);
-            let username = payload_json
-                .pointer("/user/username")
-                .and_then(Value::as_str)
-                .map(str::to_string);
-            let user_key =
-                unique_users::user_key(metadata.user_id.as_deref(), metadata.user_email.as_deref())
-                    .or(username);
+                let now = event_timestamp(&payload_json).unwrap_or_else(Utc::now);
 
-            let outcome = persist::persist_store_event(
-                pool,
-                persist::PersistStoreEvent {
-                    upsert: issues::UpsertIssueParams {
+                let mut grouping_event = payload_json.clone();
+                if let Some(frames) = stack_frames.as_array() {
+                    if let Some(values) = grouping_event
+                        .pointer_mut("/exception/values")
+                        .and_then(Value::as_array_mut)
+                    {
+                        if let Some(first) = values.first_mut() {
+                            first["stacktrace"]["frames"] = Value::Array(frames.clone());
+                        }
+                    } else {
+                        grouping_event["stacktrace"] = serde_json::json!({"frames":frames});
+                    }
+                }
+                // Stage 2 Canonical Grouping with Wrapper Elision & 4-Band LSH
+                if let std::collections::hash_map::Entry::Vacant(entry) = configs.entry(project_id)
+                {
+                    let mut tx = epure_storage::rls::begin_ingest_transaction(pool, org_id).await?;
+                    let config: Value =
+                        sqlx::query_scalar("SELECT grouping_config FROM projects WHERE id=$1")
+                            .bind(project_id)
+                            .fetch_one(&mut *tx)
+                            .await?;
+                    tx.commit().await?;
+                    let includes = config
+                        .get("in_app_include")
+                        .and_then(Value::as_array)
+                        .into_iter()
+                        .flatten()
+                        .filter_map(Value::as_str)
+                        .take(32)
+                        .map(|s| s.chars().take(256).collect())
+                        .collect();
+                    entry.insert(includes);
+                }
+                let (multi, meta) = compute_canonical_grouping(
+                    &grouping_event,
+                    project_id,
+                    configs.get(&project_id).map(Vec::as_slice),
+                    None,
+                    None,
+                );
+
+                let fingerprint = epure_storage::ingest_queue::resolve_grouping(
+                    pool,
+                    org_id,
+                    project_id,
+                    &_preview_fingerprint,
+                    &multi,
+                )
+                .await?;
+                let unhandled = is_unhandled(&payload_json);
+                let platform = payload_json
+                    .get("platform")
+                    .and_then(Value::as_str)
+                    .map(str::to_string);
+
+                apply_privacy_policy(
+                    &mut payload_json,
+                    PrivacyPolicy {
+                        store_end_user_identifiers: store_identifiers,
+                    },
+                );
+
+                let title = issues::title_from_event(&payload_json);
+                let stored_event = project_event(&payload_json, &now.to_rfc3339());
+                let culprit = culprit_from_event(&stored_event);
+                payload_json = stored_event;
+                let breadcrumbs = extract_breadcrumbs(&payload_json);
+                let breadcrumbs_json = breadcrumbs_to_json(&breadcrumbs);
+                let metadata = normalize_metadata(
+                    &payload_json,
+                    user_agent.as_deref(),
+                    country_code_hint.as_deref(),
+                );
+
+                let release = payload_json
+                    .get("release")
+                    .and_then(Value::as_str)
+                    .map(str::to_string);
+                let username = payload_json
+                    .pointer("/user/username")
+                    .and_then(Value::as_str)
+                    .map(str::to_string);
+                let user_key = unique_users::user_key(
+                    metadata.user_id.as_deref(),
+                    metadata.user_email.as_deref(),
+                )
+                .or(username);
+
+                let prior =
+                    issues::get_issue_by_fingerprint(pool, org_id, project_id, &fingerprint)
+                        .await?;
+                // Zero Sequence Burn on Issue Conflict
+                let issue_id = {
+                    let mut grouping_anchor = multi.anchor_json();
+                    if let Ok(meta_json) = serde_json::to_value(&meta) {
+                        grouping_anchor["meta"] = meta_json;
+                    }
+
+                    let upsert_params = issues::UpsertIssueParams {
                         org_id,
                         project_id,
                         fingerprint: fingerprint.clone(),
@@ -324,8 +371,8 @@ async fn process_job(
                         occurred_at: now,
                         increment_by: 1,
                         rollup: issues::IssueRollup {
-                            culprit,
-                            platform,
+                            culprit: culprit.clone(),
+                            platform: platform.clone(),
                             is_unhandled: unhandled,
                             latest_event_id: Some(event_id),
                         },
@@ -335,7 +382,7 @@ async fn process_job(
                             hash_to_i64(multi.h_sim),
                             multi.exception_type.clone(),
                             multi.merge_reason.to_string(),
-                            multi.anchor_json(),
+                            grouping_anchor,
                             if multi.custom
                                 || multi.variant_label.is_empty()
                                 || (multi.call_path_count <= 1 && !multi.cycle_folded)
@@ -345,75 +392,106 @@ async fn process_job(
                                 Some(multi.variant_label.clone())
                             },
                         )),
-                    },
-                    event: events::InsertEventParams {
-                        id: event_id,
+                    };
+
+                    let (id, _is_new) = persist::resolve_or_create_issue(
+                        pool,
                         org_id,
                         project_id,
-                        issue_id: Uuid::nil(),
-                        occurred_at: now,
-                        environment: metadata.environment.clone(),
-                        release: release.clone(),
-                        platform: payload_json
-                            .get("platform")
-                            .and_then(Value::as_str)
-                            .map(str::to_string),
-                        runtime_name: metadata.runtime_name.clone(),
-                        runtime_version: metadata.runtime_version.clone(),
-                        browser_name: metadata.browser_name.clone(),
-                        os_name: metadata.os_name.clone(),
-                        country_code: metadata.country_code.clone(),
-                        user_id: metadata.user_id.clone(),
-                        user_email: metadata.user_email.clone(),
-                        payload_json,
-                        stack_frames: Some(stack_frames),
-                        breadcrumbs: Some(breadcrumbs_json),
-                    },
-                    user_key,
-                    counter: counters::SyncCounterParams {
-                        project_id,
-                        fingerprint,
-                        window_start: window_hour_start(now),
-                        count_delta: 1,
-                        bodies_stored_delta: 1,
-                    },
-                },
-            )
-            .await?;
-            outcomes.record(org_id, project_id, "stored", 1);
+                        &fingerprint,
+                        &upsert_params,
+                    )
+                    .await?;
+                    id
+                };
 
-            if let Err(err) = process::after_issue_event(
-                pool,
-                velocity_tracker,
-                outcome.prior,
-                org_id,
-                outcome.issue_id,
-                release.clone(),
-            )
-            .await
+                // Add to batch insert
+                events_to_persist.push(events::InsertEventParams {
+                    id: event_id,
+                    org_id,
+                    project_id,
+                    issue_id,
+                    occurred_at: now,
+                    environment: metadata.environment.clone(),
+                    release: release.clone(),
+                    platform: payload_json
+                        .get("platform")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                    runtime_name: metadata.runtime_name.clone(),
+                    runtime_version: metadata.runtime_version.clone(),
+                    browser_name: metadata.browser_name.clone(),
+                    os_name: metadata.os_name.clone(),
+                    country_code: metadata.country_code.clone(),
+                    user_id: metadata.user_id.clone(),
+                    user_email: metadata.user_email.clone(),
+                    payload_json,
+                    stack_frames: Some(stack_frames),
+                    breadcrumbs: Some(breadcrumbs_json),
+                });
+
+                post_ops.push((event_id, org_id, issue_id, release, user_key, prior));
+            }
+        }
+    }
+
+    // Persist all batch events in a single UNNEST query
+    let inserted_ids: std::collections::HashSet<Uuid> =
+        persist::persist_event_batch(pool, &events_to_persist)
+            .await?
+            .into_iter()
+            .collect();
+    for event in &events_to_persist {
+        if inserted_ids.contains(&event.id) {
+            outcomes.record(event.org_id, event.project_id, "stored", 1);
+        }
+    }
+
+    // Post-persistence lifecycle and unique user updates
+    for (event_id, org_id, issue_id, release, user_key, prior) in post_ops {
+        if !inserted_ids.contains(&event_id) {
+            continue;
+        }
+        velocity_tracker.record(issue_id);
+        let mut prior_user_count = 0;
+        let mut new_unique_user = false;
+
+        if let Some(uk) = user_key.as_deref() {
+            prior_user_count = prior.as_ref().map(|p| p.unique_user_count).unwrap_or(0);
+            match unique_users::record_unique_user(pool, org_id, issue_id, uk).await {
+                Ok(value) => new_unique_user = value,
+                Err(err) => {
+                    warn!(issue_id = %issue_id, error = %err, "unique user update failed after commit")
+                }
+            }
+        }
+
+        if let Err(err) = process::after_issue_event(
+            pool,
+            velocity_tracker,
+            prior,
+            org_id,
+            issue_id,
+            release.clone(),
+        )
+        .await
+        {
+            warn!(
+                issue_id = %issue_id,
+                error = sanitize_error(err.as_ref()),
+                "lifecycle after store failed"
+            );
+        }
+
+        if new_unique_user {
+            if let Err(err) =
+                process::after_unique_user_recorded(pool, org_id, issue_id, prior_user_count).await
             {
                 warn!(
-                    issue_id = %outcome.issue_id,
+                    issue_id = %issue_id,
                     error = sanitize_error(err.as_ref()),
-                    "lifecycle after store failed"
+                    "lifecycle after unique user failed"
                 );
-            }
-
-            if outcome.new_unique_user {
-                if let Err(err) = process::after_unique_user_recorded(
-                    pool,
-                    org_id,
-                    outcome.issue_id,
-                    outcome.prior_user_count,
-                )
-                .await
-                {
-                    warn!(
-                        issue_id = %outcome.issue_id,
-                        error = sanitize_error(err.as_ref()),
-                        "lifecycle after unique user failed"
-                    );
-                }
             }
         }
     }

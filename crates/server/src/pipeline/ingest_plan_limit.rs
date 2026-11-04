@@ -47,7 +47,9 @@ impl IngestPlanLimitTracker {
         }
 
         let raw = projects::ingest_org_plan_tier(pool, org_id).await?;
-        self.plan_tiers.insert(org_id, (hour, raw.clone()));
+        if self.plan_tiers.len() < 20000 || self.plan_tiers.contains_key(&org_id) {
+            self.plan_tiers.insert(org_id, (hour, raw.clone()));
+        }
         Ok(PlanTier::parse_tier(&raw).unwrap_or(PlanTier::Oss))
     }
 
@@ -68,7 +70,9 @@ impl IngestPlanLimitTracker {
         }
 
         let count = events::org_monthly_event_count(pool, org_id).await?;
-        self.monthly_counts.insert(org_id, (month, count, now));
+        if self.monthly_counts.len() < 20000 || self.monthly_counts.contains_key(&org_id) {
+            self.monthly_counts.insert(org_id, (month, count, now));
+        }
         Ok(count)
     }
 

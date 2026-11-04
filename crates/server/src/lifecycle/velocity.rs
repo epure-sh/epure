@@ -23,7 +23,7 @@ pub struct VelocitySnapshot {
 }
 
 struct IssueVelocity {
-    timestamps: VecDeque<Instant>,
+    timestamps: VecDeque<(Instant, u32)>,
 }
 
 fn window_duration() -> Duration {
@@ -38,7 +38,20 @@ fn window_duration() -> Duration {
 impl IssueVelocity {
     fn snapshot(&mut self, now: Instant) -> Option<VelocitySnapshot> {
         let window = window_duration();
-        self.timestamps.push_back(now);
+        let width = (window / 128).max(Duration::from_millis(1));
+        if let Some((at, count)) = self
+            .timestamps
+            .back_mut()
+            .filter(|(at, _)| now.saturating_duration_since(*at) < width)
+        {
+            let _ = at;
+            *count = count.saturating_add(1);
+        } else {
+            self.timestamps.push_back((now, 1));
+        }
+        while self.timestamps.len() > 258 {
+            self.timestamps.pop_front();
+        }
         self.prune(now, window);
 
         let current = self.count_in(now - window, now);
@@ -61,7 +74,7 @@ impl IssueVelocity {
         while self
             .timestamps
             .front()
-            .is_some_and(|timestamp| *timestamp < cutoff)
+            .is_some_and(|(timestamp, _)| *timestamp < cutoff)
         {
             self.timestamps.pop_front();
         }
@@ -70,8 +83,9 @@ impl IssueVelocity {
     fn count_in(&self, start: Instant, end: Instant) -> u32 {
         self.timestamps
             .iter()
-            .filter(|timestamp| **timestamp >= start && **timestamp < end)
-            .count() as u32
+            .filter(|(timestamp, _)| *timestamp >= start && *timestamp < end)
+            .map(|(_, count)| *count)
+            .fold(0, u32::saturating_add)
     }
 }
 
@@ -120,6 +134,15 @@ impl VelocityTracker {
     }
 
     fn snapshot_at(&self, issue_id: Uuid, now: Instant) -> Option<VelocitySnapshot> {
+        if self.issues.len() >= 5000 && !self.issues.contains_key(&issue_id) {
+            self.issues.retain(|_, issue| {
+                issue.prune(now, window_duration());
+                !issue.timestamps.is_empty()
+            });
+            if self.issues.len() >= 5000 {
+                return None;
+            }
+        }
         let mut entry = self
             .issues
             .entry(issue_id)

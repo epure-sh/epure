@@ -27,8 +27,10 @@ impl NoisePolicyCache {
         let policy = epure_storage::noise::get_noise_policy(pool, org_id, project_id)
             .await
             .unwrap_or_default();
-        self.entries
-            .insert(project_id, (Instant::now(), policy.clone()));
+        if self.entries.len() < 20000 || self.entries.contains_key(&project_id) {
+            self.entries
+                .insert(project_id, (Instant::now(), policy.clone()));
+        }
         policy
     }
 

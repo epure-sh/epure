@@ -182,10 +182,14 @@ async fn post_test_event(
         client_supplied_id: false,
     };
 
-    if state.ingest_tx.send(job).await.is_err() {
+    if crate::pipeline::durable::enqueue(&state.pools.ingest, job)
+        .await
+        .is_err()
+    {
         return Err(StatusCode::SERVICE_UNAVAILABLE);
     }
 
+    let _ = state.ingest_tx.try_send(());
     Ok((
         StatusCode::ACCEPTED,
         Json(TestEventResponse {

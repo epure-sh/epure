@@ -120,10 +120,34 @@ pub async fn seed_dev_pool(pool: &PgPool) -> Result<(), sqlx::Error> {
 }
 
 pub fn fixture_path(language: &str, name: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let original = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../fixtures/sentry")
         .join(language)
-        .join(name)
+        .join(name);
+    let Ok(text) = fs::read_to_string(&original) else {
+        return original;
+    };
+    let header = text
+        .lines()
+        .next()
+        .and_then(|line| serde_json::from_str::<Value>(line).ok());
+    let old = header
+        .as_ref()
+        .and_then(|v| v.get("event_id"))
+        .and_then(Value::as_str);
+    let Some(old) = old else {
+        return original;
+    };
+    let new = if old.contains('-') {
+        Uuid::new_v4().to_string()
+    } else {
+        Uuid::new_v4().simple().to_string()
+    };
+    let dir = std::env::temp_dir().join(format!("epure-sdk-fixture-{}", Uuid::new_v4()));
+    fs::create_dir_all(&dir).unwrap();
+    let target = dir.join(name);
+    fs::write(&target, text.replace(old, &new)).unwrap();
+    target
 }
 
 pub fn auth_header() -> String {
@@ -168,4 +192,12 @@ pub async fn spawn_webhook_capture() -> (String, JoinHandle<()>, Arc<Mutex<Vec<V
     let addr = ready_rx.await.expect("webhook ready");
     let url = format!("http://{addr}/hook");
     (url, handle, events)
+}
+
+pub async fn effective_event_count(
+    pool: &PgPool,
+    project: Uuid,
+    fingerprint: &str,
+) -> Result<i64, sqlx::Error> {
+    sqlx::query_scalar("SELECT COALESCE(sum(event_count),0)::bigint FROM issues WHERE project_id=$1 AND merge_parent_id IS NULL AND (fingerprint=$2 OR fingerprint IN (SELECT fingerprint FROM ingest_group_aliases WHERE project_id=$1 AND (raw_key=$2 OR raw_key LIKE 'v2:'||$2||':%')))").bind(project).bind(fingerprint).fetch_one(pool).await
 }

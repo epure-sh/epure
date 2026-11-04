@@ -242,3 +242,139 @@ async fn seed_two_orgs(pool: &PgPool) -> Result<(), sqlx::Error> {
 
     Ok(())
 }
+
+/// Verifies that `flush_all_telemetry_deltas` correctly groups a mixed-org batch
+/// by org_id, switches transaction-local RLS context for each group, and never writes
+/// org A's counts into org B's rows (or vice-versa).
+#[tokio::test]
+async fn multi_org_batch_isolation_in_flush_all_telemetry_deltas() {
+    use chrono::Utc;
+    use epure_storage::issues::{IssueRollup, UpsertIssueParams};
+    use epure_storage::persist::{
+        flush_all_telemetry_deltas, resolve_or_create_issue, IssueCountDelta, TelemetryDeltas,
+    };
+
+    let database_url =
+        std::env::var("DATABASE_URL").expect("DATABASE_URL must be set for integration tests");
+    let migrate_pool = connect(&database_url).await.expect("connect migrate pool");
+    run_migrations(&migrate_pool).await.expect("run migrations");
+
+    seed_two_orgs(&migrate_pool).await.expect("seed orgs");
+
+    let pools = connect_pools(&database_url)
+        .await
+        .expect("restricted pools");
+    let ingest_pool = &pools.ingest;
+    let now = Utc::now();
+
+    // Resolve (or create) one issue per org via the ingest path
+    let params_a = UpsertIssueParams {
+        org_id: org_a(),
+        project_id: project_a(),
+        fingerprint: "batch-iso-fp-a".to_string(),
+        title: Some("Batch Iso A".to_string()),
+        level: Some("error".to_string()),
+        environment: Some("production".to_string()),
+        release: None,
+        occurred_at: now,
+        increment_by: 0,
+        grouping: None,
+        rollup: IssueRollup::default(),
+    };
+    let (issue_a, _) = resolve_or_create_issue(
+        ingest_pool,
+        org_a(),
+        project_a(),
+        "batch-iso-fp-a",
+        &params_a,
+    )
+    .await
+    .expect("resolve issue a");
+
+    let params_b = UpsertIssueParams {
+        org_id: org_b(),
+        project_id: project_b(),
+        fingerprint: "batch-iso-fp-b".to_string(),
+        title: Some("Batch Iso B".to_string()),
+        level: Some("error".to_string()),
+        environment: Some("production".to_string()),
+        release: None,
+        occurred_at: now,
+        increment_by: 0,
+        grouping: None,
+        rollup: IssueRollup::default(),
+    };
+    let (issue_b, _) = resolve_or_create_issue(
+        ingest_pool,
+        org_b(),
+        project_b(),
+        "batch-iso-fp-b",
+        &params_b,
+    )
+    .await
+    .expect("resolve issue b");
+
+    sqlx::query("UPDATE issues SET event_count=0 WHERE id = ANY($1)")
+        .bind(vec![issue_a, issue_b])
+        .execute(&migrate_pool)
+        .await
+        .unwrap();
+    // Build a mixed-org TelemetryDeltas batch: 3 for org A, 5 for org B
+    let deltas = TelemetryDeltas {
+        issue_counts: vec![
+            IssueCountDelta {
+                org_id: org_a(),
+                project_id: project_a(),
+                issue_id: issue_a,
+                fingerprint: "batch-iso-fp-a".to_string(),
+                window_start: now,
+                count_delta: 3,
+            },
+            IssueCountDelta {
+                org_id: org_b(),
+                project_id: project_b(),
+                issue_id: issue_b,
+                fingerprint: "batch-iso-fp-b".to_string(),
+                window_start: now,
+                count_delta: 5,
+            },
+        ],
+        tag_facets: vec![],
+        sessions: vec![],
+    };
+
+    flush_all_telemetry_deltas(ingest_pool, &deltas)
+        .await
+        .expect("flush deltas");
+
+    // Org A's issue should have event_count = 0 (initial insert) + 3 (delta) = 3
+    let count_a: i64 = sqlx::query_scalar("SELECT event_count FROM issues WHERE id = $1")
+        .bind(issue_a)
+        .fetch_one(&migrate_pool)
+        .await
+        .expect("query issue a");
+    assert_eq!(count_a, 3, "org A event_count should be exactly 3");
+
+    // Org B's issue should have event_count = 0 (initial insert) + 5 (delta) = 5
+    let count_b: i64 = sqlx::query_scalar("SELECT event_count FROM issues WHERE id = $1")
+        .bind(issue_b)
+        .fetch_one(&migrate_pool)
+        .await
+        .expect("query issue b");
+    assert_eq!(count_b, 5, "org B event_count should be exactly 5");
+
+    // RLS check: with org A ingest context, org B's issue must be invisible
+    let mut tx_a = rls::begin_ingest_transaction(ingest_pool, org_a())
+        .await
+        .expect("begin ingest tx for org a");
+    let visible_from_a: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM issues WHERE id = $1")
+        .bind(issue_b)
+        .fetch_one(&mut *tx_a)
+        .await
+        .expect("rls check");
+    tx_a.rollback().await.ok();
+    assert_eq!(
+        visible_from_a, 0,
+        "org B's issue must not be visible under org A ingest RLS context"
+    );
+}
