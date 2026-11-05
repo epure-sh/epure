@@ -45,7 +45,24 @@ async fn concurrent_http_flood_preserves_exact_counts_and_other_errors() {
                 break r;
             }
             if Instant::now() > deadline {
-                panic!("bad accounting: {r:?}");
+                // Say why the backlog did not drain: which rows are still queued and why.
+                let queue = sqlx::query_as::<_, (String, Option<String>, i64, i32, f64)>(
+                    "SELECT status, last_error, count(*)::bigint, max(attempts), \
+                     COALESCE(max(extract(epoch FROM available_at - now())), 0)::float8 \
+                     FROM ingest_inbox WHERE project_id=$1 AND status<>'done' \
+                     GROUP BY 1,2 ORDER BY 3 DESC",
+                )
+                .bind(project_id())
+                .fetch_all(&pool)
+                .await
+                .unwrap();
+                let budget = sqlx::query_as::<_, (Uuid, i64, i64)>(
+                    "SELECT org_id, pending_count, pending_bytes FROM ingest_backlog_budget",
+                )
+                .fetch_all(&pool)
+                .await
+                .unwrap();
+                panic!("bad accounting: {r:?}; queue (status, last_error, rows, max_attempts, next_in_s): {queue:?}; budget: {budget:?}");
             }
         }
         assert!(Instant::now() < deadline, "ingestion did not drain");
