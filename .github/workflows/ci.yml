@@ -67,7 +67,8 @@ jobs:
           node packages/epure-cli/bin/epure-cli.js --help
 
   rust:
-    name: clippy, audit, cargo test
+    # Keep this name: branch protection on main requires the "cargo test" check.
+    name: cargo test
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:
