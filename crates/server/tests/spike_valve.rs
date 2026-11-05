@@ -36,6 +36,7 @@ async fn spike_valve_drops_bodies_under_load() {
     let text = String::from_utf8(body.clone()).expect("utf8 envelope");
 
     let client = reqwest::Client::new();
+    let flood_started = std::time::Instant::now();
     for _ in 0..150 {
         let unique = text.replace(&original_id, &uuid::Uuid::new_v4().to_string());
         let response = client
@@ -72,7 +73,14 @@ async fn spike_valve_drops_bodies_under_load() {
         .expect("events count");
     let stored_delta = stored_events - events_before;
     assert!(stored_delta < 150);
-    assert!(stored_delta <= 100);
+    // The exact-repeat bucket holds 100 and refills at 100/min while we post,
+    // so a slow runner legitimately stores a few more than 100.
+    let refill = (flood_started.elapsed().as_secs_f64() * 100.0 / 60.0).ceil() as i64;
+    assert!(
+        stored_delta <= 100 + refill + 1,
+        "stored {stored_delta} bodies, allowed {} (refill {refill})",
+        100 + refill + 1
+    );
 
     server.abort();
 }
