@@ -8,10 +8,10 @@ use axum::{
     Json, Router,
 };
 use epure_auth::{
-    clear_dashboard_session, establish_dashboard_session, load_credential_generation,
-    load_dashboard_session, password_auth_enabled, registration_enabled, session_secure_enabled,
-    set_credential_generation, CredentialError, DashboardSession, GitHubAuth, GitHubAuthError,
-    GoogleAuth, GoogleAuthError,
+    clear_dashboard_identity, clear_dashboard_session, establish_dashboard_session,
+    load_credential_generation, load_dashboard_session, password_auth_enabled,
+    registration_enabled, session_secure_enabled, set_credential_generation, CredentialError,
+    DashboardSession, GitHubAuth, GitHubAuthError, GoogleAuth, GoogleAuthError,
 };
 use serde::{Deserialize, Serialize};
 use tower_sessions::Session;
@@ -26,6 +26,9 @@ pub fn router(state: Arc<AppState>) -> Router {
     let credentials = Router::new()
         .route("/register", post(register))
         .route("/login", post(login))
+        .route("/two-factor/verify", post(verify_second_factor))
+        .route("/two-factor/enable", post(enable_two_factor))
+        .route("/two-factor/disable", post(disable_two_factor))
         .route_layer(axum::middleware::from_fn(login_rate_limit));
 
     Router::new()
@@ -42,6 +45,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/switch-org", post(switch_organization))
         .route("/profile", axum::routing::patch(update_profile))
         .route("/password", axum::routing::patch(change_password))
+        .route("/two-factor", get(two_factor_status))
+        .route("/two-factor/setup", post(begin_two_factor_setup))
         .route("/account/export", get(export_account))
         .route("/account", axum::routing::delete(delete_account))
         .route("/accept-invitation", post(accept_invitation))
@@ -83,6 +88,7 @@ struct MeResponse {
     google_linked: bool,
     github_linked: bool,
     plan_tier: Option<String>,
+    two_factor_enabled: bool,
 }
 
 #[derive(Deserialize)]
@@ -241,7 +247,7 @@ async fn login(
     State(state): State<Arc<AppState>>,
     session: Session,
     Json(body): Json<CredentialsBody>,
-) -> Result<impl IntoResponse, StatusCode> {
+) -> Result<Response, StatusCode> {
     if !password_auth_enabled() {
         return Err(StatusCode::NOT_FOUND);
     }
@@ -252,11 +258,194 @@ async fn login(
         .map_err(map_credential_error)?;
 
     let generation = credential_generation(&state, dashboard.user_id).await?;
-    establish_dashboard_session(&session, &dashboard, generation)
+    match sign_in(&state, &session, &dashboard, generation).await? {
+        SignIn::Complete => Ok(StatusCode::NO_CONTENT.into_response()),
+        SignIn::SecondFactorRequired => Ok((
+            StatusCode::OK,
+            Json(serde_json::json!({ "two_factor_required": true })),
+        )
+            .into_response()),
+    }
+}
+
+const TWO_FACTOR_PENDING_KEY: &str = "two_factor_pending";
+const TWO_FACTOR_PENDING_TTL_SECS: i64 = 5 * 60;
+
+#[derive(Serialize, Deserialize)]
+struct PendingSecondFactor {
+    dashboard: DashboardSession,
+    generation: i64,
+    expires_at: i64,
+    return_to: Option<String>,
+}
+
+enum SignIn {
+    Complete,
+    SecondFactorRequired,
+}
+
+/// Single entry for every primary login (password, magic link, Google, GitHub).
+/// With 2FA on, it parks a short-lived pending state instead of a session.
+async fn sign_in(
+    state: &AppState,
+    session: &Session,
+    dashboard: &DashboardSession,
+    generation: i64,
+) -> Result<SignIn, StatusCode> {
+    let needs_code = epure_auth::two_factor::is_enabled(&state.pools.app, dashboard.user_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if !needs_code {
+        establish_dashboard_session(session, dashboard, generation)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        return Ok(SignIn::Complete);
+    }
+    let return_to = session
+        .remove::<String>("auth_return_to")
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    clear_dashboard_identity(session)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    session
+        .cycle_id()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    session
+        .insert(
+            TWO_FACTOR_PENDING_KEY,
+            PendingSecondFactor {
+                dashboard: dashboard.clone(),
+                generation,
+                expires_at: chrono::Utc::now().timestamp() + TWO_FACTOR_PENDING_TTL_SECS,
+                return_to,
+            },
+        )
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    session
+        .save()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(SignIn::SecondFactorRequired)
+}
 
-    Ok(StatusCode::NO_CONTENT)
+fn second_factor_redirect() -> Response {
+    Redirect::to("/login?step=two-factor").into_response()
+}
+
+#[derive(Deserialize)]
+struct TwoFactorCodeBody {
+    code: String,
+}
+
+/// Second step of login: 401 wrong code, 410 no pending sign-in (expired or absent).
+async fn verify_second_factor(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Json(body): Json<TwoFactorCodeBody>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let pending = session
+        .get::<PendingSecondFactor>(TWO_FACTOR_PENDING_KEY)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::GONE)?;
+    if chrono::Utc::now().timestamp() > pending.expires_at {
+        let _ = session.remove_value(TWO_FACTOR_PENDING_KEY).await;
+        return Err(StatusCode::GONE);
+    }
+    let valid = epure_auth::two_factor::verify_login_code(
+        &state.pools.app,
+        pending.dashboard.user_id,
+        &body.code,
+    )
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if !valid {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    // A password change or revocation during the 5 minutes invalidates the attempt.
+    if credential_generation(&state, pending.dashboard.user_id).await? != pending.generation {
+        let _ = session.remove_value(TWO_FACTOR_PENDING_KEY).await;
+        return Err(StatusCode::GONE);
+    }
+    session
+        .remove_value(TWO_FACTOR_PENDING_KEY)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    session
+        .cycle_id()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    establish_dashboard_session(&session, &pending.dashboard, pending.generation)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Json(serde_json::json!({
+        "return_to": safe_login_return(pending.return_to.as_deref()),
+    })))
+}
+
+async fn two_factor_status(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let dashboard = fresh_session(&state, &session).await?;
+    let status = epure_auth::two_factor::status(&state.pools.app, dashboard.user_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(Json(serde_json::json!({
+        "enabled": status.enabled,
+        "recovery_codes_left": status.recovery_codes_left,
+    })))
+}
+
+/// 409 when 2FA is already on (disable first to re-enroll).
+async fn begin_two_factor_setup(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let dashboard = fresh_session(&state, &session).await?;
+    let setup =
+        epure_auth::two_factor::begin_setup(&state.pools.app, dashboard.user_id, &dashboard.email)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+            .ok_or(StatusCode::CONFLICT)?;
+    Ok(Json(
+        serde_json::json!({ "secret": setup.secret, "uri": setup.uri }),
+    ))
+}
+
+/// 400 when the code does not match the pending secret.
+async fn enable_two_factor(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Json(body): Json<TwoFactorCodeBody>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    let dashboard = fresh_session(&state, &session).await?;
+    let codes =
+        epure_auth::two_factor::confirm_setup(&state.pools.app, dashboard.user_id, &body.code)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+            .ok_or(StatusCode::BAD_REQUEST)?;
+    Ok(Json(serde_json::json!({ "recovery_codes": codes })))
+}
+
+/// 400 when the code (TOTP or recovery) is wrong (not 401: the session stays valid).
+async fn disable_two_factor(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Json(body): Json<TwoFactorCodeBody>,
+) -> Result<StatusCode, StatusCode> {
+    let dashboard = fresh_session(&state, &session).await?;
+    let disabled = epure_auth::two_factor::disable(&state.pools.app, dashboard.user_id, &body.code)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if disabled {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(StatusCode::BAD_REQUEST)
+    }
 }
 
 async fn google_start(
@@ -351,11 +540,10 @@ async fn google_callback(
     };
 
     let generation = credential_generation(&state, dashboard.user_id).await?;
-    establish_dashboard_session(&session, &dashboard, generation)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    finish_social_login(&session).await
+    match sign_in(&state, &session, &dashboard, generation).await? {
+        SignIn::Complete => finish_social_login(&session).await,
+        SignIn::SecondFactorRequired => Ok(second_factor_redirect()),
+    }
 }
 
 #[derive(Deserialize)]
@@ -455,11 +643,10 @@ async fn github_callback(
     };
 
     let generation = credential_generation(&state, dashboard.user_id).await?;
-    establish_dashboard_session(&session, &dashboard, generation)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    finish_social_login(&session).await
+    match sign_in(&state, &session, &dashboard, generation).await? {
+        SignIn::Complete => finish_social_login(&session).await,
+        SignIn::SecondFactorRequired => Ok(second_factor_redirect()),
+    }
 }
 
 #[derive(Deserialize)]
@@ -524,11 +711,10 @@ async fn verify_magic_link_handler(
         })?;
 
     let generation = credential_generation(&state, dashboard.user_id).await?;
-    establish_dashboard_session(&session, &dashboard, generation)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    Ok(Redirect::to("/").into_response())
+    match sign_in(&state, &session, &dashboard, generation).await? {
+        SignIn::Complete => Ok(Redirect::to("/").into_response()),
+        SignIn::SecondFactorRequired => Ok(second_factor_redirect()),
+    }
 }
 
 async fn current_session(
@@ -554,6 +740,9 @@ async fn current_session(
         google_linked: profile.google_linked,
         github_linked: profile.github_linked,
         plan_tier: profile.plan_tier,
+        two_factor_enabled: epure_auth::two_factor::is_enabled(&state.pools.app, dashboard.user_id)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
     }))
 }
 

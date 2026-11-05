@@ -6,6 +6,7 @@ import {
   fetchMe,
   loginWithPassword,
   registerWithPassword,
+  verifySecondFactor,
 } from "../../lib/api";
 import { safeAuthReturn } from "@/lib/auth-return";
 import { apiErrorMessage } from "../../lib/api-error";
@@ -82,6 +83,10 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [formBusy, setFormBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [step, setStep] = useState<"credentials" | "two-factor">(() =>
+    searchParams.get("step") === "two-factor" ? "two-factor" : "credentials",
+  );
+  const [twoFactorCode, setTwoFactorCode] = useState("");
 
   useEffect(() => {
     if (inviteToken) {
@@ -154,13 +159,41 @@ export function LoginPage() {
       if (mode === "register") {
         await registerWithPassword(email.trim(), password, inviteToken ?? undefined);
       } else {
-        await loginWithPassword(email.trim(), password);
+        const result = await loginWithPassword(email.trim(), password);
+        if (result.twoFactorRequired) {
+          setPassword("");
+          setStep("two-factor");
+          return;
+        }
       }
       window.location.assign(from);
     } catch (error) {
       setFormError(apiErrorMessage(error, "Sign-in failed. Check your email and password."));
     } finally {
       setFormBusy(false);
+    }
+  }
+
+  async function handleSecondFactorSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError(null);
+    setFormBusy(true);
+    const result = await verifySecondFactor(twoFactorCode.trim());
+    if (result.ok) {
+      window.location.assign(result.returnTo !== "/" ? result.returnTo : from);
+      return;
+    }
+    setFormBusy(false);
+    if (result.reason === "invalid_code") {
+      setTwoFactorCode("");
+      setFormError("That code is not valid. Enter the current code from your app, or a recovery code.");
+    } else if (result.reason === "expired") {
+      setStep("credentials");
+      setFormError("The sign-in expired after 5 minutes. Sign in again.");
+    } else if (result.reason === "rate_limited") {
+      setFormError("Too many attempts. Wait a minute, then try again.");
+    } else {
+      setFormError("Could not verify the code. Check your connection and try again.");
     }
   }
 
@@ -175,17 +208,69 @@ export function LoginPage() {
         : "Sign in with GitHub or Google.";
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg p-6">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-bg p-6">
       <Card className="w-full max-w-sm rounded-xl border border-border bg-surface p-7 shadow-xs">
         <div className="text-center">
           <div className="mx-auto flex justify-center">
             <EpureBrandMark size={44} />
           </div>
           <h1 className="epure-page-title mt-4 text-base font-semibold tracking-ui text-ink">
-            {mode === "register" ? "Create your account" : "Sign in to Epure"}
+            {step === "two-factor"
+              ? "Two-factor authentication"
+              : mode === "register"
+                ? "Create your account"
+                : "Sign in to Epure"}
           </h1>
-          <p className="mt-1.5 text-xs text-ink-muted">{subtitle}</p>
+          <p className="mt-1.5 text-xs text-ink-muted">
+            {step === "two-factor"
+              ? "Enter the 6-digit code from your authenticator app."
+              : subtitle}
+          </p>
         </div>
+
+        {step === "two-factor" ? (
+          <form
+            className="mt-6 flex flex-col gap-3"
+            onSubmit={(event) => void handleSecondFactorSubmit(event)}
+          >
+            <Field label="Authentication code" htmlFor="login-two-factor">
+              <Input
+                id="login-two-factor"
+                inputMode="text"
+                autoComplete="one-time-code"
+                autoFocus
+                required
+                maxLength={20}
+                className="font-mono tabular-nums tracking-widest"
+                value={twoFactorCode}
+                onChange={(event) => setTwoFactorCode(event.target.value)}
+                disabled={formBusy}
+              />
+            </Field>
+            <p className="text-2xs text-ink-muted">Lost your device? Enter one of your recovery codes instead.</p>
+            {formError ? (
+              <p className="text-xs text-semantic-danger" role="alert">
+                {formError}
+              </p>
+            ) : null}
+            <Button type="submit" variant="primary" disabled={formBusy || !twoFactorCode.trim()} loading={formBusy}>
+              Verify
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={formBusy}
+              onClick={() => {
+                setStep("credentials");
+                setTwoFactorCode("");
+                setFormError(null);
+              }}
+            >
+              Back to sign in
+            </Button>
+          </form>
+        ) : (
 
         <div className="mt-6 flex flex-col gap-3">
           {inviteToken ? (
@@ -344,6 +429,7 @@ export function LoginPage() {
             </p>
           ) : null}
         </div>
+        )}
       </Card>
       <p className="mt-4 text-center text-xs text-ink-muted">
         <Link to="/privacy" className="text-ink underline underline-offset-2">

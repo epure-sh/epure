@@ -3,6 +3,7 @@
 //! Provides abstract trait boundaries (`TenancyGate`, `IngestionGate`, `AuthProvider`, `BillingProvider`)
 //! decoupling the Apache 2.0 open-source engine from multi-tenant SaaS extensions.
 
+pub mod entitlement;
 pub mod traits;
 
 pub use traits::*;

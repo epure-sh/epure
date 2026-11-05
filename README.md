@@ -6,7 +6,7 @@
   <a href="https://github.com/epure-sh/epure/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/epure-sh/epure/ci.yml?branch=main&label=CI" alt="CI status" /></a>
   <a href="https://github.com/epure-sh/epure/actions/workflows/image.yml"><img src="https://img.shields.io/github/actions/workflow/status/epure-sh/epure/image.yml?branch=main&label=Container" alt="Container build status" /></a>
   <a href="https://github.com/epure-sh/epure/releases/latest"><img src="https://img.shields.io/github/v/release/epure-sh/epure?label=Release" alt="Latest release" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="Apache 2.0 license" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg" alt="AGPL-3.0 license" /></a>
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-stable-orange?logo=rust&logoColor=white" alt="Rust" /></a>
   <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 16" /></a>
 </p>
@@ -17,7 +17,7 @@ Self-hosted error tracking with predictable incident economics: grouped issues a
 
 **Don’t go blind during the incident. Count 100% of the flood, pay $0 in overages.**
 
-Keep your official Sentry SDK. Change the DSN to Epure. Docker Compose runs two containers (app + Postgres). Ingestion Spike Valve absorbs deploy floods without dropping velocity counts or billing penalty overages. Available as $0 Apache 2.0 self-host or managed Cloud (Pro $29 / Scale $89 flat).
+Keep your official Sentry SDK. Change the DSN to Epure. Docker Compose runs two containers (app + Postgres). Ingestion Spike Valve absorbs deploy floods without dropping velocity counts or billing penalty overages. Available as a free AGPL-3.0 self-host or managed Cloud (Pro $29 / Scale $89 a month, flat).
 
 | Lightweight | Keep your Sentry SDK | Built for agents |
 | :--- | :--- | :--- |
@@ -124,14 +124,14 @@ Epure does not store distributed traces, session replay, continuous profiling, g
 | --- | --- | --- | --- | --- |
 | **Primary focus** | Error tracking | Self-hosted error tracking | Errors plus tracing, replay, profiling | Errors and performance |
 | **Deployment** | Two-container Compose | Single-container `docker run` | Large multi-service cluster | Multiple options |
-| **License** | Apache 2.0. No `ee/` folder | PolyForm Shield 1.0.0 | Check current Sentry license | MIT |
+| **License** | AGPL-3.0 engine, Apache-2.0 CLI/MCP. No `ee/` folder | PolyForm Shield 1.0.0 | Check current Sentry license | MIT |
 | **Database** | PostgreSQL 16 | See their docs | Multiple datastores | PostgreSQL |
 
-**Project Status:** Production ready for SaaS and engineering teams. Two-container Compose, PostgreSQL 16 with RLS, Spike Valve flood protection, and official Sentry SDK wire compatibility. [Changelog](CHANGELOG.md).
+**Project Status:** Beta. Epure Cloud runs this engine in production; open release gates (published capacity results, grouping quality measurement) are tracked in [docs/ingester-audit.md](docs/ingester-audit.md). Two-container Compose, PostgreSQL 16 with RLS, Spike Valve flood protection, and official Sentry SDK wire compatibility. [Changelog](CHANGELOG.md).
 
 * [Report an Issue](https://github.com/epure-sh/epure/issues)
 * [Join Discussions](https://github.com/epure-sh/epure/discussions)
 * [Read CONTRIBUTING.md](CONTRIBUTING.md)
 * [Security Policy](.github/SECURITY.md)
 
-**License:** [Apache License 2.0](LICENSE). No separate closed-source core.
+**License:** the engine (Rust crates and web UI) is [GNU AGPL-3.0](LICENSE). The client packages [`@epure-sh/cli`](packages/epure-cli/LICENSE) and [`@epure-sh/mcp`](packages/epure-mcp/LICENSE) stay Apache-2.0, so installing them never affects your code. Releases up to v0.1.7 were Apache-2.0. No separate closed-source core.

@@ -21,6 +21,7 @@ import {
   SettingsSkeletonRows,
   StatusBadge,
 } from "./settings-chrome";
+import { TwoFactorRow } from "./two-factor-row";
 
 export function SecurityTab({ settings }: { settings: AccountSettingsContext }) {
   const { profile, authConfig, logout, savePassword, removeAccount } = settings;
@@ -136,6 +137,8 @@ export function SecurityTab({ settings }: { settings: AccountSettingsContext }) 
               }
             />
           ) : null}
+
+          <TwoFactorRow onChanged={() => void settings.load()} />
 
           {googleEnabled ? (
             <SettingsRow

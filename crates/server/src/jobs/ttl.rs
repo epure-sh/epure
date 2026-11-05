@@ -22,6 +22,15 @@ pub async fn run_ttl_once(pool: &PgPool) -> Result<Vec<String>, StorageError> {
     sqlx::query("DELETE FROM ingest_body_budget WHERE hour<now()-interval '7 days'")
         .execute(pool)
         .await?;
+    if epure_core::entitlement::is_cloud() {
+        let pro = epure_core::PlanTier::Pro.cloud_retention_days() as i32;
+        let scale = epure_core::PlanTier::Scale.cloud_retention_days() as i32;
+        match epure_storage::billing::clamp_retention(pool, pro, scale).await {
+            Ok(n) if n > 0 => info!("ttl clamped retention on {n} project(s) to plan ceilings"),
+            Ok(_) => {}
+            Err(err) => error!("ttl retention clamp failed: {err}"),
+        }
+    }
     let dropped = partitions::drop_expired_partitions(pool).await?;
     if !dropped.is_empty() {
         info!("ttl dropped partitions: {}", dropped.join(", "));

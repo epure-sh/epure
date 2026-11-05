@@ -19,6 +19,7 @@ mod agent_tokens;
 mod alert_rules;
 mod alerts;
 mod auth;
+pub mod chunk_upload;
 mod dsn_keys;
 mod events;
 mod issues;

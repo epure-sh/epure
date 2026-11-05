@@ -735,7 +735,7 @@ dependencies = [
 
 [[package]]
 name = "epure-agent-context"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "hex",
@@ -748,16 +748,19 @@ dependencies = [
 
 [[package]]
 name = "epure-auth"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "argon2",
  "chrono",
  "dashmap",
+ "epure-core",
  "epure-storage",
  "hex",
+ "hmac",
  "rand 0.9.5",
  "reqwest",
  "serde",
+ "sha1",
  "sha2 0.10.9",
  "sqlx",
  "subtle",
@@ -773,7 +776,7 @@ dependencies = [
 
 [[package]]
 name = "epure-cli"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "clap",
  "reqwest",
@@ -786,7 +789,7 @@ dependencies = [
 
 [[package]]
 name = "epure-core"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "serde",
@@ -796,7 +799,7 @@ dependencies = [
 
 [[package]]
 name = "epure-demangle"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "moka",
  "serde",
@@ -807,7 +810,7 @@ dependencies = [
 
 [[package]]
 name = "epure-envelope"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "dashmap",
@@ -826,7 +829,7 @@ dependencies = [
 
 [[package]]
 name = "epure-mcp"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "clap",
  "epure-agent-context",
@@ -839,7 +842,7 @@ dependencies = [
 
 [[package]]
 name = "epure-server"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "axum",
  "chrono",
@@ -862,6 +865,7 @@ dependencies = [
  "rust-embed",
  "serde",
  "serde_json",
+ "sha1",
  "sha2 0.10.9",
  "sqlx",
  "time",
@@ -877,11 +881,12 @@ dependencies = [
 
 [[package]]
 name = "epure-storage"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "chrono-tz",
  "croner",
+ "epure-core",
  "epure-envelope",
  "hex",
  "rand 0.9.5",

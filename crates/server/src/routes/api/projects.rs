@@ -159,6 +159,18 @@ async fn update_project(
         if !validate_retention(days) {
             return Err(StatusCode::BAD_REQUEST);
         }
+        // Cloud plans cap retention (Pro 30 days, Scale 90 days).
+        let entitlement = state
+            .ingest_plan_limit
+            .entitlement(&state.pools.ingest, dashboard.org_id)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        if entitlement
+            .max_retention_days()
+            .is_some_and(|max| days > max as i32)
+        {
+            return Err(StatusCode::PAYMENT_REQUIRED);
+        }
     }
 
     if let Some(cap) = body.ingest_cap_per_hour {

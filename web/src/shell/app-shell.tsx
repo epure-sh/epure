@@ -24,6 +24,7 @@ import { FeedQueryUrlSync } from "./feed-query-url-sync";
 import { CommandPalette } from "./command-palette";
 import { ProjectScope } from "./project-scope";
 import { TopStrip } from "./top-strip";
+import { PlanNotice } from "./plan-notice";
 import { AppSidebar } from "./app-sidebar";
 import { Skeleton } from "@/ui/primitives";
 
@@ -124,6 +125,7 @@ export function AppShell() {
       <AppSidebar mobileOpen={mobileSidebarOpen} onMobileClose={closeMobileSidebar} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <TopStrip onOpenMobileSidebar={() => setMobileSidebarOpen(true)} />
+        <PlanNotice />
         <EnvironmentUrlSync />
         <FeedQueryUrlSync />
         <main className="epure-app-shell-main flex min-h-0 flex-1 flex-col overflow-hidden bg-bg-subtle">

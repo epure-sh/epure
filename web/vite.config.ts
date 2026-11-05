@@ -2,13 +2,27 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import { orbitPackageRoot, stylexPlugin } from "./vite.stylex";
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
+/** The StyleX dev stylesheet only exists under `vite dev`; production builds would 404 on it. */
+function dropDevStylexLink(): Plugin {
+  return {
+    name: "epure-drop-dev-stylex-link",
+    apply: "build",
+    transformIndexHtml(html) {
+      return html.replace(
+        /\s*<!-- StyleX dev CSS[^>]*-->\s*<link rel="stylesheet" href="\/virtual:stylex\.css" \/>/,
+        "",
+      );
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [stylexPlugin(), react(), tailwindcss()],
+  plugins: [stylexPlugin(), react(), tailwindcss(), dropDevStylexLink()],
   resolve: {
     dedupe: [
       "react",
@@ -56,5 +70,8 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    // Never inline fonts as data: URIs; the SPA CSP allows font-src 'self' only.
+    assetsInlineLimit: (filePath) =>
+      /\.(woff2?|ttf|otf|eot)$/i.test(filePath) ? false : undefined,
   },
 });

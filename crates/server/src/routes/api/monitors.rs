@@ -175,6 +175,21 @@ async fn create_monitor(
         body.failure_issue_threshold,
     )?;
 
+    // Plan ceiling (Cloud Pro: 5 monitors). Self-hosted is unlimited.
+    let allowed = state
+        .ingest_plan_limit
+        .monitor_allowed(
+            &state.pools.ingest,
+            dashboard.org_id,
+            body.project_id,
+            &slug,
+        )
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if !allowed {
+        return Err(StatusCode::PAYMENT_REQUIRED);
+    }
+
     let row = monitors::create_monitor(
         &state.pools.app,
         dashboard.org_id,
