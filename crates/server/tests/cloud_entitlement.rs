@@ -50,6 +50,14 @@ async fn reset(pool: &PgPool) {
     ] {
         sqlx::query(sql).bind(dev_org()).execute(pool).await.unwrap();
     }
+    // The quota tests insert and delete ~200k events. Reclaim the dead rows now
+    // so later tests on this shared database are not slowed by table bloat.
+    for table in ["events", "issues", "issue_counters", "ingest_inbox"] {
+        sqlx::query(&format!("VACUUM (ANALYZE) {table}"))
+            .execute(pool)
+            .await
+            .unwrap();
+    }
 }
 
 async fn set_billing(pool: &PgPool, plan: &str, status: &str, trial_ends: Option<&str>) {
