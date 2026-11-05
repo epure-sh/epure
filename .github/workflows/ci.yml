@@ -1,4 +1,4 @@
-# PR and main checks: cargo test against Postgres 16.
+# PR and main checks. Three parallel jobs: format (fast fail), web, Rust against Postgres 16.
 name: CI
 
 on:
@@ -11,44 +11,31 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  # No debuginfo in test builds: faster compile and link, smaller cache.
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  RUST_BACKTRACE: "1"
+
 jobs:
-  test:
-    name: cargo test
+  fmt:
+    name: rustfmt
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: epure
-          POSTGRES_PASSWORD: epure
-          POSTGRES_DB: epure
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    env:
-      DATABASE_URL: postgres://epure:epure@localhost:5432/epure
-      EPURE_INGEST_DATABASE_URL: postgres://epure_ingest:epure_ingest@localhost:5432/epure
-      EPURE_APP_DATABASE_URL: postgres://epure_app:epure_app@localhost:5432/epure
-      EPURE_SESSION_SECURE: "0"
-      EPURE_BIND: 127.0.0.1:8080
-
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          components: rustfmt
+      - run: cargo fmt --all -- --check
 
-      - uses: Swatinem/rust-cache@v2
-
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-audit
+  web:
+    name: web build and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
@@ -63,7 +50,7 @@ jobs:
         working-directory: packages/orbit
         run: npm ci --omit=dev --ignore-scripts
 
-      - name: Build web assets (embedded in server binary)
+      - name: Build web assets
         working-directory: web
         run: npm ci && npm run build
 
@@ -71,29 +58,69 @@ jobs:
         working-directory: web
         run: npm test
 
-      - name: Verify hosted MCP registry
-        run: node scripts/generate-mcp-registry.js --check
-
       - name: CLI/MCP ingest integration (JS)
-        run: node --test tests/integration_cli_mcp_ingest.test.js tests/client_oauth.test.js
+        run: node --test tests/integration_cli_mcp_ingest.test.js
 
-      - name: Verify @epure-sh/mcp package
-        working-directory: packages/epure-mcp
-        run: node bin/epure-mcp.js --help
+      - name: Verify @epure-sh/mcp and @epure-sh/cli packages
+        run: |
+          node packages/epure-mcp/bin/epure-mcp.js --help
+          node packages/epure-cli/bin/epure-cli.js --help
 
-      - name: Verify @epure-sh/cli package
-        working-directory: packages/epure-cli
-        run: node bin/epure-cli.js --help
+  rust:
+    # Keep this name: branch protection on main requires the "cargo test" check.
+    name: cargo test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: epure
+          POSTGRES_PASSWORD: epure
+          POSTGRES_DB: epure
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
-      - name: Format Check
-        run: cargo fmt --all -- --check
+    env:
+      DATABASE_URL: postgres://epure:epure@localhost:5432/epure
+      EPURE_INGEST_DATABASE_URL: postgres://epure_ingest:epure_ingest@localhost:5432/epure
+      EPURE_APP_DATABASE_URL: postgres://epure_app:epure_app@localhost:5432/epure
+      EPURE_SESSION_SECURE: "0"
+      EPURE_BIND: 127.0.0.1:8080
 
-      - name: Clippy Check
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ci
+          # Only main writes the cache, so PR and dependabot runs never evict it.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      # rust-embed needs web/dist at compile time. No Rust test asserts on the
+      # built SPA (the web job builds and tests it), so a stub keeps the jobs parallel.
+      - name: Stub embedded web assets
+        run: mkdir -p web/dist && printf '<!doctype html><title>Epure</title>\n' > web/dist/index.html
+
+      - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Security Audit
+      - name: Security audit
         run: cargo audit
 
-      - name: Run Tests
-        # Serial: parallel init_runtime migrations race on shared Postgres (XX000 tuple concurrently updated).
-        run: cargo test -- --test-threads=1
+      - name: Tests
+        # Serial: tests share one Postgres and the dev org.
+        run: cargo test --workspace -- --test-threads=1

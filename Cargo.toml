@@ -13,9 +13,9 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.7"
+version = "0.2.0"
 edition = "2021"
-license = "Apache-2.0"
+license = "AGPL-3.0-only"
 
 [workspace.dependencies]
 axum = { version = "0.8", features = ["multipart"] }

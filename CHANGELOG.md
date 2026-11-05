@@ -6,14 +6,36 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 ## Unreleased
 
+## [v0.2.0] — 2026-11-05
+
+Durable ingestion, Cloud plans that match what is sold, two-factor login, and a licence change. Self-hosted instances keep unlimited events.
+
+- **Image:** `ghcr.io/epure-sh/epure:v0.2.0`
+- **Compare:** [v0.1.7…v0.2.0](https://github.com/epure-sh/epure/compare/v0.1.7...v0.2.0)
+
+### Licence
+
+- The engine (Rust crates and web UI) is now **GNU AGPL-3.0**. The client packages `@epure-sh/cli` and `@epure-sh/mcp` stay Apache-2.0. v0.1.7 and earlier remain Apache-2.0.
+
 ### Added
 
+- **Two-factor login (TOTP).** Authenticator-app codes with one-step clock tolerance, replay protection and ten single-use recovery codes. Applies to password, magic-link, Google and GitHub sign-in. Settings → Security.
+- **Over-quota rule ("never go blind").** Past the monthly event quota, every occurrence of an existing issue is still counted and the first event of each new or regressed issue is still stored, up to a grace of 5% of the quota. No automatic overage. Self-hosted is never limited.
+- **Cloud trial.** A user's first Cloud workspace starts a 14-day no-card trial on Pro limits (`EPURE_TRIAL_DAYS`). Later workspaces of the same user start without a plan.
+- **Plan entitlement on Cloud.** Workspaces without a paid, past-due or running trial plan stop accepting events (`403 subscription_inactive`); their data stays readable. Billing status reports entitlement, trial days left and monthly usage.
+- **Plan ceilings enforced:** Pro allows 5 cron monitors (API `402`, extra check-in monitors skipped) and 30-day retention; Scale 90 days. A daily job clamps retention after a downgrade.
+- **Billing notices (Cloud):** one email at 80% and 100% of the quota, three days before a trial ends, and when it ends.
+- **sentry-cli uploads:** `chunk-upload`, release `assemble` and `difs/assemble` with debug IDs.
+- Durable, idempotent ingestion: the Postgres commit is the acceptance boundary, SDK event IDs are deduplicated for 7 days, and a full backlog answers `503`.
+- Grouping revision 2 (SimHash/LSH aliases), hosted OAuth MCP, OAuth-only CLI and MCP, cron monitors, user feedback, release health, alert rules with filters, shared output channels.
 - Privacy defaults for EU operators: end-user emails and usernames are off unless a project opts in, client IPs are not stored, fonts are self-hosted, and admins can export or erase one person's events. `/privacy` explains the session cookie and which services this instance can contact. See [docs/privacy.md](docs/privacy.md).
 - `./configure --sync-db-passwords` and `scripts/sync-db-passwords.sh` align Postgres role passwords with `.env`.
 - `./configure --prod-rotate-secrets` generates new secrets and applies them when rotating on an existing volume.
 
 ### Changed
 
+- Pro retention is 30 days (was 35).
+- README status is "Beta" until the release gates in `docs/ingester-audit.md` are met.
 - `./configure --prod` detects an existing Postgres data volume: reuses secrets from `.env` when present, or writes new secrets and applies them in Postgres (promote-after-`docker compose up` path). It no longer regenerates `.env` passwords while leaving the database unchanged.
 
 ## [v0.1.7] — 2026-10-04

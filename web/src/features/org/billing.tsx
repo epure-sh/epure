@@ -127,19 +127,27 @@ export function BillingPage() {
     [projects],
   );
 
+  const entitlement = billingStatus?.entitlement;
+  const trialDeadline = billingStatus?.trial_ends_at ?? billingStatus?.canary_expires_at ?? null;
+  const inactive = entitlement?.state === "inactive";
   const isTrial = Boolean(
-    billingStatus?.subscription_status === "trialing" ||
-      (!billingStatus?.subscription_id && billingStatus?.canary_expires_at),
+    entitlement
+      ? entitlement.state === "trial" || entitlement.reason === "trial_ended"
+      : billingStatus?.subscription_status === "trialing" ||
+          (!billingStatus?.subscription_id && billingStatus?.canary_expires_at),
   );
   const trialExpired = Boolean(
-    billingStatus?.canary_expires_at &&
-      new Date(billingStatus.canary_expires_at).getTime() <= Date.now(),
+    entitlement
+      ? entitlement.reason === "trial_ended"
+      : trialDeadline && new Date(trialDeadline).getTime() <= Date.now(),
   );
   const trialDaysRemaining = useMemo(() => {
-    if (!billingStatus?.canary_expires_at) return 0;
-    const diff = new Date(billingStatus.canary_expires_at).getTime() - Date.now();
+    if (entitlement?.trial_days_left != null) return entitlement.trial_days_left;
+    if (!trialDeadline) return 0;
+    const diff = new Date(trialDeadline).getTime() - Date.now();
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-  }, [billingStatus?.canary_expires_at]);
+  }, [entitlement?.trial_days_left, trialDeadline]);
+  const monthlyUsage = billingStatus?.usage;
 
   const loadBilling = useCallback(async () => {
     setBillingLoading(true);
@@ -325,10 +333,10 @@ export function BillingPage() {
             ) : null}
             {!billingLoading && cloud ? (
               <Badge
-                variant={isTrial ? (trialExpired ? "regression" : "info") : subscriptionBadgeVariant(billingStatus?.subscription_status ?? "")}
+                variant={inactive ? "regression" : isTrial ? "info" : subscriptionBadgeVariant(billingStatus?.subscription_status ?? "")}
                 size="compact"
               >
-                {isTrial ? (trialExpired ? "Trial Expired" : "Trial Sandbox") : (plan?.name ?? "Cloud")}
+                {inactive && !trialExpired ? "Inactive" : isTrial ? (trialExpired ? "Trial ended" : "Trial") : (plan?.name ?? "Cloud")}
               </Badge>
             ) : null}
           </div>
@@ -416,24 +424,37 @@ export function BillingPage() {
               <div className="min-w-0 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm font-semibold text-fg-primary">
-                    {isTrial ? "Trial Sandbox" : (plan?.name ?? billingStatus.plan_tier)}
+                    {inactive && !trialExpired ? "No active plan" : isTrial ? "Cloud trial" : (plan?.name ?? billingStatus.plan_tier)}
                   </p>
                   <Badge
-                    variant={isTrial ? (trialExpired ? "regression" : "info") : subscriptionBadgeVariant(billingStatus.subscription_status)}
+                    variant={inactive ? "regression" : isTrial ? "info" : subscriptionBadgeVariant(billingStatus.subscription_status)}
                     size="compact"
                   >
-                    {isTrial ? (trialExpired ? "Trial Expired" : "Trial Active") : subscriptionLabel(billingStatus.subscription_status)}
+                    {inactive && !trialExpired ? "Inactive" : isTrial ? (trialExpired ? "Trial ended" : "Trial") : subscriptionLabel(billingStatus.subscription_status)}
                   </Badge>
                 </div>
-                {isTrial ? (
+                {inactive ? (
                   <div className="pt-0.5">
                     <p className="text-sm font-medium text-fg-primary">
-                      {trialExpired
-                        ? "Evaluation period ended"
-                        : `${trialDaysRemaining} day${trialDaysRemaining === 1 ? "" : "s"} remaining in evaluation`}
+                      {entitlement?.reason === "trial_ended"
+                        ? "Your trial has ended. New events are not accepted."
+                        : entitlement?.reason === "paused"
+                          ? "Subscription paused. New events are not accepted."
+                          : entitlement?.reason === "canceled"
+                            ? "Subscription ended. New events are not accepted."
+                            : "Choose a plan to start sending events."}
                     </p>
                     <p className="text-2xs text-fg-muted">
-                      Full access to Pro features enabled for evaluation. No credit card charged.
+                      Your issues and history stay readable. Pick a plan below to resume.
+                    </p>
+                  </div>
+                ) : isTrial ? (
+                  <div className="pt-0.5">
+                    <p className="text-sm font-medium text-fg-primary tabular-nums">
+                      {`${trialDaysRemaining} day${trialDaysRemaining === 1 ? "" : "s"} left in your trial`}
+                    </p>
+                    <p className="text-2xs text-fg-muted">
+                      Pro limits during the trial. No card on file. Choose a plan any time to keep going.
                     </p>
                   </div>
                 ) : (plan?.priceAnnual || plan?.priceMonthly) ? (
@@ -445,13 +466,13 @@ export function BillingPage() {
                   </p>
                 ) : null}
                 <p className="text-2xs text-fg-muted">
-                  {billingStatus.canary_expires_at ? (
+                  {trialDeadline && isTrial ? (
                     <>
                       Trial{" "}
-                      {new Date(billingStatus.canary_expires_at).getTime() <= Date.now()
+                      {new Date(trialDeadline).getTime() <= Date.now()
                         ? "ended"
                         : "ends"}{" "}
-                      {formatDate(billingStatus.canary_expires_at)}
+                      {formatDate(trialDeadline)}
                       {" · "}
                     </>
                   ) : null}
@@ -497,6 +518,20 @@ export function BillingPage() {
                         : "bg-accent"
                   }
                 />
+                {monthlyUsage && monthlyUsage.included > 0 ? (
+                  <p className="text-2xs text-fg-muted">
+                    This month:{" "}
+                    <span className="font-mono tabular-nums text-fg-secondary">
+                      {monthlyUsage.events_this_month.toLocaleString()} / {monthlyUsage.included.toLocaleString()}
+                    </span>{" "}
+                    stored events across all projects.
+                    {monthlyUsage.grace_exhausted
+                      ? " Quota and new-issue grace used up: existing issues are still counted, new issues wait for next month or a larger plan."
+                      : monthlyUsage.over_quota
+                        ? " Quota reached: every occurrence is still counted and the first event of each new issue is kept. No automatic overage."
+                        : " Past the quota, Epure keeps counting and keeps first events of new issues. No automatic overage."}
+                  </p>
+                ) : null}
                 {demoEvents > 0 ? (
                   <p className="text-2xs text-fg-muted">
                     Demo projects excluded (

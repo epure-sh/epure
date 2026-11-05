@@ -351,6 +351,38 @@ pub async fn upsert_issue_in_tx(
     .await
 }
 
+/// Status of the root issue an ingest raw key groups into (`None` = new issue).
+/// Resolves `ingest_group_aliases` and the merge chain exactly like the counter path.
+pub async fn issue_status_by_fingerprint(
+    pool: &PgPool,
+    org_id: Uuid,
+    project_id: Uuid,
+    raw_key: &str,
+) -> Result<Option<String>, sqlx::Error> {
+    let mut tx = rls::begin_ingest_transaction(pool, org_id).await?;
+    let status: Option<String> = sqlx::query_scalar(
+        r#"
+        WITH RECURSIVE alias AS (
+            SELECT fingerprint FROM ingest_group_aliases WHERE project_id = $1 AND raw_key = $2
+        ), chain AS (
+            SELECT i.id, i.status, i.merge_parent_id, 0 AS depth
+            FROM issues i JOIN alias a ON i.project_id = $1 AND i.fingerprint = a.fingerprint
+            UNION ALL
+            SELECT p.id, p.status, p.merge_parent_id, c.depth + 1
+            FROM issues p JOIN chain c ON p.id = c.merge_parent_id
+            WHERE c.depth < 32
+        )
+        SELECT status FROM chain WHERE merge_parent_id IS NULL LIMIT 1
+        "#,
+    )
+    .bind(project_id)
+    .bind(raw_key)
+    .fetch_optional(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(status)
+}
+
 pub async fn get_issue_by_fingerprint_in_tx(
     tx: &mut Transaction<'_, Postgres>,
     project_id: Uuid,

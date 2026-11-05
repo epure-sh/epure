@@ -52,7 +52,7 @@ impl PlanTier {
             Self::Pro => TenantLimits {
                 plan_tier: *self,
                 max_projects: u32::MAX,
-                retention_days: 35,
+                retention_days: 30,
                 allows_sub_tenants: false,
                 max_sub_tenants: 0,
                 spike_valve_rate_per_min: 100.0,
@@ -73,6 +73,14 @@ impl PlanTier {
             Self::Oss => u64::MAX,
             Self::Pro => 200_000,
             Self::Scale => 1_500_000,
+        }
+    }
+
+    /// Retention ceiling on Cloud (Pro 30 days, Scale 90 days).
+    pub fn cloud_retention_days(&self) -> u32 {
+        match self {
+            Self::Oss | Self::Pro => 30,
+            Self::Scale => 90,
         }
     }
 
@@ -218,7 +226,7 @@ mod tests {
         assert_eq!(pro.max_cron_monitors(), 5);
         assert_eq!(pro.max_orgs(), 1);
         let pro_limits = pro.default_limits();
-        assert_eq!(pro_limits.retention_days, 35);
+        assert_eq!(pro_limits.retention_days, 30);
         assert_eq!(pro_limits.max_projects, u32::MAX);
 
         let scale = PlanTier::Scale;

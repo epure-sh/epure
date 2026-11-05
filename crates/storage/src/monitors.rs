@@ -502,6 +502,28 @@ pub async fn delete_monitor(
     Ok(result.rows_affected() > 0)
 }
 
+/// Whether a monitor with this slug already exists in the project, and how
+/// many monitors the org has in total (for plan ceilings).
+pub async fn monitor_slot(
+    pool: &PgPool,
+    org_id: Uuid,
+    project_id: Uuid,
+    slug: &str,
+) -> Result<(bool, i64), sqlx::Error> {
+    let mut tx = crate::rls::begin_ingest_transaction(pool, org_id).await?;
+    let (exists, total): (bool, i64) = sqlx::query_as(
+        "SELECT EXISTS (SELECT 1 FROM monitors WHERE project_id = $1 AND slug = $2), \
+         (SELECT COUNT(*) FROM monitors WHERE org_id = $3)",
+    )
+    .bind(project_id)
+    .bind(slug)
+    .bind(org_id)
+    .fetch_one(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok((exists, total))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

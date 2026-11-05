@@ -7,6 +7,7 @@ use axum::{
     Json, Router,
 };
 use epure_auth::{DsnAuthError, DsnRecord};
+use epure_core::entitlement::InactiveReason;
 use epure_envelope::{
     client_event_id, match_noise, outcome_reason, parse_auth, parse_envelope, parse_store_payload,
     preview_multi_fingerprint, scrub_string, AuthError, EnvelopeError, StoreError,
@@ -20,6 +21,7 @@ use tower_http::limit::RequestBodyLimitLayer;
 use uuid::Uuid;
 
 use crate::pipeline::ingest_cap::IngestAllowance;
+use crate::pipeline::ingest_plan_limit::QuotaDecision;
 use crate::pipeline::mpsc::IngestJob;
 use crate::pipeline::spike::{GroupedSpikeInput, SpikeDecision};
 use crate::state::AppState;
@@ -169,8 +171,43 @@ async fn post_envelope(
     }
 
     if !parsed.check_ins.is_empty() {
+        if let Err(response) = check_ingest_plan_limit(&state, record.org_id).await {
+            state.outcomes.record(
+                record.org_id,
+                project_id,
+                "plan_rejected",
+                parsed.check_ins.len() as u64,
+            );
+            return response;
+        }
         let mut first_check_in_id = None;
         for ci in &parsed.check_ins {
+            match state
+                .ingest_plan_limit
+                .monitor_allowed(
+                    &state.pools.ingest,
+                    record.org_id,
+                    project_id,
+                    &ci.monitor_slug,
+                )
+                .await
+            {
+                Ok(true) => {}
+                Ok(false) => {
+                    tracing::info!(org_id = %record.org_id, slug = %ci.monitor_slug, "check-in skipped: plan monitor limit reached");
+                    state
+                        .outcomes
+                        .record(record.org_id, project_id, "monitor_limit", 1);
+                    continue;
+                }
+                Err(_) => {
+                    return error_response(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "plan_lookup_unavailable",
+                        "Retry this check-in; plan lookup is unavailable",
+                    )
+                }
+            }
             let duration_ms = ci
                 .duration
                 .filter(|d| d.is_finite() && *d >= 0.0 && *d < 31_536_000.0)
@@ -612,12 +649,15 @@ async fn accept_payload(
             }
         }
     }
-    if let Err(response) = check_ingest_plan_limit(state, org_id).await {
-        state
-            .outcomes
-            .record(org_id, project_id, "plan_rejected", 1);
-        return response;
-    }
+    let quota = match check_ingest_plan_limit(state, org_id).await {
+        Ok(quota) => quota,
+        Err(response) => {
+            state
+                .outcomes
+                .record(org_id, project_id, "plan_rejected", 1);
+            return response;
+        }
+    };
 
     if let Some(noise) = suppressed_noise(state, org_id, project_id, headers, &payload).await {
         note_noise(state, org_id, project_id, &noise).await;
@@ -646,6 +686,57 @@ async fn accept_payload(
     let client_supplied_id = client_event_id(&payload);
     let supplied = client_supplied_id.is_some();
     let event_id = client_supplied_id.unwrap_or_else(Uuid::new_v4);
+    if let QuotaDecision::OverQuota { grace_remaining } = quota {
+        match epure_storage::persist::issue_status_by_fingerprint(
+            &state.pools.ingest,
+            org_id,
+            project_id,
+            &fingerprint,
+        )
+        .await
+        {
+            // Existing open issue: keep counting, never store the payload.
+            Ok(Some(status)) if status != "resolved" => {
+                return admit_counter(
+                    state,
+                    headers,
+                    org_id,
+                    project_id,
+                    event_id,
+                    fingerprint,
+                    "quota_counted",
+                )
+                .await;
+            }
+            // New or regressed issue: keep its first event while grace remains.
+            Ok(_) if grace_remaining => {
+                state
+                    .outcomes
+                    .record(org_id, project_id, "quota_first_event", 1);
+            }
+            Ok(_) => {
+                if let Some(event_id) = client_supplied_id {
+                    state.outcomes.release_event_id(project_id, event_id);
+                }
+                state
+                    .outcomes
+                    .record(org_id, project_id, "plan_rejected", 1);
+                return error_response(
+                    StatusCode::FORBIDDEN,
+                    "ingest_plan_limit_exceeded",
+                    "Monthly event quota and new-issue grace are used up; existing issues are still counted",
+                );
+            }
+            Err(_) => {
+                return error_response(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "quota_lookup_unavailable",
+                    "Retry this event; quota lookup is unavailable",
+                )
+            }
+        }
+    }
+
     let user_agent = headers
         .get("user-agent")
         .and_then(|value| value.to_str().ok())
@@ -701,30 +792,16 @@ async fn accept_payload(
             }
         }
         Ok(SpikeDecision::CounterOnly) => {
-            if let Err(err) = crate::pipeline::durable::enqueue_counter(
-                &state.pools.ingest,
+            return admit_counter(
+                state,
+                headers,
                 org_id,
                 project_id,
                 event_id,
                 fingerprint,
+                "spike_coalesced",
             )
-            .await
-            {
-                tracing::warn!(error=%err,"durable counter admission failed");
-                return error_response(
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    "backlog_unavailable",
-                    "Retry this event; durable admission failed",
-                );
-            }
-            state
-                .outcomes
-                .record(org_id, project_id, "spike_coalesced", 1);
-            return with_cors(
-                state,
-                headers,
-                (StatusCode::ACCEPTED, Json(IngestAccepted { id: event_id })).into_response(),
-            );
+            .await;
         }
         Err(_) => {
             return error_response(
@@ -848,24 +925,68 @@ fn extract_auth(
 }
 
 #[allow(clippy::result_large_err)]
-async fn check_ingest_plan_limit(state: &AppState, org_id: Uuid) -> Result<(), Response> {
+async fn check_ingest_plan_limit(
+    state: &AppState,
+    org_id: Uuid,
+) -> Result<QuotaDecision, Response> {
     match state
         .ingest_plan_limit
-        .allow_ingest(&state.pools.ingest, org_id)
+        .decide(&state.pools.ingest, org_id)
         .await
     {
-        Ok(true) => Ok(()),
-        Ok(false) => Err(error_response(
+        Ok(QuotaDecision::Inactive(reason)) => Err(error_response(
             StatusCode::FORBIDDEN,
-            "ingest_plan_limit_exceeded",
-            "Organization monthly event limit exceeded",
+            "subscription_inactive",
+            match reason {
+                InactiveReason::TrialEnded => "Trial ended; choose a plan to resume ingestion",
+                InactiveReason::Canceled => {
+                    "Subscription canceled; choose a plan to resume ingestion"
+                }
+                InactiveReason::Paused => "Subscription paused; resume it to continue ingestion",
+                InactiveReason::NoPlan => "No active plan; choose a plan to start ingestion",
+            },
         )),
+        Ok(decision) => Ok(decision),
         Err(_) => Err(error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "storage_error",
-            "Failed to check organization plan limit",
+            StatusCode::SERVICE_UNAVAILABLE,
+            "plan_lookup_unavailable",
+            "Retry this event; plan lookup is unavailable",
         )),
     }
+}
+
+/// Count an occurrence without storing its payload (spike valve and over-quota).
+async fn admit_counter(
+    state: &AppState,
+    headers: &HeaderMap,
+    org_id: Uuid,
+    project_id: Uuid,
+    event_id: Uuid,
+    fingerprint: String,
+    outcome: &str,
+) -> Response {
+    if let Err(err) = crate::pipeline::durable::enqueue_counter(
+        &state.pools.ingest,
+        org_id,
+        project_id,
+        event_id,
+        fingerprint,
+    )
+    .await
+    {
+        tracing::warn!(error=%err,"durable counter admission failed");
+        return error_response(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "backlog_unavailable",
+            "Retry this event; durable admission failed",
+        );
+    }
+    state.outcomes.record(org_id, project_id, outcome, 1);
+    with_cors(
+        state,
+        headers,
+        (StatusCode::ACCEPTED, Json(IngestAccepted { id: event_id })).into_response(),
+    )
 }
 
 #[allow(clippy::result_large_err)]

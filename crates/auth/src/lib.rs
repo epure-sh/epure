@@ -1,5 +1,6 @@
 pub mod agent_token;
 pub mod api_pat;
+pub mod cloud_trial;
 pub mod credentials;
 pub mod dsn;
 pub mod github;
@@ -10,6 +11,8 @@ pub mod password;
 pub mod password_auth;
 pub mod registration;
 pub mod session;
+pub mod totp;
+pub mod two_factor;
 
 pub use agent_token::{
     authenticate_agent_token, require_read, require_scope, AgentTokenError, AgentTokenSession,
@@ -27,10 +30,10 @@ pub use password::{
 pub use password_auth::{password_auth_enabled, password_auth_enabled_from};
 pub use registration::{registration_enabled, registration_enabled_from};
 pub use session::{
-    bootstrap_session_store, build_session_layer, clear_dashboard_session,
-    ensure_session_credentials, establish_dashboard_session, init_session_store,
-    load_credential_generation, load_dashboard_session, load_dashboard_session_for_api,
-    session_secure_enabled, set_credential_generation, spawn_session_cleanup, DashboardSession,
-    SessionError,
+    bootstrap_session_store, build_session_layer, clear_dashboard_identity,
+    clear_dashboard_session, ensure_session_credentials, establish_dashboard_session,
+    init_session_store, load_credential_generation, load_dashboard_session,
+    load_dashboard_session_for_api, session_secure_enabled, set_credential_generation,
+    spawn_session_cleanup, DashboardSession, SessionError,
 };
 pub use tower_sessions_sqlx_store::PostgresStore;

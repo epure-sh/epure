@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 chrono.workspace = true
+epure-core.workspace = true
 chrono-tz = "0.10"
 croner = { version = "4", default-features = false, features = ["chrono"] }
 epure-envelope.workspace = true

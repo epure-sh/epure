@@ -24,13 +24,25 @@ async fn spike_valve_drops_bodies_under_load() {
             .await
             .expect("count before");
 
+    // A real flood carries a distinct SDK event ID per event; reusing one ID
+    // would be an SDK retry, which durable ingest correctly counts once.
+    let original_id = serde_json::from_slice::<serde_json::Value>(
+        body.split(|b| *b == b'\n').next().expect("envelope header"),
+    )
+    .expect("header json")["event_id"]
+        .as_str()
+        .expect("event id")
+        .to_string();
+    let text = String::from_utf8(body.clone()).expect("utf8 envelope");
+
     let client = reqwest::Client::new();
     for _ in 0..150 {
+        let unique = text.replace(&original_id, &uuid::Uuid::new_v4().to_string());
         let response = client
             .post(format!("{}/api/{}/envelope/", base_url, project_id()))
             .header("X-Sentry-Auth", auth_header())
             .header("Content-Type", "application/x-sentry-envelope")
-            .body(body.clone())
+            .body(unique)
             .send()
             .await
             .expect("post envelope");

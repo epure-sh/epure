@@ -35,6 +35,7 @@ pub struct ServerRuntime {
     pub ttl: JoinHandle<()>,
     pub deliveries: JoinHandle<()>,
     pub monitors: JoinHandle<()>,
+    pub billing_notices: JoinHandle<()>,
     pub session_cleanup: JoinHandle<()>,
     shutdown: Arc<tokio::sync::Notify>,
 }
@@ -58,6 +59,7 @@ impl ServerRuntime {
         self.ttl.abort();
         self.deliveries.abort();
         self.monitors.abort();
+        self.billing_notices.abort();
         self.session_cleanup.abort();
         tracing::info!("epure runtime shutdown complete");
     }
@@ -188,6 +190,8 @@ pub async fn init_runtime(
     let ttl = tokio::spawn(async move {
         run_ttl_job(ttl_pool).await;
     });
+    let notice_pool = migrate_pool.clone();
+    let billing_notices = tokio::spawn(jobs::billing_notices::run_billing_notice_job(notice_pool));
 
     let shutdown = Arc::new(tokio::sync::Notify::new());
     let flusher_pool = ingest.clone();
@@ -242,6 +246,7 @@ pub async fn init_runtime(
         ttl,
         deliveries,
         monitors,
+        billing_notices,
         session_cleanup,
         shutdown,
     })

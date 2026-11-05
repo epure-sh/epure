@@ -149,6 +149,20 @@ pub async fn load_dashboard_session(session: &Session) -> Result<DashboardSessio
     })
 }
 
+/// Remove the signed-in identity but keep the session (used before a second factor).
+pub async fn clear_dashboard_identity(session: &Session) -> Result<(), SessionError> {
+    for key in [
+        SESSION_USER_ID,
+        SESSION_ORG_ID,
+        SESSION_EMAIL,
+        SESSION_ROLE,
+        SESSION_CREDENTIAL_GENERATION,
+    ] {
+        session.remove_value(key).await?;
+    }
+    Ok(())
+}
+
 pub async fn clear_dashboard_session(session: &Session) -> Result<(), SessionError> {
     session.flush().await?;
     Ok(())

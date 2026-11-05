@@ -741,6 +741,7 @@ export interface MeResponse {
   google_linked: boolean;
   github_linked?: boolean;
   plan_tier?: string | null;
+  two_factor_enabled?: boolean;
 }
 
 export interface UserOrganization {
@@ -829,11 +830,71 @@ export async function fetchAuthConfig(): Promise<AuthConfig> {
   return apiFetch<AuthConfig>("/api/v1/auth/config");
 }
 
-export async function loginWithPassword(email: string, password: string): Promise<void> {
-  await apiFetch<void>("/api/v1/auth/login", {
+export interface LoginResult {
+  /** True when the account has two-factor on: call verifySecondFactor next. */
+  twoFactorRequired: boolean;
+}
+
+export async function loginWithPassword(email: string, password: string): Promise<LoginResult> {
+  const body = await apiFetch<{ two_factor_required?: boolean } | undefined>("/api/v1/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
+  });
+  return { twoFactorRequired: body?.two_factor_required === true };
+}
+
+export type SecondFactorResult =
+  | { ok: true; returnTo: string }
+  | { ok: false; reason: "invalid_code" | "expired" | "rate_limited" | "error" };
+
+/** Second login step. Uses fetch directly: a wrong code must not redirect away. */
+export async function verifySecondFactor(code: string): Promise<SecondFactorResult> {
+  let response: Response;
+  try {
+    response = await fetch("/api/v1/auth/two-factor/verify", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+  } catch {
+    return { ok: false, reason: "error" };
+  }
+  if (response.ok) {
+    const body = (await response.json().catch(() => ({}))) as { return_to?: string };
+    return { ok: true, returnTo: body.return_to ?? "/" };
+  }
+  if (response.status === 401) return { ok: false, reason: "invalid_code" };
+  if (response.status === 410) return { ok: false, reason: "expired" };
+  if (response.status === 429) return { ok: false, reason: "rate_limited" };
+  return { ok: false, reason: "error" };
+}
+
+export interface TwoFactorStatus {
+  enabled: boolean;
+  recovery_codes_left: number;
+}
+
+export async function fetchTwoFactorStatus(): Promise<TwoFactorStatus> {
+  return apiFetch<TwoFactorStatus>("/api/v1/auth/two-factor");
+}
+
+export async function beginTwoFactorSetup(): Promise<{ secret: string; uri: string }> {
+  return apiFetch<{ secret: string; uri: string }>("/api/v1/auth/two-factor/setup", { method: "POST" });
+}
+
+export async function enableTwoFactor(code: string): Promise<{ recovery_codes: string[] }> {
+  return apiFetch<{ recovery_codes: string[] }>("/api/v1/auth/two-factor/enable", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+}
+
+export async function disableTwoFactor(code: string): Promise<void> {
+  await apiFetch<void>("/api/v1/auth/two-factor/disable", {
+    method: "POST",
+    body: JSON.stringify({ code }),
   });
 }
 
@@ -1449,6 +1510,23 @@ export interface BillingStatus {
   subscription_id: string | null;
   subscription_status: string;
   canary_expires_at: string | null;
+  trial_ends_at?: string | null;
+  /** Resolved access on Cloud. Absent on older servers. */
+  entitlement?: {
+    state: "unlimited" | "trial" | "active" | "past_due" | "inactive";
+    reason: "no_plan" | "trial_ended" | "canceled" | "paused" | null;
+    trial_ends_at: string | null;
+    trial_days_left: number | null;
+    can_ingest: boolean;
+  };
+  /** Stored events this UTC month against the plan quota. */
+  usage?: {
+    events_this_month: number;
+    included: number;
+    over_quota: boolean;
+    grace_events: number;
+    grace_exhausted: boolean;
+  };
 }
 
 export async function fetchBillingStatus(): Promise<BillingStatus | null> {

@@ -3,6 +3,7 @@ pub mod agent_tokens;
 pub mod alert_rules;
 pub mod alerts;
 pub mod batch;
+pub mod billing;
 pub mod bootstrap;
 pub mod counters;
 pub mod dsn_keys;

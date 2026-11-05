@@ -115,6 +115,7 @@ impl CredentialAuth {
             .bind(&org_name)
             .execute(&self.pool)
             .await?;
+        crate::cloud_trial::after_workspace_bootstrap(&self.pool, user_id, org_id).await;
 
         Ok(DashboardSession {
             user_id,
