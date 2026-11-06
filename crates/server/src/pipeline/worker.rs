@@ -204,6 +204,7 @@ async fn process_batch(
                 )
                 .await?;
 
+                velocity_tracker.record(issue_id);
                 if let Err(err) = process::after_issue_event(
                     pool,
                     velocity_tracker,

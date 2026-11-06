@@ -36,15 +36,15 @@ fn window_duration() -> Duration {
 }
 
 impl IssueVelocity {
-    fn snapshot(&mut self, now: Instant) -> Option<VelocitySnapshot> {
+    /// Insert one occurrence, then return the window that includes it.
+    fn record(&mut self, now: Instant) -> Option<VelocitySnapshot> {
         let window = window_duration();
         let width = (window / 128).max(Duration::from_millis(1));
-        if let Some((at, count)) = self
+        if let Some((_, count)) = self
             .timestamps
             .back_mut()
             .filter(|(at, _)| now.saturating_duration_since(*at) < width)
         {
-            let _ = at;
             *count = count.saturating_add(1);
         } else {
             self.timestamps.push_back((now, 1));
@@ -52,6 +52,12 @@ impl IssueVelocity {
         while self.timestamps.len() > 258 {
             self.timestamps.pop_front();
         }
+        self.view(now)
+    }
+
+    /// Read the current and previous windows. Does not insert an occurrence.
+    fn view(&mut self, now: Instant) -> Option<VelocitySnapshot> {
+        let window = window_duration();
         self.prune(now, window);
 
         let current = self.count_in(now - window, now);
@@ -101,26 +107,16 @@ impl VelocityTracker {
     }
 
     pub fn record(&self, issue_id: Uuid) -> Option<VelocitySpike> {
-        self.snapshot(issue_id).and_then(|snap| {
-            if snap.ratio > SPIKE_RATIO {
-                Some(VelocitySpike {
-                    current_window: snap.current_window,
-                    previous_window: snap.previous_window,
-                    ratio: snap.ratio,
-                })
-            } else {
-                None
-            }
-        })
+        self.record_at(issue_id, Instant::now())
     }
 
+    /// Window after prior `record` calls. Does not count another event.
     pub fn snapshot(&self, issue_id: Uuid) -> Option<VelocitySnapshot> {
         self.snapshot_at(issue_id, Instant::now())
     }
 
-    #[cfg(test)]
     fn record_at(&self, issue_id: Uuid, now: Instant) -> Option<VelocitySpike> {
-        self.snapshot_at(issue_id, now).and_then(|snap| {
+        self.write_at(issue_id, now).and_then(|snap| {
             if snap.ratio > SPIKE_RATIO {
                 Some(VelocitySpike {
                     current_window: snap.current_window,
@@ -133,7 +129,7 @@ impl VelocityTracker {
         })
     }
 
-    fn snapshot_at(&self, issue_id: Uuid, now: Instant) -> Option<VelocitySnapshot> {
+    fn write_at(&self, issue_id: Uuid, now: Instant) -> Option<VelocitySnapshot> {
         if self.issues.len() >= 5000 && !self.issues.contains_key(&issue_id) {
             self.issues.retain(|_, issue| {
                 issue.prune(now, window_duration());
@@ -149,7 +145,7 @@ impl VelocityTracker {
             .or_insert_with(|| IssueVelocity {
                 timestamps: VecDeque::new(),
             });
-        let snap = entry.snapshot(now);
+        let snap = entry.record(now);
         let empty = entry.timestamps.is_empty();
         drop(entry);
         if empty {
@@ -159,6 +155,11 @@ impl VelocityTracker {
             self.issues.retain(|_, issue| !issue.timestamps.is_empty());
         }
         snap
+    }
+
+    fn snapshot_at(&self, issue_id: Uuid, now: Instant) -> Option<VelocitySnapshot> {
+        let mut entry = self.issues.get_mut(&issue_id)?;
+        entry.view(now)
     }
 }
 
@@ -200,5 +201,32 @@ mod tests {
         assert!(spike.is_some());
         let spike = spike.expect("spike");
         assert!(spike.ratio > SPIKE_RATIO);
+    }
+
+    #[test]
+    fn snapshot_does_not_count_another_event() {
+        let tracker = VelocityTracker::default();
+        let issue_id = Uuid::new_v4();
+        let now = Instant::now();
+
+        for index in 0..4 {
+            tracker.record_at(
+                issue_id,
+                now - Duration::from_secs(20 * 60) + Duration::from_millis(index),
+            );
+        }
+        for index in 0..4 {
+            tracker.record_at(
+                issue_id,
+                now - Duration::from_secs(5 * 60) + Duration::from_millis(index),
+            );
+        }
+
+        let first = tracker.snapshot_at(issue_id, now).expect("window");
+        let second = tracker.snapshot_at(issue_id, now).expect("same window");
+        assert_eq!(first.current_window, second.current_window);
+        assert_eq!(first.previous_window, second.previous_window);
+        assert_eq!(first.current_window, 4);
+        assert_eq!(first.previous_window, 4);
     }
 }

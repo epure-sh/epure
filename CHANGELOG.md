@@ -6,6 +6,23 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 ## Unreleased
 
+## [v0.2.1] — 2026-11-06
+
+First image published after v0.1.7. The v0.2.0 tag did not produce a GHCR manifest: the arm64 build failed before the multi-arch image was tagged. Operators on v0.1.7 should also apply the v0.2.0 changes below; that tag never received an image.
+
+- **Image:** `ghcr.io/epure-sh/epure:v0.2.1`
+- **Compare:** [v0.2.0…v0.2.1](https://github.com/epure-sh/epure/compare/v0.2.0...v0.2.1)
+
+### Fixed
+
+- Velocity spike alerts count each accepted occurrence once. Stored events and spike-valve counter-only occurrences call `VelocityTracker::record`, and the alert read does not insert another sample. v0.1.7 never called `record` (the read inserted the sample). v0.2.0 called `record` and then the read inserted a second sample, so each stored event was counted twice.
+- Release image build ignores a global `tsc` on the runner. Orbit type declarations regenerate only with the TypeScript installed in that package.
+- `epure-cli` is in the image again. `--help` does not print an `EPURE_TOKEN` from the environment. v0.1.7's Clap help echoed that value when the variable was set.
+
+### Upgrade
+
+Pin `EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.2.1` and recreate the app container. From v0.1.7 this is the v0.2.0 upgrade (AGPL-3.0 engine, plan quotas on Cloud, two-factor login, 32 MiB source-map bundles, cron monitors, OAuth discovery) plus the fixes above. The CLI in this image is OAuth-only (`epure auth login`). Personal access tokens still authorize the HTTP API. The bundled CLI needs the Node.js 18 shipped in the image.
+
 ## [v0.2.0] — 2026-11-05
 
 Durable ingestion, Cloud plans that match what is sold, two-factor login, and a licence change. Self-hosted instances keep unlimited events.
