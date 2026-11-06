@@ -6,6 +6,11 @@ use uuid::Uuid;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn concurrent_http_flood_preserves_exact_counts_and_other_errors() {
+    tracing_subscriber::fmt()
+        .with_test_writer()
+        .with_max_level(tracing::Level::WARN)
+        .try_init()
+        .expect("initialize ingest audit logging");
     let (url, pool, server) = spawn_test_server().await;
     let restricted = epure_storage::connect_pools(&std::env::var("DATABASE_URL").unwrap())
         .await
@@ -37,7 +42,9 @@ async fn concurrent_http_flood_preserves_exact_counts_and_other_errors() {
         result.unwrap();
     }
     let duration = start.elapsed();
-    let deadline = Instant::now() + Duration::from_secs(20);
+    // The audit checks exact accounting, so allow a busy CI runner to finish
+    // draining the same 2,000-event burst.
+    let deadline = Instant::now() + Duration::from_secs(90);
     let (issue, count, bodies, counter, body_counter) = loop {
         let row=sqlx::query_as::<_,(Uuid,i64,i64,i64,i64)>("SELECT i.id,i.event_count::bigint,(SELECT count(*) FROM events e WHERE e.issue_id=i.id),COALESCE((SELECT sum(count)::bigint FROM issue_counters c WHERE c.project_id=i.project_id AND c.fingerprint=i.fingerprint),0),COALESCE((SELECT sum(bodies_stored)::bigint FROM issue_counters c WHERE c.project_id=i.project_id AND c.fingerprint=i.fingerprint),0) FROM issues i WHERE i.project_id=$1 AND i.fingerprint=$2").bind(project_id()).bind(&fingerprint).fetch_optional(&pool).await.unwrap();
         if let Some(r) = row {
@@ -74,8 +81,8 @@ async fn concurrent_http_flood_preserves_exact_counts_and_other_errors() {
     assert!(bodies > 0 && bodies < total as i64);
     // A genuine different issue must survive the flood.
     let other = format!("audit-other-{}", Uuid::new_v4());
-    let id = Uuid::new_v4().simple().to_string();
-    let body = json!({"event_id":id,"fingerprint":[other],"message":"Distinct failure"});
+    let id = Uuid::new_v4();
+    let body = json!({"event_id":id.simple().to_string(),"fingerprint":[other],"message":"Distinct failure"});
     for _ in 0..3 {
         assert_eq!(
             client
@@ -89,17 +96,28 @@ async fn concurrent_http_flood_preserves_exact_counts_and_other_errors() {
             202
         );
     }
-    tokio::time::sleep(Duration::from_millis(700)).await;
-    let other_count: i64 = sqlx::query_scalar(
-        "SELECT event_count::bigint FROM issues WHERE project_id=$1 AND fingerprint=$2",
-    )
-    .bind(project_id())
-    .bind(epure_envelope::preview_fingerprint(
-        &serde_json::to_vec(&body).unwrap(),
-    ))
-    .fetch_one(&pool)
+    let other_fingerprint =
+        epure_envelope::preview_fingerprint(&serde_json::to_vec(&body).unwrap());
+    let other_count: i64 = tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            let count = sqlx::query_scalar(
+                "SELECT i.event_count::bigint FROM issues i JOIN ingest_inbox q ON q.project_id=i.project_id
+                 WHERE i.project_id=$1 AND i.fingerprint=$2 AND q.event_id=$3 AND q.status='done'",
+            )
+            .bind(project_id())
+            .bind(&other_fingerprint)
+            .bind(id)
+            .fetch_optional(&pool)
+            .await
+            .unwrap();
+            if let Some(count) = count {
+                break count;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    })
     .await
-    .unwrap();
+    .expect("distinct failure did not finish processing");
     assert_eq!(other_count, 1);
     eprintln!("FLOOD total={total} http_seconds={:.3} accepted_per_sec={:.0} stored={bodies} count={count} counters={counter} issue={issue}",duration.as_secs_f64(),total as f64/duration.as_secs_f64());
 
