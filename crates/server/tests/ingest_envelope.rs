@@ -524,3 +524,22 @@ async fn envelope_ingest_records_user_feedback_from_envelopes() {
 
     server.abort();
 }
+
+#[tokio::test]
+async fn unknown_numeric_project_id_is_not_found_not_a_server_error() {
+    let (base_url, _pool, server) = spawn_test_server().await;
+    let response = reqwest::Client::new()
+        .post(format!("{base_url}/api/999999999/envelope/"))
+        .header(
+            "X-Sentry-Auth",
+            "Sentry sentry_version=7, sentry_key=unknownkey00000000",
+        )
+        .body("{}")
+        .send()
+        .await
+        .expect("post envelope");
+    assert_eq!(response.status(), reqwest::StatusCode::NOT_FOUND);
+    let body: serde_json::Value = response.json().await.expect("json error");
+    assert_eq!(body["error"], "project_not_found");
+    server.abort();
+}

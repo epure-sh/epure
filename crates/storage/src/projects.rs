@@ -225,10 +225,13 @@ pub async fn project_id_for_dsn_segment(
     pool: &PgPool,
     dsn_project_id: i64,
 ) -> Result<Option<Uuid>, sqlx::Error> {
-    sqlx::query_scalar("SELECT ingest_lookup_project_id($1)")
+    // The function returns one row holding NULL when nothing matches; decode the
+    // value as optional so an unknown project is `None` (404), not a decode error (500).
+    let row: Option<Option<Uuid>> = sqlx::query_scalar("SELECT ingest_lookup_project_id($1)")
         .bind(dsn_project_id)
         .fetch_optional(pool)
-        .await
+        .await?;
+    Ok(row.flatten())
 }
 
 /// Plan tier for an org on the ingest connection (RLS via `ingest_set_org_context`).
