@@ -45,6 +45,7 @@ tracing-subscriber.workspace = true
 uuid.workspace = true
 sqlx.workspace = true
 urlencoding = "2"
+zip = { version = "9.4", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [dev-dependencies]
 epure-auth.workspace = true

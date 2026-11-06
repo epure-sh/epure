@@ -103,32 +103,52 @@ pub fn demangle_stack_frames(
     release: &str,
     resolve_artifact: &dyn Fn(&str) -> Option<PathBuf>,
 ) -> Vec<DemangledFrame> {
-    let mut sourcemaps: HashMap<String, Arc<SourceMap>> = HashMap::new();
+    let artifact_paths: Vec<_> = frames
+        .iter()
+        .map(|frame| {
+            let name = sourcemap_name(frame.get("filename")?.as_str()?)?;
+            resolve_artifact(&name)
+                .or_else(|| legacy_artifact_path(artifacts_dir, project_id, release, &name))
+        })
+        .collect();
+    demangle_resolved_stack_frames(frames, project_id, release, &artifact_paths)
+}
+
+/// Resolve JS/TS stack frames using the source map selected for each frame.
+pub fn demangle_resolved_stack_frames(
+    frames: &[Value],
+    project_id: &str,
+    release: &str,
+    artifact_paths: &[Option<PathBuf>],
+) -> Vec<DemangledFrame> {
+    let mut sourcemaps = HashMap::new();
 
     frames
         .iter()
-        .map(|frame| {
+        .enumerate()
+        .map(|(index, frame)| {
             demangle_frame(
                 frame,
-                artifacts_dir,
+                artifact_paths.get(index).and_then(Option::as_deref),
                 project_id,
                 release,
-                resolve_artifact,
                 &mut sourcemaps,
             )
         })
         .collect()
 }
 
-fn demangle_frame(
+fn demangle_frame<'a>(
     frame: &Value,
-    artifacts_dir: &Path,
+    path: Option<&'a Path>,
     project_id: &str,
     release: &str,
-    resolve_artifact: &dyn Fn(&str) -> Option<PathBuf>,
-    cache: &mut HashMap<String, Arc<SourceMap>>,
+    cache: &mut HashMap<&'a Path, Arc<SourceMap>>,
 ) -> DemangledFrame {
-    let filename = frame.get("filename").and_then(Value::as_str);
+    let filename = frame
+        .get("filename")
+        .and_then(Value::as_str)
+        .or_else(|| frame.get("abs_path").and_then(Value::as_str));
     let function = frame.get("function").and_then(Value::as_str);
     let lineno = frame.get("lineno").and_then(Value::as_u64);
     let colno = frame.get("colno").and_then(Value::as_u64);
@@ -151,25 +171,14 @@ fn demangle_frame(
         is_elided_wrapper: false,
     };
 
-    if !is_js_platform_frame(filename) {
-        return result;
-    }
-
-    let Some(filename) = filename else {
+    let Some(path) = path else {
         return result;
     };
 
-    let map_name = sourcemap_name(filename);
-    let sourcemap = if let Some(map) = cache.get(&map_name) {
+    let sourcemap = if let Some(map) = cache.get(path) {
         map.clone()
     } else {
-        let Some(path) = resolve_artifact(&map_name).or_else(|| {
-            default_artifact_path(artifacts_dir, project_id, release, &map_name)
-                .filter(|p| p.is_file())
-        }) else {
-            return result;
-        };
-        let Ok(metadata) = std::fs::metadata(&path) else {
+        let Ok(metadata) = std::fs::metadata(path) else {
             return result;
         };
         // Individual parse work is bounded as well as cache retention.
@@ -179,13 +188,13 @@ fn demangle_frame(
         let key = ArtifactCacheKey::Revision {
             project_id: project_id.to_owned(),
             release: release.to_owned(),
-            path: path.clone(),
+            path: path.to_path_buf(),
             len: metadata.len(),
             modified: metadata.modified().unwrap_or(std::time::UNIX_EPOCH),
         };
         let map = match SOURCEMAP_CACHE.get(&key) {
             Some(map) => map,
-            None => match load_sourcemap(&path) {
+            None => match load_sourcemap(path) {
                 Ok(map) => {
                     let map = Arc::new(map);
                     SOURCEMAP_CACHE.insert(key, map.clone());
@@ -194,7 +203,7 @@ fn demangle_frame(
                 Err(_) => return result,
             },
         };
-        cache.insert(map_name, map.clone());
+        cache.insert(path, map.clone());
         map
     };
 
@@ -234,47 +243,32 @@ fn demangle_frame(
     result
 }
 
-fn is_js_platform_frame(filename: Option<&str>) -> bool {
-    match filename {
-        Some(name) => {
-            let clean = name.split('?').next().unwrap_or(name);
-            clean.ends_with(".js")
-                || clean.ends_with(".ts")
-                || clean.ends_with(".jsx")
-                || clean.ends_with(".tsx")
-                || clean.ends_with(".mjs")
-                || clean.ends_with(".cjs")
-        }
-        None => false,
-    }
-}
-
-fn sourcemap_name(filename: &str) -> String {
+pub fn sourcemap_name(filename: &str) -> Option<String> {
     let clean = normalize_sourcemap_url(filename);
-    if clean.ends_with(".map") {
-        clean
-    } else {
-        format!("{clean}.map")
-    }
+    [".js", ".ts", ".jsx", ".tsx", ".mjs", ".cjs"]
+        .iter()
+        .any(|extension| clean.ends_with(extension))
+        .then(|| format!("{clean}.map"))
 }
 
-fn default_artifact_path(
+pub fn legacy_artifact_path(
     artifacts_dir: &Path,
     project_id: &str,
     release: &str,
     name: &str,
 ) -> Option<PathBuf> {
-    let path = artifacts_dir
-        .join(project_id)
-        .join(release)
-        .join(sanitize_filename(name));
-    Some(path)
-}
-
-fn sanitize_filename(name: &str) -> String {
-    name.trim_start_matches("~/")
+    if release.is_empty()
+        || release == "."
+        || release.contains("..")
+        || release.contains(['/', '\\'])
+    {
+        return None;
+    }
+    let name = name
+        .trim_start_matches("~/")
         .trim_start_matches('/')
-        .replace('/', "_")
+        .replace(['/', '\\'], "_");
+    Some(artifacts_dir.join(project_id).join(release).join(name))
 }
 
 pub fn load_sourcemap(path: &Path) -> Result<SourceMap, DemangleError> {
@@ -330,7 +324,6 @@ mod tests {
     use serde_json::json;
     use std::fs;
     use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::sync::Mutex;
 
     static TEMP_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -356,7 +349,6 @@ mod tests {
     #[test]
     fn demangles_frame_with_uploaded_sourcemap() {
         let (map_path, _dir) = write_fixture_sourcemap();
-        let map_path = Mutex::new(map_path);
         let frames = [json!({
             "filename": "app.min.js",
             "function": "n",
@@ -370,13 +362,7 @@ mod tests {
             Path::new("/tmp/unused"),
             "project",
             "1.0.0",
-            &|name| {
-                if name == "app.min.js.map" {
-                    Some(map_path.lock().expect("lock").clone())
-                } else {
-                    None
-                }
-            },
+            &|name| (name == "app.min.js.map").then(|| map_path.clone()),
         );
 
         assert_eq!(demangled.len(), 1);

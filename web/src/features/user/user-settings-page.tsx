@@ -1,9 +1,8 @@
-import { Key, Laptop, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { Laptop, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 import { cn } from "../../lib/cn";
-import { userSettingsPath } from "../../lib/paths";
+import { userSettingsPath, workspaceSettingsPath } from "../../lib/paths";
 import { RouteErrorBoundary } from "@/ui/block";
-import { AgentTokensTab } from "../org/account/agent-tokens-tab";
 import { ConnectedAppsTab } from "../org/account/connected-apps-tab";
 import { GeneralTab } from "../org/account/general-tab";
 import { SecurityTab } from "../org/account/security-tab";
@@ -23,13 +22,6 @@ const userTabs = [
     description: "Password, two-factor & sessions",
     icon: ShieldCheck,
     path: userSettingsPath("security"),
-  },
-  {
-    id: "agent",
-    label: "Personal Access Tokens",
-    description: "CLI & personal agent API keys",
-    icon: Key,
-    path: userSettingsPath("agent"),
   },
   {
     id: "connected-apps",
@@ -98,7 +90,7 @@ export function UserSettingsPage() {
               <Routes>
                 <Route index element={<GeneralTab settings={settings} />} />
                 <Route path="security" element={<SecurityTab settings={settings} />} />
-                <Route path="agent" element={<AgentTokensTab />} />
+                <Route path="agent" element={<Navigate to={workspaceSettingsPath("agent")} replace />} />
                 <Route path="connected-apps" element={<ConnectedAppsTab />} />
                 <Route path="*" element={<Navigate to={userSettingsPath()} replace />} />
               </Routes>

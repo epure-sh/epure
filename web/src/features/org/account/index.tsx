@@ -1,23 +1,21 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { workspaceSettingsPath } from "../../../lib/paths";
+import { userSettingsPath, workspaceSettingsPath } from "../../../lib/paths";
 import { PageShell, RouteErrorBoundary } from "@/ui/block";
+
 import { AgentTokensTab } from "./agent-tokens-tab";
-import { ConnectedAppsTab } from "./connected-apps-tab";
-import { GeneralTab } from "./general-tab";
-import { SecurityTab } from "./security-tab";
-import { useAccountSettings } from "./use-account-settings";
+import { useAppContext } from "@/shell/app-context";
+import { WorkspaceSettings } from "../../organizations/workspace-directory";
 
 export function AccountSettingsPage() {
-  const settings = useAccountSettings();
-
+  const { user } = useAppContext();
   return (
     <PageShell density="standard">
       <RouteErrorBoundary title="Workspace settings crashed" backHref="/settings">
         <Routes>
-          <Route index element={<GeneralTab settings={settings} />} />
-          <Route path="security" element={<SecurityTab settings={settings} />} />
-          <Route path="agent" element={<AgentTokensTab />} />
-          <Route path="connected-apps" element={<ConnectedAppsTab />} />
+          <Route index element={<WorkspaceSettings />} />
+          <Route path="security" element={<Navigate to={userSettingsPath("security")} replace />} />
+          <Route path="agent" element={<AgentTokensTab key={user?.org_id} />} />
+          <Route path="connected-apps" element={<Navigate to={userSettingsPath("connected-apps")} replace />} />
           {/* Operations has no backups API yet — do not toast fake S3/drill success. */}
           <Route path="operations" element={<Navigate to={workspaceSettingsPath()} replace />} />
           <Route path="team" element={<Navigate to="/team" replace />} />

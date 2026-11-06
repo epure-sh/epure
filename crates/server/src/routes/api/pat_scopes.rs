@@ -31,6 +31,12 @@ pub fn pat_missing_scopes(method: &Method, path: &str, scopes: &[String]) -> Opt
         None
     };
 
+    if path.starts_with("/api/0/organizations/") || path.starts_with("/api/0/projects/") {
+        if agent_tokens::has_scope(scopes, agent_tokens::SCOPE_WRITE_SOURCEMAPS) {
+            return None;
+        }
+        return needs_admin();
+    }
     if method == Method::GET || method == Method::HEAD {
         if path.starts_with("/agent-tokens") || path.starts_with("/invitations") {
             return needs_admin();

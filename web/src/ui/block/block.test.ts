@@ -379,8 +379,8 @@ describe("Group 2: Navigation & Shell Blocks", () => {
     assert.match(html, /data-slot="settings-nav"/);
     assert.match(html, /data-layout="horizontal"/);
     assert.match(html, /General/);
-    assert.match(html, /Security/);
-    assert.match(html, /Agent tokens/);
+    assert.doesNotMatch(html, /Security/);
+    assert.match(html, /Workspace tokens/);
   });
 
   it("verifies isSettingsTabActive and path matching helpers", () => {

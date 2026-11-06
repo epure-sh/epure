@@ -33,7 +33,7 @@ pub enum QuotaDecision {
 #[derive(Clone)]
 pub struct IngestPlanLimitTracker {
     monthly_counts: Arc<DashMap<Uuid, (u64, i64, Instant)>>,
-    entitlements: Arc<DashMap<Uuid, (Entitlement, Instant)>>,
+    entitlements: Arc<DashMap<Uuid, (Entitlement, Uuid, Instant)>>,
 }
 
 impl IngestPlanLimitTracker {
@@ -61,17 +61,27 @@ impl IngestPlanLimitTracker {
         pool: &PgPool,
         org_id: Uuid,
     ) -> Result<Entitlement, epure_storage::StorageError> {
+        Ok(self.billing_access(pool, org_id).await?.0)
+    }
+
+    async fn billing_access(
+        &self,
+        pool: &PgPool,
+        org_id: Uuid,
+    ) -> Result<(Entitlement, Uuid), epure_storage::StorageError> {
         if let Some(entry) = self.entitlements.get(&org_id) {
-            if entry.1.elapsed().as_secs() < ENTITLEMENT_CACHE_TTL_SECS {
-                return Ok(entry.0.clone());
+            if entry.2.elapsed().as_secs() < ENTITLEMENT_CACHE_TTL_SECS {
+                return Ok((entry.0.clone(), entry.1));
             }
         }
-        let entitlement = billing::org_entitlement(pool, org_id).await?;
+        let billing = billing::org_billing(pool, org_id).await?;
+        let quota_org = billing.billing_workspace_id.unwrap_or(org_id);
+        let entitlement = billing.entitlement(Utc::now());
         if self.entitlements.len() < CACHE_MAX_ORGS || self.entitlements.contains_key(&org_id) {
             self.entitlements
-                .insert(org_id, (entitlement.clone(), Instant::now()));
+                .insert(org_id, (entitlement.clone(), quota_org, Instant::now()));
         }
-        Ok(entitlement)
+        Ok((entitlement, quota_org))
     }
 
     async fn monthly_stored_count(
@@ -103,7 +113,7 @@ impl IngestPlanLimitTracker {
         pool: &PgPool,
         org_id: Uuid,
     ) -> Result<QuotaDecision, epure_storage::StorageError> {
-        let entitlement = self.entitlement(pool, org_id).await?;
+        let (entitlement, quota_org) = self.billing_access(pool, org_id).await?;
         if !entitlement.can_ingest() {
             return Ok(QuotaDecision::Inactive(
                 entitlement.reason.unwrap_or(InactiveReason::NoPlan),
@@ -112,7 +122,7 @@ impl IngestPlanLimitTracker {
         let Some(limit) = entitlement.monthly_events() else {
             return Ok(QuotaDecision::Allow);
         };
-        let count = self.monthly_stored_count(pool, org_id).await?.max(0) as u64;
+        let count = self.monthly_stored_count(pool, quota_org).await?.max(0) as u64;
         Ok(quota_decision(count, limit))
     }
 

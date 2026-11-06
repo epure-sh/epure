@@ -5,6 +5,7 @@ use uuid::Uuid;
 pub const SCOPE_READ_AGENT: &str = "read:agent";
 pub const SCOPE_WRITE_TRIAGE: &str = "write:triage";
 pub const SCOPE_WRITE_ADMIN: &str = "write:admin";
+pub const SCOPE_WRITE_SOURCEMAPS: &str = "write:sourcemaps";
 
 pub const TOKEN_PREFIX: &str = "epure_pat_";
 pub const TOKEN_PREFIX_DISPLAY_LEN: usize = 8;
@@ -53,6 +54,9 @@ pub fn parse_token_prefix(full_token: &str) -> Option<String> {
 }
 
 pub fn scopes_valid(scopes: &[String]) -> bool {
+    if scopes.len() == 1 && scopes[0] == SCOPE_WRITE_SOURCEMAPS {
+        return true;
+    }
     !scopes.is_empty()
         && scopes.iter().all(|scope| {
             scope == SCOPE_READ_AGENT || scope == SCOPE_WRITE_TRIAGE || scope == SCOPE_WRITE_ADMIN

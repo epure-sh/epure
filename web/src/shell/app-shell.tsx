@@ -4,6 +4,7 @@ import { AlertsPage } from "../features/alerts";
 import { IssuesPage } from "../features/issues";
 import { NotFoundPage } from "../features/not-found";
 import { AccountSettingsPage } from "../features/org/account";
+import { WorkspaceDirectory } from "../features/organizations/workspace-directory";
 import { OrgHomePage } from "../features/org/home";
 import { BillingPage } from "../features/org/billing";
 import { OrgTeamPage } from "../features/org/team";
@@ -15,7 +16,7 @@ import { MonitorsPage } from "../features/monitors";
 import { DashboardPage } from "../features/monitoring";
 import { SettingsPage } from "../features/settings";
 import { UserSettingsPage } from "../features/user/user-settings-page";
-import { projectPath } from "../lib/paths";
+import { organizationsPath, projectPath } from "../lib/paths";
 
 import { RouteErrorBoundary } from "@/ui/block";
 import { useAppContext } from "./app-context";
@@ -27,6 +28,15 @@ import { TopStrip } from "./top-strip";
 import { PlanNotice } from "./plan-notice";
 import { AppSidebar } from "./app-sidebar";
 import { Skeleton } from "@/ui/primitives";
+
+function AccountHome() {
+  const { scaleBillingWorkspaceId, organizations, organizationsLoading } = useAppContext();
+  if (organizationsLoading) return <Skeleton />;
+  if (scaleBillingWorkspaceId || organizations.length > 1) {
+    return <Navigate to={organizationsPath()} replace />;
+  }
+  return <OrgHomePage />;
+}
 
 function BoundedRoute({
   children,
@@ -131,8 +141,10 @@ export function AppShell() {
         <main className="epure-app-shell-main flex min-h-0 flex-1 flex-col overflow-hidden bg-bg-subtle">
               <Routes>
                 {/* Global scope */}
-                <Route path="/organizations/*" element={<Navigate to="/" replace />} />
-                <Route path="/orgs/*" element={<Navigate to="/" replace />} />
+                <Route path="/organizations" element={
+                  <BoundedRoute title="Workspace directory unavailable"><WorkspaceDirectory /></BoundedRoute>
+                } />
+                <Route path="/orgs/*" element={<Navigate to={organizationsPath()} replace />} />
                 <Route
                   path="/user/settings/*"
                   element={
@@ -148,7 +160,7 @@ export function AppShell() {
                   path="/"
                   element={
                     <BoundedRoute title="Workspace home crashed">
-                      <OrgHomePage />
+                      <AccountHome />
                     </BoundedRoute>
                   }
                 />
@@ -178,7 +190,7 @@ export function AppShell() {
                     </BoundedRoute>
                   }
                 />
-                <Route path="/account" element={<Navigate to="/settings" replace />} />
+                <Route path="/account" element={<Navigate to="/user/settings" replace />} />
                 <Route
                   path="/usage"
                   element={
@@ -341,7 +353,9 @@ export function AppShell() {
                     </BoundedRoute>
                   }
                 />
-                <Route path="/projects" element={<Navigate to="/" replace />} />
+                <Route path="/projects" element={
+                  <BoundedRoute title="Workspace projects unavailable"><OrgHomePage /></BoundedRoute>
+                } />
 
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>

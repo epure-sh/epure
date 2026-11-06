@@ -81,13 +81,7 @@ export const PROJECT_SETTINGS_GROUPS = [
 /** Production workspace sidebar tabs. Operations is omitted until a backups API exists. */
 export const WORKSPACE_SETTINGS_ITEMS: WorkspaceSettingsNavItem[] = [
   { id: "general", label: "General", path: workspaceSettingsPath() },
-  { id: "security", label: "Security", path: workspaceSettingsPath("security") },
-  { id: "agent", label: "Agent tokens", path: workspaceSettingsPath("agent") },
-  {
-    id: "connected-apps",
-    label: "Connected apps",
-    path: workspaceSettingsPath("connected-apps"),
-  },
+  { id: "agent", label: "Workspace tokens", path: workspaceSettingsPath("agent") },
 ];
 
 // ---------------------------------------------------------------------------

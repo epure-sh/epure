@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -34,6 +35,9 @@ interface AppContextValue {
   user: MeResponse | null;
   userLoading: boolean;
   organizations: UserOrganization[];
+  scaleBillingWorkspaceId: string | null;
+  organizationsError: boolean;
+  organizationsLoading: boolean;
   currentOrg: UserOrganization | null;
   refreshOrganizations: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -70,12 +74,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MeResponse | null>(null);
   const [userLoading, setUserLoading] = useState(true);
   const [organizations, setOrganizations] = useState<UserOrganization[]>([]);
+  const [scaleBillingWorkspaceId, setScaleBillingWorkspaceId] = useState<string | null>(null);
+  const [organizationsError, setOrganizationsError] = useState(false);
+  const [organizationsLoading, setOrganizationsLoading] = useState(true);
+  const workspaceGeneration = useRef(0);
 
   const refreshProjects = useCallback(async () => {
+    const generation = workspaceGeneration.current;
     setProjectsLoading(true);
     setProjectsError(null);
     try {
       const rows = await fetchProjects();
+      if (generation !== workspaceGeneration.current) return;
       const safeRows = Array.isArray(rows) ? rows : [];
       setProjects(safeRows);
       setProjectIdState((current) => {
@@ -102,57 +112,85 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return next;
       });
     } catch {
-      setProjects([]);
-      setProjectsError("Failed to load projects");
+      if (generation === workspaceGeneration.current) {
+        setProjects([]);
+        setProjectsError("Failed to load projects");
+      }
     } finally {
-      setProjectsLoading(false);
+      if (generation === workspaceGeneration.current) setProjectsLoading(false);
     }
   }, []);
 
   const refreshOrganizations = useCallback(async () => {
+    const generation = workspaceGeneration.current;
     try {
-      const list = await fetchUserOrganizations();
-      setOrganizations(Array.isArray(list) ? list : []);
+      const directory = await fetchUserOrganizations();
+      if (generation !== workspaceGeneration.current) return;
+      setOrganizations(Array.isArray(directory.organizations) ? directory.organizations : []);
+      setScaleBillingWorkspaceId(directory.scale_billing_workspace_id ?? null);
+      setOrganizationsError(false);
     } catch {
-      setOrganizations([]);
+      if (generation === workspaceGeneration.current) {
+        setScaleBillingWorkspaceId(null);
+        setOrganizationsError(true);
+      }
+    } finally {
+      if (generation === workspaceGeneration.current) setOrganizationsLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    const generation = workspaceGeneration.current;
     setUserLoading(true);
     void fetchMe()
-      .then(setUser)
-      .catch(() => setUser(null))
-      .finally(() => setUserLoading(false));
+      .then((me) => {
+        if (generation === workspaceGeneration.current) setUser(me);
+      })
+      .catch(() => {
+        if (generation === workspaceGeneration.current) setUser(null);
+      })
+      .finally(() => {
+        if (generation === workspaceGeneration.current) setUserLoading(false);
+      });
     void refreshOrganizations();
     void refreshProjects();
   }, [refreshProjects, refreshOrganizations]);
 
   const refreshUser = useCallback(async () => {
-    setUser(await fetchMe());
+    const generation = workspaceGeneration.current;
+    const me = await fetchMe();
+    if (generation !== workspaceGeneration.current) return;
+    setUser(me);
     await refreshOrganizations();
   }, [refreshOrganizations]);
 
   const switchOrg = useCallback(
     async (orgId: string) => {
       try {
-        await switchOrganization(orgId);
+        const switched = await switchOrganization(orgId);
+        workspaceGeneration.current += 1;
+        setUser((current) => current ? { ...current, org_id: switched.org_id, org_name: switched.org_name, role: switched.role } : current);
+        setProjects([]);
+        setProjectIdState(null);
+        setProjectsLoading(true);
         setUserLoading(true);
-        const me = await fetchMe();
-        setUser(me);
-        await refreshOrganizations();
-        await refreshProjects();
+        // The session switched successfully. Keep that context even if an
+        // optional refresh fails, and clear the old workspace's projects.
+        await Promise.all([
+          refreshUser().catch(() => refreshOrganizations()),
+          refreshProjects(),
+        ]);
       } finally {
         setUserLoading(false);
       }
     },
-    [refreshProjects, refreshOrganizations],
+    [refreshProjects, refreshOrganizations, refreshUser],
   );
 
   const currentOrg = useMemo(() => {
     const safeOrgs = Array.isArray(organizations) ? organizations : [];
-    return safeOrgs.find((o) => o && o.is_current) ?? safeOrgs[0] ?? null;
-  }, [organizations]);
+    return safeOrgs.find((o) => o?.id === user?.org_id) ?? null;
+  }, [organizations, user?.org_id]);
 
   const setEnvironment = useCallback((env: Environment) => {
     setEnvironmentState(env);
@@ -198,6 +236,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       user,
       userLoading,
       organizations,
+      scaleBillingWorkspaceId,
+      organizationsError,
+      organizationsLoading,
       currentOrg,
       refreshOrganizations,
       refreshUser,
@@ -216,6 +257,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       user,
       userLoading,
       organizations,
+      scaleBillingWorkspaceId,
+      organizationsError,
+      organizationsLoading,
       currentOrg,
       refreshOrganizations,
       refreshUser,
@@ -239,6 +283,9 @@ const DEFAULT_APP_CONTEXT: AppContextValue = {
   user: null,
   userLoading: false,
   organizations: [],
+  scaleBillingWorkspaceId: null,
+  organizationsError: false,
+  organizationsLoading: false,
   currentOrg: null,
   refreshOrganizations: async () => {},
   refreshUser: async () => {},

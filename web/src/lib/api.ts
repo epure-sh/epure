@@ -751,6 +751,7 @@ export interface UserOrganization {
   plan_tier: string;
   member_count: number;
   is_current: boolean;
+  billing_workspace_id?: string | null;
 }
 
 export interface ProjectEmailAlertSettings {
@@ -760,9 +761,20 @@ export interface ProjectEmailAlertSettings {
   email_alert_on_spike: boolean;
 }
 
-export async function fetchUserOrganizations(): Promise<UserOrganization[]> {
-  const res = await apiFetch<{ organizations: UserOrganization[] }>("/api/v1/auth/organizations");
-  return res.organizations;
+export function fetchUserOrganizations() {
+  return apiFetch<{ organizations: UserOrganization[]; scale_billing_workspace_id?: string | null }>("/api/v1/auth/organizations");
+}
+
+export function createWorkspace(name: string, billingWorkspaceId: string) {
+  return apiFetch<{ id: string }>("/api/v1/auth/organizations", {
+    method: "POST", body: JSON.stringify({ name, billing_workspace_id: billingWorkspaceId }),
+  });
+}
+
+export function updateWorkspace(id: string, name: string, method: "PATCH" | "DELETE") {
+  return apiFetch<void>("/api/v1/auth/organizations/" + encodeURIComponent(id), {
+    method, body: JSON.stringify({ name }),
+  });
 }
 
 export async function switchOrganization(orgId: string): Promise<{
@@ -1501,7 +1513,21 @@ export async function approveDeviceCode(userCode: string, orgId: string): Promis
 }
 
 export interface BillingStatus {
-  subscription?: { product_id: string | null; current_period_end: string; cancel_at_period_end: boolean; pending_update: { product_id: string; applies_at: string } | null; last_synced_at: string | null } | null;
+  org_id?: string;
+  billing_workspace_id?: string | null;
+  linked_workspace_count?: number;
+  plan_action?: "checkout" | "change_plan" | "manage" | "included";
+  has_billing_customer?: boolean;
+  checkout_sync?: "pending" | "complete" | "closed";
+  plan_change_pending?: boolean;
+  subscription?: {
+    product_id: string | null;
+    current_period_end: string;
+    cancel_at_period_end: boolean;
+    pause_at_period_end?: boolean;
+    pending_update: { product_id: string | null; applies_at: string; plan_tier?: "pro" | "scale" | null } | null;
+    last_synced_at: string | null;
+  } | null;
   sync?: { last_synced_at: string | null; attempts: number; last_error: string | null; drift_count: number } | null;
   plan_tier: string;
   project_count: number;
@@ -1537,8 +1563,20 @@ export async function fetchBillingStatus(): Promise<BillingStatus | null> {
   }
 }
 
-export async function changeBillingPlan(planTier: string): Promise<BillingStatus> {
-  return apiFetch<BillingStatus>("/api/v1/billing/change-plan", { method: "POST", body: JSON.stringify({ plan_tier: planTier }) });
+export interface ChangeBillingPlanParams {
+  plan_tier: "pro" | "scale";
+  workspace_id: string;
+  subscription_id: string;
+  current_plan_tier: "pro" | "scale";
+  keep_current?: boolean;
+  pending_product_id?: string;
+}
+
+export async function changeBillingPlan(params: ChangeBillingPlanParams): Promise<BillingStatus> {
+  return apiFetch<BillingStatus>("/api/v1/billing/change-plan", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
 }
 
 export async function syncBilling(): Promise<BillingStatus> {
@@ -1547,6 +1585,7 @@ export async function syncBilling(): Promise<BillingStatus> {
 
 export interface CreateCheckoutParams {
   plan_tier: string;
+  workspace_id?: string;
   interval?: "monthly" | "annual";
   success_url?: string;
   cancel_url?: string;
@@ -1566,17 +1605,17 @@ export async function createCheckoutSession(
   });
 }
 
-export async function createBillingPortalSession(returnUrl?: string): Promise<{ url: string }> {
+export async function createBillingPortalSession(returnUrl?: string, workspaceId?: string): Promise<{ url: string }> {
   return await apiFetch<{ url: string }>("/api/v1/billing/portal", {
     method: "POST",
-    body: JSON.stringify({ return_url: returnUrl }),
+    body: JSON.stringify({ return_url: returnUrl, workspace_id: workspaceId }),
   });
 }
 
-export async function syncCheckout(checkoutId: string): Promise<BillingStatus> {
+export async function syncCheckout(checkoutId: string, workspaceId?: string): Promise<BillingStatus> {
   return await apiFetch<BillingStatus>("/api/v1/billing/sync-checkout", {
     method: "POST",
-    body: JSON.stringify({ checkout_id: checkoutId }),
+    body: JSON.stringify({ checkout_id: checkoutId, workspace_id: workspaceId }),
   });
 }
 

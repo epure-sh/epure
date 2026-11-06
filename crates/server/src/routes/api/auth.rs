@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Redirect, Response},
     routing::{get, post},
@@ -41,7 +41,14 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/magic-link", post(request_magic_link))
         .route("/magic-link/verify", get(verify_magic_link_handler))
         .route("/me", get(current_session))
-        .route("/organizations", get(list_user_organizations))
+        .route(
+            "/organizations",
+            get(list_user_organizations).post(create_workspace),
+        )
+        .route(
+            "/organizations/{id}",
+            axum::routing::patch(rename_workspace).delete(delete_workspace),
+        )
         .route("/switch-org", post(switch_organization))
         .route("/profile", axum::routing::patch(update_profile))
         .route("/password", axum::routing::patch(change_password))
@@ -104,11 +111,13 @@ struct UserOrganizationItem {
     plan_tier: String,
     member_count: i64,
     is_current: bool,
+    billing_workspace_id: Option<uuid::Uuid>,
 }
 
 #[derive(Serialize)]
 struct UserOrganizationsResponse {
     organizations: Vec<UserOrganizationItem>,
+    scale_billing_workspace_id: Option<uuid::Uuid>,
 }
 
 #[derive(Deserialize)]
@@ -752,8 +761,8 @@ async fn list_user_organizations(
 ) -> Result<Json<UserOrganizationsResponse>, StatusCode> {
     let dashboard = fresh_session(&state, &session).await?;
 
-    let rows = sqlx::query_as::<_, (uuid::Uuid, String, String, String, i64, chrono::DateTime<chrono::Utc>)>(
-        "SELECT org_id, name, role, plan_tier, member_count, created_at FROM auth_list_user_organizations($1)",
+    let rows = sqlx::query_as::<_, (uuid::Uuid, String, String, String, i64, Option<uuid::Uuid>)>(
+        "SELECT org_id, name, role, plan_tier, member_count, NULLIF(ingest_billing_workspace(org_id),org_id) FROM auth_list_user_organizations($1)",
     )
     .bind(dashboard.user_id)
     .fetch_all(&state.pools.app)
@@ -766,20 +775,118 @@ async fn list_user_organizations(
     let items = rows
         .into_iter()
         .map(
-            |(id, name, role, plan_tier, member_count, _)| UserOrganizationItem {
-                is_current: id == dashboard.org_id,
-                id,
-                name,
-                role,
-                plan_tier,
-                member_count,
+            |(id, name, role, plan_tier, member_count, billing_workspace_id)| {
+                UserOrganizationItem {
+                    is_current: id == dashboard.org_id,
+                    id,
+                    name,
+                    role,
+                    plan_tier,
+                    member_count,
+                    billing_workspace_id,
+                }
             },
         )
         .collect();
 
+    let scale_billing_workspace_id = if epure_core::entitlement::is_cloud() {
+        sqlx::query_scalar("SELECT auth_scale_billing_workspace($1,$2)")
+            .bind(dashboard.user_id)
+            .bind(dashboard.org_id)
+            .fetch_one(&state.pools.app)
+            .await
+            .map_err(workspace_db_error)?
+    } else {
+        None
+    };
     Ok(Json(UserOrganizationsResponse {
         organizations: items,
+        scale_billing_workspace_id,
     }))
+}
+
+#[derive(Deserialize)]
+struct WorkspaceName {
+    name: String,
+    billing_workspace_id: Option<uuid::Uuid>,
+}
+
+fn workspace_db_error(error: sqlx::Error) -> StatusCode {
+    tracing::error!(%error, "workspace operation failed");
+    StatusCode::INTERNAL_SERVER_ERROR
+}
+
+fn validated_workspace_name(name: &str) -> Result<&str, StatusCode> {
+    let name = name.trim();
+    if name.is_empty() || name.chars().count() > 64 || name.chars().any(char::is_control) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    Ok(name)
+}
+
+async fn create_workspace(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Json(body): Json<WorkspaceName>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let dashboard = fresh_session(&state, &session).await?;
+    if !epure_core::entitlement::is_cloud() {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    let name = validated_workspace_name(&body.name)?;
+    let billing_workspace = body.billing_workspace_id.ok_or(StatusCode::BAD_REQUEST)?;
+    let id: Option<uuid::Uuid> = sqlx::query_scalar("SELECT auth_create_workspace($1,$2,$3)")
+        .bind(dashboard.user_id)
+        .bind(billing_workspace)
+        .bind(name)
+        .fetch_one(&state.pools.app)
+        .await
+        .map_err(workspace_db_error)?;
+    let id = id.ok_or(StatusCode::FORBIDDEN)?;
+    Ok((StatusCode::CREATED, Json(serde_json::json!({"id":id}))))
+}
+
+async fn rename_workspace(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Path(id): Path<uuid::Uuid>,
+    Json(body): Json<WorkspaceName>,
+) -> Result<StatusCode, StatusCode> {
+    let dashboard = fresh_session(&state, &session).await?;
+    let name = validated_workspace_name(&body.name)?;
+    let renamed: bool = sqlx::query_scalar("SELECT auth_rename_workspace($1,$2,$3)")
+        .bind(dashboard.user_id)
+        .bind(id)
+        .bind(name)
+        .fetch_one(&state.pools.app)
+        .await
+        .map_err(workspace_db_error)?;
+    if !renamed {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn delete_workspace(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Path(id): Path<uuid::Uuid>,
+    Json(body): Json<WorkspaceName>,
+) -> Result<StatusCode, StatusCode> {
+    let dashboard = fresh_session(&state, &session).await?;
+    let outcome: String = sqlx::query_scalar("SELECT auth_delete_empty_workspace($1,$2,$3,$4)")
+        .bind(dashboard.user_id)
+        .bind(dashboard.org_id)
+        .bind(id)
+        .bind(body.name)
+        .fetch_one(&state.pools.app)
+        .await
+        .map_err(workspace_db_error)?;
+    match outcome.as_str() {
+        "deleted" => Ok(StatusCode::NO_CONTENT),
+        "forbidden" => Err(StatusCode::FORBIDDEN),
+        _ => Err(StatusCode::CONFLICT),
+    }
 }
 
 async fn switch_organization(

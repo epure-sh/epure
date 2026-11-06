@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct OrgBilling {
+    pub billing_workspace_id: Option<Uuid>,
     pub plan_tier: String,
     pub subscription_status: String,
     pub trial_ends_at: Option<DateTime<Utc>>,
@@ -31,6 +32,7 @@ impl OrgBilling {
 impl Default for OrgBilling {
     fn default() -> Self {
         Self {
+            billing_workspace_id: None,
             plan_tier: "oss".into(),
             subscription_status: "none".into(),
             trial_ends_at: None,
@@ -42,7 +44,8 @@ impl Default for OrgBilling {
 /// Billing columns for an org. Works from both the ingest and app pools.
 pub async fn org_billing(pool: &PgPool, org_id: Uuid) -> Result<OrgBilling, sqlx::Error> {
     let row = sqlx::query_as::<_, OrgBilling>(
-        "SELECT plan_tier, subscription_status, trial_ends_at, canary_expires_at FROM ingest_org_billing($1)",
+        "SELECT NULLIF(ingest_billing_workspace($1),$1) AS billing_workspace_id,
+            plan_tier, subscription_status, trial_ends_at, canary_expires_at FROM ingest_org_billing($1)",
     )
     .bind(org_id)
     .fetch_optional(pool)

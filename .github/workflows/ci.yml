@@ -1,4 +1,4 @@
-# PR and main checks. Three parallel jobs: format (fast fail), web, Rust against Postgres 16.
+# PR and main checks. Rust analysis and PostgreSQL tests run in parallel.
 name: CI
 
 on:
@@ -67,13 +67,16 @@ jobs:
           node packages/epure-cli/bin/epure-cli.js --help
 
   rust:
-    # Keep this name: branch protection on main requires the "cargo test" check.
-    name: cargo test
+    name: ${{ matrix.task == 'test' && 'PostgreSQL tests' || 'Clippy and security audit' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [lint, test]
     services:
       postgres:
-        image: postgres:16
+        image: ${{ matrix.task == 'test' && 'postgres:16' || '' }}
         env:
           POSTGRES_USER: epure
           POSTGRES_PASSWORD: epure
@@ -98,15 +101,16 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
+          components: ${{ matrix.task == 'lint' && 'clippy' || '' }}
 
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: ci
+          shared-key: ${{ matrix.task == 'test' && 'ci' || 'ci-lint' }}
           # Only main writes the cache, so PR and dependabot runs never evict it.
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - uses: taiki-e/install-action@v2
+        if: matrix.task == 'lint'
         with:
           tool: cargo-audit
 
@@ -116,11 +120,29 @@ jobs:
         run: mkdir -p web/dist && printf '<!doctype html><title>Epure</title>\n' > web/dist/index.html
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        if: matrix.task == 'lint'
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
       - name: Security audit
+        if: matrix.task == 'lint'
         run: cargo audit
 
       - name: Tests
+        if: matrix.task == 'test'
         # Serial: tests share one Postgres and the dev org.
-        run: cargo test --workspace -- --test-threads=1
+        run: cargo test --locked --workspace -- --test-threads=1
+
+  gate:
+    # Branch protection on main requires this check name.
+    name: cargo test
+    needs: [fmt, web, rust]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every check
+        env:
+          FORMAT_RESULT: ${{ needs.fmt.result }}
+          WEB_RESULT: ${{ needs.web.result }}
+          RUST_RESULT: ${{ needs.rust.result }}
+        run: test "$FORMAT_RESULT/$WEB_RESULT/$RUST_RESULT" = success/success/success

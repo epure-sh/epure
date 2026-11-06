@@ -51,7 +51,8 @@ function getPageName(pathname: string): string {
   if (pathname.includes("/team")) return "Team";
   if (pathname.includes("/usage")) return "Usage";
   if (pathname.includes("/billing")) return "Billing";
-  if (pathname === "/") return "Projects";
+  if (pathname === "/organizations") return "Workspaces";
+  if (pathname === "/" || pathname === "/projects") return "Projects";
   if (
     pathname.includes("/dashboard") ||
     pathname.includes("/monitoring") ||
@@ -178,7 +179,7 @@ export function TopStrip({ onOpenMobileSidebar }: TopStripProps = {}) {
             <>
               <div className="flex h-7 items-center gap-1.5 px-2 py-1 text-xs font-semibold text-fg-primary">
                 <Badge variant="accent" size="compact" className="font-mono uppercase text-[9px]">
-                  Global
+                  Account
                 </Badge>
               </div>
               <span className="text-xs text-fg-muted" aria-hidden>

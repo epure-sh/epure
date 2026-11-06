@@ -11,8 +11,8 @@ import {
 import { extractInviteToken } from "./invite-token";
 
 describe("contextual navigation hierarchy & global routes", () => {
-  it("determines global navigation context for user settings only", () => {
-    assert.equal(getNavigationContext(organizationsPath()), "organization");
+  it("determines global navigation context for workspaces and user settings", () => {
+    assert.equal(getNavigationContext(organizationsPath()), "global");
     assert.equal(getNavigationContext(userSettingsPath()), "global");
     assert.equal(getNavigationContext("/user/settings"), "global");
     assert.equal(getNavigationContext("/user/settings/security"), "global");
@@ -41,7 +41,7 @@ describe("contextual navigation hierarchy & global routes", () => {
   });
 
   it("correctly identifies global routes vs workspace and project routes", () => {
-    assert.equal(isGlobalRoute("/organizations"), false);
+    assert.equal(isGlobalRoute("/organizations"), true);
     assert.equal(isGlobalRoute("/orgs"), false);
     assert.equal(isGlobalRoute("/user/settings"), true);
     assert.equal(isGlobalRoute("/user"), true);
