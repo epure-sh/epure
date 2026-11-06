@@ -1,5 +1,7 @@
 use chrono::{DateTime, Timelike, Utc};
-use epure_demangle::demangle_stack_frames;
+use epure_demangle::sourcemap::{
+    demangle_resolved_stack_frames, legacy_artifact_path, sourcemap_name,
+};
 use epure_envelope::{
     apply_privacy_policy, breadcrumbs_to_json, compute_canonical_grouping, culprit_from_event,
     decompress_store_payload, event_occurred_at, extract_breadcrumbs, hash_to_i64, is_unhandled,
@@ -511,9 +513,27 @@ async fn demangle_event_frames(
         return Ok(raw_stack_frames(event));
     }
 
-    let Some(release) = event.get("release").and_then(Value::as_str) else {
+    let release = event
+        .get("release")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty());
+    let debug_images: HashMap<_, _> = event
+        .pointer("/debug_meta/images")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|image| {
+            if image.get("type").and_then(Value::as_str) != Some("sourcemap") {
+                return None;
+            }
+            let code_file = image.get("code_file")?.as_str()?;
+            let debug_id = Uuid::parse_str(image.get("debug_id")?.as_str()?).ok()?;
+            Some((code_file, debug_id.to_string()))
+        })
+        .collect();
+    if release.is_none() && debug_images.is_empty() {
         return Ok(raw_stack_frames(event));
-    };
+    }
 
     let raw_frames = exception_frames(event);
     if raw_frames.is_empty() {
@@ -521,36 +541,46 @@ async fn demangle_event_frames(
     }
 
     let project_id_str = project_id.to_string();
-    let mut artifact_paths = HashMap::new();
+    let mut resolved = HashMap::<_, Option<PathBuf>>::new();
+    let mut artifact_paths = Vec::with_capacity(raw_frames.len());
     for frame in &raw_frames {
-        let Some(filename) = frame.get("filename").and_then(Value::as_str) else {
+        let abs_path = frame.get("abs_path").and_then(Value::as_str);
+        let filename = frame.get("filename").and_then(Value::as_str).or(abs_path);
+        let Some(filename) = filename else {
+            artifact_paths.push(None);
             continue;
         };
-        let map_name = if filename.ends_with(".map") {
-            filename.to_string()
+        let code_file = abs_path.unwrap_or(filename);
+        if let Some(path) = resolved.get(&(code_file, filename)) {
+            artifact_paths.push(path.clone());
+            continue;
+        }
+        let debug_id = debug_images
+            .get(code_file)
+            .or_else(|| debug_images.get(filename));
+        let path = if let Some(debug_id) = debug_id {
+            releases::find_artifact_by_debug_id(pool, org_id, project_id, debug_id)
+                .await
+                .ok()
+                .flatten()
+                .map(|artifact| PathBuf::from(artifact.storage_path))
+        } else if let (Some(release), Some(name)) = (release, sourcemap_name(filename)) {
+            releases::find_artifact_for_map(pool, org_id, project_id, release, &name)
+                .await
+                .ok()
+                .flatten()
+                .map(|artifact| PathBuf::from(artifact.storage_path))
+                .or_else(|| legacy_artifact_path(artifacts_dir, &project_id_str, release, &name))
         } else {
-            format!("{filename}.map")
+            None
         };
-        if artifact_paths.contains_key(&map_name) {
-            continue;
-        }
-        if let Ok(Some(artifact)) =
-            releases::find_artifact_for_map(pool, org_id, project_id, release, &map_name).await
-        {
-            artifact_paths.insert(map_name, PathBuf::from(artifact.storage_path));
-        }
+        resolved.insert((code_file, filename), path.clone());
+        artifact_paths.push(path);
     }
 
-    let artifacts_dir = artifacts_dir.to_path_buf();
-    let release = release.to_string();
+    let release = release.unwrap_or_default().to_string();
     let mut demangled = tokio::task::spawn_blocking(move || {
-        demangle_stack_frames(
-            &raw_frames,
-            &artifacts_dir,
-            &project_id_str,
-            &release,
-            &|map_name| artifact_paths.get(map_name).cloned(),
-        )
+        demangle_resolved_stack_frames(&raw_frames, &project_id_str, &release, &artifact_paths)
     })
     .await?;
 

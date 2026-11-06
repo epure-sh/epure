@@ -43,7 +43,7 @@ export async function loadProjectEventUsage(
         isDemo: isDemoProject(project),
         stats,
         events: stats?.events_7d ?? 0,
-        buckets,
+        buckets: Array.isArray(buckets) ? buckets : [],
       };
     }),
   );
@@ -58,17 +58,17 @@ export function bucketsToTelemetry(
 }
 
 export function planForBillingStatus(status: BillingStatus | null): PlanDefinition | null {
-  if (!status) return null;
+  if (!status || status.entitlement?.state === "inactive") return null;
   const id = normalizePlanId(status.plan_tier);
-  return PLANS.find((plan) => plan.id === id) ?? null;
+  return PLANS.find((plan) => plan.id === id && plan.cloudOnly) ?? null;
 }
 
 export function monthlyEventLimit(
   status: BillingStatus | null,
   plan: PlanDefinition | null,
 ): number | null {
-  if (status && status.monthly_events_included > 0) {
-    return status.monthly_events_included;
+  if (status && status.monthly_events_included >= 0) {
+    return status.monthly_events_included || null;
   }
   return plan?.limits.eventsPerMonth ?? null;
 }

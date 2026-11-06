@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Banner } from "@/ui/components";
 import { Button } from "@/ui/primitives";
 import { fetchBillingStatus, type BillingStatus } from "../lib/api";
+import { isGlobalRoute } from "../lib/paths";
 import { isCloudDeployment } from "../lib/deployment";
 import { useAppContext } from "./app-context";
 
@@ -32,23 +33,29 @@ export function PlanNotice() {
   }, [cloud, user]);
 
   const entitlement = status?.entitlement;
-  if (!cloud || !entitlement || location.pathname.startsWith("/billing")) return null;
+  if (!cloud || !user || !entitlement || (status?.org_id && status.org_id !== user.org_id)
+      || location.pathname.startsWith("/billing") || isGlobalRoute(location.pathname)) return null;
+
+  const paymentOverdue = status?.subscription_status === "past_due";
+  const shared = Boolean(status?.billing_workspace_id);
 
   const goToBilling = (
     <Button size="xs" variant="outline" onClick={() => navigate("/billing")}>
-      Choose a plan
+      {paymentOverdue || shared ? "Review billing" : "Choose a plan"}
     </Button>
   );
 
   if (entitlement.state === "inactive") {
-    const title =
+    const title = shared ? "Shared Scale plan inactive" :
       entitlement.reason === "trial_ended"
         ? "Your trial has ended"
         : entitlement.reason === "paused"
           ? "Your subscription is paused"
           : entitlement.reason === "canceled"
             ? "Your subscription has ended"
-            : "No active plan";
+            : paymentOverdue
+              ? "Payment overdue"
+              : "No active plan";
     return (
       <Banner
         tone="danger"
@@ -64,7 +71,7 @@ export function PlanNotice() {
       <Banner
         tone="warning"
         title="Payment failed"
-        description="Epure keeps running while the payment is retried. Update your payment method to avoid an interruption."
+        description="Update your payment method in Manage billing to keep your workspace active."
         action={
           <Button size="xs" variant="outline" onClick={() => navigate("/billing")}>
             Review billing

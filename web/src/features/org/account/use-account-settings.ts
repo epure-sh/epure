@@ -93,7 +93,7 @@ export function useAccountSettings() {
       navigate("/login", { replace: true });
     } catch (error) {
       if (apiErrorStatus(error) === 409) {
-        throw new Error("Transfer workspace ownership to another member before deleting your account.");
+        throw new Error("Resolve ownership and billing for the workspaces you own before deleting your account.");
       }
       throw new Error("Could not delete account. Check your confirmation details.");
     }

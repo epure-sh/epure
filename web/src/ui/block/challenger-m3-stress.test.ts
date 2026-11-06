@@ -567,9 +567,9 @@ describe("Empirical Challenger M3: Adversarial Stress Test Suite", () => {
       assert.match(html, /data-slot="settings-nav"/);
       assert.match(html, /data-settings-type="workspace"/);
       assert.match(html, /General/);
-      assert.match(html, /Security/);
-      assert.match(html, /Agent tokens/);
-      assert.match(html, /Connected apps/);
+      assert.doesNotMatch(html, /Security/);
+      assert.match(html, /Workspace tokens/);
+      assert.doesNotMatch(html, /Connected apps/);
     });
 
     it("survives sessionStorage SecurityError and QuotaExceededError exceptions", () => {

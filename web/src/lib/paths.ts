@@ -4,7 +4,7 @@ export function workspacePath(
   segment?: "team" | "usage" | "billing",
 ): string {
   if (!segment) {
-    return "/";
+    return "/projects";
   }
   return `/${segment}`;
 }
@@ -155,6 +155,8 @@ export function projectSegmentFromPath(pathname: string): string | null {
 
 export function isGlobalRoute(pathname: string): boolean {
   return (
+    pathname === "/organizations" ||
+    pathname.startsWith("/organizations/") ||
     pathname === "/user/settings" ||
     pathname.startsWith("/user/settings/") ||
     pathname === "/user" ||
@@ -166,9 +168,8 @@ export function isWorkspaceRoute(pathname: string): boolean {
   return !isProjectRoute(pathname) && !isGlobalRoute(pathname);
 }
 
-/** @deprecated Single-workspace product — use workspacePath(). */
 export function organizationsPath(): string {
-  return workspacePath();
+  return "/organizations";
 }
 
 export function userSettingsPath(

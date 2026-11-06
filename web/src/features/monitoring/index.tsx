@@ -129,7 +129,7 @@ export function DashboardPage({ isEmbed = false }: { isEmbed?: boolean }) {
     if (!tourProjectId) {
       return;
     }
-    navigate("/");
+    navigate("/projects");
     window.setTimeout(() => {
       startEpureProductTour(undefined, user?.user_id, {
         force: true,

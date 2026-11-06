@@ -57,19 +57,19 @@ describe("paths helpers for settings and releases", () => {
   });
 
   it("computes workspace navigation paths correctly", () => {
-    assert.equal(workspacePath(), "/");
+    assert.equal(workspacePath(), "/projects");
     assert.equal(workspacePath("team"), "/team");
     assert.equal(workspacePath("billing"), "/billing");
     assert.equal(billingPath(), "/billing");
   });
 
   it("computes global routes and contextual navigation correctly", () => {
-    assert.equal(organizationsPath(), "/");
+    assert.equal(organizationsPath(), "/organizations");
     assert.equal(userSettingsPath(), "/user/settings");
     assert.equal(userSettingsPath("security"), "/user/settings/security");
     assert.equal(userSettingsPath("agent"), "/user/settings/agent");
 
-    assert.equal(isGlobalRoute("/organizations"), false);
+    assert.equal(isGlobalRoute("/organizations"), true);
     assert.equal(isGlobalRoute("/orgs"), false);
     assert.equal(isGlobalRoute("/user/settings"), true);
     assert.equal(isGlobalRoute("/user/settings/security"), true);

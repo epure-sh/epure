@@ -326,7 +326,8 @@ pub async fn upsert_artifact_with_debug_id(
         ON CONFLICT (release_id, name) DO UPDATE
         SET storage_path = EXCLUDED.storage_path,
             checksum = COALESCE(EXCLUDED.checksum, release_artifacts.checksum),
-            debug_id = COALESCE(EXCLUDED.debug_id, release_artifacts.debug_id)
+            debug_id = COALESCE(EXCLUDED.debug_id, CASE
+                WHEN EXCLUDED.checksum = release_artifacts.checksum THEN release_artifacts.debug_id END)
         RETURNING id
         "#,
     )
@@ -339,6 +340,30 @@ pub async fn upsert_artifact_with_debug_id(
     .await?;
     tx.commit().await?;
     Ok(id)
+}
+
+pub async fn find_artifact_by_debug_id(
+    pool: &PgPool,
+    org_id: Uuid,
+    project_id: Uuid,
+    debug_id: &str,
+) -> Result<Option<ArtifactRecord>, sqlx::Error> {
+    let mut tx = crate::rls::begin_ingest_transaction(pool, org_id).await?;
+    let row = sqlx::query_as::<_, ArtifactRow>(
+        r#"
+        SELECT ra.id, ra.name, ra.storage_path
+        FROM release_artifacts ra JOIN releases r ON r.id = ra.release_id
+        WHERE r.project_id = $1 AND ra.debug_id = $2
+        ORDER BY ra.created_at DESC, ra.id DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(project_id)
+    .bind(debug_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(row.map(ArtifactRow::into_record))
 }
 
 pub async fn find_artifact(

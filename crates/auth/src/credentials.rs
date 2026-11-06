@@ -343,6 +343,16 @@ impl CredentialAuth {
         epure_storage::rls::with_request_user(user_id, async move {
             let mut tx = epure_storage::rls::begin_org_transaction(&pool, org_id).await?;
 
+            for lock in [format!("workspace-owner:{user_id}"), format!("polar:{org_id}")] {
+                sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
+                    .bind(lock).execute(&mut *tx).await?;
+            }
+            let owns_others: bool = sqlx::query_scalar("SELECT auth_has_other_owned_workspaces($1,$2)")
+                .bind(user_id).bind(org_id).fetch_one(&mut *tx).await?;
+            if owns_others {
+                return Err(CredentialError::TransferOwnershipRequired);
+            }
+
             let member_ids = sqlx::query_scalar::<_, Uuid>(
                 "SELECT user_id FROM org_members WHERE org_id = $1 ORDER BY user_id FOR UPDATE",
             )
@@ -370,6 +380,15 @@ impl CredentialAuth {
             }
 
             if role == "owner" && member_count == 1 {
+                let has_billing: bool = sqlx::query_scalar(
+                    "SELECT EXISTS(SELECT 1 FROM organizations WHERE (id=$1 AND subscription_id IS NOT NULL) OR parent_agency_id=$1)
+                         OR EXISTS(SELECT 1 FROM billing_linked_workspaces($1))
+                         OR EXISTS(SELECT 1 FROM billing_sync_targets WHERE org_id=$1 AND customer_id IS NOT NULL)
+                         OR EXISTS(SELECT 1 FROM subscriptions WHERE org_id=$1)",
+                ).bind(org_id).fetch_one(&mut *tx).await?;
+                if has_billing {
+                    return Err(CredentialError::TransferOwnershipRequired);
+                }
                 sqlx::query("DELETE FROM organizations WHERE id = $1")
                     .bind(org_id)
                     .execute(&mut *tx)
@@ -382,11 +401,11 @@ impl CredentialAuth {
                     .await?;
             }
 
-            tx.commit().await?;
             sqlx::query("SELECT auth_delete_user($1)")
                 .bind(user_id)
-                .execute(&pool)
+                .execute(&mut *tx)
                 .await?;
+            tx.commit().await?;
             Ok(())
         })
         .await

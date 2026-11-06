@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { EmptyState } from "@/components/kit/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -6,12 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Key } from "@/components/ui/icon";
 import { toast } from "@/components/ui/sonner";
 import {
+  createAgentToken,
   fetchAgentTokens,
   revokeAgentToken,
   type AgentTokenRow,
 } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/format-time";
-import { workspaceSettingsPath } from "@/lib/paths";
+import { userSettingsPath } from "@/lib/paths";
+import { Box } from "@polar-sh/orbit/Box";
+import { Text } from "@polar-sh/orbit/Text";
+import { Input } from "@/components/ui/input";
+import { copyText } from "@/lib/copy-text";
 import { useAppContext } from "@/shell/app-context";
 import {
   SettingsPage,
@@ -26,6 +31,9 @@ export function AgentTokensTab() {
   const [tokens, setTokens] = useState<AgentTokenRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [label, setLabel] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [newToken, setNewToken] = useState<string | null>(null);
 
   const canManage = user?.role === "owner" || user?.role === "admin";
   const activeCount = tokens.filter((row) => !row.revoked_at).length;
@@ -51,13 +59,29 @@ export function AgentTokensTab() {
     void load();
   }, [load]);
 
+  async function handleCreate(event: FormEvent) {
+    event.preventDefault();
+    if (!label.trim() || creating) return;
+    setCreating(true);
+    try {
+      const token = await createAgentToken({ label: label.trim(), scopes: ["write:sourcemaps"] });
+      setNewToken(token.token);
+      setLabel("");
+      await load();
+    } catch {
+      toast.error("Could not create a workspace token.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   async function handleRevoke(id: string) {
-    if (!window.confirm("Revoke this OAuth session? Agents using it will lose access.")) return;
+    if (!window.confirm("Revoke this workspace token? Jobs using it will lose access.")) return;
     setBusyId(id);
     try {
       await revokeAgentToken(id);
       await load();
-      toast.success("OAuth session revoked");
+      toast.success("Workspace token revoked");
     } catch {
       toast.error("Revoke failed");
     } finally {
@@ -68,7 +92,7 @@ export function AgentTokensTab() {
   if (userLoading || loading) {
     return (
       <SettingsPage>
-        <SettingsPageHeader title="Agent tokens" description="Loading…" />
+        <SettingsPageHeader title="Workspace tokens" description="Loading…" />
         <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface-1">
           <SettingsSkeletonRows count={3} />
         </div>
@@ -80,11 +104,11 @@ export function AgentTokensTab() {
     return (
       <SettingsPage>
         <SettingsPageHeader
-          title="Agent tokens"
-          description="OAuth sessions for CLI and MCP."
+          title="Workspace tokens"
+          description="Credentials for workspace automation and source map uploads."
         />
         <div className="rounded-lg border border-border-subtle bg-surface-1 px-4 py-6 text-xs text-fg-muted">
-          Member access only. Ask an admin or owner to manage OAuth sessions.
+          Workspace admins and owners can manage these tokens.
         </div>
       </SettingsPage>
     );
@@ -93,8 +117,8 @@ export function AgentTokensTab() {
   return (
     <SettingsPage>
       <SettingsPageHeader
-        title="Agent tokens"
-        description="OAuth sessions created by epure login and MCP. Auth is OAuth only. Nothing to mint by hand."
+        title="Workspace tokens"
+        description="Use a workspace token for automation such as Sentry CLI source map uploads. Manage personal MCP connections in your account."
         badge={
           !loading ? (
             <Badge variant="neutral" size="compact">
@@ -107,16 +131,39 @@ export function AgentTokensTab() {
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => navigate(workspaceSettingsPath("connected-apps"))}
+            onClick={() => navigate(userSettingsPath("connected-apps"))}
           >
             Connected apps
           </Button>
         }
       />
 
+      <SettingsPanel title="Create an automation token"
+        description="This token can upload source maps to this workspace. Store it as a secret and use it as SENTRY_AUTH_TOKEN for Sentry CLI uploads.">
+        <Box as="form" flexDirection="column" gap="s" onSubmit={(event) => void handleCreate(event)}>
+          <Input aria-label="Token name" placeholder="Source map uploads" value={label} maxLength={64}
+            onChange={(event) => setLabel(event.target.value)} />
+          <Box>
+            <Button type="submit" disabled={creating || !label.trim() || newToken !== null}>Create token</Button>
+          </Box>
+        </Box>
+        {newToken ? (
+          <Box flexDirection="column" gap="s" paddingTop="m">
+            <Text variant="body">Copy this token now. Epure only shows it once.</Text>
+            <Input aria-label="New workspace token" value={newToken} readOnly />
+            <Box gap="s">
+              <Button onClick={() => void copyText(newToken).then((copied) => {
+                if (copied) toast.success("Token copied");
+              })}>Copy token</Button>
+              <Button variant="ghost" onClick={() => setNewToken(null)}>Done</Button>
+            </Box>
+          </Box>
+        ) : null}
+      </SettingsPanel>
+
       <SettingsPanel
-        title="Sessions"
-        description="Revoke any OAuth session you no longer trust."
+        title="Tokens"
+        description="Revoke any workspace token you no longer use."
         flush
       >
         {tokens.length === 0 ? (
@@ -124,12 +171,8 @@ export function AgentTokensTab() {
             layout="inset"
             tone="first-run"
             icon={Key}
-            title="No OAuth sessions yet"
-            description="Authorize with epure login or MCP when you're ready. Sessions appear here so you can revoke them anytime."
-            hint="Auth is OAuth only. Nothing to mint by hand."
-            actionLabel="Open connected apps"
-            onAction={() => navigate(workspaceSettingsPath("connected-apps"))}
-            actionVariant="secondary"
+            title="No workspace tokens"
+            description="Create a token above when you need to authenticate an automation job."
           />
         ) : (
           <ul className="divide-y divide-border-subtle">

@@ -17,23 +17,18 @@ test.describe("Web UI: Issue Inbox & Keyboard Navigation", () => {
     await expect(page.getByText("failed to process webhook").first()).toBeVisible();
   });
 
-  test("clicking an issue opens the detail panel with stacktrace and copilot prompt", async ({ page }) => {
+  test("clicking an issue opens its stack trace and agent context", async ({ page }) => {
     await page.goto("/p/proj-1/issues");
 
     // Click first issue
     const firstIssue = page.getByText("Cannot read properties of undefined").first();
     await firstIssue.click();
 
-    // Verify detail panel opens with AI Root Cause Diagnostic
-    await expect(page.getByText("AI Root Cause Diagnostic")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(/Introduce optional chaining/)).toBeVisible();
-
-    // Switch to Stack Trace tab
-    const stackTab = page.getByRole("tab", { name: /stack/i });
-    if (await stackTab.isVisible()) {
-      await stackTab.click();
-      await expect(page.getByText("src/services/auth-service.ts").first()).toBeVisible();
-    }
+    const detail = page.getByRole("dialog", { name: "Issue detail" });
+    await expect(detail.getByRole("heading", { name: "Starting point for your AI agent" })).toBeVisible();
+    await expect(detail.getByText(/Introduce optional chaining/)).toBeVisible();
+    await detail.getByRole("tab", { name: "Stack trace" }).click();
+    await expect(detail.getByRole("tabpanel", { name: "Stack trace" }).getByText("src/services/auth-service.ts").first()).toBeVisible();
   });
 
   test("keyboard shortcuts j and k move focus between issues", async ({ page }) => {
@@ -123,7 +118,8 @@ test.describe("Web UI: Issue Inbox & Keyboard Navigation", () => {
     await page.goto("/p/proj-1/issues");
     await page.getByText("Cannot read properties of undefined").first().click();
 
-    const copyAgentBtn = page.getByRole("button", { name: "Copy for agent" });
+    const copyAgentBtn = page.getByRole("dialog", { name: "Issue detail" })
+      .getByRole("contentinfo").getByRole("button", { name: "Copy for agent" });
     await expect(copyAgentBtn).toBeVisible();
     await copyAgentBtn.click();
   });

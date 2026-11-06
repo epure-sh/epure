@@ -157,7 +157,14 @@ pub fn resolve_entitlement(
     }
 
     let status = columns.subscription_status.trim().to_ascii_lowercase();
-    let state = match status.as_str() {
+    let legacy_trial =
+        columns.canary_expires_at.is_some() && matches!(status.as_str(), "active" | "trialing");
+    let status = if legacy_trial {
+        "trialing"
+    } else {
+        status.as_str()
+    };
+    let state = match status {
         "active" => EntitlementState::Active,
         "past_due" => EntitlementState::PastDue,
         "trialing" => {
@@ -178,7 +185,11 @@ pub fn resolve_entitlement(
         tier: parsed,
         state,
         reason: None,
-        trial_ends_at: columns.trial_ends_at,
+        trial_ends_at: if state == EntitlementState::Trial {
+            columns.trial_ends_at.or(columns.canary_expires_at)
+        } else {
+            None
+        },
     }
 }
 
@@ -249,6 +260,16 @@ mod tests {
     fn provider_trial_without_local_deadline_is_trial() {
         let e = resolve_entitlement(true, &cols("scale", "trialing"), Utc::now());
         assert_eq!(e.state, EntitlementState::Trial);
+    }
+
+    #[test]
+    fn legacy_canary_with_default_active_status_is_a_trial() {
+        let now = Utc::now();
+        let mut c = cols("canary_sandbox", "active");
+        c.canary_expires_at = Some(now + Duration::days(1));
+        let entitlement = resolve_entitlement(true, &c, now);
+        assert_eq!(entitlement.state, EntitlementState::Trial);
+        assert_eq!(entitlement.trial_ends_at, c.canary_expires_at);
     }
 
     #[test]
