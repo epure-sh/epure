@@ -2,6 +2,8 @@
 
 Manage [Epure](https://epure.sh) from a terminal or agent. Node.js 18+.
 
+Epure is calm error tracking that keeps your Sentry SDK: change the DSN. Self-hosting is free; Cloud is on [epure.sh/pricing](https://epure.sh/pricing). This client is Apache-2.0; the engine is AGPL-3.0.
+
 ## Start
 
 ```sh

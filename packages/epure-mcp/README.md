@@ -2,6 +2,8 @@
 
 Epure workflows for MCP agents: errors, alerts, channels, cron monitors and project administration. Node.js 18+; stdio transport.
 
+[Epure](https://epure.sh) is calm error tracking that keeps your Sentry SDK: change the DSN. Self-hosting is free; Cloud is on [epure.sh/pricing](https://epure.sh/pricing). This client is Apache-2.0; the engine is AGPL-3.0.
+
 ## Claude Web, mobile and hosted connectors
 
 In Claude, open **Customize → Connectors → Add custom connector**, name it **Epure**, and enter:

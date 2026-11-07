@@ -1,7 +1,9 @@
 {
   "name": "@epure-sh/mcp",
-  "version": "0.3.0",
-  "description": "OAuth-only Epure MCP server with typed Epure workflows, OAuth sign-in and filtered discovery",
+  "version": "0.3.1",
+  "mcpName": "io.github.epure-sh/epure",
+  "description": "MCP server for Epure error tracking: Claude Code, Cursor or Codex read an issue's stack, release and count",
+  "homepage": "https://epure.sh/docs/guides/mcp-and-cli",
   "bin": {
     "epure-mcp": "./bin/epure-mcp.js",
     "mcp": "./bin/epure-mcp.js"
@@ -21,8 +23,7 @@
     "sentry",
     "claude",
     "cursor",
-    "error-tracking",
-    "telemetry"
+    "error-tracking"
   ],
   "author": "Epure <team@epure.sh>",
   "license": "Apache-2.0",
