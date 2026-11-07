@@ -1,0 +1,29 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.epure-sh/epure",
+  "title": "Epure",
+  "description": "Read Epure error tracking issues from Claude Code, Cursor or Codex: stack, release and count.",
+  "websiteUrl": "https://epure.sh/docs/guides/mcp-and-cli",
+  "repository": {
+    "url": "https://github.com/epure-sh/epure",
+    "source": "github",
+    "subfolder": "packages/epure-mcp"
+  },
+  "version": "0.3.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@epure-sh/mcp",
+      "version": "0.3.1",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://app.epure.sh/mcp"
+    }
+  ]
+}

@@ -1,7 +1,8 @@
 {
   "name": "@epure-sh/cli",
-  "version": "0.3.0",
-  "description": "OAuth-only Epure CLI for humans and agents: projects, errors, alerts and cron monitors",
+  "version": "0.3.1",
+  "description": "CLI for Epure error tracking: list and explain issues, set alerts and cron monitors, from a terminal or a coding agent",
+  "homepage": "https://epure.sh/docs/guides/mcp-and-cli",
   "bin": {
     "epure": "./bin/epure-cli.js",
     "epure-cli": "./bin/epure-cli.js"
@@ -20,8 +21,7 @@
     "error-tracking",
     "sentry",
     "triage",
-    "monitoring",
-    "telemetry",
+    "mcp",
     "developer-tools"
   ],
   "author": "Epure <team@epure.sh>",

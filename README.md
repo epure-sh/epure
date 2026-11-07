@@ -13,18 +13,19 @@
 
 # Epure
 
-Self-hosted error tracking with predictable incident economics: grouped issues and stack traces, one Rust binary and PostgreSQL 16.
+Calm error tracking for SaaS built by one or two developers. Each new bug shows once, alerts fire only on a new issue, a regression or a spike, and the bill is flat.
 
-**Don’t go blind during the incident. Count 100% of the flood, pay $0 in overages.**
+- **Keep your Sentry SDK.** Change the DSN to Epure and set `tracesSampleRate: 0`. To roll back, restore the old DSN.
+- **Your coding agent reads the issue.** `claude mcp add epure -- npx -y @epure-sh/mcp`, or the hosted server at `https://app.epure.sh/mcp`.
+- **Pricing.** Self-hosting is free. Cloud Pro is $29 a month, Scale $89, monthly, unlimited seats, no automatic overage: [epure.sh/pricing](https://epure.sh/pricing).
+- **Licence.** Engine AGPL-3.0. The `@epure-sh/cli` and `@epure-sh/mcp` clients are Apache-2.0.
 
-Keep your official Sentry SDK. Change the DSN to Epure. Docker Compose runs two containers (app + Postgres). Ingestion Spike Valve absorbs deploy floods without dropping velocity counts or billing penalty overages. Available as a free AGPL-3.0 self-host or managed Cloud (Pro $29 / Scale $89 a month, flat).
-
-| Lightweight | Keep your Sentry SDK | Built for agents |
+| Two containers | One flood, one issue | Errors only |
 | :--- | :--- | :--- |
-| **~53 MiB combined idle.** App plus Postgres on a small VPS. | **DSN only.** Official Sentry SDK. Tracing, replay, and profiling sample rates stay at 0. | **Copy for AI.** Stack and breadcrumbs into Cursor or Claude, or [MCP and CLI](https://epure.sh/docs/guides/mcp-and-cli). |
+| **Epure plus Postgres 16.** Idle about 5 MiB plus 48 MiB, measured 23 Sep 2026. | **Spike valve.** 100 stored per minute per identical error, 150 per throw site, every repeat counted. | **No tracing, replay or profiling.** Keep those sample rates at 0 in the SDK. |
 
 ## From clone to Issues
-![Clone, docker compose up, Issues](.github/readme-shot.gif)
+![Issues list](.github/readme-shot.webp)
 
 Docs: [architecture, deploy, and DSN migration](https://epure.sh/docs).
 
