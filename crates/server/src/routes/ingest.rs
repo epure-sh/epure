@@ -1,6 +1,6 @@
 use axum::{
     body::Bytes,
-    extract::{ConnectInfo, Multipart, Path, Query, State},
+    extract::{ConnectInfo, DefaultBodyLimit, Multipart, Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{options, post},
@@ -27,26 +27,33 @@ use crate::pipeline::spike::{GroupedSpikeInput, SpikeDecision};
 use crate::state::AppState;
 
 const BODY_LIMIT: usize = 2 * 1024 * 1024;
+const MAX_RELEASE_FILE_BYTES: usize = 32 * 1024 * 1024;
+const RELEASE_FILE_BODY_LIMIT: usize = MAX_RELEASE_FILE_BYTES + 64 * 1024;
 
 pub fn router(state: Arc<AppState>) -> Router {
-    Router::new()
+    let standard_routes = Router::new()
         .route("/api/{project_id}/envelope/", options(cors_preflight))
         .route("/api/{project_id}/envelope/", post(post_envelope))
         .route("/api/{project_id}/envelope", options(cors_preflight))
         .route("/api/{project_id}/envelope", post(post_envelope))
         .route("/api/{project_id}/store/", options(cors_preflight))
         .route("/api/{project_id}/store/", post(post_store))
+        .route("/api/{project_id}/user-feedback/", options(cors_preflight))
+        .route("/api/{project_id}/user-feedback/", post(post_user_feedback))
+        .layer(RequestBodyLimitLayer::new(BODY_LIMIT));
+    let release_file_routes = Router::new()
         .route(
             "/api/{project_id}/releases/{version}/files/",
             options(cors_preflight),
         )
         .route(
             "/api/{project_id}/releases/{version}/files/",
-            post(post_release_files),
+            post(post_release_files).layer(DefaultBodyLimit::max(RELEASE_FILE_BODY_LIMIT)),
         )
-        .route("/api/{project_id}/user-feedback/", options(cors_preflight))
-        .route("/api/{project_id}/user-feedback/", post(post_user_feedback))
-        .layer(RequestBodyLimitLayer::new(BODY_LIMIT))
+        .layer(RequestBodyLimitLayer::new(RELEASE_FILE_BODY_LIMIT));
+
+    standard_routes
+        .merge(release_file_routes)
         .layer(tower::limit::ConcurrencyLimitLayer::new(16))
         .with_state(state)
 }
@@ -390,6 +397,13 @@ async fn post_release_files(
             )
         }
     };
+    if file_bytes.len() > MAX_RELEASE_FILE_BYTES {
+        return error_response(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "release_file_too_large",
+            "Release files must be 32 MiB or smaller",
+        );
+    }
 
     let release_id =
         match releases::ensure_release(&state.pools.ingest, record.org_id, project_id, &version)
@@ -1152,7 +1166,8 @@ fn resolve_artifact_path(
     }
 
     let sanitized = sanitize_artifact_name(file_name);
-    if sanitized.is_empty() || sanitized.contains("..") {
+    let has_parent_segment = file_name.split(['/', '\\']).any(|segment| segment == "..");
+    if sanitized.is_empty() || has_parent_segment {
         return Err(());
     }
 
@@ -1229,6 +1244,43 @@ fn apply_cors_headers(
         "access-control-max-age",
         "600".parse().expect("valid max-age header"),
     );
+}
+
+#[cfg(test)]
+mod artifact_path_tests {
+    use super::resolve_artifact_path;
+
+    fn resolve(file_name: &str) -> Result<std::path::PathBuf, ()> {
+        resolve_artifact_path(
+            std::path::Path::new("/artifacts"),
+            uuid::Uuid::nil(),
+            "1.0.0",
+            file_name,
+        )
+    }
+
+    #[test]
+    fn artifact_names_allow_non_traversal_dot_sequences() {
+        for name in [
+            "~/_next/static/chunks/app/[[...path]]/page.js.map",
+            "report..final.js.map",
+        ] {
+            assert!(resolve(name).is_ok(), "{name} should be accepted");
+        }
+    }
+
+    #[test]
+    fn artifact_names_reject_parent_directory_segments() {
+        for name in [
+            "..",
+            "../outside.map",
+            "nested/../../outside.map",
+            r"..\outside.map",
+            r"nested\..\outside.map",
+        ] {
+            assert!(resolve(name).is_err(), "{name} should be rejected");
+        }
+    }
 }
 
 #[cfg(test)]
