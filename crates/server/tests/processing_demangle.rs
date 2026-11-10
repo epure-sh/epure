@@ -48,12 +48,12 @@ fn crash_event() -> serde_json::Value {
     })
 }
 
-async fn upload_sourcemap(
+async fn upload_release_file(
     client: &reqwest::Client,
     base_url: &str,
     artifact_name: &str,
+    artifact_bytes: Vec<u8>,
 ) -> reqwest::Response {
-    let map_bytes = fs::read(processing_fixture("app.min.js.map")).expect("sourcemap fixture");
     client
         .post(format!(
             "{}/api/{}/releases/{}/files/",
@@ -67,7 +67,7 @@ async fn upload_sourcemap(
                 .text("name", artifact_name.to_string())
                 .part(
                     "file",
-                    reqwest::multipart::Part::bytes(map_bytes)
+                    reqwest::multipart::Part::bytes(artifact_bytes)
                         .file_name("app.min.js.map")
                         .mime_str("application/json")
                         .expect("mime"),
@@ -75,7 +75,83 @@ async fn upload_sourcemap(
         )
         .send()
         .await
-        .expect("upload sourcemap")
+        .expect("upload release file")
+}
+
+async fn upload_sourcemap(
+    client: &reqwest::Client,
+    base_url: &str,
+    artifact_name: &str,
+) -> reqwest::Response {
+    let map_bytes = fs::read(processing_fixture("app.min.js.map")).expect("sourcemap fixture");
+    upload_release_file(client, base_url, artifact_name, map_bytes).await
+}
+
+#[tokio::test]
+async fn release_upload_accepts_32_mib_nextjs_catch_all_artifact() {
+    let (base_url, pool, server) = spawn_test_server().await;
+    let client = reqwest::Client::new();
+    let artifact_name = "~/_next/static/chunks/app/[[...path]]/page.js.map";
+    let artifact_size = 32 * 1024 * 1024;
+
+    let upload =
+        upload_release_file(&client, &base_url, artifact_name, vec![b'x'; artifact_size]).await;
+    assert_eq!(upload.status(), reqwest::StatusCode::CREATED);
+
+    let storage_path = sqlx::query_scalar::<_, String>(
+        r#"
+        SELECT ra.storage_path
+        FROM release_artifacts ra
+        JOIN releases r ON r.id = ra.release_id
+        WHERE r.project_id = $1 AND r.version = $2 AND ra.name = $3
+        "#,
+    )
+    .bind(project_id())
+    .bind(RELEASE_VERSION)
+    .bind(artifact_name)
+    .fetch_one(&pool)
+    .await
+    .expect("fetch stored artifact");
+    let stored = fs::read(storage_path).expect("read stored artifact");
+    assert_eq!(stored.len(), artifact_size);
+    assert!(stored.iter().all(|byte| *byte == b'x'));
+
+    server.abort();
+}
+
+#[tokio::test]
+async fn release_upload_rejects_artifact_over_32_mib() {
+    let (base_url, _pool, server) = spawn_test_server().await;
+    let client = reqwest::Client::new();
+
+    let upload = upload_release_file(
+        &client,
+        &base_url,
+        "oversized.js.map",
+        vec![b'x'; 32 * 1024 * 1024 + 1],
+    )
+    .await;
+    assert_eq!(upload.status(), reqwest::StatusCode::PAYLOAD_TOO_LARGE);
+
+    server.abort();
+}
+
+#[tokio::test]
+async fn store_ingest_retains_two_mib_body_limit() {
+    let (base_url, _pool, server) = spawn_test_server().await;
+    let client = reqwest::Client::new();
+
+    let response = client
+        .post(format!("{}/api/{}/store/", base_url, project_id()))
+        .header("X-Sentry-Auth", auth_header())
+        .header("Content-Type", "application/json")
+        .body(vec![b' '; 2 * 1024 * 1024 + 1])
+        .send()
+        .await
+        .expect("post oversized store payload");
+    assert_eq!(response.status(), reqwest::StatusCode::PAYLOAD_TOO_LARGE);
+
+    server.abort();
 }
 
 #[tokio::test]
