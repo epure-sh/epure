@@ -6,6 +6,20 @@ Site changelog: [epure.sh/docs/changelog](https://epure.sh/docs/changelog).
 
 ## Unreleased
 
+## [v0.2.2] — 2026-11-10
+
+- **Image:** `ghcr.io/epure-sh/epure:v0.2.2`
+- **Compare:** [v0.2.1…v0.2.2](https://github.com/epure-sh/epure/compare/v0.2.1...v0.2.2)
+
+### Fixed
+
+- Direct release-file upload (`POST /api/{project_id}/releases/{version}/files/`) accepts one artifact up to 32 MiB, including Next.js catch-all names such as `[[...path]]`. The file is streamed to disk. Two of these uploads can run at once, on their own limiter, separate from error ingest. A `..` path segment is still rejected, and the artifact name must be 4096 bytes or smaller. v0.2.1 applied the 2 MiB ingest body limit to this route and rejected any name containing the characters `..`.
+- Envelope, store, and user-feedback bodies stay at 2 MiB.
+
+### Upgrade
+
+Pin `EPURE_IMAGE=ghcr.io/epure-sh/epure:v0.2.2` and recreate the app container. No migration.
+
 ## [v0.2.1] — 2026-11-06
 
 First image published after v0.1.7. The v0.2.0 tag did not produce a GHCR manifest: the arm64 build failed before the multi-arch image was tagged. Operators on v0.1.7 should also apply the v0.2.0 changes below; that tag never received an image.

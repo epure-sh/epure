@@ -1,6 +1,9 @@
 use axum::{
     body::Bytes,
-    extract::{ConnectInfo, Multipart, Path, Query, State},
+    extract::{
+        multipart::{Field, MultipartError},
+        ConnectInfo, DefaultBodyLimit, Multipart, Path, Query, State,
+    },
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{options, post},
@@ -15,8 +18,10 @@ use epure_envelope::{
 use epure_storage::{alerts, projects, releases, user_feedback};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sha2::{Digest, Sha256};
 use std::net::SocketAddr;
 use std::sync::Arc;
+use tokio::io::AsyncWriteExt;
 use tower_http::limit::RequestBodyLimitLayer;
 use uuid::Uuid;
 
@@ -27,28 +32,41 @@ use crate::pipeline::spike::{GroupedSpikeInput, SpikeDecision};
 use crate::state::AppState;
 
 const BODY_LIMIT: usize = 2 * 1024 * 1024;
+const MAX_RELEASE_FILE_BYTES: usize = 32 * 1024 * 1024;
+const RELEASE_FILE_BODY_LIMIT: usize = MAX_RELEASE_FILE_BYTES + 64 * 1024;
+const MAX_ARTIFACT_NAME_BYTES: usize = 4096;
+const RELEASE_FILE_CONCURRENCY: usize = 2;
 
 pub fn router(state: Arc<AppState>) -> Router {
-    Router::new()
+    let event_routes = Router::new()
         .route("/api/{project_id}/envelope/", options(cors_preflight))
         .route("/api/{project_id}/envelope/", post(post_envelope))
         .route("/api/{project_id}/envelope", options(cors_preflight))
         .route("/api/{project_id}/envelope", post(post_envelope))
         .route("/api/{project_id}/store/", options(cors_preflight))
         .route("/api/{project_id}/store/", post(post_store))
+        .route("/api/{project_id}/user-feedback/", options(cors_preflight))
+        .route("/api/{project_id}/user-feedback/", post(post_user_feedback))
+        .layer(RequestBodyLimitLayer::new(BODY_LIMIT))
+        .layer(tower::limit::ConcurrencyLimitLayer::new(16));
+
+    // Public DSN auth. Stream to disk and keep this off the ingest limiter so a
+    // 32 MiB map cannot pin error ingest or hold 16 copies in memory.
+    let release_file_routes = Router::new()
         .route(
             "/api/{project_id}/releases/{version}/files/",
             options(cors_preflight),
         )
         .route(
             "/api/{project_id}/releases/{version}/files/",
-            post(post_release_files),
+            post(post_release_files).layer(DefaultBodyLimit::max(RELEASE_FILE_BODY_LIMIT)),
         )
-        .route("/api/{project_id}/user-feedback/", options(cors_preflight))
-        .route("/api/{project_id}/user-feedback/", post(post_user_feedback))
-        .layer(RequestBodyLimitLayer::new(BODY_LIMIT))
-        .layer(tower::limit::ConcurrencyLimitLayer::new(16))
-        .with_state(state)
+        .layer(RequestBodyLimitLayer::new(RELEASE_FILE_BODY_LIMIT))
+        .layer(tower::limit::ConcurrencyLimitLayer::new(
+            RELEASE_FILE_CONCURRENCY,
+        ));
+
+    event_routes.merge(release_file_routes).with_state(state)
 }
 
 #[derive(Debug, Deserialize)]
@@ -343,102 +361,125 @@ async fn post_release_files(
         );
     }
 
+    let staging_dir = state
+        .artifacts_dir
+        .join(project_id.to_string())
+        .join(&version);
+    if tokio::fs::create_dir_all(&staging_dir).await.is_err() {
+        return error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "storage_error",
+            "Failed to create artifact directory",
+        );
+    }
+
     let mut file_name = None;
-    let mut file_bytes = None;
+    let mut staged: Option<StagedReleaseFile> = None;
 
     loop {
         match multipart.next_field().await {
             Ok(Some(field)) => {
                 let field_name = field.name().unwrap_or_default().to_string();
                 match field_name.as_str() {
-                    "name" => {
-                        if let Ok(text) = field.text().await {
-                            if !text.is_empty() {
-                                file_name = Some(text);
-                            }
+                    "name" => match read_artifact_name(field).await {
+                        Ok(text) if !text.is_empty() => file_name = Some(text),
+                        Ok(_) => {}
+                        Err(ArtifactNameError::TooLong) => {
+                            discard_staged(&mut staged).await;
+                            return error_response(
+                                StatusCode::BAD_REQUEST,
+                                "invalid_release_file",
+                                "Artifact name must be 4096 bytes or smaller",
+                            );
                         }
-                    }
+                        Err(ArtifactNameError::TooLarge) => {
+                            discard_staged(&mut staged).await;
+                            return release_file_too_large();
+                        }
+                        Err(ArtifactNameError::Malformed) => {
+                            discard_staged(&mut staged).await;
+                            return malformed_release_file();
+                        }
+                    },
                     "file" => {
-                        if let Ok(bytes) = field.bytes().await {
-                            if !bytes.is_empty() {
-                                file_bytes = Some(bytes.to_vec());
+                        discard_staged(&mut staged).await;
+                        let temp_path =
+                            staging_dir.join(format!(".epure-upload-{}.tmp", Uuid::new_v4()));
+                        match stream_release_file(field, &temp_path).await {
+                            Ok(file) => staged = Some(file),
+                            Err(StagedFileError::TooLarge) => return release_file_too_large(),
+                            Err(StagedFileError::Empty) => {
+                                return error_response(
+                                    StatusCode::BAD_REQUEST,
+                                    "invalid_release_file",
+                                    "Release upload requires a file field",
+                                )
+                            }
+                            Err(StagedFileError::Malformed) => return malformed_release_file(),
+                            Err(StagedFileError::Storage) => {
+                                return error_response(
+                                    StatusCode::INTERNAL_SERVER_ERROR,
+                                    "storage_error",
+                                    "Failed to write artifact file",
+                                )
                             }
                         }
                     }
-                    _ => {}
+                    _ => {
+                        if let Err(err) = drain_multipart_field(field).await {
+                            discard_staged(&mut staged).await;
+                            return multipart_failure(err);
+                        }
+                    }
                 }
             }
             Ok(None) => break,
-            Err(_) => {
-                return error_response(
-                    StatusCode::BAD_REQUEST,
-                    "invalid_release_file",
-                    "Malformed multipart payload",
-                )
+            Err(err) => {
+                discard_staged(&mut staged).await;
+                return multipart_failure(err);
             }
         }
     }
 
-    let file_name = file_name.unwrap_or_else(|| "artifact.map".to_string());
-    let file_bytes = match file_bytes {
-        Some(bytes) => bytes,
-        None => {
-            return error_response(
-                StatusCode::BAD_REQUEST,
-                "invalid_release_file",
-                "Release upload requires a file field",
-            )
-        }
+    let Some(staged) = staged else {
+        return error_response(
+            StatusCode::BAD_REQUEST,
+            "invalid_release_file",
+            "Release upload requires a file field",
+        );
     };
-
-    let release_id =
-        match releases::ensure_release(&state.pools.ingest, record.org_id, project_id, &version)
-            .await
-        {
-            Ok(id) => id,
-            Err(_) => {
-                return error_response(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "storage_error",
-                    "Failed to persist release metadata",
-                )
-            }
-        };
+    let file_name = file_name.unwrap_or_else(|| "artifact.map".to_string());
 
     let storage_path =
         match resolve_artifact_path(&state.artifacts_dir, project_id, &version, &file_name) {
             Ok(path) => path,
-            Err(_) => {
+            Err(()) => {
+                let _ = tokio::fs::remove_file(&staged.path).await;
                 return error_response(
                     StatusCode::BAD_REQUEST,
                     "invalid_release_file",
                     "Artifact path escapes release storage directory",
-                )
+                );
             }
         };
 
-    if let Some(parent) = storage_path.parent() {
-        if tokio::fs::create_dir_all(parent).await.is_err() {
-            return error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "storage_error",
-                "Failed to create artifact directory",
-            );
-        }
-    }
-
     let storage_path = match canonical_artifact_path(&storage_path).await {
         Ok(path) => path,
-        Err(_) => {
+        Err(()) => {
+            let _ = tokio::fs::remove_file(&staged.path).await;
             return error_response(
                 StatusCode::BAD_REQUEST,
                 "invalid_release_file",
                 "Artifact path escapes release storage directory",
-            )
+            );
         }
     };
 
-    if tokio::fs::write(&storage_path, &file_bytes).await.is_err() {
+    if tokio::fs::rename(&staged.path, &storage_path)
+        .await
+        .is_err()
+    {
+        let _ = tokio::fs::remove_file(&staged.path).await;
         return error_response(
             StatusCode::INTERNAL_SERVER_ERROR,
             "storage_error",
@@ -446,23 +487,40 @@ async fn post_release_files(
         );
     }
 
-    let artifact_id = match releases::upsert_artifact(
+    let release_id =
+        match releases::ensure_release(&state.pools.ingest, record.org_id, project_id, &version)
+            .await
+        {
+            Ok(id) => id,
+            Err(_) => {
+                let _ = tokio::fs::remove_file(&storage_path).await;
+                return error_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "storage_error",
+                    "Failed to persist release metadata",
+                );
+            }
+        };
+
+    let artifact_id = match releases::upsert_artifact_with_debug_id(
         &state.pools.ingest,
         record.org_id,
         release_id,
         &file_name,
         storage_path.to_string_lossy().as_ref(),
-        &file_bytes,
+        Some(&staged.checksum),
+        None,
     )
     .await
     {
         Ok(id) => id,
         Err(_) => {
+            let _ = tokio::fs::remove_file(&storage_path).await;
             return error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "storage_error",
                 "Failed to persist artifact metadata",
-            )
+            );
         }
     };
 
@@ -478,6 +536,137 @@ async fn post_release_files(
         )
             .into_response(),
     )
+}
+
+struct StagedReleaseFile {
+    path: std::path::PathBuf,
+    checksum: String,
+}
+
+enum ArtifactNameError {
+    TooLong,
+    TooLarge,
+    Malformed,
+}
+
+enum StagedFileError {
+    TooLarge,
+    Malformed,
+    Empty,
+    Storage,
+}
+
+fn release_file_too_large() -> Response {
+    error_response(
+        StatusCode::PAYLOAD_TOO_LARGE,
+        "release_file_too_large",
+        "Release files must be 32 MiB or smaller",
+    )
+}
+
+fn malformed_release_file() -> Response {
+    error_response(
+        StatusCode::BAD_REQUEST,
+        "invalid_release_file",
+        "Malformed multipart payload",
+    )
+}
+
+fn multipart_failure(err: MultipartError) -> Response {
+    if err.status() == StatusCode::PAYLOAD_TOO_LARGE {
+        release_file_too_large()
+    } else {
+        malformed_release_file()
+    }
+}
+
+async fn discard_staged(staged: &mut Option<StagedReleaseFile>) {
+    if let Some(staged) = staged.take() {
+        let _ = tokio::fs::remove_file(staged.path).await;
+    }
+}
+
+async fn drain_multipart_field(mut field: Field<'_>) -> Result<(), MultipartError> {
+    while field.chunk().await?.is_some() {}
+    Ok(())
+}
+
+async fn read_artifact_name(mut field: Field<'_>) -> Result<String, ArtifactNameError> {
+    let mut buf = Vec::new();
+    loop {
+        match field.chunk().await {
+            Ok(Some(chunk)) => {
+                if buf.len().saturating_add(chunk.len()) > MAX_ARTIFACT_NAME_BYTES {
+                    return Err(ArtifactNameError::TooLong);
+                }
+                buf.extend_from_slice(&chunk);
+            }
+            Ok(None) => break,
+            Err(err) if err.status() == StatusCode::PAYLOAD_TOO_LARGE => {
+                return Err(ArtifactNameError::TooLarge);
+            }
+            Err(_) => return Err(ArtifactNameError::Malformed),
+        }
+    }
+    String::from_utf8(buf).map_err(|_| ArtifactNameError::Malformed)
+}
+
+async fn stream_release_file(
+    mut field: Field<'_>,
+    temp_path: &std::path::Path,
+) -> Result<StagedReleaseFile, StagedFileError> {
+    let mut file = match tokio::fs::File::create(temp_path).await {
+        Ok(file) => file,
+        Err(_) => return Err(StagedFileError::Storage),
+    };
+    let mut hasher = Sha256::new();
+    let mut written = 0usize;
+
+    loop {
+        let chunk = match field.chunk().await {
+            Ok(Some(chunk)) => chunk,
+            Ok(None) => break,
+            Err(err) => {
+                drop(file);
+                let _ = tokio::fs::remove_file(temp_path).await;
+                return Err(if err.status() == StatusCode::PAYLOAD_TOO_LARGE {
+                    StagedFileError::TooLarge
+                } else {
+                    StagedFileError::Malformed
+                });
+            }
+        };
+        let next = written.saturating_add(chunk.len());
+        if next > MAX_RELEASE_FILE_BYTES {
+            drop(file);
+            let _ = tokio::fs::remove_file(temp_path).await;
+            return Err(StagedFileError::TooLarge);
+        }
+        if file.write_all(&chunk).await.is_err() {
+            drop(file);
+            let _ = tokio::fs::remove_file(temp_path).await;
+            return Err(StagedFileError::Storage);
+        }
+        hasher.update(&chunk);
+        written = next;
+    }
+
+    if file.flush().await.is_err() {
+        drop(file);
+        let _ = tokio::fs::remove_file(temp_path).await;
+        return Err(StagedFileError::Storage);
+    }
+    drop(file);
+
+    if written == 0 {
+        let _ = tokio::fs::remove_file(temp_path).await;
+        return Err(StagedFileError::Empty);
+    }
+
+    Ok(StagedReleaseFile {
+        path: temp_path.to_path_buf(),
+        checksum: hex::encode(hasher.finalize()),
+    })
 }
 
 async fn post_store(
@@ -1151,8 +1340,11 @@ fn resolve_artifact_path(
         return Err(());
     }
 
+    // Slashes are flattened to one path component, so `[[...path]]` is a name,
+    // not traversal. Reject a real `..` segment before that flattening.
+    let has_parent_segment = file_name.split(['/', '\\']).any(|segment| segment == "..");
     let sanitized = sanitize_artifact_name(file_name);
-    if sanitized.is_empty() || sanitized.contains("..") {
+    if has_parent_segment || sanitized.is_empty() || sanitized == ".." || sanitized.contains('\0') {
         return Err(());
     }
 
@@ -1229,6 +1421,44 @@ fn apply_cors_headers(
         "access-control-max-age",
         "600".parse().expect("valid max-age header"),
     );
+}
+
+#[cfg(test)]
+mod artifact_path_tests {
+    use super::resolve_artifact_path;
+
+    fn resolve(file_name: &str) -> Result<std::path::PathBuf, ()> {
+        resolve_artifact_path(
+            std::path::Path::new("/artifacts"),
+            uuid::Uuid::nil(),
+            "1.0.0",
+            file_name,
+        )
+    }
+
+    #[test]
+    fn artifact_names_allow_non_traversal_dot_sequences() {
+        for name in [
+            "~/_next/static/chunks/app/[[...path]]/page.js.map",
+            "report..final.js.map",
+        ] {
+            assert!(resolve(name).is_ok(), "{name} should be accepted");
+        }
+    }
+
+    #[test]
+    fn artifact_names_reject_parent_directory_segments() {
+        for name in [
+            "..",
+            "../outside.map",
+            "nested/../../outside.map",
+            r"..\outside.map",
+            r"nested\..\outside.map",
+            "~\u{0}hidden.map",
+        ] {
+            assert!(resolve(name).is_err(), "{name} should be rejected");
+        }
+    }
 }
 
 #[cfg(test)]

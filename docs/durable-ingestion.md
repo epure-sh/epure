@@ -11,7 +11,7 @@ Workers claim up to 64 jobs and about 8 MiB per batch with SKIP LOCKED and two-m
 - Global pending limit: 512 MiB or 100,000 jobs.
 - Per-workspace pending limit: 64 MiB or 25,000 jobs.
 - Sample-state admission: 20,000 exact/locus keys globally and 1,024 of each per project. Saturation rejects a new key explicitly; existing keys and other projects retain available capacity.
-- Ingestion concurrency: 16 requests per process; HTTP body limit 2 MiB and envelope decompression limit 10 MiB.
+- Ingestion concurrency: 16 requests per process for envelope, store, and user feedback. Those bodies are limited to 2 MiB. Envelope decompression limit is 10 MiB. Release-file uploads are a separate route: 2 at a time, streamed to disk, 32 MiB per file.
 - Queued stacks retain the innermost 128 frames. Source-map files above 32 MiB are not parsed; source-map cache has a 64 MiB estimated-weight budget and is keyed by artifact revision, project and release. Source context lines are bounded to 2,048 characters.
 - Velocity tracking uses at most 5,000 active issues and 258 bounded time buckets per issue. It is an approximate alerting window, with bucket width `window / 128`; it is not the authoritative occurrence count.
 

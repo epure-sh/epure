@@ -735,7 +735,7 @@ dependencies = [
 
 [[package]]
 name = "epure-agent-context"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "hex",
@@ -748,7 +748,7 @@ dependencies = [
 
 [[package]]
 name = "epure-auth"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "argon2",
  "chrono",
@@ -776,7 +776,7 @@ dependencies = [
 
 [[package]]
 name = "epure-cli"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "clap",
  "reqwest",
@@ -789,7 +789,7 @@ dependencies = [
 
 [[package]]
 name = "epure-core"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "serde",
@@ -799,7 +799,7 @@ dependencies = [
 
 [[package]]
 name = "epure-demangle"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "moka",
  "serde",
@@ -810,7 +810,7 @@ dependencies = [
 
 [[package]]
 name = "epure-envelope"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "dashmap",
@@ -829,7 +829,7 @@ dependencies = [
 
 [[package]]
 name = "epure-mcp"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "clap",
  "epure-agent-context",
@@ -842,7 +842,7 @@ dependencies = [
 
 [[package]]
 name = "epure-server"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "axum",
  "chrono",
@@ -882,7 +882,7 @@ dependencies = [
 
 [[package]]
 name = "epure-storage"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "chrono-tz",

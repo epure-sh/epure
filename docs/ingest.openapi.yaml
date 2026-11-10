@@ -228,6 +228,9 @@ paths:
         - `file` — artifact bytes (typically a `.map` file)
 
         Files are stored under `EPURE_ARTIFACTS_DIR` for JS/TS demangling.
+        One file may be up to 32 MiB. The request may add 64 KiB of multipart framing on top of that.
+        `name` may contain `...` (a Next.js `[[...path]]` route). A `..` path segment is rejected.
+        `name` must be at most 4096 bytes.
       operationId: postReleaseFiles
       security:
         - SentryAuth: []
@@ -271,7 +274,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "413":
-          $ref: "#/components/responses/PayloadTooLarge"
+          $ref: "#/components/responses/ReleaseFileTooLarge"
 
   /api/{project_id}/user-feedback/:
     parameters:
@@ -506,7 +509,7 @@ components:
                 message: Project hourly ingest cap exceeded
 
     PayloadTooLarge:
-      description: Request body exceeds 2 MB limit
+      description: Envelope, store, or user-feedback body exceeds 2 MB
       content:
         application/json:
           schema:
@@ -514,3 +517,13 @@ components:
           example:
             error: payload_too_large
             message: Request body must not exceed 2 MB
+
+    ReleaseFileTooLarge:
+      description: Release file exceeds 32 MiB
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: release_file_too_large
+            message: Release files must be 32 MiB or smaller
