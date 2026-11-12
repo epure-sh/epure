@@ -17,6 +17,7 @@ Calm error tracking for SaaS built by one or two developers. Each new bug shows 
 
 - **Keep your Sentry SDK.** Change the DSN to Epure and set `tracesSampleRate: 0`. To roll back, restore the old DSN.
 - **Your coding agent reads the issue.** `claude mcp add epure -- npx -y @epure-sh/mcp`, or the hosted server at `https://app.epure.sh/mcp`.
+- **Agent skills.** `npx skills add epure-sh/epure` for any agent. In Claude Code, `/plugin marketplace add epure-sh/epure`, then `/plugin install epure@epure`: it adds the skills and the hosted MCP server.
 - **Pricing.** Self-hosting is free. Cloud Pro is $29 a month, Scale $89, monthly, unlimited seats, no automatic overage: [epure.sh/pricing](https://epure.sh/pricing).
 - **Licence.** Engine AGPL-3.0. The `@epure-sh/cli` and `@epure-sh/mcp` clients are Apache-2.0.
 

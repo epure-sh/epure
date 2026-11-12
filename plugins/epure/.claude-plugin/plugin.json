@@ -1,0 +1,30 @@
+{
+  "name": "epure",
+  "displayName": "Epure error tracking",
+  "version": "0.1.0",
+  "description": "Point your Sentry SDK at Epure, then read and triage production errors from Claude Code through the Epure MCP server.",
+  "author": {
+    "name": "Epure",
+    "email": "team@epure.sh",
+    "url": "https://epure.sh"
+  },
+  "homepage": "https://epure.sh/docs/guides/mcp-and-cli",
+  "repository": "https://github.com/epure-sh/epure",
+  "license": "AGPL-3.0-only",
+  "keywords": [
+    "error-tracking",
+    "sentry",
+    "mcp",
+    "debugging"
+  ],
+  "mcpServers": {
+    "epure": {
+      "type": "http",
+      "url": "https://app.epure.sh/mcp"
+    }
+  },
+  "icon": "./.claude-plugin/icon.png",
+  "documentationUrl": "https://epure.sh/docs/guides/mcp-and-cli",
+  "supportUrl": "https://github.com/epure-sh/epure/issues",
+  "privacyPolicyUrl": "https://epure.sh/legal/privacy"
+}
