@@ -91,8 +91,8 @@ jobs:
         with:
           images: ghcr.io/epure-sh/epure
           labels: |
-            org.opencontainers.image.title=Epure
-            org.opencontainers.image.description=Error tracking for exceptions. Change the DSN. Two containers.
+            org.opencontainers.image.title=Epure error tracking
+            org.opencontainers.image.description=Calm error tracking. Keep your Sentry SDK, change the DSN. Errors only. Epure plus Postgres 16, two containers.
             org.opencontainers.image.licenses=AGPL-3.0-only
             org.opencontainers.image.source=https://github.com/epure-sh/epure
 
