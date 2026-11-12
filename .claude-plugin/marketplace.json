@@ -1,0 +1,15 @@
+{
+  "name": "epure",
+  "owner": {
+    "name": "Epure",
+    "email": "team@epure.sh"
+  },
+  "description": "Epure error tracking for Claude Code: agent skills and the hosted MCP server.",
+  "plugins": [
+    {
+      "name": "epure",
+      "source": "./plugins/epure",
+      "description": "Epure error tracking: point a Sentry SDK at Epure and triage production issues through MCP."
+    }
+  ]
+}

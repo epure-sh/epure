@@ -896,9 +896,9 @@ impl ProjectGroupingIndex {
         if !has_concrete_throw_site(&fp.throw_file, &fp.throw_function) {
             return None;
         }
-        for band_index in 0..BANDS {
+        for (band_index, band) in self.bands.iter().enumerate() {
             let chunk = fp.band(band_index);
-            let Some(candidates) = self.bands[band_index].get(&chunk) else {
+            let Some(candidates) = band.get(&chunk) else {
                 continue;
             };
             for candidate in candidates {
@@ -971,9 +971,9 @@ impl ProjectGroupingIndex {
             function: fp.throw_function.clone(),
             line_bucket: fp.line_bucket,
         };
-        for band_index in 0..BANDS {
+        for (band_index, band) in self.bands.iter_mut().enumerate() {
             let chunk = fp.band(band_index);
-            let bucket = self.bands[band_index].entry(chunk).or_default();
+            let bucket = band.entry(chunk).or_default();
             if bucket.len() >= MAX_CANDIDATES_PER_BAND {
                 bucket.remove(0);
             }
