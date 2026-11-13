@@ -68,6 +68,5 @@ Platform templates (Render, Railway, Coolify, Dokploy) are listed in the repo RE
 
 - Engine licence AGPL-3.0. The `@epure-sh/cli` and `@epure-sh/mcp` clients are Apache-2.0.
 - Idle footprint about 5 MiB (Epure) plus 48 MiB (Postgres), measured 2026-09-23 on a 2 vCPU / 769 MiB VPS. No other performance numbers: don't invent throughput or capacity.
-- Status: beta.
 
 Docs: https://epure.sh/docs/install · https://epure.sh/docs/get-started/quickstart
