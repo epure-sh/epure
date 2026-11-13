@@ -129,7 +129,7 @@ Epure does not store distributed traces, session replay, continuous profiling, g
 | **License** | AGPL-3.0 engine, Apache-2.0 CLI/MCP. No `ee/` folder | PolyForm Shield 1.0.0 | Check current Sentry license | MIT |
 | **Database** | PostgreSQL 16 | See their docs | Multiple datastores | PostgreSQL |
 
-**Project Status:** Beta. Epure Cloud runs this engine in production; open release gates (published capacity results, grouping quality measurement) are tracked in [docs/ingester-audit.md](docs/ingester-audit.md). Two-container Compose, PostgreSQL 16 with RLS, Spike Valve flood protection, and official Sentry SDK wire compatibility. [Changelog](CHANGELOG.md).
+**Project status:** v0.2.2, first released 23 Sep 2026. Epure Cloud runs this engine in production; open release gates (published capacity results, grouping quality measurement) are tracked in [docs/ingester-audit.md](docs/ingester-audit.md). Two-container Compose, PostgreSQL 16 with RLS, Spike Valve flood protection, and official Sentry SDK wire compatibility. [Changelog](CHANGELOG.md).
 
 * [Report an Issue](https://github.com/epure-sh/epure/issues)
 * [Join Discussions](https://github.com/epure-sh/epure/discussions)
