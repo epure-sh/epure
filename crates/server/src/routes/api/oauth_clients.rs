@@ -35,6 +35,57 @@ fn redirect_matches(registered: &str, requested: &str) -> bool {
         _ => false,
     }
 }
+/// Redirect hosts of MCP clients we recognise. A code sent there can only reach
+/// that client, so the consent screen can name the destination with confidence.
+const KNOWN_REDIRECT_HOSTS: &[&str] = &["claude.ai", "claude.com", "chatgpt.com"];
+
+/// What the consent screen may say about a client. `verified` is false for a
+/// self-registered client whose redirect leaves the user's machine for a host
+/// we don't recognise: that is the consent-phishing case, so the UI warns.
+pub(super) struct ClientTrust {
+    pub verified: bool,
+    pub redirect_host: String,
+}
+pub(super) fn client_trust(client_id: &str, redirect: &str) -> ClientTrust {
+    let url = reqwest::Url::parse(redirect).ok();
+    let redirect_host = url
+        .as_ref()
+        .and_then(|u| u.host_str())
+        .unwrap_or("")
+        .to_string();
+    let local = url.as_ref().is_some_and(loopback);
+    let known = KNOWN_REDIRECT_HOSTS.contains(&redirect_host.as_str());
+    let self_registered = client_id.starts_with("epure_registered_");
+    ClientTrust {
+        verified: !self_registered || local || known,
+        redirect_host: if local {
+            "this computer".into()
+        } else {
+            redirect_host
+        },
+    }
+}
+
+/// Display names come from the registering client: keep printable text only,
+/// collapse whitespace, cap the length.
+fn clean_client_name(raw: Option<String>) -> String {
+    let text: String = raw
+        .unwrap_or_default()
+        .chars()
+        .map(|c| {
+            // Control, bidi-override and zero-width characters can disguise a name.
+            let hidden = matches!(c, '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}' | '\u{FEFF}');
+            if c.is_control() || hidden { ' ' } else { c }
+        })
+        .collect();
+    let name = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let name: String = name.chars().take(80).collect();
+    if name.is_empty() {
+        "MCP client".into()
+    } else {
+        name
+    }
+}
 #[derive(Deserialize)]
 pub(super) struct Registration {
     redirect_uris: Vec<String>,
@@ -72,12 +123,11 @@ pub(super) async fn register(
         ));
     }
     let id = format!("epure_registered_{}", uuid::Uuid::new_v4().simple());
-    let name = body
-        .client_name
-        .unwrap_or_else(|| "MCP client".into())
-        .chars()
-        .take(80)
-        .collect::<String>();
+    let name = clean_client_name(body.client_name);
+    // Housekeeping on the write path: drop self-registered clients unused for 7 days.
+    let _ = sqlx::query_scalar::<_, i32>("SELECT oauth_expire_unused_registered_clients()")
+        .fetch_one(&state.pools.app)
+        .await;
     sqlx::query("INSERT INTO oauth_clients(client_id,client_name,redirect_uris) VALUES($1,$2,$3)")
         .bind(&id)
         .bind(&name)
@@ -209,5 +259,47 @@ mod tests {
             "http://localhost/callback",
             "http://localhost:4521/other"
         ));
+    }
+
+    #[test]
+    fn self_registered_client_with_unknown_host_is_unverified() {
+        let t = client_trust("epure_registered_abc", "https://attacker.example.com/cb");
+        assert!(!t.verified);
+        assert_eq!(t.redirect_host, "attacker.example.com");
+    }
+
+    #[test]
+    fn known_hosts_and_loopback_are_verified() {
+        assert!(
+            client_trust(
+                "epure_registered_abc",
+                "https://claude.ai/api/mcp/auth_callback"
+            )
+            .verified
+        );
+        let local = client_trust("epure_registered_abc", "http://127.0.0.1:4521/callback");
+        assert!(local.verified);
+        assert_eq!(local.redirect_host, "this computer");
+        assert!(
+            !client_trust("epure_registered_abc", "https://claude.ai.evil.invalid/cb").verified
+        );
+        assert!(
+            client_trust(
+                "https://claude.ai/oauth/claude-code-client-metadata",
+                "https://claude.ai/cb"
+            )
+            .verified
+        );
+    }
+
+    #[test]
+    fn client_names_are_cleaned() {
+        assert_eq!(
+            clean_client_name(Some("  Claude\n\u{202e}Code  ".into())),
+            "Claude Code"
+        );
+        assert_eq!(clean_client_name(Some("\t\n".into())), "MCP client");
+        assert_eq!(clean_client_name(None), "MCP client");
+        assert_eq!(clean_client_name(Some("x".repeat(200))).chars().count(), 80);
     }
 }

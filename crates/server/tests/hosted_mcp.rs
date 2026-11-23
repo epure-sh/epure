@@ -292,3 +292,98 @@ async fn hosted_connector_discovers_oauth_and_calls_tenant_scoped_named_tools() 
     );
     server.abort();
 }
+
+/// Open DCR stays open for MCP clients; the consent screen learns which
+/// registrations it must flag, and unused registrations expire.
+#[tokio::test]
+async fn consent_info_flags_unverified_clients_and_unused_registrations_expire() {
+    std::env::set_var("EPURE_MCP_ENABLED", "true");
+    let (base, pool, server) = support::spawn_test_server().await;
+    let client = Client::new();
+    let register = |name: &str, redirect: &str| {
+        client
+            .post(format!("{base}/oauth/register"))
+            .json(&json!({"client_name":name,"redirect_uris":[redirect]}))
+            .send()
+    };
+    let attacker = json_response(
+        register("Claude\u{202e}", "https://attacker.example.com/cb")
+            .await
+            .unwrap(),
+        201,
+    )
+    .await;
+    assert_eq!(attacker["client_name"], "Claude");
+    let claude = json_response(
+        register("Claude", "https://claude.ai/api/mcp/auth_callback")
+            .await
+            .unwrap(),
+        201,
+    )
+    .await;
+
+    let owner = Client::builder().cookie_store(true).build().unwrap();
+    owner
+        .post(format!("{base}/api/v1/auth/login"))
+        .json(&json!({"email":"dev@epure.local","password":"devpassword"}))
+        .send()
+        .await
+        .unwrap();
+    let info = |id: &str, redirect: &str| {
+        owner
+            .get(format!("{base}/api/v1/oauth/info"))
+            .query(&[("client_id", id), ("redirect_uri", redirect)])
+            .send()
+    };
+    let flagged = json_response(
+        info(
+            attacker["client_id"].as_str().unwrap(),
+            "https://attacker.example.com/cb",
+        )
+        .await
+        .unwrap(),
+        200,
+    )
+    .await;
+    assert_eq!(flagged["verified"], false);
+    assert_eq!(flagged["redirect_host"], "attacker.example.com");
+    let known = json_response(
+        info(
+            claude["client_id"].as_str().unwrap(),
+            "https://claude.ai/api/mcp/auth_callback",
+        )
+        .await
+        .unwrap(),
+        200,
+    )
+    .await;
+    assert_eq!(known["verified"], true);
+
+    // A registration unused for more than 7 days is removed; a fresh one stays.
+    sqlx::query(
+        "UPDATE oauth_clients SET verified_at = now() - interval '8 days' WHERE client_id = $1",
+    )
+    .bind(attacker["client_id"].as_str().unwrap())
+    .execute(&pool)
+    .await
+    .unwrap();
+    let removed: i32 = sqlx::query_scalar("SELECT oauth_expire_unused_registered_clients()")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert!(removed >= 1);
+    let left: Vec<String> =
+        sqlx::query_scalar("SELECT client_id FROM oauth_clients WHERE client_id = ANY($1)")
+            .bind(vec![
+                attacker["client_id"].as_str().unwrap().to_string(),
+                claude["client_id"].as_str().unwrap().to_string(),
+            ])
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        left,
+        vec![claude["client_id"].as_str().unwrap().to_string()]
+    );
+    server.abort();
+}

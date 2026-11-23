@@ -1464,6 +1464,10 @@ export interface OAuthInfoResponse {
   client_name?: string;
   client_id: string;
   redirect_uri?: string;
+  /** Host the code is sent to after approval ("this computer" for loopback). */
+  redirect_host?: string;
+  /** False for a self-registered client sending codes to a host we don't recognise. */
+  verified?: boolean;
   current_org_id: string;
   organizations: OAuthInfoOrg[];
 }
