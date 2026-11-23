@@ -34,6 +34,9 @@ export function AuthorizeView() {
   const [error, setError] = useState<string | null>(null);
   const [orgs, setOrgs] = useState<OAuthInfoOrg[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>("");
+  // Unknown until /oauth/info answers: treat as unverified so nothing is approved by reflex.
+  const [verified, setVerified] = useState(false);
+  const [redirectHost, setRedirectHost] = useState("");
 
   useEffect(() => {
     if (!clientId) {
@@ -55,6 +58,8 @@ export function AuthorizeView() {
     fetchOAuthInfo(clientId, redirectUri)
       .then((info) => {
         setClientName(info.client_name || clientId);
+        setVerified(info.verified === true);
+        setRedirectHost(info.redirect_host || "");
         setOrgs(info.organizations);
         setSelectedOrgId(info.organizations.some((org) => org.id === info.current_org_id) ? info.current_org_id : info.organizations[0]?.id || "");
         setLoading(false);
@@ -106,7 +111,7 @@ export function AuthorizeView() {
     window.location.href = url;
   }, [redirectUri, state]);
 
-  // Keyboard shortcut: Enter to Approve, Esc to Cancel
+  // Keyboard shortcut: Enter to Approve (recognised clients only), Esc to Cancel
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -117,7 +122,7 @@ export function AuthorizeView() {
         return;
       }
       if (e.defaultPrevented || target?.closest('[role="combobox"], [role="listbox"], [role="option"], button, select, [data-slot="select-content"]')) return;
-      if (e.key === "Enter" && !loading && !submitting && selectedOrgId) {
+      if (e.key === "Enter" && verified && !loading && !submitting && selectedOrgId) {
         e.preventDefault();
         void handleAuthorize();
       } else if (e.key === "Escape" && !submitting) {
@@ -127,7 +132,7 @@ export function AuthorizeView() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [loading, submitting, selectedOrgId, handleAuthorize, handleCancel]);
+  }, [loading, submitting, selectedOrgId, verified, handleAuthorize, handleCancel]);
 
   const isCli = clientId.toLowerCase().includes("cli");
   const isCursor = clientId.toLowerCase().includes("cursor") || clientName.toLowerCase().includes("cursor");
@@ -157,7 +162,7 @@ export function AuthorizeView() {
             Authorize {clientName}
           </CardTitle>
           <CardDescription className="text-xs mt-1 text-fg-muted">
-            <span className="font-mono font-medium text-fg-primary">{clientName}</span> is requesting PKCE access to your Epure triage workspace.
+            <span className="font-mono font-medium text-fg-primary">{clientName}</span> wants access to Epure issues in the workspace you choose.
           </CardDescription>
         </CardHeader>
 
@@ -175,6 +180,20 @@ export function AuthorizeView() {
             </div>
           ) : (
             <>
+              {!verified && (
+                <div className="rounded-lg border border-escalating/40 bg-escalating/10 p-3 text-xs text-fg-primary flex items-start gap-2">
+                  <AlertTriangle size={15} className="shrink-0 mt-0.5 text-escalating" />
+                  <div className="space-y-1">
+                    <p className="font-medium">Unverified app</p>
+                    <p className="text-[11px] text-fg-secondary">
+                      This app registered itself and chose its own name. After you approve, Epure sends access to{" "}
+                      <span className="font-mono font-medium text-fg-primary">{redirectHost || "an unknown host"}</span>.
+                      Approve only if you started this connection yourself, from Claude, Cursor, Codex or another tool you trust.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Workspace selector */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
@@ -213,17 +232,17 @@ export function AuthorizeView() {
                     <div className="flex items-start gap-2 text-xs">
                       <Check size={14} className="text-healthy shrink-0 mt-0.5 stroke-[2.5]" />
                       <div>
-                        <span className="font-medium text-fg-primary">Triage & Fix Exceptions</span>
-                        <p className="text-[11px] text-fg-muted">Resolve, snooze, and attach automated bug fix pull requests.</p>
+                        <span className="font-medium text-fg-primary">Triage issues</span>
+                        <p className="text-[11px] text-fg-muted">Resolve, ignore, snooze and reopen issues and alerts.</p>
                       </div>
                     </div>
                   )}
                   {scopes.includes("write:admin") && (
                     <div className="flex items-start gap-2 text-xs">
-                      <Check size={14} className="text-healthy shrink-0 mt-0.5 stroke-[2.5]" />
+                      <AlertTriangle size={14} className="text-escalating shrink-0 mt-0.5" />
                       <div>
-                        <span className="font-medium text-fg-primary">Administer Workspace</span>
-                        <p className="text-[11px] text-fg-muted">Create projects, manage alert rules, and update DSN keys.</p>
+                        <span className="font-medium text-fg-primary">Administer the workspace</span>
+                        <p className="text-[11px] text-fg-muted">Full control: projects, DSN keys, alert rules, webhooks, members and agent tokens. Grant this only to a tool you fully trust.</p>
                       </div>
                     </div>
                   )}
@@ -232,7 +251,10 @@ export function AuthorizeView() {
 
               <div className="flex items-center gap-2 pt-1 text-[11px] text-fg-muted">
                 <ShieldCheck size={13} className="shrink-0 text-accent" />
-                <span>Redirects safely to <code className="font-mono text-fg-secondary truncate max-w-[240px]">{redirectUri}</code></span>
+                <span>
+                  After approval, Epure sends access to{" "}
+                  <span className="font-mono font-medium text-fg-primary">{redirectHost || redirectUri}</span>. You can revoke it any time in Settings → Connected apps.
+                </span>
               </div>
             </>
           )}
@@ -258,9 +280,11 @@ export function AuthorizeView() {
             ) : (
               <>
                 <span>Approve</span>
-                <kbd className="rounded bg-primary-fg/20 px-1 py-0.5 font-mono text-[10px] text-primary-fg">
-                  ⏎
-                </kbd>
+                {verified && (
+                  <kbd className="rounded bg-primary-fg/20 px-1 py-0.5 font-mono text-[10px] text-primary-fg">
+                    ⏎
+                  </kbd>
+                )}
                 <ArrowRight className="size-3.5 ml-0.5" />
               </>
             )}

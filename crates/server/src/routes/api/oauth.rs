@@ -588,6 +588,10 @@ async fn get_oauth_info(
     } else {
         query.client_id.clone()
     };
+    let trust = super::oauth_clients::client_trust(
+        &query.client_id,
+        query.redirect_uri.as_deref().unwrap_or(""),
+    );
     let orgs = sqlx::query_as::<_, (Uuid, String, String)>(
         r#"
         SELECT org_id, name, role FROM auth_list_user_organizations($1)
@@ -611,6 +615,8 @@ async fn get_oauth_info(
         "client_id": query.client_id,
         "client_name":client_name,
         "redirect_uri": query.redirect_uri,
+        "redirect_host": trust.redirect_host,
+        "verified": trust.verified,
         "current_org_id": session.org_id,
         "organizations": org_list,
     })))
